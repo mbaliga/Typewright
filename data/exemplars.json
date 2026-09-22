@@ -1,0 +1,82 @@
+{
+ "garalde": {
+  "family": "EB Garamond",
+  "file": "EBGaramond[wght].ttf",
+  "upm": 1000,
+  "cap": 0.65,
+  "x": 0.4,
+  "licence": "OFL-1.1 (google/fonts ofl/)"
+ },
+ "transitional": {
+  "family": "Libre Baskerville",
+  "file": "LibreBaskerville[wght].ttf",
+  "upm": 1000,
+  "cap": 0.77,
+  "x": 0.53,
+  "licence": "OFL-1.1 (google/fonts ofl/)"
+ },
+ "didone": {
+  "family": "Playfair Display",
+  "file": "PlayfairDisplay[wght].ttf",
+  "upm": 1000,
+  "cap": 0.708,
+  "x": 0.514,
+  "licence": "OFL-1.1 (google/fonts ofl/)"
+ },
+ "geometric": {
+  "family": "Jost",
+  "file": "Jost[wght].ttf",
+  "upm": 1000,
+  "cap": 0.7,
+  "x": 0.46,
+  "licence": "OFL-1.1 (google/fonts ofl/)"
+ },
+ "grotesque": {
+  "family": "Work Sans",
+  "file": "WorkSans[wght].ttf",
+  "upm": 1000,
+  "cap": 0.66,
+  "x": 0.5,
+  "licence": "OFL-1.1 (google/fonts ofl/)"
+ },
+ "neogrotesque": {
+  "family": "Inter",
+  "file": "Inter[opsz,wght].ttf",
+  "upm": 2048,
+  "cap": 0.7275390625,
+  "x": 0.5458984375,
+  "licence": "OFL-1.1 (google/fonts ofl/)"
+ },
+ "humanist": {
+  "family": "Source Sans 3",
+  "file": "SourceSans3[wght].ttf",
+  "upm": 1000,
+  "cap": 0.66,
+  "x": 0.478,
+  "licence": "OFL-1.1 (google/fonts ofl/)"
+ },
+ "slab": {
+  "family": "Zilla Slab",
+  "file": "ZillaSlab-Regular.ttf",
+  "upm": 1000,
+  "cap": 0.65,
+  "x": 0.445,
+  "licence": "OFL-1.1 (google/fonts ofl/)"
+ },
+ "artdeco": {
+  "family": "Limelight",
+  "file": "Limelight-Regular.ttf",
+  "upm": 2048,
+  "cap": 0.69091796875,
+  "x": 0.521484375,
+  "licence": "OFL-1.1 (google/fonts ofl/)"
+ },
+ "blackletter": {
+  "family": "UnifrakturMaguntia",
+  "file": "UnifrakturMaguntia-Book.ttf",
+  "upm": 2048,
+  "cap": 0.68798828125,
+  "x": 0.53466796875,
+  "licence": "OFL-1.1 (google/fonts ofl/)"
+ }
+}
