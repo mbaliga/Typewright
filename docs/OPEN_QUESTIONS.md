@@ -1710,3 +1710,86 @@ succeed.
     the worse trade of the two, even though the mid-word split is visually rougher).
     *Whoever next tunes this tab's own layout: a smaller word-field font size on narrow widths, or
     a shorter default word, would remove the mid-word wrap without hiding any letters.*
+
+## P6: Learn UI — Anatomy Lens tab composable (`ui/src/commonMain/kotlin/dev/aarso/typewright/ui/learn/LensTab.kt`, `LensScene.kt`, `LensRenderPlan.kt`)
+
+69. **RESOLVED (P6, Anatomy Lens tab) — `GeometryInterop.kt`'s `Glyph.toComposePath` rendered a
+    real closed counter as solid ink, not a hole, under Compose's own default `PathFillType`.**
+    Found while building this tab's own real diagram (a real screenshot of Hyle Deco's `o`
+    rendered as a solid filled stadium shape, no counter visible) — not a guess: Compose's
+    `Path.fillType` defaults to `PathFillType.NonZero`, which only punches a hole when the outer
+    contour and its counter wind in genuinely opposite directions, and this codebase's own two
+    conventions for that (TrueType's on-disk rule, and this module's own cubic-source "outer
+    counter-clockwise, inner clockwise") are not guaranteed to agree once a caller's own transform
+    (a y-flip, in this tab's case) is applied on top. Fixed by setting `path.fillType =
+    PathFillType.EvenOdd` in `Glyph.toComposePath` itself (`GeometryInterop.kt`, the one shared
+    outline-to-Compose-path bridge every `ui.learn` tab uses) — even-odd never depends on winding
+    direction at all, only crossing parity, so it is correct regardless of source convention. This
+    is a shared-file fix, not scoped to this tab alone: the Overlay tab's own `OverlayTabScreenshotTest`
+    and every other `ui:desktopTest` that renders a glyph outline through this bridge were re-run
+    after the change and stayed green (223 tests, 0 failures, `./gradlew :ui:spotlessCheck
+    :ui:desktopTest`), so this was very likely an undiscovered bug in the Overlay tab's own ink
+    rendering too (a closed counter in `"Hamburg"`'s `a`/`b`/`g` would have had the same solid-fill
+    problem), now fixed for both. *No action needed — kept here, marked resolved, as the record of
+    a real cross-tab bug this task found and fixed centrally, per the pattern item 64 already set.*
+
+70. **The Lens diagram shows one real glyph at a time, switching to a different real glyph when a
+    tapped term needs one, rather than `ui/typewright-explorer.html`'s own `#ln-lens` static scene
+    (one hand-drawn "a" carrying all four of its own worked-example labels at once).** This task's
+    own instructions require wiring real measurements, and `AnatomyLensData.kt`'s own KDoc is
+    explicit that different terms are measured on different real glyphs (contrast/stress/roundness
+    on `o`, serif on `T`, terminal/aperture on `c`/`e`/`s`, storeys on `a`/`g`) — always drawing one
+    fixed glyph regardless of the selected term would point a leader line at ink that was never
+    actually the subject of the measurement on screen, which CLAUDE.md laws 1 and 5 rule out. The
+    compromise built here: `termsSharingHeroChar` groups every curated term by its own real hero
+    glyph, so the four `o`-measured terms (bowl, counter, contrast, roundness) *do* still show as
+    simultaneous leader lines on one glyph, reproducing the explorer's own multi-label look for
+    that group (a real screenshot, `ui/build/screenshots/lens-tab-paper.png`) — but stem (`n`),
+    serif (`T`), storeys (`a`) and terminal/aperture (`c`) each get their own, separate diagram,
+    switched to on tap. *Product owner: confirm this per-glyph-group switching is the right reading
+    of "the lens" for a real font, versus (for example) a small glyph-picker strip always visible
+    so a learner can jump straight to any of the five real diagrams without going through the
+    definitions list.*
+
+71. **The storeys diagram always draws `a`, even on a font (like this build's own Hyle Deco
+    fixture) where the real measured value actually came from `g`'s own topological answer, not
+    `a`'s heuristic one.** `storeysEntry` (`AnatomyLensData.kt`) prefers `g`'s answer when it is
+    available and non-`UNKNOWN` — the more reliable, non-heuristic signal, per that function's own
+    KDoc — so the *value* shown next to "storeys" in the definitions list can come from `g` while
+    the *diagram* above it is drawing `a`. `LensScene.kt`'s own `HERO_CHAR_CANDIDATES` chose `a`
+    over `g` for the diagram deliberately (a single-storey-vs-double-storey distinction is usually
+    easier to read on `a`'s own bowl-plus-arm shape than on `g`'s descender-plus-loop one, and
+    Hyle Deco's own real `a` turned out to be an unusual, tall-stemmed construction once actually
+    rendered — see this task's own `lens-diagram-storeys-a.png` screenshot), but this means the
+    diagram is not always drawing *the specific glyph the number on screen was measured from*.
+    *Whoever next revisits this: showing `g` instead when `storeysEntry` actually used it (i.e.
+    picking the diagram's own hero glyph the same way the measurement itself picked its source,
+    rather than a fixed preference) would close this gap.*
+
+72. **Leader-line target points are a fixed fraction of each hero glyph's own real ink bounds
+    (`LensScene.kt`'s own `LEADER_ANCHOR`), not the exact point the underlying `qa/corpus` probe
+    actually touched.** Checked before building this way: `AnatomyLensValue` carries only the real
+    aggregate number or enum each measured term's own function returns (a ratio, a degree, a
+    style) — never a location — for every one of `contrastRatio`/`stressAngleDegrees`/
+    `superellipseExponent`/`apertureOpenness`/`terminalStyle`'s own real signatures. The one place
+    a located point exists internally, `qa/corpus`'s own `narrowestThroat` (`Geometry2D.kt`), is
+    `internal` and was not widened for this task (a second AnatomyLensData-style visibility change
+    this task was not asked to make). The fractions themselves were chosen by eye per term and
+    checked against this task's own real rendered screenshots (`ui/build/screenshots/lens-tab-*.png`,
+    `lens-diagram-*.png`), so every leader line does visibly land on real ink for this build's own
+    Hyle Deco fixture — but a differently proportioned real project font could, in principle, place
+    one of these fractional points off the actual anatomical part on a glyph shaped unusually
+    enough (item 71's own Hyle Deco `a` is exactly this kind of surprise). *Whoever next wants
+    pixel-exact leader lines: widen `narrowestThroat`'s own result type to expose the point it
+    already finds internally, the same way this task's own Foundations stage widened `qa/corpus`'s
+    other internals for the Lens's own real values.*
+
+73. **A leader line's own connecting stroke has no separate tap target — only its two ends (the dot,
+    and the label text) are tappable.** CLAUDE.md's own instructions for this task say tapping "a
+    leader line/label" selects a term; this build reads that as "the two things a leader line
+    visually terminates in", both wired (`LensDiagram`'s own dot hit-box and label `clickable`), but
+    a tap on the thin connecting line itself, between those two points, currently does nothing.
+    Given the line is 1.2dp wide, a real hit target along its whole length would need either a
+    wider invisible stroke or a small custom hit-test, neither built here. *Minor — flagging rather
+    than fixing, since the dot and label together already cover the two ends a reader's eye and
+    finger would naturally reach for.*

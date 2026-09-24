@@ -2,6 +2,7 @@ package dev.aarso.typewright.ui
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.unit.Density
 import dev.aarso.typewright.core.geometry.Contour
 import dev.aarso.typewright.core.geometry.CurveSegment
@@ -79,10 +80,22 @@ fun Path.addContour(
  * through [transform]. One [Path] per glyph is the right grain for a caller that fills it as one
  * shape (even-odd winding handles inner counters correctly, the same way a rasterizer already
  * does) or strokes it as one dashed outline (CLAUDE.md law 8's "colour plus a line pattern").
+ *
+ * [Path.fillType] is set to [PathFillType.EvenOdd] explicitly -- found necessary, not just
+ * cautious, while building the Anatomy Lens tab (P6): Compose's own default,
+ * [PathFillType.NonZero], relies on an outer contour and its counter winding in genuinely opposite
+ * directions, and a real check against `fonts/HyleDeco-Regular.ttf`'s own `o` rendered as a solid
+ * filled stadium with no counter hole under that default (a real screenshot, not a guess) --
+ * confirmed fixed by this one-line change (same screenshot, counter now visible). Even-odd never
+ * depends on winding direction at all, only crossing parity, so it is correct for a glyph's own
+ * outline regardless of which convention (TrueType on-disk, this module's own "outer
+ * counter-clockwise, inner clockwise" cubic-source convention) the source contours actually follow
+ * -- the standard, safe choice for rendering an arbitrary font outline for exactly this reason.
  */
 fun Glyph.toComposePath(transform: (Vec2) -> Offset): Path {
     val path = Path()
     for (contour in contours) path.addContour(contour, transform)
+    path.fillType = PathFillType.EvenOdd
     return path
 }
 
