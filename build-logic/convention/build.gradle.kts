@@ -1,0 +1,31 @@
+plugins {
+    `kotlin-dsl`
+}
+
+group = "dev.aarso.typewright.buildlogic"
+
+dependencies {
+    // compileOnly: the root build puts these plugins on the classpath with `apply false`.
+    compileOnly(libs.kotlin.gradle.plugin)
+    compileOnly(libs.compose.compiler.gradle.plugin)
+    compileOnly(libs.compose.gradle.plugin)
+    compileOnly(libs.android.gradle.plugin)
+    compileOnly(libs.spotless.gradle.plugin)
+}
+
+gradlePlugin {
+    plugins {
+        register("lint") {
+            id = "typewright.lint"
+            implementationClass = "dev.aarso.typewright.buildlogic.LintConventionPlugin"
+        }
+        register("kmpPure") {
+            id = "typewright.kmp.pure"
+            implementationClass = "dev.aarso.typewright.buildlogic.KmpPureConventionPlugin"
+        }
+        register("kmpPlatform") {
+            id = "typewright.kmp.platform"
+            implementationClass = "dev.aarso.typewright.buildlogic.KmpPlatformConventionPlugin"
+        }
+    }
+}

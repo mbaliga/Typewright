@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same branch or pull request cancels the run it supersedes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# No job uploads artifacts: the owner's account is at its Actions storage limit.
+jobs:
+  core:
+    name: core (pure modules, no Android SDK)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          # The MIT-licensed cache; the default "enhanced" cache is a proprietary component.
+          cache-provider: basic
+      # The runner image ships an Android SDK; unset it so this job proves CLAUDE.md law 2.
+      # -Ptypewright.android=false also leaves the Android-bearing projects out of the build.
+      - name: JVM tests and ktlint, SDK-free
+        run: env -u ANDROID_HOME -u ANDROID_SDK_ROOT ./gradlew -Ptypewright.android=false jvmTest spotlessCheck
+
+  android:
+    name: android (assembleDebug, platform-module tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          # The MIT-licensed cache; the default "enhanced" cache is a proprietary component.
+          cache-provider: basic
+      - name: Android SDK packages the build needs
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
+      - name: Debug APK
+        run: ./gradlew :app-android:assembleDebug
+      - name: Platform-module tests (desktop JVM, Android host, screenshot harness)
+        run: ./gradlew :compile:desktopTest :compile:testAndroidHostTest :shape-preview:desktopTest :shape-preview:testAndroidHostTest :ui:desktopTest :ui:testAndroidHostTest :app-android:testDebugUnitTest :app-desktop:test
+
+  web:
+    name: web (Wasm distribution, Wasm tests under Node)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          # The MIT-licensed cache; the default "enhanced" cache is a proprietary component.
+          cache-provider: basic
+      - name: Production browser distribution (Binaryen downloaded from its GitHub releases)
+        run: ./gradlew :app-web:wasmJsBrowserDistribution
+      - name: Wasm tests (pure and compile/shape-preview under Node, app-web in headless Chrome)
+        run: ./gradlew wasmJsNodeTest :app-web:wasmJsBrowserTest

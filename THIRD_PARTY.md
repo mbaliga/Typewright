@@ -1,0 +1,96 @@
+# Third-party software
+
+Every dependency Typewright declares or pulls in, with its licence. Recorded at P0 (scaffold),
+23 September 2026. **How each licence was verified** is in the last column: *POM* means the
+`<licenses>` element of the artifact's own Maven POM (or its parent POM) in the Gradle cache;
+*file* means the licence file shipped with the tool or, where the artifact ships none, the
+licence file in the upstream repository. Update this file in the same change that adds,
+removes or upgrades a dependency (CLAUDE.md).
+
+GPL code is not linked (CLAUDE.md). Nothing here is telemetry or analytics.
+
+## Shipped inside the apps
+
+Resolved from `app-desktop` `testRuntimeClasspath` (a superset of its runtime classpath),
+`app-android` `debugUnitTestRuntimeClasspath` (a superset of its debug runtime classpath; the
+release variant declares the same dependencies) and `app-web` `wasmJsRuntimeClasspath`: 228
+artifacts, all Apache-2.0 by their POMs except the two test-only ones listed further down.
+
+| Component | Version | Licence | Verified |
+|---|---|---|---|
+| Kotlin standard library (`kotlin-stdlib`, `kotlin-stdlib-wasm-js`) | 2.4.20 | Apache-2.0 | POM |
+| Compose Multiplatform: `org.jetbrains.compose.runtime`, `.foundation`, `.ui`, `.animation`, `.material` (ripple, pulled in by `desktop`), `.desktop` | 1.12.1 | Apache-2.0 | POM |
+| Compose Multiplatform internals: `org.jetbrains.compose.collection-internal`, `.annotation-internal` | 1.10.0 | Apache-2.0 | POM |
+| JetBrains ports of AndroidX: `org.jetbrains.androidx.lifecycle` 2.9.6, `.savedstate` 1.3.6, `.navigationevent` 1.1.0 | as listed | Apache-2.0 | POM |
+| AndroidX (Android app, and a few desktop/web artifacts): `activity` 1.13.0 (`activity-compose`), `compose.*` 1.12.1, `lifecycle` 2.11.0, `savedstate` 1.4.0, `navigationevent` 1.1.1, `annotation`, `arch.core`, `autofill`, `collection`, `concurrent`, `core`, `customview`, `emoji2`, `graphics`, `interpolator`, `profileinstaller`, `startup`, `tracing`, `versionedparcelable`, `window` | as resolved | Apache-2.0 | POM |
+| kotlinx.coroutines | 1.9.0 | Apache-2.0 | POM |
+| kotlinx.serialization core | 1.7.3 | Apache-2.0 | POM |
+| kotlinx-atomicfu | 0.28.0 | Apache-2.0 | POM |
+| kotlinx-browser | 0.5.0 | Apache-2.0 | POM |
+| `org.jetbrains:annotations` | 23.0.0 | Apache-2.0 | POM |
+| JSpecify | 1.0.0 | Apache-2.0 | POM |
+| Guava `listenablefuture` | 1.0 | Apache-2.0 | POM |
+| Skiko (`skiko`, `skiko-awt`, `skiko-awt-runtime-linux-x64`, `skiko-wasm-js`, `skiko-js-wasm-runtime`) | 0.150.1 | Apache-2.0 | POM; file (JetBrains/skiko `LICENSE`) |
+
+### Inside Skiko's native and Wasm binaries
+
+Skiko's jars and klibs carry no licence or NOTICE files, but `libskiko-linux-x64.so`
+statically contains Skia and Skia's third-party libraries. Presence was checked from symbols
+in `libskiko-linux-x64.so` 0.150.1 (for example `SkShaper`, `hb_buffer_create`,
+`FT_Init_FreeType`, `u_errorName`, `png_create_read_struct`, `inflateInit`,
+`XML_ParserCreate`, `jpeg_CreateDecompress`, `WebPDecode`). The web build's `skiko.wasm` is
+stripped of names, so its contents were not checked; assume the same set until they are.
+The Android app does not use Skiko; it draws with the platform's own Skia. Licences were read
+from each upstream repository's licence file, not from a versioned copy.
+
+| Library | Licence | Verified |
+|---|---|---|
+| Skia | BSD-3-Clause | file (google/skia `LICENSE`) |
+| HarfBuzz | "Old MIT" | file (harfbuzz `COPYING`) |
+| ICU | Unicode License v3 | file (unicode-org/icu `LICENSE`) |
+| FreeType | FreeType License (FTL) or GPL-2.0, at the user's choice; Typewright uses it under the FTL | file (freetype `LICENSE.TXT`) |
+| libpng | PNG Reference Library License v2 | file (libpng `LICENSE`) |
+| zlib | Zlib | file (zlib `LICENSE`) |
+| Expat | MIT | file (libexpat `COPYING`) |
+| libjpeg-turbo | IJG and BSD-3-Clause (plus zlib for part of the SIMD code) | file (libjpeg-turbo `LICENSE.md`) |
+| libwebp | BSD-3-Clause | file (libwebp `COPYING`) |
+
+The BSD-style licences and the FTL require their notices in the documentation of binary
+distributions. The apps have no licences screen yet; see `docs/OPEN_QUESTIONS.md` (P0).
+
+## Tests only (never shipped)
+
+| Component | Version | Licence | Verified |
+|---|---|---|---|
+| `kotlin-test`, `kotlin-test-junit` | 2.4.20 | Apache-2.0 | POM |
+| JUnit 4 (`app-android` host tests, via `kotlin-test-junit`) | 4.13.2 | EPL-1.0 | POM |
+| Hamcrest core (via JUnit 4) | 1.3 | BSD-3-Clause ("New BSD License") | POM (parent) |
+| Karma and launchers (`app-web` browser test), mocha: part of KGP's npm tooling below | — | MIT | package.json |
+
+## Build tooling (never shipped)
+
+| Component | Version | Licence | Verified |
+|---|---|---|---|
+| Gradle, including the committed wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`) | 9.7.1 | Apache-2.0 | file (distribution `LICENSE`); the wrapper scripts carry Gradle's own Apache-2.0 notice and SPDX line |
+| Kotlin Gradle plugin, Compose compiler Gradle plugin | 2.4.20 | Apache-2.0 | POM |
+| Compose Multiplatform Gradle plugin | 1.12.1 | Apache-2.0 | POM |
+| Android Gradle plugin | 9.4.1 | Apache-2.0 | POM |
+| Spotless Gradle plugin | 8.10.2 | Apache-2.0 | POM |
+| ktlint (`ktlint-cli`, rule engine, standard rules), run by Spotless | 1.8.0 | MIT | POM |
+| Node.js, downloaded by KGP from nodejs.org for Wasm builds and tests (npm comes with it) | 26.2.0 | MIT (plus the notices of its bundled components in the same file) | file (`LICENSE` in the Node distribution) |
+| Binaryen (`wasm-opt`), downloaded by KGP from Binaryen's GitHub releases, or the npm package `binaryen` when `-Ptypewright.wasmOpt` points at it | version_130 | Apache-2.0 | file (WebAssembly/binaryen `LICENSE`) |
+| KGP's npm tooling in `~/.kotlin/kotlin-npm-tooling`: webpack 5, webpack-cli, webpack-dev-server, Karma (JetBrains' fork, `github:Kotlin/karma#6.4.5`), mocha, TypeScript, sass and loaders, 415 packages | pinned by KGP | MIT 330, ISC 32, Apache-2.0 28, BSD-3-Clause 12, BSD-2-Clause 6, BlueOak-1.0.0 4, 0BSD 1, Python-2.0 1 (`argparse`), CC-BY-4.0 1 (`caniuse-lite`, data) | each package's `package.json` |
+| Android SDK platform 37.0, build-tools 36.0.0 | — | Android Software Development Kit License Agreement | accepted in the SDK's `licenses/` |
+| GitHub Actions: `actions/checkout` v7, `actions/setup-java` v6 | — | MIT | file (`LICENSE`) |
+| GitHub Actions: `gradle/actions/setup-gradle` v6, used with `cache-provider: basic` | — | MIT for the action and basic caching; its default "enhanced caching" is a proprietary component, which CI does not enable | file (`LICENSE`, `DISTRIBUTION.md`) |
+
+Webpack writes its MIT-licensed runtime bootstrap into `typewright.js`. The production bundle
+carries no licence banners, which is one more reason the web app needs a licences page.
+
+## Already in the repository before P0
+
+| Component | Licence | Notes |
+|---|---|---|
+| fontTools (used by `data/scripts/build_node_economy_corpus.py`) | MIT | Not installed or run by the build. |
+| Playwright (used by `tools/explorer-shots.mjs`) | Apache-2.0 | Resolved from the machine's global install, not a project dependency. |
+| Hyle Deco Regular and Italic in `fonts/` (Copyright 2026 The Hyle Deco Project Authors) | OFL-1.1 | Verified from the fonts' name table (IDs 0 and 13). Test fixtures only. |

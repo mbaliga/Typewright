@@ -1,0 +1,24 @@
+# Gradle and Kotlin
+.gradle/
+build/
+.kotlin/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Machine-specific: the Android SDK path. Never commit it.
+local.properties
+
+# IDEs
+.idea/
+*.iml
+.fleet/
+.vscode/
+
+# Node (explorer tooling, Playwright scripts)
+node_modules/
+
+# OS
+.DS_Store
+
+# kotlin-js-store/ is committed on purpose: it holds the npm lock file for the Kotlin/Wasm
+# targets, which pins every JS dependency the web build pulls. Refresh with
+# ./gradlew kotlinUpgradePackageLock when dependencies change.

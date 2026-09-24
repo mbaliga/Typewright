@@ -1,0 +1,45 @@
+# Pinned toolchain for Typewright. Versions were chosen as the latest stable, mutually
+# compatible releases on 22 Sept 2026 and proven by building; see README.md "Toolchain".
+[versions]
+kotlin = "2.4.20"
+compose-multiplatform = "1.12.1"
+agp = "9.4.1"
+spotless = "8.10.2"
+ktlint = "1.8.0"
+androidx-activity = "1.13.0"
+
+# Android levels. compileSdk 37: Compose 1.12.1's androidx artifacts require it (AAR metadata).
+# targetSdk 36: Google Play's current target-API requirement. minSdk 31: shape-preview's
+# Android stack is TextRunShaper, which is API 31.
+android-compileSdk = "37"
+android-targetSdk = "36"
+android-minSdk = "31"
+
+# Bytecode level for every JVM and Android compilation.
+jvm-target = "17"
+
+[libraries]
+# Gradle plugins, on the build-logic classpath.
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+compose-compiler-gradle-plugin = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
+compose-gradle-plugin = { module = "org.jetbrains.compose:compose-gradle-plugin", version.ref = "compose-multiplatform" }
+android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
+spotless-gradle-plugin = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
+
+# Compose Multiplatform. Explicit coordinates: the plugin's `compose.*` accessors are deprecated.
+compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
+compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
+compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
+
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
