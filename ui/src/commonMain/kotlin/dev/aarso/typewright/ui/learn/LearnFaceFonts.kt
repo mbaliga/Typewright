@@ -59,7 +59,15 @@ public fun learnFaceFontFamily(
     weight: FontWeight = FontWeight.Normal,
     style: FontStyle = FontStyle.Normal,
 ): FontFamily {
-    val entry = LearnFaceResources.entry(key) ?: return FontFamily.Default
+    // LineagesTab's own P6 task found this the hard way: LearnFaceResources.entry(key) reads
+    // `data/learn-faces/manifest.json` through the exact same readSceneResourceText Node-`fs`
+    // path fontBytes()'s own read below already needs runCatching for (this file's own
+    // "Platform status" KDoc, wasmJs/browser) -- unguarded, this line threw uncaught on that
+    // target the first time a real composable (not just platformLearnFaceFontFamily directly,
+    // which every existing test here calls) reached it, contradicting this function's own
+    // documented "falls back to FontFamily.Default ... rather than crashing" contract above.
+    // One-line fix, same fallback the very next line already uses.
+    val entry = runCatching { LearnFaceResources.entry(key) }.getOrNull() ?: return FontFamily.Default
     val bytes = runCatching { LearnFaceResources.fontBytes(key) }.getOrNull() ?: return FontFamily.Default
     return runCatching {
         platformLearnFaceFontFamily(identity = "typewright-learn-face:$key", bytes = bytes, weight = weight, style = style)

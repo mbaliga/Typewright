@@ -1504,3 +1504,139 @@ The four Craft before/after scenes P6's own content-authoring prompt names expli
     the one function to call per term; `AnatomyLensValue`'s sealed variants are what there is to
     format and draw, following `ui/typewright-explorer.html`'s own `#ln-lens` look (the `.lens` SVG
     diagram with leader lines, the `.defs` definition list below it) per law 6.*
+
+## P6: Learn UI — Lineages tab composable (`ui/src/commonMain/kotlin/dev/aarso/typewright/ui/learn/LineagesTab.kt`)
+
+The real, self-contained `LineagesTab(texture: CanvasTexture, modifier: Modifier = Modifier)`
+composable: the eras strip, crossfade stage, stress dial, scrub bar, caption and identify-it
+quiz, wired to `LineagesResources.loadFullBlockInPlayOrder()`/`loadIdentifyItBank()`,
+`StrandSequencer.plan` and `SceneRenderer`'s pure `frameAt`/`crossfadeAt`/`stressAngleAt`/
+`calloutsVisibleAt`. `./gradlew :ui:spotlessCheck :ui:desktopTest` both run clean for every file
+this task touched (`:ui:desktopTest`: 161 tests, 0 failures across `:ui` except one pre-existing,
+unrelated failure — see item 63); `:ui:compileKotlinWasmJs`/`:ui:compileTestKotlinWasmJs` also
+succeed.
+
+57. **The explorer's own Lineages scrubber (`ui/typewright-explorer.html`'s `#scrub`, `min=0
+    max=900`) is one continuous range walking all ten eras at once; the real `SceneRenderer`
+    contract (its own KDoc, read plainly) is a normalised `t` in `0.0..1.0` for *one scene*, never
+    a block-wide position.** The two are genuinely different shapes, not a rendering detail — the
+    explorer's mock has no equivalent of "which scene is this `t` relative to" at all. This task's
+    own reading: the eras strip switches *which* scene is on stage (`LineagesTab`'s own
+    `sceneIndex` state, reset to `t = 0.0` on every switch, mirroring the mock's own click handler
+    jumping its scrubber to that era's start position), and the `[0,1]` scrub bar drives
+    `SceneRenderer.frameAt` within whichever scene is currently selected. `docs/LESSONS_SCAFFOLD.md`
+    section 1 does not describe a block-wide scrub at all ("Every scene is pausable and scrubbable"
+    reads as per-scene too), so this is read as the mock simplifying for a one-screen demo, not as
+    a spec this task's own multi-scene composable should reproduce literally.
+    *Product owner / whoever next touches the Lineages tab: confirm the eras-strip-switches-scene
+    reading is right, versus (for example) a single scrubber that walks the whole eleven-scene
+    block continuously the way the mock's own `#scrub` does.*
+
+58. **The identify-it quiz section's own visibility gate, and whether its cards page one at a
+    time, are both this task's own reading, not something the explorer specifies.**
+    `docs/LESSONS_SCAFFOLD.md` section 1: "the exercise appears after the last scene of a strand
+    block" — read here as: the eras strip's own selection has reached the block's last scene
+    (`sceneIndex == scenes.lastIndex`), not "has finished scrubbing/autoplaying through it" (this
+    task built no autoplay clock at all — see item 61). Once visible, every one of
+    `StrandSequencer.plan`'s eligible cards renders at once, stacked in a scrollable column — on
+    the real, checked-in Lineages content that is 7 real bank cards (`LineagesRealContentTest`
+    pins this exact count; the strand's own single inline scene exercise collides and is excluded,
+    per `StrandSequencer`'s own already-correct block-wide rule). The explorer's own `.quiz`
+    markup is a single static example and never designed paging chrome for more than one card, so
+    "show them all at once" was the smallest reading that needed no invented UI the explorer never
+    drew.
+    *Whoever next touches the Lineages tab: confirm stacking every eligible card is right, versus
+    one-at-a-time behind a "next" affordance — and whether the gate should require the *scrubber*
+    to reach the end of the last scene, not just the strip selection landing on it.*
+
+59. **A bank entry's own three-option identify-it list is synthesised, not real content —
+    `ExerciseBankEntry` (docs/OPEN_QUESTIONS.md item 39, already logged) has no `options` field at
+    all, only `face`/`answer`/`giveaway`.** `optionsFor` (`LineagesQuizItems.kt`) builds one from
+    this block's own real era class names (`classNames`, the ten on-stage scene titles, era
+    order): the answer plus its two cyclic successors in that list (e.g. Didone's distractors are
+    whichever two classes follow Didone in era order), with the answer's own slot in the
+    three-option list decided by `index % 3` so a learner scanning several cards does not always
+    see it land in the same place. Deterministic on purpose (no `Random`), so the same content
+    always renders the same options — real class names this strand actually taught, never
+    invented — but the exact scheme (cyclic-successor, not e.g. a curated per-entry distractor
+    list, or distractors drawn from the *same broad style family* as the answer) is this task's
+    own choice, not specified anywhere.
+    *Whoever authors real identify-it content next: consider giving each bank entry its own
+    curated `options` list (the schema change item 39 already flags) rather than relying on this
+    synthesis, if some distractor pairings read as too easy or too obscure.*
+
+60. **`Stage.align` (`xheight`/`capheight`/`baseline`) is read but not acted on — the crossfading
+    `from`/`to` renderings share one fixed font size and one Compose `Box`'s natural text
+    baseline, not the explorer's own per-face size compensation.** The explorer's own mock
+    (`ui/typewright-explorer.html`'s `EXX` object) hand-carries a measured x-height-to-em ratio per
+    face and scales each face's own `font-size` so the two renderings' x-heights visually line up
+    despite the faces having different real metrics — this task's own instructions describe only
+    "two overlapping `BasicText`s..., each its own font, each its own alpha" and do not ask for
+    that compensation, so it was not built. Building it for real (rather than transcribing the
+    mock's own hardcoded table, which would not be "measured" by this task, per CLAUDE.md law 5)
+    would mean reading each of the ten on-stage faces' real x-height/cap-height metrics at
+    runtime — `core-font`'s `SfntFont`/`Os2Table` can do this and is already a dependency of `ui`,
+    but parsing all ten (several variable fonts) for this one purpose is real, unscoped work.
+    *Whoever wants the crossfade to visually match at x-height/cap-height the way the explorer's
+    own mock does: this is the gap, and `core-font`'s `Os2Table`/`HeadTable` are the real,
+    already-built pieces to read the metrics from — not a fabricated per-face ratio table.*
+
+61. **No autoplay: the scrub bar and eras strip are entirely manual (drag/tap), matching the
+    explorer's own mock (no play button anywhere in `#ln-lin`), but `Scene.duration` and
+    `SceneRenderer.normalizedScrub` (an autoplay-clock-to-`t` converter that already exists and is
+    already tested) go entirely unused by this composable.** `docs/LESSONS_SCAFFOLD.md`'s own
+    worked example calls `duration` "seconds at the default pace; scrubbing ignores it," implying
+    an autoplay pace exists conceptually even though the explorer never builds a control for it.
+    *Whoever wants autoplay ("play" affordance, `LaunchedEffect` ticking `normalizedScrub` forward
+    until the learner touches the scrub bar): the pure conversion is already there in
+    `SceneRenderer`; only the driving clock and its pause-on-touch interaction are missing.*
+
+62. **`Scene.callouts` (era 3/Transitional's own `a`/terminal label) has no visual design in the
+    explorer at all — `ui/typewright-explorer.html` never renders a callout anywhere.** This
+    task's own instructions still name `calloutsVisibleAt` among the four `SceneRenderer`
+    functions to drive, so `StageArea` renders each visible callout as a small violet mono chip
+    (`"${glyph} · ${part}: ${label}"`) stacked at the stage's bottom-start once
+    `frame.calloutsVisible` is true, rather than skipping the data entirely. This is this task's
+    own minimal, honestly-improvised design (law 6 has nothing to reproduce here), not a
+    transcription of anything drawn.
+    *Whoever owns the explorer/UI_SPEC: a real `.callout` look (the scaffold's own text: "optional
+    labels on the stage, resolved on the `to` face") belongs in `ui/typewright-explorer.html`
+    first, per law 6, with this composable then reproducing it exactly instead of the placeholder
+    chip built here.*
+
+63. **A real bug in the P6 Foundations stage's `learnFaceFontFamily` (`LearnFaceFonts.kt`), found
+    and fixed while building this tab, not merely worked around.** Its own KDoc already claimed
+    wasmJs (browser) "catches that failure and falls back to `FontFamily.Default` ... rather than
+    crashing," but the function's first line, `LearnFaceResources.entry(key)`, was not actually
+    wrapped in `runCatching` — only the `fontBytes(key)` call below it was. `LearnFaceResources`
+    reads `data/learn-faces/manifest.json` through the same Node-`fs`-based
+    `readSceneResourceText` `fontBytes` already needed guarding against (item 47), so on `ui`'s
+    real `wasmJs { browser() }` target (unlike every existing test of this function, which calls
+    `platformLearnFaceFontFamily` directly and never exercises `LearnFaceResources` at all) the
+    very first real call from a composable — this one — would have thrown uncaught. Fixed with the
+    same one-line `runCatching` the very next line already used; `LineagesQuizItems.kt`'s own new
+    `learnFaceKeyForFamily` (which also reads `LearnFaceResources.allEntries()`, for a bank
+    entry's family name) is written the same defensive way from the start. Neither this fix nor
+    the new helper could be exercised against a real browser here — no Chrome binary in this
+    container (CLAUDE.md law 4) — but `:ui:compileKotlinWasmJs`/`:ui:compileTestKotlinWasmJs` both
+    still succeed, and `LineagesQuizItemsTest` (commonTest, runs on `:ui:wasmJsBrowserTest` too)
+    was deliberately written against hand-built fixtures rather than real `LineagesResources`
+    calls for exactly this reason — see that file's own KDoc.
+    *Whoever next has a real browser to verify against: confirm the Lineages tab's real on-stage
+    faces actually fall back to the system font cleanly there (`learnFaceFontsAreReal()` already
+    reports `false` on wasmJs), rather than crashing the whole tab, the way this fix intends.*
+
+64. **`AnatomyLensDataHyleDecoTest.hyleDecosOwnOs2TableDoesNotMatchItsDrawnInkHeights`
+    (`ui/src/desktopTest/.../AnatomyLensDataHyleDecoTest.kt`) fails on a clean `:ui:desktopTest`
+    run, unrelated to this task.** Confirmed unrelated before reporting it, not assumed: this
+    task's own changes never touch `AnatomyLensData.kt`, `qa/corpus`, or `fonts/HyleDeco-Regular.ttf`;
+    `git status` shows `qa/corpus/.../style/Geometry2D.kt` locally modified and uncommitted by a
+    concurrent sibling agent working in this same branch/container while this task ran (this
+    task's own instructions already warned of one, in `ui/…/ui/learn/` — the Anatomy Lens one;
+    this appears to be a second, in `qa/corpus`). Every test this task added, and every other test
+    in `:ui`, passes (`161 tests completed, 1 failed` on the full `:ui:desktopTest` run; the 1 is
+    this one). Not fixed here — out of this task's own scope, and risks colliding with in-flight
+    work in a file this task never touched.
+    *Whoever owns `qa/corpus`'s `Geometry2D.kt` right now, or reviews P6 as a whole: re-run
+    `:ui:desktopTest` once that file's own edit settles; if this still fails afterward, it is a
+    real regression worth its own look, not a flake.*
