@@ -1497,18 +1497,27 @@ The four Craft before/after scenes P6's own content-authoring prompt names expli
     *A data point about this task's own instructions, not a decision — logged per the instructions'
     own "if a check has no measurement behind it... stop and report" spirit; not a gap to fix.*
 
-56. **No composable consumes `AnatomyLensData` yet — the Learn screen's Anatomy Lens tab still has
-    no rendered UI, only the data API behind it.** This task's own scope, read plainly: "wiring...
+56. **RESOLVED (P6, LearnScreen shell) — the standalone Learn screen and its minimal entry point
+    are now built.** Originally: no composable consumed `AnatomyLensData` — the Learn screen's
+    Anatomy Lens tab had no rendered UI, only the data API behind it. This task's own scope, read
+    plainly: "wiring...
     into a small, real API," with the deliverable list at the end naming the API, its tests and
     `:ui:spotlessCheck`/`:ui:check` — never a composable. The standalone Learn screen itself
     (matching `ui/typewright-explorer.html`'s `#s-learn` station, law 6) and its own entry point
     are explicitly later work ("the 'Shell' phase," per this task's own instructions), so this is
-    the correct, disclosed boundary for this slice rather than an accidental gap — but it means
-    the Anatomy Lens is not yet visible or usable in the app itself.
+    the correct, disclosed boundary for this slice rather than an accidental gap — but at the time
+    it meant the Anatomy Lens was not yet visible or usable in the app itself (see the Update
+    below for how that changed).
     *Whoever builds the Learn screen's Lens tab composable: `anatomyLensEntry(term, glyphSet)` is
     the one function to call per term; `AnatomyLensValue`'s sealed variants are what there is to
     format and draw, following `ui/typewright-explorer.html`'s own `#ln-lens` look (the `.lens` SVG
     diagram with leader lines, the `.defs` definition list below it) per law 6.*
+    **Update:** `LearnScreen` (`ui/src/commonMain/kotlin/dev/aarso/typewright/ui/learn/
+    LearnScreen.kt`) now composes all four already-built tabs — including `LensTab` — behind a
+    real `#s-learn`-matching header and `#lnTabs` tab row, and `TypewrightApp` now has a real,
+    minimal, always-visible entry point to it. See items 79–84 below for the full account
+    (header/tabs shell, the entry-point design and its reasoning, a real bug found and fixed, and
+    what this task did and did not test).
 
 ## P6: Learn UI — Lineages tab composable (`ui/src/commonMain/kotlin/dev/aarso/typewright/ui/learn/LineagesTab.kt`)
 
@@ -1897,3 +1906,96 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     collisions included, and nothing about this composable treats that as a bug.
     *No action needed — noted for the record so a future reader of `SampleScrapbook.kt`'s own ids
     does not mistake the specific spellings for meaningful data.*
+
+## P6: Learn UI — LearnScreen shell and its entry point (`ui/src/commonMain/kotlin/dev/aarso/typewright/ui/learn/LearnScreen.kt`, `LearnScreenState.kt`, `ui/src/commonMain/kotlin/dev/aarso/typewright/ui/TypewrightApp.kt`)
+
+79. **`LearnScreen`'s own header bar is a purpose-built composable (`LearnHeaderBar`), not
+    `dev.aarso.typewright.ui.glass.Header`.** [Header] is UI_SPEC §3's *one-sheet* header — a
+    room-name ink block plus a MAP toggle, built around horizontal-swipe room navigation
+    (`onSwipePrevious`/`onSwipeNext`) that has no equivalent meaning on `#s-learn`'s own bar (back
+    button, title block, commands button — a different shape). Bending `#s-learn`'s bar through
+    [Header]'s own room/swipe-shaped API would mean adding parameters its one real caller does not
+    need, just to reach a different design; this task's own instructions left the choice open
+    ("your call, document it"), so `LearnHeaderBar` reuses the same tokens (`Typography`,
+    `CanvasTexture`) directly instead, per the task's own "reuse tokens, not a second token
+    system" instruction.
+    *No action needed — a documented judgment call, not a gap.*
+
+80. **The commands button (`›_`, `.ib.pal`, aria-label "Commands") is visually present and
+    deliberately unwired — no `clickable` modifier at all.** It reuses the exact glyph
+    `CommandPalette.kt`'s own input row already prints for its prompt (line 158), the established
+    visual language for that affordance in this codebase, but tapping it does nothing: wiring a
+    real command palette onto the Learn screen is out of this task's own scope, whose own
+    instructions are explicit that an unwired button here is fine, disclosed. Leaving off
+    `clickable` entirely (rather than attaching a no-op handler) was a deliberate choice so it
+    reads, correctly, as inert chrome rather than as a button that silently swallows a tap.
+    *Whoever wires a real command palette onto the Learn screen: `CommandPalette` (`ui.glass`) is
+    already built and already used by `TypewrightSheet`; the same `visible`/`onDismiss` shape would
+    drop in here.*
+
+81. **A second real instance of item 74's own predicted trap — Compose `Row` measuring unweighted
+    children sequentially against the remaining budget, not a fair or fresh share — found in
+    `LearnScreen`'s own `#lnTabs` tab row itself, not just a Scrapbook-tab-specific bug.** At this
+    task's own narrow screenshot width (420 px / density 2 = 210 dp, the same width every sibling
+    tab's own screenshot test already uses), a plain `Row` of four tab buttons left "Lens" and
+    "Scrapbook" almost no budget, wrapping their labels one character per line — caught by looking
+    at `learn-screen-lin.png`/`learn-screen-lens.png` before reporting, not assumed. Fixed by
+    reusing this same package's own established precedent for exactly this shape of overflow:
+    `LineagesTab.kt`'s `ErasStrip` already wraps its own multi-item row in
+    `Modifier.horizontalScroll(rememberScrollState())`; `LearnTabsRow` now does the same, so a tab
+    label that does not fit scrolls instead of vertically wrapping. Re-screenshotted after the fix
+    (`learn-screen-lin.png`/`-ov.png`/`-lens.png`/`-scrap.png`, all five textures) and confirmed by
+    eye: no more per-character wrapping at 210 dp, and the wider `app-learn-open.png` render
+    (360 dp, `TypewrightAppEntryPointScreenshotTest`) shows all four labels fitting on one line
+    with no scroll needed there.
+    *No action needed elsewhere — item 74's own advice ("give real content real room, or let it
+    scroll") held again; recorded so a *third* occurrence is recognized just as fast.*
+
+82. **The entry point (`TypewrightApp`'s own "Shell" phase): a `TypewrightAppNavState` (real,
+    testable state, not a debug flag) plus a small, always-visible "Learn" corner tab.** Chosen
+    over a debug-only flag or a no-op placeholder because this task's own instructions rule both
+    out by name. The tab is pinned to the bottom-end corner specifically — not guessed: reading
+    `TypewrightSheet.kt` in full first, every *other* corner/edge of the phone is already claimed
+    by the sheet's own glass ([Header] top-start, `LayersPanel` top-end, `SpaceRoomGlass`/
+    `CommandPalette` top-centre, `InspectorRow` bottom-start, `EdgeMarks` centre-start/-end) —
+    bottom-end is the one corner nothing else in the sheet draws into, confirmed by screenshot
+    (`app-learn-closed.png`) rather than assumed clear. `LearnScreen`'s own real back button is the
+    return path (`onBack = navState::closeLearn`); no second affordance was added for that
+    direction. This is still only the entry point this task's own instructions scope it to — the
+    *full* cross-station navigation shell (Home/Capture/Trace/Economy/Draw-Space-Learn/Check/Ship/
+    Workbook/Desktop) remains separate, later, undesigned-by-the-explorer work, per this task's own
+    instructions; that larger gap was already disclosed above (item 56) and stays disclosed, not
+    re-logged as new.
+    *Whoever designs the real cross-station shell: `TypewrightAppNavState` is a small, single-
+    purpose state class (today, only `showLearn`); it is not intended to grow into that shell's own
+    state and should probably be replaced, not extended, once that design exists.*
+
+83. **Tab-switching and the entry point are tested by asserting directly on the real state classes
+    (`LearnScreenUiState.select`, `TypewrightAppNavState.openLearn`/`closeLearn`), not by
+    simulating a pointer click against the rendered composable.** No test anywhere in this
+    codebase simulates a real pointer event against a Compose scene (confirmed by reading every
+    existing screenshot test before writing new ones, not assumed) — the established equivalent,
+    set by `SheetScreenshotTest`'s own `puckState.gestureState = PuckGestureState.RadialOpen(...)`,
+    is to pre-seed or mutate the same plain state class the real `onClick` calls and assert on it
+    directly, then separately confirm-by-screenshot that each state renders correctly. Both new
+    state classes ([LearnScreenUiState], `TypewrightAppNavState`) are built the same shape as
+    `PuckUiState` specifically so this equivalence holds, and each tab button's/entry button's own
+    `onClick` calls the exact method under test (`select`/`openLearn`/`closeLearn`) — not a
+    parallel stand-in for it. This is disclosed as the honest boundary of what "tested" means for
+    this piece: it proves the state mechanism and every rendered state are each correct, not that a
+    real on-device or mouse tap reaches that mechanism (CLAUDE.md law 4's own device-honesty spirit,
+    applied here to a plain click rather than a gesture).
+    *No action needed — matches this codebase's own established testing convention exactly; noted
+    so it reads as a deliberate choice, not an oversight, if a future reviewer goes looking for a
+    `sendPointerEvent`-style test and does not find one anywhere in this module.*
+
+84. **`LearnTabButton`'s selected state is a plain ink-block background plus ordinary padding, not
+    `#lnTabs button.on`'s own literal CSS (`background:var(--ink);...;padding:2px 6px;margin:-2px
+    -6px`).** The explorer's negative-margin trick keeps the ink block's own padding from pushing
+    neighbouring tabs apart, letting it visually bleed slightly into the row's own gap instead.
+    Compose has no direct negative-margin equivalent; `LearnTabButton` uses the same simplification
+    `OverlayTab.kt`'s own `SegmentedButton` already established for this exact shape of control
+    (conditional `.background(ink)` plus fixed padding, no margin compensation) — consistent with
+    an already-precedented choice in this same package, not a new one.
+    *No action needed — the visual difference is a few dp of tab spacing, not a meaning or
+    legibility change; noted for completeness only.*
