@@ -2437,3 +2437,53 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     which binds `core-*` public functions specifically); anyone editing it should hand-verify a
     deliberately-broken copy of the zip still trips each check before trusting a future edit to it.
 
+## P8: Arabic Naskh script data
+
+104. **Which of Arabic Naskh's 39 real base letters are Unicode dual-joining versus right-joining
+    versus non-joining -- the fact this task's own instruction turns on ("for each dual-joining
+    letter, also generate its three positional variants") -- has no local source to check it
+    against: this repository carries no copy of Unicode's own `ArabicShaping.txt` (the file that
+    defines `Joining_Type`), and Python's stdlib `unicodedata` module (already used, and re-used
+    here, to verify every letter's and digit's real codepoint against
+    `scripts/templates/hyle-all-templates.zip`'s own embedded labels) does not expose that
+    property either.** `scripts/templates/generate_naskh_manifest.py`'s own
+    `JOINING_TYPE_BY_CODEPOINT` table is therefore a hand-entered classification, not a mechanical
+    derivation -- disclosed as such in that generator's own docstring, and cross-checked once, at
+    the time this task was done, against the real `ArabicShaping.txt` (Unicode 18.0.0,
+    https://www.unicode.org/Public/UCD/latest/ucd/ArabicShaping.txt, fetched live via this
+    session's own web-fetch tool) for exactly these 39 codepoints -- not guessed from memory alone,
+    but also not something a future re-run of the generator re-verifies on its own. The result: 28
+    dual-joining letters (all four positional forms generated), 10 right-joining letters (alef,
+    dal, ddal, thal, reh, rreh, zain, jeh, waw, yehBarree -- isolated form only, per this task's own
+    literal instruction, which scopes positional-form generation to dual-joining letters and says
+    nothing about adding a bare `.fina` for right-joining ones), and 1 non-joining letter (hamza,
+    isolated form only). Anyone revisiting `ArabicJoiningType`'s own per-letter assignments in
+    `ArabicLetters.kt` or `generate_naskh_manifest.py`'s own table should re-fetch the real
+    `ArabicShaping.txt` and diff it against the 39-entry table directly, rather than trusting this
+    write-up's restatement of it.
+
+105. **`scripts/templates/hyle-all-templates.zip`'s own `svg/Naskh/` folder genuinely holds 49
+    files with four identical real vertical-metric guide values baked into every one of them
+    (`ascender 720`, `tooth height 300`, `baseline 0`, `descender -360`) -- confirmed by
+    `generate_naskh_manifest.py` actually parsing all 49 SVGs' own embedded guide `<text>` labels
+    and raising if any of the 49 disagree (none did) -- but the template SVGs' own raw guide labels
+    read the generic, Latin-shaped words "ascender"/"descender", not the research's own real
+    Arabic-vocabulary terms "sky"/"earth".** Not a defect in the read-only `ScriptProfile.kt`
+    shared model (nothing there needed changing), and not treated as license to smuggle a Latin
+    metric name into `ArabicMetrics.kt` under a different label, which this task's own briefing
+    explicitly warns against: `ArabicMetrics`'s two matching [`ScriptMetricLine`]s are named
+    `"sky"` and `"earth"` (the research's own quoted terms), each with its own note stating plainly
+    that the template pack's own raw label text differs and why this build does not reuse it.
+    `eyeHeight` and `loopHeight`, the other two of Arabic's real four x-height replacements named
+    in `docs/RESEARCH_font_quality.md` ("tooth-, loop- and eye-heights"), have no numeric value in
+    either the real template pack or the general research at all (the same section's own closing
+    sentence: "No source gave numeric tooth/loop/descender ratios in dot units") and are recorded
+    as this build's own placeholder `[CONFIRM]` values (260 and 180), following the identical
+    disclosure pattern item 96's sibling Devanagari task used for its own five unsourced levels.
+    Separately: Nastaliq's own real template folder (`svg/Nastaliq`, 49 files, confirmed by direct
+    zip listing) was not opened or read beyond confirming its file count for
+    `NastaliqOutOfScope.REAL_TEMPLATE_COUNT_IN_ZIP` -- this task's own scope is Naskh only, and
+    `WritingScript` (read-only, shared) carries no `NASTALIQ` entry to build a profile against;
+    `NastaliqOutOfScope.kt`'s own disclosure states the concrete OpenType-sloping-baseline reason
+    from `docs/RESEARCH_font_quality.md` directly, per this task's own instruction.
+
