@@ -133,6 +133,23 @@ class CanvasTokensTest {
     private fun rgbBits(color: Argb): Int = (color.red shl 16) or (color.green shl 8) or color.blue
 
     @Test
+    fun bloomStopsShareRgbAndDifferOnlyInAlpha() {
+        for (texture in CanvasTextures.ALL) {
+            val (inner, outer) = BloomToken.stopsFor(texture)
+            // The review's own fix: both stops carry the *same* RGB as the canvas colour --
+            // never `Argb.TRANSPARENT` (RGB 0x000000), which is what caused the grey halo.
+            assertEquals(texture.canvas.red, inner.red)
+            assertEquals(texture.canvas.green, inner.green)
+            assertEquals(texture.canvas.blue, inner.blue)
+            assertEquals(texture.canvas.red, outer.red)
+            assertEquals(texture.canvas.green, outer.green)
+            assertEquals(texture.canvas.blue, outer.blue)
+            assertEquals(107, inner.alpha) // round(0.42 * 255)
+            assertEquals(0, outer.alpha)
+        }
+    }
+
+    @Test
     fun spacingTokensMatchUiSpec() {
         assertEquals(18.0, SpacingTokens.GUTTER_DP)
         assertEquals(14.0, SpacingTokens.VERTICAL_RHYTHM_MIN_DP)

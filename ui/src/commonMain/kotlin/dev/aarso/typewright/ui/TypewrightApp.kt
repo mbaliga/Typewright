@@ -1,31 +1,20 @@
 package dev.aarso.typewright.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.unit.sp
+import dev.aarso.typewright.ui.sheet.TypewrightSheet
 
-/** Placeholder from P0: the paper canvas with the app's name in monospace ink. */
+/**
+ * The app's entry point on every platform (`app-android`/`app-desktop`/`app-web` each call only
+ * this). From P0 through P4a this was a paper-canvas placeholder with the app's name in mono ink;
+ * task P4b replaces that placeholder with the real one-sheet UI ([TypewrightSheet]), opened on
+ * the Draw room with the paper texture, per UI_SPEC §2 ("Default: paper [CONFIRM]" -- still the
+ * default pending that confirmation) and UI_SPEC §9's own screen list (Draw is the sheet's first
+ * room). [PaperTokens] (the old placeholder's own two colours) is unused by this function now but
+ * left in place: `PlaceholderScreenshotTest`'s pixel-level assertions still reference it directly
+ * against `CanvasTextures.PAPER`'s own values, which it also is a subset of.
+ */
 @Composable
 fun TypewrightApp(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.fillMaxSize().background(PaperTokens.Canvas),
-        contentAlignment = Alignment.Center,
-    ) {
-        BasicText(
-            text = "Typewright",
-            style =
-                TextStyle(
-                    color = PaperTokens.Ink,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 28.sp,
-                ),
-        )
-    }
+    TypewrightSheet(modifier = modifier)
 }

@@ -87,3 +87,13 @@ data class RoomFlight(
 
 /** The [RoomFlight] that pans [camera] from its current offset to [room]'s own [Room.flightTargetOffset]. */
 fun Room.flightFrom(camera: SheetCamera): RoomFlight = RoomFlight(from = camera.offset, to = flightTargetOffset(camera.offset))
+
+/**
+ * Room-to-room stepping, clamped at the ends (no wraparound past Draw or past Learn) -- brief
+ * §4.1's room order ("Capture . Trace . Draw . Space . Learn . Check . Ship") restricted to this
+ * sheet's three (§5 finding 25); the header swipe, edge marks and keyboard arrows all step one
+ * room this way (task P4b items 6/9).
+ */
+fun Room.next(): Room = Room.ORDERED.getOrElse(index + 1) { this }
+
+fun Room.previous(): Room = Room.ORDERED.getOrElse(index - 1) { this }

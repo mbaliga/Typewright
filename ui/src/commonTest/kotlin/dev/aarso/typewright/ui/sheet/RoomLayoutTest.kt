@@ -78,6 +78,16 @@ class RoomLayoutTest {
         assertEquals(600, RoomFlight.DURATION_MS)
     }
 
+    @Test
+    fun nextAndPreviousStepOneRoomClampedAtTheEnds() {
+        assertEquals(Room.SPACE, Room.DRAW.next())
+        assertEquals(Room.LEARN, Room.SPACE.next())
+        assertEquals(Room.LEARN, Room.LEARN.next()) // clamped: no wraparound
+        assertEquals(Room.DRAW, Room.SPACE.previous())
+        assertEquals(Room.SPACE, Room.LEARN.previous())
+        assertEquals(Room.DRAW, Room.DRAW.previous()) // clamped
+    }
+
     private fun assertNear(
         expected: Double,
         actual: Double,

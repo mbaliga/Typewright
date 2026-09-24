@@ -149,6 +149,24 @@ object GridToken {
         }
 }
 
+/**
+ * The bloom's own gradient math (UI_SPEC §1 layer 4 / brief §5.3, `docs/ARCHITECTURE_REVIEW.md`
+ * §4.1 "Gradients"): "radial gradients from canvas colour (opaque to 38-45%) to transparent".
+ * The review's own finding is that "transparent" must not mean `Color.Transparent` (RGB
+ * `0x000000`) -- "Skia interpolates unpremultiplied, while CSS interpolates premultiplied, so a
+ * stop at `Color.Transparent` gives a grey halo. End on `canvas.copy(alpha = 0f)` instead." Kept
+ * here as plain [Argb] math (no Compose dependency) so the fix is unit-testable
+ * (`CanvasTokensTest`): both stops must carry the *same* RGB as [texture]'s own canvas colour,
+ * differing only in alpha.
+ */
+object BloomToken {
+    /** UI_SPEC §1: "opaque to 38-45%" -- the inner stop's alpha fraction. */
+    const val INNER_ALPHA: Double = 0.42
+
+    /** The bloom radial gradient's two stops for [texture]: canvas colour at [INNER_ALPHA], fading to the *same* canvas colour at alpha 0 (never `Argb.TRANSPARENT`, whose RGB is black). */
+    fun stopsFor(texture: CanvasTexture): Pair<Argb, Argb> = texture.canvas.withAlpha(INNER_ALPHA) to texture.canvas.withAlpha(0.0)
+}
+
 /** UI_SPEC.md §2 "Spacing" and §6 "Accessibility" (touch target floor). All values in dp. */
 object SpacingTokens {
     /** "18 dp side gutter inside the phone". */
