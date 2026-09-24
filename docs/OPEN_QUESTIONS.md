@@ -2339,3 +2339,101 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     itself non-public, or make `KanaTemplate` public) and run `spotlessApply` scoped to `kana/*`
     only before `:scripts:jvmTest`/`:scripts:wasmJsNodeTest` will pass on the real, combined tree.
 
+## P8: Kana (Hiragana + Katakana) script data
+
+98. **Item 97's own finding is now fixed, on the real tree, by this task (the `kana/*` author it
+    named).** `HIRAGANA_TEMPLATES`/`KATAKANA_TEMPLATES` (in `HiraganaGlyphs.kt`/`KatakanaGlyphs.kt`)
+    are now `internal` rather than exposing the `internal` `KanaTemplate` type through a public
+    property (Kotlin's `EXPOSED_PROPERTY_TYPE`); the public surface of the `kana` package is
+    `GlyphInventory`/`TemplateSheet`/`ScriptMetricSystem`/`ControlCharacterSet`/
+    `FeatureGenerationPlan`/`ScriptProfile` instances, per the shared `ScriptProfile.kt` model, not
+    the intermediate `KanaTemplate` staging type. The real ktlint violations item 97 also named
+    (`KanaControlCharacters.kt`, `KanaFeaturePlan.kt`, `KanaGlyphNaming.kt`, `KanaScriptProfiles.kt`,
+    `HiraganaGlyphs.kt`, `KatakanaGlyphs.kt`, `KanaMetrics.kt` and two `commonTest/.../kana/*` files)
+    are fixed too, applied with `./gradlew :scripts:spotlessApply -PspotlessFiles="scripts/src/.*/
+    kana/.*"` -- the Spotless Gradle plugin's own file-scoping property -- specifically so this
+    fix never touched `devanagari/*` (item 97's own scratch-copy verification method was more
+    conservative than necessary; `-PspotlessFiles` reformats only matching real files in place, and
+    is used here in both directions: never applied to a sibling's package, confirmed by this
+    session's own diffs touching only `kana/*`). Run fresh, on the real combined tree, after this
+    fix: `./gradlew :scripts:spotlessCheck :scripts:jvmTest :scripts:wasmJsNodeTest --rerun-tasks`
+    (env `ANDROID_HOME=/opt/android-sdk CHROME_BIN=/opt/pw-browsers/chromium-1194/chrome-linux/
+    chrome LANG=en_US.UTF-8`) -- `BUILD SUCCESSFUL`, 114/114 on both `jvmTest` and `wasmJsNodeTest`
+    (Devanagari's 51 + this task's own 59 + the pre-existing `ScriptProfileTest`/`ScriptsModuleTest`
+    4), zero ktlint violations anywhere in `:scripts`.
+
+99. **The real template counts this task confirmed itself, not assumed from the prompt: 55
+    Hiragana, 57 Katakana** (`scripts/templates/hyle-all-templates.zip`'s `svg/Hiragana`/
+    `svg/Katakana` folders, matching the zip's own `HOW_TO_USE.md` table exactly), unlike
+    Devanagari's folder (item 96), neither kana folder has a single duplicate file -- 112 distinct
+    real templates, 112 distinct codepoints, confirmed by `scripts/templates/
+    generate_kana_manifest.py`, which refuses to write a manifest at all if any folder's count
+    disagrees with `HOW_TO_USE.md` or if a duplicate codepoint or glyph name appears. That generator
+    is scoped to kana only (`kana-manifest.json`, not the shared `manifest.json` name the original
+    prompt suggested) specifically to avoid the collision risk of several concurrent script agents
+    each writing the same shared manifest file at once -- item 96's `devanagari-manifest.json`
+    independently made the identical per-script naming call, confirming this was the right read of
+    "your own judgement on the exact mechanism."
+
+100. **The real, measured template guides give kana a genuine "virtual body" / optical-centre metric
+    system, not a Latin baseline+x-height one, and it is honestly NOT modelled as script-wide
+    fixed constants.** Every one of the 112 real templates draws identical guides: body top 880,
+    body bottom -120 (a 1000-unit-tall body, matching this build's own 1000 UPM default), virtual-
+    body centre 380 (the exact midpoint, standing in for Latin's x-height/cap-height pair), baseline
+    0, and a uniform 720-unit advance width -- matching the zip's own `HOW_TO_USE.md` prose exactly
+    ("a near-square body from about -120 to 880"). Only `baseline` is marked `fixed = true`
+    (`ScriptMetricLine`'s own structural-constant sense) in `KanaMetrics.kt`: `docs/
+    RESEARCH_font_quality.md`'s kana subsection states plainly that how far a kana letter face sits
+    inside its virtual body "varies by design and for which no percentage is published", so the body
+    top/bottom/centre values are recorded as this one template pack's own real, measured design
+    choice, not invented as a universal kana constant the way Devanagari's headline and baseline
+    (item's own two genuinely fixed levels) are.
+
+101. **Neither real source gives kana a starting-sequence control-character set, and none was
+    invented to match Latin's shape -- `HIRAGANA_CONTROL_CHARACTERS`/`KATAKANA_CONTROL_CHARACTERS`
+    are honestly empty `ControlCharacterSet`s, not placeholders.** Both `docs/
+    RESEARCH_font_quality.md`'s kana subsection ("No 'draw these kana first' list was found") and
+    `docs/LESSONS_SCAFFOLD.md` section 5's kana bullet were read in full for this; neither names one,
+    unlike Latin (n/o then H/O, "every source agrees") or Devanagari (the real पाव / किमीनुफू /
+    भरसगदह progression from Design With FontForge, already in `docs/DevanagariControlCharacters.kt`
+    per item 96's sibling task). `KanaControlCharactersTest.bothControlCharacterSetsAreHonestlyEmpty
+    BecauseNoRealSourceGivesAKanaStartingSequence` pins this at empty so a future edit that quietly
+    adds an invented sequence fails a test rather than shipping unnoticed. Whether the product owner
+    wants a first-glyph sequence chosen by design judgement (not by a written source) for the app's
+    own kana workbook is a real product decision this task does not make. *Madhav, if a kana
+    workbook path is scheduled before a real source turns up.*
+
+102. **The real feature-generation plan is deliberately thin (one GSUB stage, one GPOS feature), and
+    two gaps are disclosed rather than smoothed over.** `HIRAGANA_FEATURE_PLAN`/
+    `KATAKANA_FEATURE_PLAN` carry `gsubStagesInOrder = ["ccmp"]` (composing a base kana +
+    combining U+3099/U+309A dakuten/handakuten sequence into its precomposed glyph) and
+    `gposFeatures = ["mark"]` (mark-to-base anchor positioning for a standalone mark at the base's
+    upper right, the research's own "Dakuten ... and handakuten ... sit at the upper right" using
+    the identical anchor mechanism the research's Diacritics section already gives Latin accents) --
+    no joining, no conjuncts, contrasting item 96/97's Devanagari (nine GSUB stages) and the
+    Arabic Naskh profile (eight GSUB stages, per this task's own briefing). Two things disclosed
+    honestly rather than invented or silently dropped: **(a)** the real zip has no dedicated
+    dakuten/handakuten glyph template in `svg/Hiragana` or `svg/Katakana` (confirmed by
+    `generate_kana_manifest.py`'s full listing), so this plan's own one real stage has no glyph to
+    compose with yet -- a real gap in the template asset, not this task's data; **(b)** `vert`
+    (vertical writing) is real and sourced (research: "a planned `vert` set") but is NOT included as
+    an active stage, since the real 112 templates carry only horizontal guides -- named in the
+    plan's own `notes` field as a real, future item, the same "name it, don't silently omit it,
+    don't claim it's built" treatment this task's briefing asks for Nastaliq in the Arabic profile.
+    `kern` is also excluded, as a reasoned inference (not a cited fact) from the templates' own
+    uniform 720-unit advance width implying a monospaced grid, where kerning is not the norm.
+
+103. **`scripts/templates/kana-manifest.json`'s own generator (`generate_kana_manifest.py`) fails
+    loudly rather than silently on three real conditions, verified by actually running it against
+    the real zip, not merely reading the code:** a folder's real template count disagreeing with the
+    zip's own `HOW_TO_USE.md`; any two templates in the same folder having non-identical guide
+    metrics (would break the "one shared metric system per script" assumption `KanaMetrics.kt` and
+    this task's own briefing both make); and a duplicate codepoint or duplicate derived glyph name
+    within a folder. None of the three fired on the real asset (confirmed: guide metrics are
+    byte-identical across all 112 files, no duplicate codepoints, no duplicate derived names), so
+    this generator's defensive paths are themselves untested against a real failing input -- a real,
+    disclosed gap in the generator's own test coverage (it is a one-time build-time script, not a
+    `core-*` module, so it carries no `commonTest` unit tests of its own per CLAUDE.md's convention,
+    which binds `core-*` public functions specifically); anyone editing it should hand-verify a
+    deliberately-broken copy of the zip still trips each check before trusting a future edit to it.
+
