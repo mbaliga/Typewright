@@ -2734,3 +2734,131 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
       own P6/P7 verify passes used.
 
     *Independent verification pass; not a product decision, so no owner tag.*
+
+## P9: Browser shaping preview — re-verified for real, and `BrowserFontFaceVisualPreview`
+
+112. **Item 5's "no glyph ids or clusters on the web" finding (restated by `BrowserFontFaceShaperStub`'s
+    own KDoc since P0) re-checked live, today, in this sandbox's own real, stable, non-flagged
+    Chromium 141.0.7390.37 (`/opt/pw-browsers/chromium-1194`, driven by the `playwright` package at
+    `/opt/node22/lib/node_modules/playwright`), not trusted from the earlier entry — finding
+    CONFIRMED, with more surfaces checked than before.** A real `FontFace` was built from
+    `fonts/NotoSansDevanagari-Regular.ttf`'s real bytes, added to `document.fonts`, loaded for
+    real, and used to draw real Devanagari conjunct text (क्ष, U+0915 U+094D U+0937 — the same
+    fixture `SkikoShaperTest.shapesRealDevanagariConjunctAndFindsRealClusterData` shapes on
+    desktop). What each real, standard, non-experimental API actually returned, dumped directly
+    from the live page, not read off a spec:
+    - `CanvasRenderingContext2D.measureText(text)`'s `TextMetrics`: exactly `width,
+      actualBoundingBoxLeft, actualBoundingBoxRight, fontBoundingBoxAscent, fontBoundingBoxDescent,
+      actualBoundingBoxAscent, actualBoundingBoxDescent, hangingBaseline, alphabeticBaseline,
+      ideographicBaseline` — whole-string metrics only (dumped every own+inherited property on a
+      real instance). No glyph count, no glyph ids, no per-character or per-cluster boxes.
+    - `TextMetrics.getSelectionRects` (the one experimental candidate that sometimes ships
+      partially flagged): `typeof tm.getSelectionRects === 'function'` is `false` — does not exist
+      on this real, stable build.
+    - The "CSS Font Metrics API": `FontFace.prototype`'s real, complete property list is `family,
+      style, weight, stretch, unicodeRange, variant, featureSettings, display, ascentOverride,
+      descentOverride, lineGapOverride, sizeAdjust, status, loaded, load, variationSettings` — the
+      `*Override` entries are `@font-face` metric-*override* descriptors, not a read API for an
+      already-loaded face's real metrics; there is no readable `ascent`/`descent`/`lineGap` getter
+      on a real `FontFace` at all (accessing `face.ascent` on a real, loaded instance returns
+      `undefined`).
+    - `OffscreenCanvas`'s `CanvasRenderingContext2D`: the identical restricted `TextMetrics`
+      surface, no extra glyph method (`getGlyphs`/`getGlyphIds` do not exist).
+    - `CanvasRenderingContext2D.prototype`'s own real property names, filtered for
+      `/glyph|shape|cluster|run/i`: zero matches.
+    - The Local Font Access API (`navigator.fonts.query`): not present in this build (`'fonts' in
+      navigator` is `false`); and even where it does ship, it reads a *locally installed* system
+      font's raw table bytes by postscript name, not shaped output from an arbitrary `FontFace` —
+      a "read the font and shape it yourself" route, not "the browser's own text engine hands back
+      structure," so it would not answer this question differently even if present.
+    - `window` has no `GlyphRun` (or similarly named) primitive.
+    - Real shaping is genuinely still happening underneath all of this, confirmed by width alone
+      (`font: 100px` on this same real font): the conjunct measured 71.7 CSS px wide, a single
+      unligated "क" measured 76.8 px, and three separate base consonants ("ककक", no virama, no
+      ligation) measured 230.4 px — the conjunct is *narrower than one single consonant*, real
+      evidence of real ligation into one compact glyph, not three glyphs painted in sequence. The
+      browser's text engine does real, correct HarfBuzz-backed work; it simply never publishes the
+      intermediate structure through any API checked above, on this real, current, stable build.
+
+    Given the finding still holds, empirically, `BrowserFontFaceShaperStub` stays a real, honest
+    stub (this interface's own top KDoc: "no shaper fakes glyphs") rather than being forced to
+    return a fabricated `ShapeResult.Shaped` — its own KDoc and `NotImplemented.planned` message
+    were rewritten with this exact re-verified finding, keeping `platformShaper()` and the class's
+    name/shape unchanged (P8's own established disclosure style: `AndroidTextRunShaper`'s KDoc
+    names a real gap plainly rather than routing around it).
+
+113. **Built instead, honestly not a `Shaper`: `BrowserFontFaceVisualPreview.renderPng`
+    (`shape-preview/src/wasmJsMain/.../BrowserFontFaceVisualPreview.kt`) — a real `FontFace`, real
+    browser paint, real PNG bytes.** Registers the caller's font bytes as a real `FontFace`, awaits
+    its real `.load()` (`Promise<T>.await()` from `kotlinx-coroutines-core`, not a guessed delay),
+    paints the requested text on an off-screen `<canvas>` (never inserted into the visible page,
+    `direction`/`textAlign` set from `ShapeRequest.rightToLeft` so RTL text really reorders), and
+    returns `canvas.toDataURL("image/png")` decoded to real PNG bytes. Deliberately not named or
+    shaped like `Shaper` — its own KDoc states why at length, mirroring the reasoning style item
+    106/`AndroidTextRunShaper` already established for a different real gap. Two real, empirical
+    findings behind its implementation, both found by trying, not guessed:
+    - `kotlinx-browser` 0.5.0 (already resolved transitively into this build's own dependency
+      graph via Compose; `THIRD_PARTY.md` already listed it before this task) has typed `Canvas`/
+      `Document` bindings (`measureText`, `fillText`, `toDataURL`, `TextMetrics`,
+      `CanvasRenderingContext2D`, `HTMLCanvasElement`, `getContext`, `createElement` — confirmed
+      present by searching its own klib's string table directly) but **no `FontFace` binding at
+      all** — `FontFace` itself is hand-bound with one `js("""...""")` block, the same pattern
+      `learn/scenes`'s own `LearnFaceResources.wasmJs.kt` already established for the one thing
+      this codebase's other JS dependencies don't cover.
+    - `kotlinx-browser` 0.5.0's `CanvasRenderingContext2D.direction`/`.textAlign`/`.textBaseline`
+      setters take its own `CanvasDirection`/`CanvasTextAlign`/`CanvasTextBaseline` types, not
+      `String` (a real `compileKotlinWasmJs` error, not assumed), and this klib's public API
+      surface exports no usable constructor or constant for them (every constant-access spelling
+      tried was rejected too) — three one-line raw-JS property setters direct on the real `ctx`
+      object were used instead of guessing that type's real API shape.
+    - `kotlinx-coroutines-core` 1.9.0's real wasmJs `CoroutineScope.promise { ... }` builder always
+      returns `Promise<JsAny?>`, whatever `T` the block produces (checked by trying `Promise<T>`
+      first — real compiler error) — a real, wasmJs-specific detail of that library, not a defect
+      in this task's own code.
+
+    Both libraries are pinned in `gradle/libs.versions.toml` (`kotlinx-coroutines`,
+    `kotlinx-browser`) to the exact versions `THIRD_PARTY.md` already listed as transitively
+    shipped (1.9.0, 0.5.0) and declared directly on `shape-preview`'s own `wasmJsMain` — the same
+    "declare directly what was previously only transitive" move item 33's `skiko-awt` entry
+    already made for the identical reason (`THIRD_PARTY.md` updated in this same change).
+
+114. **A real Kotlin/Wasm test-framework constraint found by trying, and a real bug the resulting
+    test infrastructure genuinely caught (not staged) — both disclosed rather than smoothed over.**
+    (a) Kotlin's wasmJs test framework rejects a `suspend fun` directly annotated `@kotlin.test.Test`
+    (`compileTestKotlinWasmJs`'s real error: `'suspend' functions annotated with
+    '@kotlin.test.Test' are unsupported`) — `BrowserFontFaceVisualPreviewBrowserTest`'s three real
+    tests instead each return a `Promise<JsAny?>` built with `GlobalScope.promise { ... }`, which
+    Kotlin/Wasm's Mocha-backed browser test runner does genuinely await (see (b) for the real proof,
+    not an assumption). (b) The first real run of
+    `realDevanagariConjunctRendersVisuallyNarrowerThanThreeSeparateConsonants` against real headless
+    Chrome genuinely FAILED: `conjunct PNG width (163 px) is not meaningfully narrower than half of
+    three separate consonants' width (319 px)` — a real assertion inside the awaited coroutine,
+    surfaced correctly as a JUnit-XML test failure by `:shape-preview:wasmJsBrowserTest`
+    (`4 tests completed, 1 failed`), proving the Promise-await bridge genuinely works rather than
+    reporting the test passed the instant its synchronous part returned. The cause was a real test
+    bug, not a bug in `renderPng`: `renderPng`'s own fixed padding (`pixelSize` CSS px total, both
+    sides) dilutes a raw PNG-width *ratio* toward 1 at a small `pixelSize`, so `conjunctWidth <
+    threeSeparateWidth / 2` on the raw widths was the wrong comparison. Fixed by subtracting the
+    known, fixed padding (both calls use the same explicit `pixelSize = 96.0`) before comparing —
+    the padding-adjusted text widths are 67 px (conjunct) vs. 223 px (three separate), a real,
+    comfortable margin under half. Also this module runs both `wasmJsNodeTest` and (newly, for this
+    task) `wasmJsBrowserTest` off one shared `wasmJsTest` compilation, so every test in
+    `BrowserFontFaceVisualPreviewBrowserTest` calls a real `typeof document !== 'undefined'` check
+    first and no-ops under Node, the same "no-op there by construction" shape `ShaperStubTest`'s
+    own KDoc already uses for a different reason.
+
+    **Real, fresh (`--rerun-tasks`) build/test results, env `ANDROID_HOME=/opt/android-sdk
+    CHROME_BIN=/opt/pw-browsers/chromium-1194/chrome-linux/chrome LANG=en_US.UTF-8`:**
+    `:shape-preview:spotlessCheck :shape-preview:wasmJsNodeTest :shape-preview:wasmJsBrowserTest
+    :shape-preview:desktopTest` — BUILD SUCCESSFUL. `wasmJsNodeTest`: 4/4 (`ShaperStubTest` 1,
+    `BrowserFontFaceVisualPreviewBrowserTest` 3, all three no-op there by the `document` check, 0
+    failures — confirms this module's existing Node-run tests stay green). `wasmJsBrowserTest`: 4/4
+    for real in headless Chrome (same two classes, this time genuinely exercising `renderPng`, 0
+    failures). `desktopTest`: 16/16 unchanged (`ShaperStubTest` 1, `SkikoClustersTest` 8,
+    `SkikoShaperTest` 7) — confirms the two new wasmJs-only dependencies did not disturb the P8
+    desktop shaper at all. `Shaper.kt`'s public API (the interface, `ShapeRequest`/`ShapeFont`/
+    `ShapedRun`/`PositionedGlyph`/`GlyphCluster`/`ShapeResult`/`ShapingStack`) was not touched —
+    `BrowserFontFaceVisualPreview` reuses `ShapeRequest`/`ShapeFont` as a plain parameter bag, not
+    as a `Shaper` implementation, and `BrowserFontFaceShaperStub`'s only change is its own KDoc and
+    `planned` message text.
+

@@ -37,6 +37,18 @@ xmlutil = "1.0.2"
 # in lockstep with Kotlin itself, not with this library.
 kotlinx-serialization = "1.11.0"
 
+# shape-preview's wasmJs visual preview (P9, BrowserFontFaceVisualPreview): both are already
+# resolved into app-web's wasmJsRuntimeClasspath transitively through Compose Multiplatform
+# (THIRD_PARTY.md's "Shipped inside the apps" table lists kotlinx.coroutines 1.9.0 and
+# kotlinx-browser 0.5.0 by name already), and are pinned here to those exact same versions and
+# declared directly for the same reason `skiko` above already is: shape-preview has no Compose
+# dependency of its own to pull them in. kotlinx-browser gives typed `org.w3c.dom` Canvas/Document
+# bindings for wasmJs (no `FontFace`/CSS Font Loading types -- those are hand-bound in
+# BrowserFontFaceVisualPreview.kt itself, see its own KDoc); kotlinx-coroutines-core gives
+# `Promise<T>.await()`, the one genuinely-async step (`FontFace.load()`).
+kotlinx-coroutines = "1.9.0"
+kotlinx-browser = "0.5.0"
+
 [libraries]
 # Gradle plugins, on the build-logic classpath.
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -65,6 +77,11 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 # the only desktop OS this build targets — app-desktop/build.gradle.kts).
 skiko-awt = { module = "org.jetbrains.skiko:skiko-awt", version.ref = "skiko" }
 skiko-awt-runtime-linux-x64 = { module = "org.jetbrains.skiko:skiko-awt-runtime-linux-x64", version.ref = "skiko" }
+
+# shape-preview's wasmJs visual preview (P9; Apache-2.0; see THIRD_PARTY.md, both already listed
+# there as transitively shipped).
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-browser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version.ref = "kotlinx-browser" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
