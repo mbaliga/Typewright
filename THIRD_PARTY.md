@@ -31,6 +31,7 @@ artifacts, all Apache-2.0 by their POMs except the two test-only ones listed fur
 | JSpecify | 1.0.0 | Apache-2.0 | POM |
 | Guava `listenablefuture` | 1.0 | Apache-2.0 | POM |
 | Skiko (`skiko`, `skiko-awt`, `skiko-awt-runtime-linux-x64`, `skiko-wasm-js`, `skiko-js-wasm-runtime`) | 0.150.1 | Apache-2.0 | POM; file (JetBrains/skiko `LICENSE`) |
+| xmlutil core (`io.github.pdvrieze.xmlutil:core`, `core-jvm`, `core-wasm-js`), used by `core-font`'s UFO 3 / glif reader | 1.0.2 | Apache-2.0 | POM. Resolved via `:core-font:dependencies`: the `jvm`/`wasmJs` platform artifacts pull in nothing beyond `kotlin-stdlib` — `core-font` uses xmlutil's raw pull-parser API, not `xmlutil-serialization`, so `kotlinx-serialization-core` 1.11.0 (declared only on xmlutil's common-metadata variant) is never resolved into a classpath and does not collide with Compose's 1.7.3 |
 
 ### Inside Skiko's native and Wasm binaries
 
@@ -86,6 +87,12 @@ distributions. The apps have no licences screen yet; see `docs/OPEN_QUESTIONS.md
 
 Webpack writes its MIT-licensed runtime bootstrap into `typewright.js`. The production bundle
 carries no licence banners, which is one more reason the web app needs a licences page.
+
+## Ported (reimplemented in Kotlin; not linked as a binary dependency)
+
+| Component | Source | Licence | Notes |
+|---|---|---|---|
+| UFO glyph-name-to-file-name algorithm (`core-font`'s `dev.aarso.typewright.core.font.ufo.userNameToFileName`, `handleFileNameClash1/2`) | `fontTools.ufoLib.filenames` (`fontTools` 4.66.0), itself copied from `ufoLib` (`unified-font-object/ufoLib`, commit `8747da7`) | MIT | Ported line-for-line so `core-font`'s UFO writer produces exactly the `.glif` file names a real UFO tool (RoboFont, FontForge) would; copyright 2005-2016 the RoboFab developers (Erik van Blokland, Tal Leming, Just van Rossum), reproduced in the Kotlin file's own KDoc. |
 
 ## Already in the repository before P0
 

@@ -7,6 +7,7 @@ kotlin {
         commonMain {
             dependencies {
                 api(project(":core-geometry"))
+                implementation(libs.xmlutil.core)
             }
         }
     }
