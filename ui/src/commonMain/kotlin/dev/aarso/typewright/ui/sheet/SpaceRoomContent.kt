@@ -79,7 +79,13 @@ fun SpaceRoomGlass(
         modifier =
             modifier
                 .widthIn(max = 460.dp)
-                .padding(horizontal = SpacingTokens.GUTTER_DP.dp)
+                // An opaque backing, like every other fixed glass element in this module
+                // (Header's room pill, LayersPanel, CommandPalette, InspectorRow's chips) --
+                // this was the one glass surface in `ui` without one (verify-p5b-ui finding),
+                // and without it this content is legible only where it happens not to cross
+                // world-space ink such as the room's own watermark text (`RoomInk.kt`).
+                .background(canvas)
+                .padding(horizontal = SpacingTokens.GUTTER_DP.dp, vertical = SpacingTokens.GUTTER_DP.dp)
                 .verticalScroll(rememberScrollState()),
     ) {
         // --- The kerning-pair demo word + before/after toggle ---

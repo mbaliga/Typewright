@@ -968,12 +968,15 @@ says what was done in the meantime, and names who decides. Answered entries move
       `draw-blueprint.png`): the sample overshoot/origin/italic guides render correctly on both a
       light and a dark texture, at the right line colour and weight, with no regression to the
       existing puck/radial/grid chrome.
-    - **The explorer shows no guide-creation interaction anywhere** in `ui/typewright-explorer.html`
-      (checked directly — no drag-from-ruler affordance, no "add guide" control, no guide inspector
-      screen). `WorldGuidesPass` renders a `List<Guideline>` and nothing else; no creation gesture
-      (drag-from-edge, a palette "Add guide" command, or otherwise) was built. This is this task's
-      own minimal, reasonable design for the render side, not a reproduction of a shown screen, and
-      guide creation is left for a follow-up task.
+    - **The explorer shows no guide precedent at all, not only for creation.** `grep -ni guide
+      ui/typewright-explorer.html` returns zero matches anywhere in the file — no guide markup, no
+      guide CSS, no mention of the word (an orchestrator verification pass re-grepped this directly
+      and found the same; the original wording here, "no guide-creation interaction anywhere,"
+      undersold it — the entire rendered *look* of a guide, not only the affordance to create one,
+      is this task's own invention, reusing `GridAndMetrics.kt`'s existing metric-line token as a
+      reasonable, disclosed basis for it). `WorldGuidesPass` renders a `List<Guideline>` and nothing
+      else; no creation gesture (drag-from-edge, a palette "Add guide" command, or otherwise) was
+      built. Guide creation is left for a follow-up task.
     - **No real project/font data flows into `ui` at this layer yet**, confirmed by reading
       `TypewrightSheet.kt`'s own existing scope before writing anything (only a camera and placeholder
       ink exist). `sampleGuidelines()` and `sampleKerning()` are small, honestly-labelled in-memory
