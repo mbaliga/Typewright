@@ -1631,17 +1631,82 @@ succeed.
     faces actually fall back to the system font cleanly there (`learnFaceFontsAreReal()` already
     reports `false` on wasmJs), rather than crashing the whole tab, the way this fix intends.*
 
-64. **`AnatomyLensDataHyleDecoTest.hyleDecosOwnOs2TableDoesNotMatchItsDrawnInkHeights`
-    (`ui/src/desktopTest/.../AnatomyLensDataHyleDecoTest.kt`) fails on a clean `:ui:desktopTest`
-    run, unrelated to this task.** Confirmed unrelated before reporting it, not assumed: this
-    task's own changes never touch `AnatomyLensData.kt`, `qa/corpus`, or `fonts/HyleDeco-Regular.ttf`;
-    `git status` shows `qa/corpus/.../style/Geometry2D.kt` locally modified and uncommitted by a
-    concurrent sibling agent working in this same branch/container while this task ran (this
-    task's own instructions already warned of one, in `ui/…/ui/learn/` — the Anatomy Lens one;
-    this appears to be a second, in `qa/corpus`). Every test this task added, and every other test
-    in `:ui`, passes (`161 tests completed, 1 failed` on the full `:ui:desktopTest` run; the 1 is
-    this one). Not fixed here — out of this task's own scope, and risks colliding with in-flight
-    work in a file this task never touched.
-    *Whoever owns `qa/corpus`'s `Geometry2D.kt` right now, or reviews P6 as a whole: re-run
-    `:ui:desktopTest` once that file's own edit settles; if this still fails afterward, it is a
-    real regression worth its own look, not a flake.*
+64. **RESOLVED (P6, Overlay tab piece) — the concurrent `qa/corpus`/`Geometry2D.kt` edit this item
+    originally flagged was the Overlay tab's own `lineCrossings`/`inkIntervals` visibility widen,
+    and the failing test it named was a real, load-bearing correctness bug, not a flake.**
+    `AnatomyLensDataHyleDecoTest.hyleDecosOwnOs2TableDoesNotMatchItsDrawnInkHeights` failed because
+    `core-font`'s `Os2Table.kt` had a real parser bug (missing `xAvgCharWidth` skip, misreading
+    every `OS/2` field after `version` by 2 bytes for every font ever read through it) — fixed,
+    with the test renamed and corrected to match
+    (`hyleDecosOwnOs2TableActuallyMatchesItsDrawnInkHeights`); see item 54 (also corrected there)
+    and `Os2Table.kt`'s own KDoc for the full story. `:ui:spotlessCheck`/`:ui:desktopTest` both
+    pass clean post-fix (221 tests, 0 failures, re-verified after this item's own resolution).
+    *No action needed — kept here, marked resolved, rather than deleted, so the record of what
+    happened during P6's concurrent-agent window stays intact.*
+
+65. **The Overlay tab's comparison layers use `MeaningColors.AMBER`/`.MAGENTA`, not
+    `ui/typewright-explorer.html`'s own literal violet/cyan swatches for `#ln-ov`'s `l2`/`l3`
+    layers.** `ui/tokens/CanvasTokens.kt`'s own `MeaningColors` object (built before this task)
+    already documents `VIOLET` as "selected node or contour" and `CYAN` as "the thing you are
+    snapping to" — both real, distinct meanings this app uses elsewhere (the Draw/Space rooms'
+    own puck/selection chrome) — while `AMBER`/`MAGENTA` are the two the object's own KDoc already
+    calls out as "comparison layers, paired with a line pattern". Using violet/cyan here, as the
+    explorer's own static mockup does, would put one colour on two different meanings at once
+    (a selected node and a comparison face) — exactly what CLAUDE.md law 8 ("colour is meaning
+    only") rules out. Dash patterns (`9 5`/`2 4`) are still reproduced from the explorer exactly;
+    only the two colours differ. See `OverlayLayer.kt`'s own KDoc for the same reasoning inline.
+    *Madhav (or whoever owns the explorer's own source): either the explorer's `#ln-ov` CSS
+    (`.lay.l2`/`.lay.l3`, `.sw.l2`/`.sw.l3`) should be updated to amber/magenta to match the real
+    token system, or `MeaningColors` should grow a violet/cyan variant that is defined to also
+    mean "comparison layer 2/3" — right now the two disagree and this task picked the real token
+    system's own stated meaning over the mockup's literal hex values.*
+
+66. **Hyle Deco's real font bytes reach the Overlay tab as a base64 string embedded in
+    `ui`'s own commonMain source (`HyleDecoProjectFontBytes.kt`), not through a Gradle resource
+    sync + classpath/fetch read the way `data/learn-faces`'s seventeen faces do
+    (`learn:scenes`'s `LearnFaceResources.kt`, `syncLearnFaceData`).** Checked before building this
+    way: no existing module syncs `fonts/HyleDeco-Regular.ttf` (or `-Italic.ttf`) into any KMP
+    module's runtime resources today — `core-geometry`'s and `ui`'s own tests that read it do so
+    with `java.io.File` off disk, JVM-only, which a real Compose page cannot do on every target
+    (no filesystem on Android or in a browser). The embedded-base64 approach mirrors `core-font`'s
+    own `HyleDecoRegularTtfBase64.kt` (built for exactly the same "every target, no resource
+    pipeline" reason, for its own commonTest), so it is a real, precedented pattern in this
+    codebase, not invented for this task — but it does mean Hyle Deco's bytes now live in three
+    places (`fonts/`, `core-font`'s commonTest fixture, `ui`'s own commonMain), and a future redraw
+    of Hyle Deco needs all three regenerated by hand (the file's own KDoc gives the exact
+    regenerate command). A proper `syncProjectFontData`-style Gradle task (mirroring
+    `syncLearnFaceData`) into a module every KMP target can read from would remove the duplication
+    and the manual-regeneration risk, at the cost of solving cross-target resource reading for real
+    (`ui`'s own `learnFaceFontsAreReal()`/`LearnFaceFonts.wasmJs.kt` KDoc already discloses that
+    `learn:scenes`' own resource-reading approach does not reach a real browser — the same problem
+    would apply to a `ui`-owned Hyle Deco resource sync).
+    *Whoever next needs "the project's own font" available at runtime from more than one `ui`
+    file (this task's own Overlay tab is the first caller): consider building the real resource
+    pipeline once, generally, rather than a second embedded-bytes file per caller.*
+
+67. **The Overlay tab's redline/divergence check and stroke probe are scoped to single glyphs
+    (`'H'` for redline, `'b'`/`'H'`/`'o'` for the probe), not the whole rendered word or an
+    arbitrary user-selected glyph, and the word field's own "per glyph ›" label
+    (`ui/typewright-explorer.html`'s own `#ln-ov` markup, reproduced verbatim) does nothing when
+    tapped.** Comparing a whole multi-glyph word's flattened outlines directly would need each
+    layer's own advance widths reconciled first (two real fonts rarely agree on `b`'s advance
+    width, so `"Hamburg"`'s fourth glyph does not sit at the same x-cursor in every layer past the
+    first letter) — solvable, but a materially bigger feature (per-glyph alignment/selection UI,
+    not just a redline check) than this task's own scope covered. `'H'` (the word's own first
+    letter, so every layer's cursor starts at the same shared origin with no reconciliation needed)
+    was chosen as the one real, always-position-matched glyph to redline-check by default.
+    *Whoever builds the explorer's own `"per glyph ›"` destination for real: the redline/probe
+    glyph choice below should probably become whatever glyph the user is currently focused on
+    there, not a fixed 'H'/'b' pair.*
+
+68. **`OverlayTab`'s word field wraps `"Hamburg"` mid-word ("Hambu"/"rg") on a narrow phone-width
+    screenshot (`OverlayTabScreenshotTest`'s own 210dp-logical viewport, matching this codebase's
+    established Learn-tab screenshot convention — `LineagesTabScreenshotTest`'s own same
+    `width = 420, density = 2f`).** `OVERLAY_DEFAULT_WORD` is one word with no internal space, so
+    Compose's own default wrap has no natural break point at that width; every other row in this
+    tab was fixed to wrap or ellipsize cleanly (this task's own real screenshot-driven find), but
+    the word field itself was left to wrap mid-word rather than truncate it (CLAUDE.md law 5 spirit
+    extended here: the word is content, not chrome, so hiding letters behind an ellipsis felt like
+    the worse trade of the two, even though the mid-word split is visually rougher).
+    *Whoever next tunes this tab's own layout: a smaller word-field font size on narrow widths, or
+    a shorter default word, would remove the mid-word wrap without hiding any letters.*
