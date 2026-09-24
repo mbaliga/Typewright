@@ -8,6 +8,7 @@ class Os2TableTest {
     private fun version0Bytes(version: Int = 0): TestBytes =
         TestBytes()
             .u16(version)
+            .i16(430) // xAvgCharWidth -- real spec field, unmodeled; see Os2Table.kt's own KDoc
             .u16(400) // usWeightClass
             .u16(5) // usWidthClass
             .u16(0) // fsType

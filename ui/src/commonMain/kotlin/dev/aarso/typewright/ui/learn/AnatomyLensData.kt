@@ -64,10 +64,14 @@ import kotlin.math.roundToInt
  * height ([Glyph.inkBounds]'s `maxY`, the same derivation `Proportions.kt`'s own KDoc documents:
  * "else derived from `x` and `H` ink extents") -- [xHeightEntry]/[capHeightEntry] fall back to
  * `core-font`'s own [SfntFont] `OS/2` fields (`sxHeight`/`sCapHeight`) only when the glyph itself
- * is missing, per CLAUDE.md law 1 ("the user's drawing is the source of truth") -- see
- * [xHeightEntry]'s own KDoc for the real Hyle Deco mismatch (`OS/2 sxHeight = 0`, `sCapHeight =
- * 500`, against drawn ink heights `500`/`700`) that makes this the correct order, not just a
- * cautious one. [ascenderEntry]/[descenderEntry] have no glyph-ink-bounds equivalent (there is no
+ * is missing, per CLAUDE.md law 1 ("the user's drawing is the source of truth") -- the right
+ * general rule even though, for this build's own Hyle Deco fixture, both sources now agree
+ * exactly (`sxHeight = 500`, `sCapHeight = 700`, matching drawn ink heights `500`/`700`): an
+ * earlier version of this file's own real-data check found `sxHeight = 0`/`sCapHeight = 500`
+ * here and read that as a Hyle Deco data-quality mismatch, but that was a `core-font` `Os2Table.kt`
+ * bug (a missing `xAvgCharWidth` skip misreading every OS/2 field after `version`), fixed by task
+ * P6 -- see that file's own KDoc and [xHeightEntry]'s own KDoc for the corrected story.
+ * [ascenderEntry]/[descenderEntry] have no glyph-ink-bounds equivalent (there is no
  * one dedicated "ascender glyph"), so they read `hhea`'s `ascender`/`descender` directly -- there
  * is no real UFO for Hyle Deco to read a `UfoFontInfo` from instead (the task's other named
  * source).
@@ -588,12 +592,18 @@ fun xHeightToCapHeightRatioEntry(
  * [AnatomyTerm.X_HEIGHT] as a raw font-unit value: [x]'s own ink height ([Glyph.inkBounds]'s
  * `maxY`) when [x] is present, else [os2XHeight] (`OS/2`'s `sxHeight`, `core-font`'s
  * [SfntFont.os2] -- real when the table is version >= 2). The drawn glyph is primary, not `OS/2`'s
- * declared metric, per CLAUDE.md law 1 ("the user's drawing is the source of truth") -- confirmed
- * necessary, not just a cautious default, by this task's own real-font check against
- * `fonts/HyleDeco-Regular.ttf`: its `OS/2` table gives `sxHeight = 0` and `sCapHeight = 500`, while
- * `x`/`H`'s own drawn ink heights are `500`/`700` -- the declared metrics do not match what was
- * actually drawn (docs/OPEN_QUESTIONS.md logs this as a Hyle Deco fixture data-quality finding). A
- * non-positive `OS/2` value is treated the same as a missing one, matching `qa/corpus`'s own
+ * declared metric, per CLAUDE.md law 1 ("the user's drawing is the source of truth") -- the
+ * general rule this codebase follows regardless of any one font's own numbers.
+ *
+ * **Correction (task P6, Overlay tab).** This KDoc originally cited `fonts/HyleDeco-Regular.ttf`'s
+ * own `OS/2` table as a real, confirmed data-quality mismatch against the drawing: `sxHeight = 0`,
+ * `sCapHeight = 500`, against drawn ink heights `500`/`700`. That was wrong -- not a font problem,
+ * a `core-font` bug: `Os2Table.kt` was missing a 2-byte skip for the `xAvgCharWidth` field right
+ * after `version`, which silently misread every OS/2 field after it by one `int16` for *every*
+ * font this reader has ever parsed, not just this one. Fixed (P6), Hyle Deco's real `OS/2` table
+ * reads `sxHeight = 500`, `sCapHeight = 700` -- it agrees with the drawing exactly; there never
+ * was a data-quality gap here to log. `docs/OPEN_QUESTIONS.md`'s corresponding entry has been
+ * corrected, not left standing. A non-positive `OS/2` value is treated the same as a missing one, matching `qa/corpus`'s own
  * "non-positive means unusable" convention (e.g. `xHeightToCapHeightRatio`'s `capHeight <= 0.0`
  * check). Not flagged heuristic: both sources are direct measurements, never a classification
  * guess.
@@ -611,7 +621,7 @@ fun xHeightEntry(
     return measured(AnatomyTerm.X_HEIGHT, AnatomyLensValue.FontUnits(value), isHeuristic = false)
 }
 
-/** [AnatomyTerm.CAP_HEIGHT] as a raw font-unit value: [h]'s own ink height when [h] is present, else [os2CapHeight] (`OS/2`'s `sCapHeight`). Not flagged heuristic: see [xHeightEntry], whose KDoc also has the real Hyle Deco mismatch this priority order is built to handle correctly. */
+/** [AnatomyTerm.CAP_HEIGHT] as a raw font-unit value: [h]'s own ink height when [h] is present, else [os2CapHeight] (`OS/2`'s `sCapHeight`). Not flagged heuristic: see [xHeightEntry]'s own KDoc for why drawn ink stays primary regardless (and for this file's own corrected `core-font` `Os2Table.kt` story). */
 fun capHeightEntry(
     h: Glyph?,
     os2CapHeight: Int?,

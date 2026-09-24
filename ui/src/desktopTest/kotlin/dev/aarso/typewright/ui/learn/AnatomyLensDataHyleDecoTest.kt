@@ -217,32 +217,38 @@ class AnatomyLensDataHyleDecoTest {
     // ---- x-height / cap-height / ascender / descender: core-font's own SfntFont tables ----
 
     @Test
-    fun hyleDecosOwnOs2TableDoesNotMatchItsDrawnInkHeights() {
-        // The real, disclosed data-quality finding xHeightEntry's own KDoc documents and this
-        // test pins: OS/2's declared sxHeight/sCapHeight do not match what Hyle Deco actually
-        // draws, which is exactly why the glyph's own ink height has to be primary (CLAUDE.md law
-        // 1) and OS/2 only a fallback.
-        assertEquals(0, font.os2?.sxHeight)
-        assertEquals(500, font.os2?.sCapHeight)
+    fun hyleDecosOwnOs2TableActuallyMatchesItsDrawnInkHeights() {
+        // Corrected task P6 (Overlay tab): this test used to pin `sxHeight = 0`, `sCapHeight =
+        // 500` as a real Hyle Deco data-quality mismatch against the drawn ink (500/700). That
+        // was not a font problem -- it was a `core-font` `Os2Table.kt` bug (a missing
+        // `xAvgCharWidth` skip, 2-byte-early misread of every field after `version`; see that
+        // file's own KDoc and `HyleDecoCrossCheckTest`'s own real-data regression test in
+        // `core-font`). Fixed, the OS/2 table actually agrees with the drawing exactly: both real
+        // sources give 500/700. [xHeightEntry]/[capHeightEntry] still read the glyph's own drawn
+        // ink first and `OS/2` only as a fallback (CLAUDE.md law 1) -- for Hyle Deco specifically
+        // that ordering no longer changes the answer, but it remains the right general rule for a
+        // font whose two sources genuinely do disagree.
+        assertEquals(500, font.os2?.sxHeight)
+        assertEquals(700, font.os2?.sCapHeight)
         assertEquals(500, assertNotNull(assertNotNull(x).inkBounds()).maxY.toInt())
         assertEquals(700, assertNotNull(assertNotNull(h).inkBounds()).maxY.toInt())
     }
 
     @Test
-    fun xHeightEntryPrefersDrawnInkOverTheMismatchedOs2Field() {
+    fun xHeightEntryReadsDrawnInkWhichNowAlsoAgreesWithOs2() {
         val entry = assertIs<AnatomyLensEntry.Measured>(xHeightEntry(x, glyphSet.osXHeight))
         val value = assertIs<AnatomyLensValue.FontUnits>(entry.value)
-        assertEquals(500, value.value, "must read x's own drawn ink height, not OS/2's sxHeight=0")
+        assertEquals(500, value.value, "x's own drawn ink height (and, post Os2Table.kt fix, OS/2's own real sxHeight)")
         assertFalse(entry.isHeuristic)
         val dispatched = assertIs<AnatomyLensEntry.Measured>(anatomyLensEntry(AnatomyTerm.X_HEIGHT, glyphSet))
         assertEquals(value, dispatched.value)
     }
 
     @Test
-    fun capHeightEntryPrefersDrawnInkOverTheMismatchedOs2Field() {
+    fun capHeightEntryReadsDrawnInkWhichNowAlsoAgreesWithOs2() {
         val entry = assertIs<AnatomyLensEntry.Measured>(capHeightEntry(h, glyphSet.osCapHeight))
         val value = assertIs<AnatomyLensValue.FontUnits>(entry.value)
-        assertEquals(700, value.value, "must read H's own drawn ink height (700), not OS/2's sCapHeight=500")
+        assertEquals(700, value.value, "H's own drawn ink height (and, post Os2Table.kt fix, OS/2's own real sCapHeight)")
         assertFalse(entry.isHeuristic)
         val dispatched = assertIs<AnatomyLensEntry.Measured>(anatomyLensEntry(AnatomyTerm.CAP_HEIGHT, glyphSet))
         assertEquals(value, dispatched.value)

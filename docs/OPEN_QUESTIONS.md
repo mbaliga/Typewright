@@ -1458,20 +1458,25 @@ The four Craft before/after scenes P6's own content-authoring prompt names expli
     measured feature (likely: serif stroke width relative to the stem, or relative to the o's own
     contrast ratio) — not a reclassification of the existing bracketScore.*
 
-54. **`fonts/HyleDeco-Regular.ttf`'s own `OS/2` table does not match what the font actually
-    draws.** Found while building `xHeightEntry`/`capHeightEntry`: `OS/2 sxHeight = 0`,
-    `sCapHeight = 500`, while `x`/`H`'s own drawn ink heights (`Glyph.inkBounds().maxY`) are
-    `500`/`700` — the declared metrics look swapped/placeholder rather than measured off the
-    actual outlines. `AnatomyLensData.kt`'s `xHeightEntry`/`capHeightEntry` handle this correctly
-    by design (the drawn glyph's own ink height is primary, `OS/2` only a fallback when the glyph
-    itself is missing — CLAUDE.md law 1, "the user's drawing is the source of truth" — and this
-    real mismatch is exactly why that order matters, not just a cautious default), and
-    `AnatomyLensDataHyleDecoTest.hyleDecosOwnOs2TableDoesNotMatchItsDrawnInkHeights` pins the real
-    numbers as a regression check. This is a data-quality fact about the fixture font itself, not
-    a bug in this task's own code.
-    *Whoever next touches `fonts/HyleDeco-Regular.ttf` (or regenerates it): its `OS/2 sxHeight`/
-    `sCapHeight` fields are wrong relative to its own drawn glyphs and could confuse a tool that
-    trusts them over the outlines.*
+54. **RESOLVED (P6, Overlay tab) — was misdiagnosed as a Hyle Deco fixture data-quality issue;
+    it was actually a `core-font` `Os2Table.kt` parser bug, now fixed.** Originally found while
+    building `xHeightEntry`/`capHeightEntry`: `OS/2 sxHeight = 0`, `sCapHeight = 500`, while
+    `x`/`H`'s own drawn ink heights (`Glyph.inkBounds().maxY`) are `500`/`700`. P6's own Overlay
+    tab needed real cap-height/x-height for every one of its layers, cross-checked `Os2Table.kt`
+    byte-for-byte against a real `OS/2` table with an independent parser (fontTools) before
+    trusting it, and found the real bug: `readOs2Table` never skipped `xAvgCharWidth` (the
+    `int16` field right after `version`), so *every* field it read after `version` — weight
+    class, fs selection, typo ascender/descender, `sxHeight`, `sCapHeight`, all of it, for every
+    font this reader has ever parsed, not just Hyle Deco — came from 2 bytes early. Fixed
+    (`Os2Table.kt`, `core-font`); Hyle Deco's real `OS/2` table reads `sxHeight = 500`,
+    `sCapHeight = 700` — it agrees with the drawing exactly. There never was a data-quality gap in
+    the fixture font. Regression tests: `core-font`'s `HyleDecoCrossCheckTest.os2XHeightAndCapHeightAreReadFromTheRealSpecOffsets`
+    (byte-level proof against the real font) and `Os2TableTest` (synthetic-fixture proof, its own
+    `version0Bytes()` builder was missing the same field and has been corrected too).
+    `AnatomyLensData.kt`'s `xHeightEntry`/`capHeightEntry` still read the drawn glyph's own ink
+    first and `OS/2` only as a fallback (CLAUDE.md law 1) — the right general rule regardless, now
+    just not load-bearing for this one fixture. *Madhav: no action needed on
+    `fonts/HyleDeco-Regular.ttf` itself — it was never wrong.*
 
 55. **This task's own instructions describe cross-checking against an existing `qa/corpus` test
     that already asserts Hyle Deco's measured values ("e.g. if `ContrastStressTest` already

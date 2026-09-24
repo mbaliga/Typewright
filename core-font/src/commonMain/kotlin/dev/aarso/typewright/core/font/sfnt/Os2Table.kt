@@ -37,6 +37,18 @@ data class Os2Table(
 /** Parses an `OS/2` table from a cursor positioned at its start. */
 fun readOs2Table(cursor: ByteCursor): Os2Table {
     val version = cursor.u16()
+    cursor.skip(2) // xAvgCharWidth -- not modeled (nothing downstream needs it); skipping it is
+    // load-bearing, not decorative: every OS/2 field below this line sits 2 bytes later than
+    // `version` in the real table layout (OpenType spec, "OS/2"), and omitting this skip read
+    // every one of them from the wrong offset -- found and fixed task P6 (Overlay tab), verified
+    // against a real font's raw bytes (fontTools' own independent parse of
+    // `fonts/HyleDeco-Regular.ttf`'s OS/2 table) before this fix and cross-checked after against
+    // the same bytes: pre-fix this reader returned `sxHeight = 0`, `sCapHeight = 500` for that
+    // font; the real, correct values (confirmed via fontTools) are `sxHeight = 500`,
+    // `sCapHeight = 700` -- which, unlike the pre-fix numbers, actually match Hyle Deco's own
+    // drawn ink heights for `x`/`H` (500/700). See `Os2TableTest`'s
+    // `xAvgCharWidthIsSkippedSoLaterFieldsLandOnTheRealSpecOffsets` and
+    // `HyleDecoCrossCheckTest`'s own OS/2 regression test for the real-data proof.
     val usWeightClass = cursor.u16()
     val usWidthClass = cursor.u16()
     val fsType = cursor.u16()

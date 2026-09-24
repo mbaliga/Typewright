@@ -107,4 +107,28 @@ class HyleDecoCrossCheckTest {
         assertTrue(count.onCurveEquivalent > 0, "composite glyph 'uni00C0' decomposed to zero on-curve points")
         assertEquals(3, count.contourCount, "uni00C0 = A (2 contours) + grave (1 contour)")
     }
+
+    @Test
+    fun os2XHeightAndCapHeightAreReadFromTheRealSpecOffsets() {
+        // P6 (Overlay tab) regression: proves Os2Table.kt's `xAvgCharWidth` skip fix against the
+        // real font's own bytes, not a synthetic fixture. Independently confirmed via fontTools
+        // 4.x parsing the same embedded bytes' raw OS/2 table by hand (offsets 86/88 into the
+        // table, version 4): sxHeight = 500, sCapHeight = 700 -- which now match `x`/`H`'s own
+        // drawn ink heights exactly (500/700, `qa/corpus`'s `Glyph.inkBounds()`), unlike the
+        // pre-fix reader's `sxHeight = 0`, `sCapHeight = 500` (a 2-byte-early misread that never
+        // matched the drawing). This also settles the "does OS/2 disagree with the drawing"
+        // question `ui.learn.AnatomyLensData`'s own (pre-fix) KDoc raised: it does not -- the
+        // disagreement was this reader's own bug, not a Hyle Deco data-quality issue.
+        val os2 = font.os2
+        require(os2 != null) { "Hyle Deco has no OS/2 table" }
+        assertEquals(4, os2.version)
+        assertEquals(500, os2.sxHeight)
+        assertEquals(700, os2.sCapHeight)
+        // Two more real fields from the same shifted range, cross-checked against fontTools
+        // independently and against this font's own `hhea` table (already covered by
+        // `HheaTableTest`/this suite's own font): sTypoAscender/Descender conventionally track
+        // hhea's ascender/descender for a font like this, and they do here post-fix.
+        assertEquals(font.hhea.ascender, os2.sTypoAscender)
+        assertEquals(font.hhea.descender, os2.sTypoDescender)
+    }
 }

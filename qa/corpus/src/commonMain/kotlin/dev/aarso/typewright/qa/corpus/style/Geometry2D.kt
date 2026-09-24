@@ -26,7 +26,13 @@ import kotlin.math.min
  *
  * [Bounds] and [Glyph.inkBounds] are public (P6, `ui`'s Anatomy Lens): it reads its own `x`/`H`
  * glyphs' ink height the same way `Proportions.kt`'s [xHeightToCapHeightRatio] already does
- * internally, so this type has to cross the `:qa:corpus` module boundary too.
+ * internally, so this type has to cross the `:qa:corpus` module boundary too. [LineCrossing],
+ * [Glyph.lineCrossings], [InkInterval] and [inkIntervals] are public for the same reason, a
+ * second time (P6, `ui`'s Overlay tab): its stroke probe needs a stem/bar *width in font units* at
+ * a caller-chosen probe line (e.g. a horizontal ray through `n`'s stem, a vertical ray through
+ * `H`'s crossbar), which is exactly what these two functions already compute for every style
+ * probe in this package -- [dev.aarso.typewright.ui.learn.strokeProbe] calls them directly rather
+ * than re-deriving the same even-odd ray-cast logic a second time.
  */
 data class Bounds(
     val minX: Double,
@@ -96,8 +102,8 @@ fun Glyph.inkBounds(): Bounds? {
  */
 fun Glyph.outerContour(): Contour? = contours.maxByOrNull { abs(it.signedArea()) }
 
-/** One crossing of a probe line against an outline: [tAlongLine] is the crossing's signed distance from the line's own origin, along the line's own direction -- the line's parametrization, not any segment's. */
-internal data class LineCrossing(
+/** One crossing of a probe line against an outline: [tAlongLine] is the crossing's signed distance from the line's own origin, along the line's own direction -- the line's parametrization, not any segment's. Public: see [Bounds]'s KDoc, "Overlay tab" paragraph. */
+data class LineCrossing(
     val tAlongLine: Double,
     val point: Vec2,
 )
@@ -113,7 +119,7 @@ internal data class LineCrossing(
  * line grazing a curve without truly crossing) is not filtered out here; [inkIntervals] treats a
  * pair of nearly-coincident crossings as a zero-width interval, which callers already skip.
  */
-internal fun Glyph.lineCrossings(
+fun Glyph.lineCrossings(
     origin: Vec2,
     direction: Vec2,
     curveSteps: Int = 64,
@@ -184,8 +190,8 @@ private fun sampledCurveCrossings(
     return result
 }
 
-/** A closed interval of "ink" along a probe line, between two consecutive [LineCrossing]s. */
-internal data class InkInterval(
+/** A closed interval of "ink" along a probe line, between two consecutive [LineCrossing]s. Public: see [Bounds]'s KDoc, "Overlay tab" paragraph. */
+data class InkInterval(
     val start: Double,
     val end: Double,
 ) {
@@ -201,7 +207,7 @@ internal data class InkInterval(
  * stray near-duplicate crossing (within [epsilon]) is merged away first so it cannot desync the
  * parity, which is this function's one piece of real robustness -- the rest is the textbook rule.
  */
-internal fun inkIntervals(
+fun inkIntervals(
     crossings: List<LineCrossing>,
     epsilon: Double = 1e-6,
 ): List<InkInterval> {
