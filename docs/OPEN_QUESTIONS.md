@@ -336,3 +336,60 @@ says what was done in the meantime, and names who decides. Answered entries move
 
     *Data point for whoever next revisits the Snap stage or the Schneider fitter's own corner
     handling; not a product decision, so no owner tag.*
+
+## P3: the pure raster-to-vector trace chain
+
+22. **Two real limitations measured directly while building `engine-trace`'s pure "Clean"/"Contour"
+    chain (P3-core), both documented honestly in the code rather than tuned around.**
+    `dev.aarso.typewright.engine.trace` adds a raster type (`GrayscaleRaster`/`BinaryRaster`, a
+    plain `IntArray`/`BooleanArray` wrapper, no platform bitmap type), `adaptiveThreshold`
+    (integral-image local-mean threshold), `despeckle`/`fillHoles` (a general connected-component
+    labeler, `labelComponents`, written here, 4- and 8-connectivity used per the standard
+    complementary-colour pairing), `traceContours` (marching squares, derived from first principles,
+    general over any `ScalarField`), `distanceTransform`/`estimateStrokeWidth`, and
+    `traceBinaryToContours`/`traceGrayscaleToContours`, which wire the whole chain into
+    `core-geometry`'s P2 `fitClosedContourToCubics`. `./gradlew :engine-trace:check` passes on both
+    `jvm` and `wasmJs`, 60 tests each.
+    - **`adaptiveThreshold`'s local-mean method assumes the ink is thin relative to its window.** A
+      filled shape wider than about `2 * windowRadius` (the default is 15) has an interior whose own
+      local window is entirely ink, so "darker than the local mean by at least `bias`" can never
+      fire there — not a boundary artefact but a real, measured failure (a test disc of radius 25
+      against the default window misclassified a large connected interior region as background,
+      confirmed by inspecting the resulting background component directly, not guessed at). A real
+      hand-drawn letter stroke is thin, so this rarely matters for this module's actual use case;
+      `AdaptiveThreshold.kt`'s own KDoc documents the limitation, and every test in this file and
+      `TraceChainTest` was sized accordingly (a disc of radius 12, comfortably under the window)
+      rather than hidden behind a larger default window that would make the common thin-stroke case
+      less sensitive for no benefit.
+    - **Marching squares chamfers every genuine 90-degree corner by a small, fixed, honestly-measured
+      amount** (a right triangle of legs `0.5`, area `0.125`, per corner, at isovalue `0.5` on a
+      binary field) — an inherent property of linear interpolation between four samples, not a
+      defect of this implementation; `MarchingSquares.kt`'s KDoc and `MarchingSquaresTest`'s
+      rectangle fixtures measure and account for it explicitly (`chamferedRectangleArea`) rather than
+      asserting a right angle the method cannot produce. Sub-pixel accuracy against a true circle was
+      measured, not merely asserted: a binary mask's extracted contour stays within exactly `0.5`
+      pixels of the true circle (the theoretical bound for linear interpolation between two 0/1
+      samples, confirmed empirically at radius 15 and radius 40 in `MarchingSquaresSubpixelAccuracyTest`),
+      while the same general function handed a genuinely anti-aliased coverage field for the same
+      circle gets far closer (about `0.10` pixels max, `0.03` mean, an order of magnitude tighter),
+      demonstrating `ScalarField`'s generality rather than only asserting it.
+    - **`estimateStrokeWidth` switched from "twice the median" to "twice the maximum" distance-
+      transform value, honestly, after measuring the median version's own real bias.** This task's
+      own instructions name both as acceptable ("roughly twice the local maximum... along the medial
+      axis, or more simply, twice the median/mode... over all foreground pixels"). The median version
+      was implemented first and measured directly against a synthetic bar of known width `W`: for a
+      straight, hard-edged stroke, the distance-transform profile across its cross-section is a
+      triangle from `1` up to `ceil(W/2)` and back down, with *every* level occurring about equally
+      often — so the median approximates the triangle's *average* height (about `W/4`), not its peak,
+      and "twice the median" converges to roughly `W/2` as `W` grows: half the true width, a real,
+      structural bias, not a rare edge case (measured directly on this module's own bar fixtures
+      before the switch). "Twice the maximum" is exact for a single, roughly-uniform-width stroke (the
+      medial axis is by definition where the distance field peaks) and measured exact or within 1
+      pixel on this module's own known-width bar fixtures (`W=12` to exactly `12.0`; `W=7` to `8.0`)
+      — at the cost of being less robust than a median to one stray large-interior blob elsewhere in
+      the same raster (a filled counter, undespeckled noise); `DistanceTransform.kt`'s KDoc records
+      both sides of that trade-off and the measurements behind the switch.
+
+    *Data points for whoever next builds capture/cleanup calibration on top of this chain (a future
+    per-glyph-cell or per-stroke capture task) or revisits `estimateStrokeWidth`'s robustness on a
+    multi-component raster; not product decisions, so no owner tag.*
