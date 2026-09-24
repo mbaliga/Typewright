@@ -68,8 +68,11 @@ sealed interface PuckOutputEvent {
 
     /**
      * The net number of tools to cycle by since the last [ToolCycled] (positive = forward,
-     * negative = back); UI_SPEC §3's "haptic 6 ms" per step is P4b's `LocalHapticFeedback` call,
-     * once per event, not modelled here (`docs/ARCHITECTURE_REVIEW.md` §4.2 recommendation 4).
+     * negative = back); UI_SPEC §3's "haptic 6 ms" per step is not modelled here. It is a
+     * P4b caller concern (`docs/ARCHITECTURE_REVIEW.md` §4.2 recommendation 4) and, as of P4b,
+     * an unwired hook point -- `Puck.kt`'s handler for the analogous [RadialDetentTicked] is a
+     * no-op with a comment marking where a `LocalHapticFeedback` call would go, and Android is
+     * the only target with a vibrator to call it on (UI_SPEC §6, brief §6: "Android only in v1").
      */
     data class ToolCycled(
         val steps: Int,

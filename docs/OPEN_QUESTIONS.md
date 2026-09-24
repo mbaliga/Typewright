@@ -543,3 +543,52 @@ says what was done in the meantime, and names who decides. Answered entries move
     (the Hobby-for-v1 call is this task's own technical pick, per brief section 10's own "pick one,
     document why," not one CLAUDE.md's "when unsure" rule reserves for the product owner), so no
     owner tag.*
+
+## P4a/P4b: the one-sheet UI's camera, puck gestures and Compose composables
+
+25. **The one-sheet UI is built and its chrome verified against the explorer, but several
+    interactions the brief and UI_SPEC name for this surface are not yet wired — disclosed here
+    rather than left implicit.** P4a built the pure logic (`SheetCamera`/`SheetDepth`, room
+    layout, motion tokens, `PuckGestureEvents`/`PuckGestureConfig`/`reducePuckGesture`) and P4b
+    built the Compose composables on top of it (`TypewrightSheet`, `Puck`/`RadialDial`/
+    `UnfoldedToolList`, `Bloom`, `GridAndMetrics`, `Header`/`Inspector`/`EdgeMarks`). Screenshot
+    comparison against the explorer's own reference screenshots (`ui/src/desktopTest/.../
+    SheetScreenshotTest.kt`) covers the chrome only — grid, puck, header, inspector, bloom and
+    camera framing — not room *content*, which is a placeholder rectangle and wordmark, not yet a
+    reproduction of anything the explorer draws inside a room.
+    - **`SheetDepth` (brief §4.2: "zoom is depth... pinch out from a glyph → the word proof → the
+      specimen") is computed but never read.** `SheetCamera.depth` derives the right enum value
+      from `zoom` and is unit-tested in isolation, but nothing in P4b's composables reads it —
+      `TypewrightSheet` renders one room's content the same way at every zoom level; there is no
+      map/specimen/proof rendering keyed to depth yet.
+    - **`PointerType` (stylus vs. mouse vs. finger) has zero occurrences in `ui`.** Brief §5.2
+      ("Three hands over one geometry") asks for different behaviour per input kind (stylus
+      hover shows snap candidates before touch commits, barrel button constrains, palm rejection;
+      mouse gets modifier-key constrain/snap and 1/10-unit arrow nudge). `PuckGestureEvents`'
+      alphabet is already pointer-kind-agnostic by design (its KDoc: "abstract pointer-lifecycle
+      events"), and nothing built in P4a/P4b reads `androidx.compose.ui.input.pointer.PointerType`
+      anywhere to branch on it — every pointer is currently handled identically.
+    - **`=` numeric expression entry (UI_SPEC §5.2: `=xheight`, `=o.rsb+4`) does not exist.** No
+      numeric-entry field, expression parser or evaluator was built in P4a/P4b; there is nothing
+      yet to type a value into (that belongs to a later inspector/measurement task).
+    - **The command palette (UI_SPEC §4, brief §5.2 and §10 item 6: Ctrl/⌘ K, 520 dp wide, palette
+      commands like "add extremes", "harmonise curvature", "tidy/simplify with a live count") does
+      not exist.** No palette composable, no command registry, no keyboard shortcut wiring for
+      `Ctrl/⌘ K` was built.
+    - **The contextual radial on holding a node or contour (brief §5.1: "Contextual actions on an
+      object... are a hold on the object itself: the same radial, different contents, centred on
+      the object") does not exist.** Only the puck's own tool-cycling radial (hold the puck itself)
+      is built; `PuckGestureEvents`/`reducePuckGesture` model the puck's hold gesture specifically,
+      not a general hold-on-any-object gesture, and there is no node/contour hit-testing yet for a
+      hold to target.
+    - **Haptics (UI_SPEC §3: "haptic 6 ms" per radial detent) are an unwired hook point, not a
+      gap in the gesture machine itself.** `PuckGestureEvents.ToolCycled`'s KDoc previously
+      overclaimed this as "P4b's `LocalHapticFeedback` call"; `Puck.kt`'s handler for the
+      analogous `RadialDetentTicked` output event is in fact a no-op with a comment marking where
+      the call would go (Android is the only P4 target with a vibrator to call it on). Corrected
+      in the same change that adds this entry.
+
+    *Data points for P5b (which wires `engine-construct`'s geometry into this sheet: primitives
+    tool, Construct inspector, background/sketch layers, guides) or a future task that adds
+    numeric/expression entry, the command palette, and the contextual object radial; not product
+    decisions, so no owner tag.*
