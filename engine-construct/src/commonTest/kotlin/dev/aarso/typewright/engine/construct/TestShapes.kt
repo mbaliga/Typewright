@@ -5,9 +5,11 @@ import dev.aarso.typewright.core.geometry.ContourPoint
 import dev.aarso.typewright.core.geometry.CurveFormat
 import dev.aarso.typewright.core.geometry.Point
 import dev.aarso.typewright.core.geometry.Vec2
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlin.test.assertTrue
 
 // Shared constructed-shape helpers for this module's tests (CLAUDE.md: "constructed shapes where
 // the correct offset/stroke/etc. is computable analytically"). Every helper below is a plain,
@@ -123,4 +125,32 @@ private fun distanceToSegment(
     val t = ((p - a).dot(ab) / len2).coerceIn(0.0, 1.0)
     val proj = a + ab * t
     return (p - proj).length()
+}
+
+// -------------------------------------------------------------------------------------------
+// Shared tolerance-based assertions (task P5b-construction-grammar's own primitive tests all use
+// these, rather than each redefining its own copy).
+// -------------------------------------------------------------------------------------------
+
+/** Asserts [actual] is within [tolerance] of [expected]. */
+fun assertApprox(
+    expected: Double,
+    actual: Double,
+    tolerance: Double = 1e-6,
+    message: String = "",
+) {
+    assertTrue(abs(expected - actual) <= tolerance, "$message expected $expected, got $actual (tolerance $tolerance)")
+}
+
+/** Asserts [actual] is within [tolerance] of [expected] on both axes. */
+fun assertVec2Approx(
+    expected: Vec2,
+    actual: Vec2,
+    tolerance: Double = 1e-6,
+    message: String = "",
+) {
+    assertTrue(
+        abs(expected.x - actual.x) <= tolerance && abs(expected.y - actual.y) <= tolerance,
+        "$message expected $expected, got $actual (tolerance $tolerance)",
+    )
 }
