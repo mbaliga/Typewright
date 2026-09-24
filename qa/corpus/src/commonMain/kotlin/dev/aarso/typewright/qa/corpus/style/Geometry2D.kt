@@ -23,8 +23,12 @@ import kotlin.math.min
  * finder ([narrowestThroat]). Everything here is a measurement primitive, not a classifier --
  * `StyleScorer.kt` is the only file in this package that reads a feature and decides what it
  * implies about a class (TYPEWRIGHT_BUILD_BRIEF.md 8.4).
+ *
+ * [Bounds] and [Glyph.inkBounds] are public (P6, `ui`'s Anatomy Lens): it reads its own `x`/`H`
+ * glyphs' ink height the same way `Proportions.kt`'s [xHeightToCapHeightRatio] already does
+ * internally, so this type has to cross the `:qa:corpus` module boundary too.
  */
-internal data class Bounds(
+data class Bounds(
     val minX: Double,
     val minY: Double,
     val maxX: Double,
@@ -69,8 +73,11 @@ internal fun Contour.tightBounds(): Bounds? {
     return if (!any) null else Bounds(minX, minY, maxX, maxY)
 }
 
-/** This glyph's exact ink bounds, the union of [tightBounds] over every contour, or `null` for an empty (contourless) glyph. */
-internal fun Glyph.inkBounds(): Bounds? {
+/**
+ * This glyph's exact ink bounds, the union of [tightBounds] over every contour, or `null` for an
+ * empty (contourless) glyph. Public: see [Bounds]'s KDoc for why.
+ */
+fun Glyph.inkBounds(): Bounds? {
     var result: Bounds? = null
     for (c in contours) {
         val b = c.tightBounds() ?: continue
@@ -79,8 +86,15 @@ internal fun Glyph.inkBounds(): Bounds? {
     return result
 }
 
-/** This glyph's outer contour: the one with the largest absolute [Contour.signedArea] (the silhouette; a counter or eye is always smaller). `null` for an empty glyph. */
-internal fun Glyph.outerContour(): Contour? = contours.maxByOrNull { abs(it.signedArea()) }
+/**
+ * This glyph's outer contour: the one with the largest absolute [Contour.signedArea] (the
+ * silhouette; a counter or eye is always smaller). `null` for an empty glyph. Public (P6, `ui`'s
+ * Anatomy Lens): [dev.aarso.typewright.ui.learn.AnatomyLensData] needs a glyph's outer contour to
+ * call [terminalStyle], so this one navigational helper has to cross the `:qa:corpus` module
+ * boundary too -- everything else in this file stays internal (no other public function's
+ * signature needs it).
+ */
+fun Glyph.outerContour(): Contour? = contours.maxByOrNull { abs(it.signedArea()) }
 
 /** One crossing of a probe line against an outline: [tAlongLine] is the crossing's signed distance from the line's own origin, along the line's own direction -- the line's parametrization, not any segment's. */
 internal data class LineCrossing(

@@ -32,7 +32,10 @@ import dev.aarso.typewright.core.geometry.Vec2
  */
 private const val SERIF_THRESHOLD = 1.15
 
-internal fun serifMetrics(t: Glyph): SerifMetrics? {
+// Public (P6, `ui`'s Anatomy Lens): dev.aarso.typewright.ui.learn.AnatomyLensData wires this
+// same function to the "serif" lens term on the user's own `T`, so it has to cross the
+// `:qa:corpus` module boundary -- see that file's KDoc for the rest of the wiring.
+fun serifMetrics(t: Glyph): SerifMetrics? {
     val bounds = t.inkBounds() ?: return null
     val stemHeight = bounds.height
     if (stemHeight <= 0.0) return null

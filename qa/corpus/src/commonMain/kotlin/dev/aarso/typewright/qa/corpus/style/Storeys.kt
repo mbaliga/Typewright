@@ -26,14 +26,17 @@ import kotlin.math.abs
  */
 private const val A_COUNTER_HEIGHT_RATIO_THRESHOLD = 0.80
 
-internal fun storeysFromG(g: Glyph): Storeys =
+// Public (P6, `ui`'s Anatomy Lens): dev.aarso.typewright.ui.learn.AnatomyLensData wires these two
+// functions to the "storeys" lens term on the user's own `a`/`g`, so they have to cross the
+// `:qa:corpus` module boundary -- see that file's KDoc for the rest of the wiring.
+fun storeysFromG(g: Glyph): Storeys =
     when {
         g.contours.isEmpty() -> Storeys.UNKNOWN
         g.contours.size >= 3 -> Storeys.DOUBLE
         else -> Storeys.SINGLE
     }
 
-internal fun storeysFromA(a: Glyph): Storeys {
+fun storeysFromA(a: Glyph): Storeys {
     if (a.contours.size < 2) return Storeys.UNKNOWN
     val outer = a.outerContour() ?: return Storeys.UNKNOWN
     val counter = a.contours.filter { it !== outer }.maxByOrNull { abs(it.signedArea()) } ?: return Storeys.UNKNOWN

@@ -34,7 +34,10 @@ import kotlin.math.min
 private const val AXIS_ALIGNED_TOLERANCE_DEGREES = 22.5
 private const val STRAIGHTNESS_TOLERANCE_FRACTION = 0.06
 
-internal fun terminalStyle(
+// Public (P6, `ui`'s Anatomy Lens): dev.aarso.typewright.ui.learn.AnatomyLensData wires this
+// function to the "terminal" lens term on the user's own `c`/`e`/`s`/`r`/`f`, so it has to cross
+// the `:qa:corpus` module boundary -- see that file's KDoc for the rest of the wiring.
+fun terminalStyle(
     glyph: Glyph,
     contour: Contour,
 ): TerminalStyle {

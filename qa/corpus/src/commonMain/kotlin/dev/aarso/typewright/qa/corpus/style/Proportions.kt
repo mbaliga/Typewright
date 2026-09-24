@@ -8,8 +8,14 @@ import dev.aarso.typewright.core.geometry.Glyph
  * its KDoc), so this package always takes the "else" branch -- `x`'s and `H`'s own ink-bounds top
  * ([Bounds.maxY], assuming a baseline at `y = 0`, the font-unit convention CLAUDE.md states).
  * `null` if either glyph is missing or `H`'s ink height is not positive.
+ *
+ * Public (P6, `ui`'s Anatomy Lens): [dev.aarso.typewright.ui.learn.AnatomyLensData] wires this
+ * function to the "x-height ratio" lens term on the user's own `x`/`H`, so it has to cross the
+ * `:qa:corpus` module boundary -- see that file's KDoc for the rest of the wiring. [widthClass]
+ * below stays internal: it is a Lineages-strand feature (`learn:scenes`'
+ * STYLE_FEATURE_VOCABULARY's "Width" entry), not an Anatomy Lens term, so the lens never calls it.
  */
-internal fun xHeightToCapHeightRatio(
+fun xHeightToCapHeightRatio(
     x: Glyph?,
     capH: Glyph?,
 ): Double? {

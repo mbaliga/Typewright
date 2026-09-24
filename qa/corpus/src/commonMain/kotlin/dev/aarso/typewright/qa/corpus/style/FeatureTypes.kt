@@ -37,11 +37,21 @@ internal fun StyleGlyphSet.Companion.fromSfntFont(font: SfntFont): StyleGlyphSet
 // `StyleGlyphSet.fromSfntFont` above and `StyleGlyphSetTest` attach to.
 internal object StyleGlyphSetCompanionAnchor
 
-/** Single- versus double-storey construction of `a`/`g` (brief 8.4). [UNKNOWN] means the glyph needed to tell was missing or had no usable contours -- never guessed. */
-internal enum class Storeys { SINGLE, DOUBLE, UNKNOWN }
+/**
+ * Single- versus double-storey construction of `a`/`g` (brief 8.4). [UNKNOWN] means the glyph
+ * needed to tell was missing or had no usable contours -- never guessed. Public (P6, `ui`'s
+ * Anatomy Lens): [storeysFromA]/[storeysFromG] are the "storey count" measured feature the lens
+ * wires to the user's own `a`/`g`, so this result type has to cross the `:qa:corpus` module
+ * boundary too.
+ */
+enum class Storeys { SINGLE, DOUBLE, UNKNOWN }
 
-/** How an open terminal (on `c`, brief 8.4) is cut, from [Geometry2D.narrowestThroat]'s two near points -- see [terminalStyle]'s KDoc for the geometric rule. [UNKNOWN] means the terminal could not be located. */
-internal enum class TerminalStyle { FLAT, ROUND, ANGLED, UNKNOWN }
+/**
+ * How an open terminal (on `c`, brief 8.4) is cut, from [Geometry2D.narrowestThroat]'s two near
+ * points -- see [terminalStyle]'s KDoc for the geometric rule. [UNKNOWN] means the terminal could
+ * not be located. Public (P6, `ui`'s Anatomy Lens): see [Storeys]'s KDoc for why.
+ */
+enum class TerminalStyle { FLAT, ROUND, ANGLED, UNKNOWN }
 
 /**
  * Serif presence and bracket for one glyph (brief 8.4, measured on `T`): [hasSerif] from the
@@ -49,9 +59,10 @@ internal enum class TerminalStyle { FLAT, ROUND, ANGLED, UNKNOWN }
  * (1.0 = no flare at all); [bracketScore] is only meaningful when [hasSerif] is true -- `null`
  * otherwise -- and runs roughly 0 (an abrupt, unbracketed step, e.g. a slab serif) to 1 (a smooth,
  * fully bracketed curve, e.g. a garalde serif); see [serifMetrics]'s KDoc for exactly how it is
- * computed and why it is "our heuristic" (law 5).
+ * computed and why it is "our heuristic" (law 5). Public (P6, `ui`'s Anatomy Lens): see
+ * [Storeys]'s KDoc for why.
  */
-internal data class SerifMetrics(
+data class SerifMetrics(
     val hasSerif: Boolean,
     val flareRatio: Double,
     val bracketScore: Double?,

@@ -15,8 +15,12 @@ import dev.aarso.typewright.core.geometry.Glyph
  * stroke" beyond [narrowestThroat]'s topological-separation filter. [extractFeatures] mitigates
  * this only by averaging over every one of `c`/`e`/`s` that is present, not by detecting the
  * failure directly.
+ *
+ * Public (P6, `ui`'s Anatomy Lens): [dev.aarso.typewright.ui.learn.AnatomyLensData] wires this
+ * function to the "aperture" lens term on the user's own `c`/`e`/`s`, so it has to cross the
+ * `:qa:corpus` module boundary -- see that file's KDoc for the rest of the wiring.
  */
-internal fun apertureOpenness(
+fun apertureOpenness(
     glyph: Glyph,
     xHeight: Double,
 ): Double? {

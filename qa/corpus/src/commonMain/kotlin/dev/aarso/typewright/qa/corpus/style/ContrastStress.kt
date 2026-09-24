@@ -45,8 +45,14 @@ internal fun oStrokeProfile(
     return samples
 }
 
-/** The thickest/thinnest ratio of [oStrokeProfile]'s widths (>= 1.0; `null` if fewer than two usable samples, or the thinnest sample is non-positive). */
-internal fun contrastRatio(o: Glyph): Double? {
+/**
+ * The thickest/thinnest ratio of [oStrokeProfile]'s widths (>= 1.0; `null` if fewer than two
+ * usable samples, or the thinnest sample is non-positive). Public (P6, `ui`'s Anatomy Lens):
+ * [dev.aarso.typewright.ui.learn.AnatomyLensData] wires this same function to the "contrast"
+ * lens term on the user's own `o`, so it has to cross the `:qa:corpus` module boundary -- see
+ * that file's KDoc for the rest of the wiring.
+ */
+fun contrastRatio(o: Glyph): Double? {
     val widths = oStrokeProfile(o).map { it.width }.filter { it > 0.0 }
     if (widths.size < 2) return null
     val thinnest = widths.min()
@@ -54,8 +60,12 @@ internal fun contrastRatio(o: Glyph): Double? {
     return widths.max() / thinnest
 }
 
-/** The angle, from vertical, of [oStrokeProfile]'s thickest diameter, folded into `(-90, 90]` (a diameter at `angle` and at `angle - 180` are the same line, so this is just a change of representative). `null` if the profile is empty. */
-internal fun stressAngleDegrees(o: Glyph): Double? {
+/**
+ * The angle, from vertical, of [oStrokeProfile]'s thickest diameter, folded into `(-90, 90]` (a
+ * diameter at `angle` and at `angle - 180` are the same line, so this is just a change of
+ * representative). `null` if the profile is empty. Public: see [contrastRatio]'s KDoc for why.
+ */
+fun stressAngleDegrees(o: Glyph): Double? {
     val thickest = oStrokeProfile(o).maxByOrNull { it.width } ?: return null
     var a = thickest.angleDegreesFromVertical
     if (a > 90.0) a -= 180.0

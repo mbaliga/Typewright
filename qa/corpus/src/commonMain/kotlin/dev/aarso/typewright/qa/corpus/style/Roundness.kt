@@ -23,7 +23,10 @@ private const val MIN_EXPONENT = 1.2
 private const val MAX_EXPONENT = 8.0
 private const val COARSE_STEP = 0.1
 
-internal fun superellipseExponent(o: Glyph): Double? {
+// Public (P6, `ui`'s Anatomy Lens): dev.aarso.typewright.ui.learn.AnatomyLensData wires this
+// function to the "roundness" lens term on the user's own `o`, so it has to cross the
+// `:qa:corpus` module boundary -- see that file's KDoc for the rest of the wiring.
+fun superellipseExponent(o: Glyph): Double? {
     val outer = o.outerContour() ?: return null
     val bounds = outer.tightBounds() ?: return null
     val a = bounds.width / 2.0
