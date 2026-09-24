@@ -18,7 +18,7 @@ Decisions made by Madhav in conversation, recorded so the build does not re-ask 
 | D12 | Trace stages | The stage strip is a scrubber, not a row of steps. Three stages by default with the rest behind "adjust" is the lean; [CONFIRM]. |
 | D13 | Editing tools | Tiered: spiro/Hobby curves, transforms, layers, kerning groups + .fea, guides, palette commands in v1; nib tools and components v1.5; interpolation v2; no manual hinting. |
 | D14 | Shaping in v1 | HarfBuzz via the platform stacks (TextRunShaper, Skiko, browser), not JNI. |
-| D15 | Fixtures | The shipped Hyle Deco TTFs are the regression suite (T 1,763 → 8, o 80 → 32, n 44 → 22, H 1,252 → 12). |
+| D15 | Fixtures | The shipped Hyle Deco TTFs are the regression suite, stated on-curve·off-curve·total (restated 2026-09-24, P0c, written reason: docs/ARCHITECTURE_REVIEW.md section 5 items 13–22): T 1,763·0·1,763 → 8·0·8, o 80·0·80 → 16·16·32, n 44·0·44 → 14·8·22, H 1,252·0·1,252 → 12·0·12. |
 | D16 | Model routing | Opus for the architecture review, the fitter, construction geometry/spiro and the style-detector features; Sonnet for everything else; the chat app for UI iteration on the explorer. |
 
 Still open: licence (handoff §9 recommends AGPL-3 + hosted service + grants), the name,

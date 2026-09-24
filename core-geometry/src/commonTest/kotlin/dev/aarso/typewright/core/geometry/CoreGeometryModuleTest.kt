@@ -5,7 +5,7 @@ import kotlin.test.assertEquals
 
 class CoreGeometryModuleTest {
     @Test
-    fun placeholderNamesItsModule() {
+    fun namesItsModule() {
         assertEquals("core-geometry", CoreGeometryModule.NAME)
     }
 }

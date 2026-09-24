@@ -225,7 +225,9 @@ Full tokens, sizes and component states: `UI_SPEC.md`.
   overshoot does not apply"). Overshoot is a property of curvature at the line, not of the
   letter.
 
-Fixtures (regression tests, from the shipped Hyle Deco Regular, `fonts/`):
+Fixtures (regression tests, from the shipped Hyle Deco Regular, `fonts/`; per-glyph rows
+independently re-verified 2026-09-24, P0c, against `fonts/HyleDeco-Regular.ttf`'s `glyf` table
+directly — see docs/ARCHITECTURE_REVIEW.md section 5 items 13–22):
 
 | glyph | shipped | fitted | note |
 |---|---|---|---|
@@ -233,33 +235,53 @@ Fixtures (regression tests, from the shipped Hyle Deco Regular, `fonts/`):
 | o | 80 on · 0 off | 16 on · 16 off | rounded rectangle, r ≈ 118 outer / 74 inner; flat top and bottom |
 | n | 44 on · 0 off | 14 on · 8 off | arch top on x-height 500 |
 | H | 1,252 on · 0 off | 12 on · 0 off | stems 43 and 45 units; monolinear within 2 units |
-| whole font | 25,991 on · 0 off · 338 glyphs | — | every curve is a polygon |
+| whole font | 68,941 on · 0 off · 338 glyphs | — | every curve is a polygon; corrected 2026-09-24 from 25,991 — that older figure was itself miscounted the same way as the corpus script's bug 2 (composite glyphs, i.e. every accented letter, counted as zero instead of being decomposed): 161 of the font's 338 glyphs are composites, and decomposing them recursively (verified against fontTools' own `Glyph.getCoordinates`) adds 42,950 on-curve points that the old figure dropped |
 
 ## 8. Node economy: the box, not the threshold [CANON]
 
 ### 8.1 The corpus
 
-For each style class in the Google Fonts taxonomy (`data/families.csv`, from
-`google/fonts/tags/all/families.csv`), take families whose tag score is ≥ 50, rank them,
-keep one face per superfamily (first word of the family name), take the top 30, download
-the Regular face from the google/fonts repository, count points per glyph with fontTools,
-and store min, Q1, median, Q3, max per glyph plus the per-family counts.
-`data/scripts/build_node_economy_corpus.py` does this; `data/node-economy-latin.json` is
-its output for ten classes (23 Sept 2026):
+For each style class in the Google Fonts taxonomy (`data/families.csv`, refreshed from
+`google/fonts/tags/all/families.csv` at a pinned commit each regeneration — `tags/` has no
+stated licence in google/fonts, an open question, not a blocker: docs/OPEN_QUESTIONS.md item
+4/20), take families whose tag score is ≥ 50, rank them by `/Quality/Drawing` score (tie-break:
+tag score, then reverse-alphabetical family name), keep one face per superfamily (first word
+of the family name — documented, not changed, in the script), take the top 30, download the
+Regular face from the google/fonts repository, count points per glyph with fontTools, and
+store min, Q1, median, Q3, max per glyph plus the per-family counts.
+`data/scripts/build_node_economy_corpus.py` does this and `data/scripts/build_compact_corpus.py`
+derives the compact pack from its output (added 2026-09-24, P0c: no generator for the compact
+pack existed before, which broke the "never hand-edit generated data" rule).
+`data/node-economy-latin.json` is its output for ten classes, regenerated 2026-09-24 (P0c, fixing
+the bugs in items 13–15 of docs/ARCHITECTURE_REVIEW.md section 5) and pinned to google/fonts
+commit `b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04` (see the pack's own `source` field for the
+exact fetch method):
 
 sans-geometric 30 · sans-grotesque 30 · sans-neogrotesque 30 · sans-humanist 30 ·
-serif-garalde 30 · serif-transitional 30 · serif-didone 19 · slab 30 · display-artdeco 8 ·
-blackletter 18. The UI always shows n.
+serif-garalde 30 · serif-transitional 30 · serif-didone 15 · slab 30 · display-artdeco 8 ·
+blackletter 15. The UI always shows n. serif-didone and blackletter come in under 30 because
+their candidate pools (families tagged with a ≥ 50 score, one per superfamily, with Latin
+letter coverage) genuinely run out that early, not from a bug — blackletter's pool included
+three Khmer-script families (Content, Khmer, Siemreap) that cover the 10 shared digits but zero
+Latin letters and are now correctly dropped rather than counted with an empty box.
 
 Ranking is a **toggle**: Google's `/Quality/Drawing` score (default, what the shipped data
 uses) or popularity from the Google Fonts Developer API (`sort=popularity`, needs an API key
 at corpus-build time, never at runtime). Both rankings ship in the data pack when available.
 
-Counting rules: on-curve equivalents = explicit on-curve points plus the implied on-curve
-points of all-off-curve TrueType contours; off-curve counts are reported with their format
-(quadratic for repository TTFs). Glyphs with zero contours are excluded from a box, and n
-drops accordingly. On-curve counts are comparable across cubic sources and TrueType
-binaries because cu2qu keeps the source's on-curve points.
+Counting rules: on-curve equivalents = points flagged on-curve in the `glyf` table plus one
+implied on-curve point for every pair of cyclically-consecutive off-curve points in a contour
+(the general TrueType rule — an all-off-curve contour is just the case where the whole contour
+is one such run); off-curve counts are reported with their format (quadratic for repository
+TTFs). Composite glyphs (component references, e.g. every accented letter) are decomposed with
+their transforms, recursively, before counting — they are never zero. A family with no Latin
+letter among the requested glyphs is dropped from the class outright, not kept with an empty
+box; a genuinely contourless glyph (rare) is skipped for that one glyph only, and n drops
+accordingly only for that glyph's box. On-curve counts are comparable across cubic sources and
+TrueType binaries only after the *same* overlap removal cu2qu's source and the compiled binary
+both went through — this does not hold as stated for the corpus faces that are variable fonts
+and keep their overlaps, and it breaks under `--drop-implied-oncurves`
+(docs/ARCHITECTURE_REVIEW.md section 5 item 15).
 
 ### 8.2 The fence
 

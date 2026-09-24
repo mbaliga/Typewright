@@ -109,3 +109,32 @@ says what was done in the meantime, and names who decides. Answered entries move
     `app-web` runs its one test in headless Chrome through Karma, which KGP's npm tooling
     fetches from GitHub (`github:Kotlin/karma`). When P4 adds UI logic worth testing on the
     web, `ui` needs browser tests with a Wasm executable (Compose issue CMP-4906). *P4/P9.*
+
+## P0: architecture review
+
+17. **The explorer's node-economy copy is now stale (P0c corpus fix; corresponds to
+    docs/ARCHITECTURE_REVIEW.md section 6 decision 4, "Corpus regeneration (item 20)").**
+    `data/scripts/build_node_economy_corpus.py` was fixed 2026-09-24 (closing-point double
+    count, composites counted as zero, families with no Latin letters silently shrinking a
+    box's n — docs/ARCHITECTURE_REVIEW.md section 5 items 13–15) and `data/node-economy-latin.json`
+    / `.compact.json` were regenerated from it, pinned to google/fonts commit
+    `b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04`. CLAUDE.md, TYPEWRIGHT_BUILD_BRIEF.md §7/§8.1 and
+    docs/DECISIONS.md D15 were updated to match in the same commit. Per law 6,
+    `ui/typewright-explorer.html` was **not** touched here — it changes in the chat app first —
+    so its worked examples are now wrong in specific places:
+    - the geometric o box's worked example number, "10", is a leftover of the old double-count
+      bug; the corrected sans-geometric 'o' box is min 20 · Q1 23.25 · med 24 · Q3 24 · max 100
+      on-curve (30 families; off-curve is min 0 · Q1 23 · med 24 · Q3 24 · max 100 — the floor of
+      0 is a real polygon-outline family, Black Ops One, whose 'o' has 0 off-curve points, not a
+      leftover of the composite-as-zero bug: every family's counts in this box are now nonzero
+      on-curve);
+    - the T range worked as "8-9" is close but not exact; the corrected sans-geometric T box is
+      min 8 · Q1 8 · med 8 · Q3 12.5 · max 28 on-curve;
+    - any copy giving class sizes as serif-didone 19 or blackletter 18 (the brief's old §8.1
+      numbers) should read 15 and 15 — both are genuinely below 30 (their candidate pools run
+      out), not a bug to hide;
+    - any copy repeating the old CLAUDE.md/D15 fixture totals as single numbers (o 80 → 32,
+      n 44 → 22) should read the on-curve/off-curve/total split now in CLAUDE.md and
+      TYPEWRIGHT_BUILD_BRIEF.md §7 (o 80·0·80 → 16·16·32, n 44·0·44 → 14·8·22).
+
+    *Madhav, in the chat app, per law 6.*

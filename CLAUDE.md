@@ -42,9 +42,13 @@ Google Fonts-quality fonts and teaches the user what quality means. Targets: And
   and every public function in `core-*` has a unit test.
 - Geometry is in font units (1000 UPM default), y up, integers at rest; floats only inside
   algorithms. Contours: outer counter-clockwise, inner clockwise in cubic sources.
-- Tests are the fixtures in `TYPEWRIGHT_BUILD_BRIEF.md` §7 and `fonts/HyleDeco-Regular.ttf`:
-  T 1,763 → 8, o 80 → 32, n 44 → 22, H 1,252 → 12, T stem foot y=1 → 0. These numbers do not
-  move without a written reason in the commit.
+- Tests are the fixtures in `TYPEWRIGHT_BUILD_BRIEF.md` §7 and `fonts/HyleDeco-Regular.ttf`,
+  stated as on-curve · off-curve · total (restated 2026-09-24, P0c, written reason:
+  docs/ARCHITECTURE_REVIEW.md section 5 items 13–22 — the shipped-glyph numbers were already
+  correct but unlabelled by on/off, and the fitted-target totals for o and n were on+off sums
+  the fence actually compares as separate on-curve and off-curve counts):
+  T 1,763·0·1,763 → 8·0·8, o 80·0·80 → 16·16·32, n 44·0·44 → 14·8·22, H 1,252·0·1,252 → 12·0·12,
+  T stem foot y=1 → 0. These numbers do not move without a written reason in the commit.
 - Data packs (`qa/corpus`, `learn/scenes`) are JSON/YAML checked in under `data/` with a
   generator script beside them; never hand-edit generated data.
 - Commit messages: imperative, one line of what and one of why; reference the milestone
