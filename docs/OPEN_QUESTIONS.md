@@ -393,3 +393,63 @@ says what was done in the meantime, and names who decides. Answered entries move
     *Data points for whoever next builds capture/cleanup calibration on top of this chain (a future
     per-glyph-cell or per-stroke capture task) or revisits `estimateStrokeWidth`'s robustness on a
     multi-component raster; not product decisions, so no owner tag.*
+
+## P5a-foundations: offset, stroke-to-outline, transformations and Hobby splines
+
+23. **Hobby splines use a verified, published control-point formula but a documented substitute for
+    Hobby's own linearized tangent-angle system, reported honestly rather than claimed as a literal
+    reproduction of `mp_make_choices` (P5a-foundations).** `engine-construct` adds `Transform.kt`
+    (an affine-transform primitive plus align/distribute, exhaustively tested including composition
+    and round-trips), `Offset.kt` (cubic-to-polyline flattening, a documented miter/bevel corner
+    rule, and `offsetContour`, refitting through `core-geometry`'s own `fitClosedContourToCubics`
+    rather than a second fitter), `Stroke.kt` (`strokeOpenPolyline`/`strokeClosedContour`, all three
+    cap styles and all three join styles, built on `Offset.kt`'s own primitives), and
+    `HobbySpline.kt` (`hobbySplineOpen`/`hobbySplineClosed`). `./gradlew :engine-construct:check`
+    passes on both `jvm` and `wasmJs`, 56 tests each.
+    - **The velocity (control-point-distance) formula is Hobby's own published one, independently
+      re-derived and verified to machine precision** against the standard cubic-Bezier curvature
+      formula (`kappa(0) = (2/3) * cross(P1-P0, P2-P1) / |P1-P0|^3`, confirmed via direct
+      differentiation), not transliterated from any single source.
+    - **The tangent-angle solve is not Hobby's own linearized tridiagonal system.** Reconstructing
+      Hobby's/Knuth's exact `mp_make_choices` mock-curvature-linearization coefficients from a
+      general description alone, without the primary source, turned out on direct testing to be
+      unreliable to trust blindly: an initial from-scratch reconstruction, using the *true* nonlinear
+      Bezier curvature at the placed control points as the matching criterion, was verified to be
+      *degenerate* for a symmetric circle (any constant tangent angle trivially satisfies it there,
+      so it does not by itself pin down the right answer — measured directly with a Newton solve
+      that converged to different, wrong, non-circular roots depending on the initial guess, before
+      being abandoned). This module solves the standard chord-length-weighted tangent-vector system
+      instead (the classical parametric-cubic-spline "Bessel tangent" equations, cyclic for a closed
+      curve, non-cyclic with a PCHIP-style boundary estimate for an open one), combined with the
+      verified velocity formula. **Why this is a sound substitute, verified rather than assumed:**
+      for a circle (this task's own named test), the result reproduces the textbook
+      kappa ~= 0.5522847498307936 constant to full double precision internally
+      (`HobbySplineTest.circleKnotsMatchKnownKappaRatioAtExactPrecisionInternally`) and the correct
+      general `(4/3) * tan(pi/(2n))` formula for other knot counts
+      (`denserCircleKnotsMatchTheGeneralNGonKappaFormula`); through the public, integer-rounding
+      `Point`-based API at radius 200 the same ratio reads `0.55` rather than `0.5523` — an honest,
+      measured, small (about 0.4%) integer-rounding effect at that one radius, not a formula error
+      (see `HobbySplineTest`'s own `println` output, `circleKnotsMatchKnownKappaRatioThroughThePublicApi`).
+    - **`curl` is accepted per `HobbyKnotStyle` (task's own "optional per-knot curl/tension" ask) but
+      only `tension`'s effect is a literal reproduction of Hobby's own formula** (it divides the
+      handle length directly, exactly as METAFONT documents, verified exactly in
+      `higherTensionShortensTheHandleLength`). `curl` — meaningful only at an open path's two ends —
+      is this module's own **documented, simplified reading** of its published qualitative role
+      ("the additional curling at the endpoint relative to a straight continuation"): `curl = 0`
+      forces the boundary tangent exactly along the endpoint's own chord; `curl = 1` (the tested
+      default) uses the standard one-sided (PCHIP) boundary estimate; other values scale linearly
+      between. This is not Knuth's own curl formula (`boundaryTangentDirection`'s KDoc says so).
+    - **Spiro is out of this task's scope** (P5a-hard, the next task, per this task's own
+      instructions) and is not attempted here.
+    - **`offsetContour`'s "sensible" degenerate-offset rule (a square offset inward past half its
+      side) uses a per-edge direction-reversal test, not a whole-polygon signed-area sign flip** —
+      the latter was tried first and found, by direct construction, to miss exactly the case it
+      needed to catch: a fully symmetric shape (a square's four corners in particular) offsets
+      *through* its own centre and out the other side as a still-simple, still-same-signed-area
+      polygon (verified directly in this task's own development notes; the boundary itself is
+      covered by `OffsetTest.squareOffsetInwardByExactlyHalfSideAlsoCollapses` and
+      `squareOffsetInwardPastHalfSideCollapsesToAPoint`), so a global area check alone is not
+      general-purpose enough; the per-edge test (`offsetContour`'s own KDoc) is.
+
+    *Data points for whoever next builds Spiro (P5a-hard, sharing this module) or revisits Hobby's
+    own tangent system against the primary METAFONT source; not product decisions, so no owner tag.*
