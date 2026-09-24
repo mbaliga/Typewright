@@ -226,3 +226,45 @@ says what was done in the meantime, and names who decides. Answered entries move
       only, not the scene-YAML engine itself, which is P6's job.
 
     *Data point for `campaign` (Task 4) and P6 (Lineages); not a product decision, so no owner tag.*
+
+## P2: corner detection and cubic fitting
+
+20. **`Contour`'s `CUBIC` format has no "line" point kind, so a pure-polygon glyph (`T`, `H`) can
+    never reach CLAUDE.md's "0 off-curve" fitted target through this type alone (P2a).**
+    `CornerDetection.kt`/`CubicFitting.kt` (`core-geometry`, this task) implement corner detection
+    (curvature-based, with non-maximum suppression for a raster trace's own pixel-quantised
+    "staircase" corners) and Schneider (1990) cubic fitting, general-purpose and applied uniformly
+    to any dense polyline — verified against a dense-polyline square, a synthetic disc/ring built
+    from a mathematically exact circle (radius 250, 1-degree sampling), and the real
+    `fonts/HyleDeco-Regular.ttf` `T`/`o`/`n`/`H` (read via `core-font`'s `SfntFont`, per the P2a
+    prompt's own instructions for these pure-polygon glyphs). `./gradlew :core-geometry:check`
+    passes on both `jvm` and `wasmJs`, 80 and 76 tests respectively.
+    - **The type gap.** `Contour`'s own invariant (`Contour.kt`) requires every `CUBIC` segment to
+      be an (on, off, off) triple — there is no shorter, control-point-free "line" representation.
+      A straight side this fitter correctly detects as needing no interior split (`T`'s 8 real
+      corners, `H`'s 12) is therefore still emitted as a cubic with two **on-line, degenerate**
+      control points, never as a 2-point line: `T` fits to exactly 8 on-curve (matching
+      `TYPEWRIGHT_BUILD_BRIEF.md` section 7's target on the nose) but 16 off-curve, not the
+      target's 0; `H` similarly reaches 16 on-curve (target 12) with 32 off-curve (target 0).
+      Closing this gap needs either a new `Contour`/point-kind capable of a true line segment, or a
+      later cleanup pass (plausibly the M1 "Snap" stage, `docs/TYPEWRIGHT_HANDOFF.md` section 4)
+      that detects an all-collinear cubic and collapses it to a control-point-free line on write.
+      Neither exists yet; P2a's own scope (corner-detect + fit, DATA and LOGIC only in
+      `core-geometry`) does not include adding one, and doing so was judged out of scope for this
+      task rather than decided against.
+    - **Honest fixture results (fitter tuned once, globally, against every fixture together —
+      `DEFAULT_FIT_ERROR_TOLERANCE`'s KDoc in `CubicFitting.kt` has the full comparison table).**
+      Against `TYPEWRIGHT_BUILD_BRIEF.md` section 7's on-curve targets: `T` 8/8 exact, `o` 28
+      against 16, `n` 17 against 14, `H` 16 against 12. Against `docs/ARCHITECTURE_REVIEW.md`
+      section 5 item 22's circle targets: the disc and ring hit their named counts exactly (4+8,
+      8+16), at a max deviation from the true circle of about 1.3-1.5 units — over the "about 1
+      unit" those shared instructions describe, because the fixture's own points are rounded to
+      the nearest integer font unit before fitting, which alone puts roughly 0.7-1.0 units of
+      quantisation noise into the input; a tolerance tight enough to hold every point within 1 unit
+      of the true circle exists (`1.5`) but only by spending far more segments chasing that
+      rounding noise (13 for the disc, not 4). No tolerance found hits every fixture's count and
+      the circles' own accuracy bound at once — reported honestly per this task's own "Honesty
+      rule" rather than forced.
+
+    *Data point for a later cleanup/Snap-stage task and for whoever next tunes
+    `DEFAULT_FIT_ERROR_TOLERANCE`; not a product decision, so no owner tag.*
