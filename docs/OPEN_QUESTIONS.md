@@ -2025,3 +2025,71 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     with advancing `timeNanos` under a real `MonotonicFrameClock`/coroutine dispatcher (not just
     one) before this class of fix becomes screenshot-checkable; not attempted here since it changes
     every existing screenshot test's own capture semantics, out of scope for a single-tab fix.*
+
+## P7: Campaign engine (`:campaign` module — `WorkbookTask.kt`, `WorkbookGates.kt`, `WorkbookLatinContent.kt`, `WorkbookYamlParser.kt`, `workbook-latin.yaml`)
+
+86. **`core-font` still has no generic SFNT-to-`UfoProject` bridge, and this task is now the
+    second place that needed one and hand-rolled a small, local version instead of building the
+    real thing.** `HyleDecoTask4GateTest.kt` (`campaign/src/jvmTest`) reads
+    `fonts/HyleDeco-Regular.ttf` with `core-font`'s real `readSfntFont`, pulls out four named
+    glyphs (`n`/`o`/`H`/`O`) by hand, and wraps them in a `UfoProject` built inline, just enough
+    for `WorkbookGates.task4ControlCharacters` to run against for real — this task's own brief
+    said plainly there is no such bridge and pointed at the closest existing precedent
+    (`core-geometry`'s `FitPipelineHyleDecoValidationTest`, `ui`'s
+    `HyleDecoProjectFontBytes.kt`), none of which is a real, reusable, whole-font
+    `SfntFont -> UfoProject` conversion either — each reads a handful of glyphs by name for its
+    own narrow purpose. As `qa`'s gates (this task's own `WorkbookGates`, and presumably a future
+    Check-room UI) increasingly want to run real `UfoProject`-shaped checks against a *compiled*
+    font (a device's own font file, a Google Fonts comparison download, or — per M5's own
+    workbook shape — the learner's own font at whatever stage it is in), a real, whole-font,
+    tested `core-font` bridge (every glyph, real advance widths, real `UfoFontInfo` from the
+    `head`/`hhea`/`OS/2` tables already parsed) would replace every one of these ad hoc,
+    partial, per-task versions with one correctness-critical, `core-font`-owned implementation
+    (CLAUDE.md law 2's own module boundary — this belongs in `core-font`, not repeated in every
+    caller). *Whoever next needs a `UfoProject` from a compiled font for a fourth time: this is
+    the signal to build the real bridge in `core-font` rather than writing a fifth inline
+    version.*
+
+87. **A real, empirically-verified wasmJs limitation, distinct from item 47's browser/Node split:
+    `learn:scenes`' `readSceneResourceText` wasmJs actual cannot be called from a *different
+    module's own compiled* `wasmJs { nodejs() }` test bundle, even though both are the identical
+    Node target.** `WorkbookLatinContentTest` (`campaign/src/commonTest`) only checks the exact
+    `sceneId` string task 1's/9's YAML carries (`"lineages.transitional"` /
+    `"craft.c1-baked-composites"`); proving those strings are real, *loadable* `learn:scenes`
+    scenes needed calling `LineagesResources.loadEraScenes()`/`CraftResources.loadScenes()` for
+    real, which was written as `WorkbookSceneDemonstrationsJvmTest` (`campaign/src/jvmTest`)
+    instead of a `commonTest`, because doing it from `commonTest` throws a `node:fs`
+    `JsException` under `:campaign:wasmJsNodeTest` specifically — `readSceneResourceText`'s
+    wasmJs actual resolves its file path from `import.meta.url` of *the module whose compiled
+    output is currently executing* (its own KDoc says as much), which under `campaign`'s own
+    compiled wasmJs test bundle points at `campaign`'s own output directory, not
+    `learn:scenes`', where `workbook-latin.yaml`'s sibling scene YAML actually landed at build
+    time. `ui`'s own `LineagesQuizItemsTest` (item 47, `docs/OPEN_QUESTIONS.md`) worked around a
+    related but different cause (browser vs. Node target) the identical way — hand-built
+    fixtures in `commonTest`, the real loader call moved to a JVM-only test — so this task
+    followed that same precedent rather than inventing a third pattern. *Whoever next wants any
+    cross-module real-resource-loading call to work uniformly on `wasmJs` regardless of which
+    module's test bundle calls it: this and item 47 are now two independent, real data points
+    that `learn:scenes`' (and by extension this module's own `CampaignResources.kt`) resource-
+    reading convention is fundamentally single-module-only on that target, not a one-off bug in
+    either call site.*
+
+88. **TYPEWRIGHT_BUILD_BRIEF.md §4.3 "Margin and proof" `[CONFIRM]`'s pull-down-per-room
+    interaction was deliberately not built by this task, and the underlying design question it
+    raises is still genuinely open, not resolved by that omission.** This task's own brief quoted
+    §4.3 in full and pointed out, correctly, that its own last sentence ("Proposed; the explorer
+    does not yet show the vertical axis") means `ui/typewright-explorer.html` has no markup at
+    all for pulling down to see a room's margin (its workbook task) or up to see its proof — so
+    CLAUDE.md law 6 ("if a screen is missing from the explorer, stop and say so rather than
+    inventing") forbids building it, and this task built only what the explorer does show for the
+    workbook instead (`#s-home`'s `.taskcard`, `#s-workbook`'s own full single-task screen) via
+    the real `WorkbookTask`/`WorkbookGateResult` data this module now provides. That leaves the
+    real design question §4.3 raises — should a construction room ever surface its own workbook
+    task inline, pulled down over the room itself, rather than only reachable through the
+    separate `#s-workbook` screen this task's data now backs — entirely undecided; nothing in
+    this task's own data model forecloses it (a room could look up its own task by matching
+    `WorkbookTask.title`/index against the room it is showing), but nothing was designed for it
+    either. *Whoever next designs a room's own screen and wants §4.3's pulled-down-margin
+    interaction: it needs its own explorer mockup first (per law 6) before any code, `:campaign`'s
+    data included — this task deliberately left that mockup unmade rather than inventing one.*
+

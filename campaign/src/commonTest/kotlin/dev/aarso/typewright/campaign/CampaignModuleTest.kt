@@ -5,7 +5,7 @@ import kotlin.test.assertEquals
 
 class CampaignModuleTest {
     @Test
-    fun placeholderNamesItsModule() {
+    fun namesItsModule() {
         assertEquals("campaign", CampaignModule.NAME)
     }
 }
