@@ -1096,6 +1096,14 @@ says what was done in the meantime, and names who decides. Answered entries move
    CLAUDE.md law 3 would not permit) has a manifest to read paths from. *Decide in the P6 UI
    task, per open question 8's own precedent.*
 
+   **Partially resolved by the P6 UI task's Lineages font-rendering half** (`ui/src/commonMain/
+   kotlin/dev/aarso/typewright/ui/learn/LearnFaceFonts.kt`): the `Sync`-into-resources option was
+   taken, in `learn:scenes` (`LearnFaceResources.kt`, following `SceneResources.kt`'s own
+   convention) rather than `ui`, with a jvm-classpath actual and a wasmJs actual that reads via
+   Node's `fs` — real and tested (`LearnFaceResourcesJvmTest`, `LearnFaceResourcesWasmJsTest`),
+   but only for `learn:scenes`'s own `wasmJs { nodejs() }` target, not `ui`'s `wasmJs { browser()
+   }` one. See item 47 below for exactly what that leaves open.
+
 34. **A future re-fetch onto a newer `google/fonts` commit must re-check every family's
    `license:` field, not assume today's is permanent.** Google Fonts has migrated some
    families between Apache-2.0 and OFL-1.1 over time (Open Sans, fetched here, reads `"OFL"`
@@ -1338,3 +1346,161 @@ The four Craft before/after scenes P6's own content-authoring prompt names expli
     *A data point, not a decision; found by this task's own adversarial verification pass, which
     otherwise confirmed every build/test count, licence, file hash, scene-content number and face
     resolution in items 31–45 independently and found nothing else to fix.*
+
+## P6: Learn UI — Lineages real font rendering (Compose text pipeline)
+
+47. **wasmJs (browser) can genuinely render real font bytes; it just cannot fetch them from
+   `data/learn-faces/` yet.** Two separate questions this task told apart by testing each
+   directly rather than assuming (item 33's own fork): (a) does Compose Multiplatform's wasmJs
+   *text-rendering* target support `androidx.compose.ui.text.platform.Font(identity, data,
+   weight, style)` at all, in this pinned `compose-multiplatform 1.12.1` — **yes**, confirmed by
+   a real `wasmJsBrowserTest` (`LearnFaceFontsWasmJsBrowserTest`, headless Chrome, real embedded
+   font bytes, real `Paragraph` measurement, not just a compile check) that this task's own brief
+   left genuinely open; (b) can `ui`'s wasmJs target *get* real bytes from `data/learn-faces/` at
+   runtime in a browser — **no**, `learn:scenes`'s own resource reader is Node-`fs`-based
+   (`wasmJs { nodejs() }`, `KmpPureConventionPlugin`), which throws `process is not defined` in a
+   real browser; `ui`'s wasmJs target is `wasmJs { browser() }` (`KmpPlatformConventionPlugin`).
+   `learnFaceFontFamily` catches that failure and falls back to `FontFamily.Default`
+   (`learnFaceFontsAreReal()` reports `false` on wasmJs so a caller can show an honest note
+   instead of silently substituting a face), rather than crashing, per this task's own brief.
+   Building the actual browser fetch (either a plain `fetch()` of a build-time-copied static
+   asset, or Compose Multiplatform's own `org.jetbrains.compose.resources` library — not used
+   anywhere in this repo yet, and would need its own `composeResources/font/` convention decided
+   against this task's `Sync`-task-into-`learn:scenes` one) is real, scoped work this task did not
+   do. *Whoever wires the Lineages tab's actual on-stage rendering for the web target; the two
+   candidate mechanisms above are both real options, not yet compared.*
+
+48. **Android's real byte-loading path (`LearnFaceFonts.android.kt`) compiles but is not verified
+   on a device or emulator.** This container has neither (CLAUDE.md law 4). The implementation is
+   real code, not a stub — a custom `AndroidFont` + `AndroidFont.TypefaceLoader` built from
+   `android.graphics.fonts.Font.Builder(ByteBuffer)` and `Typeface.CustomFallbackBuilder`, the
+   real mechanism Jetpack Compose's own public API exists for (verified by extracting and
+   `javap`-ing the real `androidx.compose.ui:ui-text-android:1.12.1` `.aar`: it does **not** carry
+   `androidx.compose.ui.text.platform.Font(identity, data, weight, style)` at all, so this task's
+   own brief's assumption that Android "follows the same Skia-backed path as desktop" is false)
+   — but nothing in this container can confirm it actually renders correctly on a real device.
+   `:ui:compileAndroidMain` succeeds offline against `/opt/android-sdk`'s `android-37` platform.
+   *Madhav, or whoever next has a device/emulator: run the Learn screen's Lineages tab on Android
+   and look at it.*
+
+49. **Requesting a non-default weight from a variable font's `Font(identity, data, weight,
+   style)` call is unverified.** Several of the seventeen faces are variable fonts (filenames
+   carry axis tags: `EBGaramond[wght].ttf`, `LibreBaskerville[wght].ttf`, `Inter[opsz,wght].ttf`,
+   …). `learnFaceFontFamily`'s `weight`/`style` parameters are passed straight through to
+   `Font(...)`, and Skia is documented to match a variable font's `wght` axis to a requested
+   [FontWeight] automatically — but this task only ever requested [FontWeight.Normal] in its own
+   tests and screenshots (`LearnFaceFontsScreenshotTest`, `LearnFaceFontsWasmJsBrowserTest`), so
+   that matching is asserted here, not verified by looking at a rendered bold/italic instance.
+   *Whoever wires a Lineages/Craft scene that actually requests a non-default weight or style
+   from one of these faces — check the rendered result, not just that it compiles.*
+
+## P6: Anatomy Lens data API (`ui/src/commonMain/kotlin/dev/aarso/typewright/ui/learn/AnatomyLensData.kt`)
+
+50. **`qa:corpus`'s style package (P1b) had zero consumers anywhere outside `:qa:corpus` and was
+    entirely `internal`, which is a Kotlin *module* boundary, not a file one — `:ui` could not
+    call any of it regardless of its Gradle dependency graph.** Confirmed by grepping the whole
+    repository (`grep -rl "qa.corpus.style"` outside `qa/corpus/` finds only two KDoc/comment
+    references, never an import) before writing anything, per this task's own instruction to
+    verify rather than guess. Fixed by widening exactly the declarations `AnatomyLensData.kt`
+    calls (and the result types their signatures return) from `internal` to public, in
+    `:qa:corpus` itself: `contrastRatio`, `stressAngleDegrees`, `serifMetrics`/`SerifMetrics`,
+    `storeysFromA`/`storeysFromG`/`Storeys`, `terminalStyle`/`TerminalStyle`, `apertureOpenness`,
+    `superellipseExponent`, `xHeightToCapHeightRatio`, plus `Glyph.outerContour` and
+    `Glyph.inkBounds`/`Bounds` (two small navigational helpers their signatures need). Every other
+    internal declaration (the probe geometry in `Geometry2D.kt`, `StyleGlyphSet`,
+    `extractFeatures`, `StyleScorer.kt`, `widthClass`) is untouched — no behaviour changed,
+    confirmed by `./gradlew :qa:corpus:check` staying green (jvm + wasmJs/Node tests, spotless)
+    before and after. This is a real architectural gap task P1b left behind (a measurement module
+    built with no public API for anything else to consume it), not something this task invented
+    to work around — future modules wiring `qa/corpus`'s other packages (e.g. the Check screen's
+    own node-economy checks, task M0/`campaign`) should check for the same problem rather than
+    assume `internal` there is already open where it is needed.
+    *Whoever next wires a `qa/corpus` package into `ui` or another consuming module — check
+    visibility first, the way this task did, rather than discovering it mid-implementation.*
+
+51. **"The user's own letter" is `fonts/HyleDeco-Regular.ttf`, this build's own test-fixture font,
+    not a real user project — there is still no real "current project" concept wired into `ui`.**
+    Every prior P4/P5b task already disclosed this same gap; this task inherits it rather than
+    solving it. `AnatomyLensGlyphSet.fromSfntFont(SfntFont)` and every function in
+    `AnatomyLensData.kt` are general over any `SfntFont`/`Glyph`, real or drawn — nothing is
+    Hyle-Deco-specific — so wiring a real project's own glyphs through this same API, once a
+    project-loading flow exists, needs no changes here.
+    *Whoever builds real project loading into `ui` — this file's own API is already the shape it
+    needs to be; only the caller supplying `SfntFont`/`Glyph` changes.*
+
+52. **Three lens terms ([AnatomyTerm.STOREYS], [AnatomyTerm.ROUNDNESS],
+    [AnatomyTerm.X_HEIGHT_TO_CAP_HEIGHT_RATIO]) are wired but are not in
+    docs/LESSONS_SCAFFOLD.md section 3's own 26-term Anatomy Lens vocabulary.** This task's own
+    instructions explicitly named `Storeys.kt`, `Roundness.kt` and `Proportions.kt`'s
+    `xHeightToCapHeightRatio` as features to wire, and `qa/corpus` measures all three for real, so
+    they were included as three extra lens terms rather than left unwired — but section 3's own
+    list (and `TYPEWRIGHT_BUILD_BRIEF.md` section 9's strand description) never names them as
+    Anatomy Lens content; storeys and roundness read instead as Lineages-strand classification
+    features that happen to share `qa/corpus`'s style package with the lens. `widthClass` (the
+    ninth style feature) was *not* wired for the same reason, deliberately, and section 3 never
+    names it either.
+    *Product owner: should these three actually ship in the Anatomy Lens tab, stay Lineages/
+    identify-it-only classification features, or (for storeys/roundness specifically) ship as
+    lens content under different framing than a raw ratio/enum? Not decided here.*
+
+53. **`SerifKind` can only ever return [SerifKind.BRACKETED]/[SerifKind.UNBRACKETED]/
+    [SerifKind.NONE] — it never returns a "hairline" kind, even though
+    docs/LESSONS_SCAFFOLD.md section 3 names "hairline" as one of serif's three kinds.**
+    `qa/corpus`'s `SerifMetrics` measures flare ratio and bracket smoothness only, never serif
+    *weight* (thin vs. thick), which is what actually distinguishes a hairline serif (a Didone's)
+    from a bracketed one (a Garalde's) at similar bracket smoothness. This is not an oversight
+    this task introduced: docs/RESEARCH_font_quality.md's own anatomy section already flags the
+    identical gap in its own fetched glossaries ("'aperture' and 'hairline serif' are not defined
+    in the fetched glossaries"). `serifEntry`'s own threshold splitting BRACKETED/UNBRACKETED at
+    `bracketScore >= 0.5` is this file's own unpublished cut point too (no published rule sets
+    one), logged rather than presented as settled.
+    *Whoever next extends the style detector or the lens: a "hairline" signal would need a new
+    measured feature (likely: serif stroke width relative to the stem, or relative to the o's own
+    contrast ratio) — not a reclassification of the existing bracketScore.*
+
+54. **`fonts/HyleDeco-Regular.ttf`'s own `OS/2` table does not match what the font actually
+    draws.** Found while building `xHeightEntry`/`capHeightEntry`: `OS/2 sxHeight = 0`,
+    `sCapHeight = 500`, while `x`/`H`'s own drawn ink heights (`Glyph.inkBounds().maxY`) are
+    `500`/`700` — the declared metrics look swapped/placeholder rather than measured off the
+    actual outlines. `AnatomyLensData.kt`'s `xHeightEntry`/`capHeightEntry` handle this correctly
+    by design (the drawn glyph's own ink height is primary, `OS/2` only a fallback when the glyph
+    itself is missing — CLAUDE.md law 1, "the user's drawing is the source of truth" — and this
+    real mismatch is exactly why that order matters, not just a cautious default), and
+    `AnatomyLensDataHyleDecoTest.hyleDecosOwnOs2TableDoesNotMatchItsDrawnInkHeights` pins the real
+    numbers as a regression check. This is a data-quality fact about the fixture font itself, not
+    a bug in this task's own code.
+    *Whoever next touches `fonts/HyleDeco-Regular.ttf` (or regenerates it): its `OS/2 sxHeight`/
+    `sCapHeight` fields are wrong relative to its own drawn glyphs and could confuse a tool that
+    trusts them over the outlines.*
+
+55. **This task's own instructions describe cross-checking against an existing `qa/corpus` test
+    that already asserts Hyle Deco's measured values ("e.g. if `ContrastStressTest` already
+    asserts Hyle Deco's own contrast is some value") — no such test exists.** Checked before
+    writing anything: `grep -rl HyleDeco qa/corpus/src` finds only `HyleDecoNodeEconomyTest.kt`
+    (node economy, an unrelated check) and `SyntheticGlyphs.kt` (one unrelated comment); every one
+    of `qa/corpus`'s own `ContrastStressTest`/`SerifBracketTest`/`StoreysTest`/`TerminalTest`/
+    `ApertureTest`/`RoundnessTest`/`ProportionsTest` tests these functions on synthetic glyphs with
+    geometrically-obvious expected values (P1b's own instruction), never on the real fixture font.
+    `AnatomyLensDataHyleDecoTest` (`ui`'s `desktopTest`) still delivers the real regression check
+    the instructions asked for, just against a direct call to the same `qa/corpus` function in the
+    same test rather than against a pre-existing fixture — if this file's wiring ever diverged from
+    the real function (wrong glyph, stale cache, an off-by-one in the dispatcher), the direct-call
+    side of each assertion would still report the true value and the test would fail. The real,
+    reproducible numbers this task read once and pinned (contrast ≈1.2513, stress ≈52.5°, roundness
+    ≈4.2, x-height 500, cap-height 700, ascender 984, descender −292) are not in any prior
+    `qa/corpus` fixture to match against; they are new, in `AnatomyLensDataHyleDecoTest` itself.
+    *A data point about this task's own instructions, not a decision — logged per the instructions'
+    own "if a check has no measurement behind it... stop and report" spirit; not a gap to fix.*
+
+56. **No composable consumes `AnatomyLensData` yet — the Learn screen's Anatomy Lens tab still has
+    no rendered UI, only the data API behind it.** This task's own scope, read plainly: "wiring...
+    into a small, real API," with the deliverable list at the end naming the API, its tests and
+    `:ui:spotlessCheck`/`:ui:check` — never a composable. The standalone Learn screen itself
+    (matching `ui/typewright-explorer.html`'s `#s-learn` station, law 6) and its own entry point
+    are explicitly later work ("the 'Shell' phase," per this task's own instructions), so this is
+    the correct, disclosed boundary for this slice rather than an accidental gap — but it means
+    the Anatomy Lens is not yet visible or usable in the app itself.
+    *Whoever builds the Learn screen's Lens tab composable: `anatomyLensEntry(term, glyphSet)` is
+    the one function to call per term; `AnatomyLensValue`'s sealed variants are what there is to
+    format and draw, following `ui/typewright-explorer.html`'s own `#ln-lens` look (the `.lens` SVG
+    diagram with leader lines, the `.defs` definition list below it) per law 6.*
