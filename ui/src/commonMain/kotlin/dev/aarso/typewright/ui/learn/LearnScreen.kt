@@ -11,9 +11,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
@@ -180,9 +184,31 @@ private fun LearnTabButton(
     val canvasColor = texture.canvas.toColor()
     val muted = texture.muted.toColor()
 
+    // [LearnTabsRow]'s own Row is horizontally scrollable (four labels do not always fit this
+    // codebase's own 210dp screenshot "phone" width -- see that function's own KDoc). A selected
+    // tab set from outside a drag (the initial tab, or a caller-supplied [LearnScreenUiState])
+    // otherwise rendered its ink-block selection off-screen at scroll offset 0, invisible until
+    // the person scrolled the row themselves -- a real bug this verification pass found by
+    // screenshot on the Scrapbook tab (`ui/build/screenshots/learn-screen-scrap.png`): the ink
+    // block was a one-pixel sliver at the row's clipped right edge, the label itself entirely
+    // off-canvas. [BringIntoViewRequester] is the standard Compose fix -- ask the nearest
+    // scrollable ancestor to scroll this button into view whenever it becomes selected, without
+    // owning or fighting the user's own drag position. Disclosed, not silently assumed correct:
+    // this project's own `ScreenshotHarness`/`ImageComposeScene` renders one synchronous frame
+    // with no running coroutine dispatcher behind it, so a `LaunchedEffect` here never actually
+    // gets to run in that harness (confirmed directly: pumping 90 synthetic `render()` frames,
+    // 1.44s of simulated time, through a raw `ImageComposeScene` left the scroll offset at 0 the
+    // entire time) -- this fix cannot be screenshot-verified by this codebase's own tooling, only
+    // reasoned about as the correct, standard API for the problem (see `docs/OPEN_QUESTIONS.md`).
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    LaunchedEffect(selected) {
+        if (selected) bringIntoViewRequester.bringIntoView()
+    }
+
     Box(
         modifier =
             Modifier
+                .bringIntoViewRequester(bringIntoViewRequester)
                 .let { if (selected) it.background(ink) else it }
                 .clickable(onClick = onClick)
                 .padding(horizontal = if (selected) 6.dp else 0.dp, vertical = if (selected) 2.dp else 4.dp),

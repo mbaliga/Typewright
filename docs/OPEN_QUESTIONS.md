@@ -1999,3 +1999,29 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     an already-precedented choice in this same package, not a new one.
     *No action needed — the visual difference is a few dp of tab spacing, not a meaning or
     legibility change; noted for completeness only.*
+
+## P6: Learn UI — verification pass (LearnScreen tab-scroll bug)
+
+85. **`LearnTabsRow`'s selected-tab ink block could render entirely off-screen, invisible, when a
+    non-drag-selected tab was current.** Found by screenshot
+    (`ui/build/screenshots/learn-screen-scrap.png`,
+    `LearnScreenScreenshotTest.rendersEachOfTheFourTabsWithoutCrashing`, Scrapbook state): the
+    row's `Modifier.horizontalScroll(rememberScrollState())` (`LearnScreen.kt`, `LearnTabsRow`)
+    starts at scroll offset 0 and has nothing to move it, so a tab selected any way other than the
+    user's own drag (the initial tab, a restored/caller-supplied `LearnScreenUiState`) shows only a
+    one-pixel sliver of its own ink block clipped at the row's right edge, its label fully
+    off-canvas. Fixed with a `BringIntoViewRequester` per tab button (`LearnTabButton`,
+    `LearnScreen.kt`), the standard Compose mechanism for this exact problem, triggered from a
+    `LaunchedEffect(selected)`. Could not be confirmed by this codebase's own screenshot harness:
+    `ScreenshotHarness.capture` (`ui/src/desktopTest/kotlin/dev/aarso/typewright/ui/ScreenshotHarness.kt`)
+    calls `ImageComposeScene(...).use { it.render() }` exactly once, and this was confirmed
+    empirically (a throwaway probe pumping 90 synthetic `render(t)` frames, 1.44s of simulated
+    time, through a raw `ImageComposeScene`) that a `LaunchedEffect`'s coroutine never gets
+    dispatched at all in that harness — the scroll offset stayed at exactly 0 for all 90 frames.
+    This is a real, general limitation of the harness (no coroutine dispatcher/frame clock backs
+    it), not specific to this fix, and it means any future effect-driven behavior in this codebase
+    is similarly unverifiable by screenshot alone.
+    *For whoever next touches `ScreenshotHarness`: it would need to pump several `render()` calls
+    with advancing `timeNanos` under a real `MonotonicFrameClock`/coroutine dispatcher (not just
+    one) before this class of fix becomes screenshot-checkable; not attempted here since it changes
+    every existing screenshot test's own capture semantics, out of scope for a single-tab fix.*
