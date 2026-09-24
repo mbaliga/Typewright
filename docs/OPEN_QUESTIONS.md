@@ -943,3 +943,109 @@ says what was done in the meantime, and names who decides. Answered entries move
     product decisions except the primitives-menu-gesture reading (Madhav, tagged above) and the
     layers-scope conflict (orchestrator, tagged above).*
 
+
+## P5b: guides, Space room content and the command palette (ui)
+
+30. **The UI-wiring half of P5b — guides at any angle, Space's kerning demo/groups/`.fea`, and the
+    desktop command palette — is built, on top of the sibling core-geometry Palette-commands and
+    core-font guides/kerning reports, with several honest scope cuts logged here rather than
+    invented.** New: `ui/.../sheet/GuidesLayer.kt` (`WorldGuidesPass`, `sampleGuidelines`),
+    `ui/.../sheet/SpaceRoomContent.kt` (`SpaceRoomGlass`, `sampleKerning`), `ui/.../glass/
+    CommandPalette.kt` (`CommandPalette`, `commandPaletteShortcut`, `PaletteEntry`). `TypewrightSheet.kt`
+    itself changed by 19 lines across 7 small locations (two new imports, a `paletteOpen` state
+    var, one modifier chained onto the existing gesture chain, and three new composable calls) —
+    merged by hand against the sibling puck/primitives/Construct-inspector piece's own
+    TypewrightSheet.kt changes (a separate parallel worktree touching the same file) -- both
+    landed cleanly since they touch disjoint lines. `SpaceRoomGlass` itself was moved from this
+    task's own `Alignment.Center` to `Alignment.TopCenter` (matching `LayersPanel`'s own "just
+    below the header" offset) during that merge: centred, it visibly collided with `RoomInk.kt`'s
+    room wordmark, which also sits near screen-centre by default -- caught by viewing the
+    screenshot directly, not assumed from the diff.
+    - **Guides.** `WorldGuidesPass` reproduces `GridAndMetrics.kt`'s own metric-line approach and
+      `CanvasTexture.line` token exactly (UI_SPEC §1 layer 3, "1 dp hairline at ink 20%") rather than
+      inventing new styling, extended to an arbitrary `(x, y, angle)` line via `Guideline`'s own
+      three shapes. Screenshot-verified (`ui/build/screenshots/draw-paper-rest.png` and
+      `draw-blueprint.png`): the sample overshoot/origin/italic guides render correctly on both a
+      light and a dark texture, at the right line colour and weight, with no regression to the
+      existing puck/radial/grid chrome.
+    - **The explorer shows no guide-creation interaction anywhere** in `ui/typewright-explorer.html`
+      (checked directly — no drag-from-ruler affordance, no "add guide" control, no guide inspector
+      screen). `WorldGuidesPass` renders a `List<Guideline>` and nothing else; no creation gesture
+      (drag-from-edge, a palette "Add guide" command, or otherwise) was built. This is this task's
+      own minimal, reasonable design for the render side, not a reproduction of a shown screen, and
+      guide creation is left for a follow-up task.
+    - **No real project/font data flows into `ui` at this layer yet**, confirmed by reading
+      `TypewrightSheet.kt`'s own existing scope before writing anything (only a camera and placeholder
+      ink exist). `sampleGuidelines()` and `sampleKerning()` are small, honestly-labelled in-memory
+      `Guideline`/`UfoKerning` values, not a loaded `.ufo` project — stated plainly in both files' own
+      KDoc and in each function's name (`sample*`), not disguised as real data.
+    - **Space room: the kerning-pair demo word ("To AV Ty") now shifts by a real kerning value**
+      (`kerningOffsetDp`, `(value / unitsPerEm) * fontSizeSp` — the plain definition of "1 em of
+      kerning" at that type size) read from `sampleKerning()`'s `UfoKerning.kerning` map, not the
+      explorer's own fixed, hand-tuned CSS margins (`.kern.after .k1{margin-left:-.14em}` etc.) — the
+      before/after toggle itself reuses the explorer's own selection-language ink-block button style
+      (UI_SPEC §5.4). Screenshot-verified (`space-panned.png`): the word, toggle, group list and
+      `.fea` text all render and read correctly.
+    - **The explorer shows no kerning-groups panel and no `.fea` editor anywhere** — Space's own
+      design notes mention only "classes link (=n × 0.65, min) so one value moves a family" as
+      intent, never a worked screen (checked directly against `ui/typewright-explorer.html`'s own
+      `#s-space` markup). What is built is the plainest possible functional surface per this task's
+      own instructions: a list of group-name/members rows in the same mono label-plus-value row
+      language `InspectorRow`/`UnfoldedToolList` already use (not a new list-row style), and a
+      **read-only** `BasicText` block for `UfoKerning.features` — no tabs, no syntax highlighting, no
+      panel chrome, no `BasicTextField` editing (a straightforward future upgrade if the product
+      owner wants live editing; not built here to avoid inventing panel chrome around it).
+    - **The command palette is real, not a mock** — `Ctrl`/`⌘`+`K` toggles it (`commandPaletteShortcut`,
+      a plain `Modifier.onKeyEvent` checking `isCtrlPressed`/`isMetaPressed`, the same "commonMain,
+      no desktop-only gate" precedent `SheetGestures.kt`'s own `roomKeyboardNavigation` already set —
+      **`ui` has no desktop-only Kotlin source set yet** (only `commonMain`/`commonTest`/
+      `desktopTest`, confirmed by listing `ui/src` before writing anything), so this compiles
+      everywhere and is only ever meaningfully reachable where a physical keyboard exists, exactly
+      like the existing arrow-key room navigation). 520 dp wide, centred 70 dp from the top, square
+      corners (the explorer's later "brutalist pass" stylesheet resets `.palette`'s border-radius to
+      0 — read past the base `.palette{border-radius:12px}` rule to confirm which one actually
+      renders, per this task's own instruction to check for exactly that). Filtering, arrow-key/
+      click highlight, Enter-to-run and Escape-to-close are all real (`onPreviewKeyEvent` on the
+      palette's own outer `Box`, ahead of its inner `BasicTextField`'s focus).
+    - **Palette copy: three rows reuse the explorer's own exact copy and shortcuts** ("Add extremes"
+      ⇧E, "Correct path direction" ⇧R, "Round coordinates" — `ui/typewright-explorer.html` lines
+      929-931, grepped directly) plus its own two non-Palette rows ("Run the gate on this glyph" ⌘⏎,
+      "Compare with…" — lines 932-933), reused verbatim for visual completeness. **The five remaining
+      brief commands the explorer's own worked example does not show** — harmonise curvature, tidy/
+      simplify, reverse contour, cut/knife, close contour — are new rows in the same label-plus-"·
+      description" copy style, with **no shortcut invented for any of them** (this task's own choice,
+      not the explorer's, per its own instruction not to invent bindings without good reason).
+    - **All eight `PaletteCommand`s are wired to their real `core-geometry` functions, not stubs** —
+      `insertExtremaOnCurvePoints`, `enforceContourDirections`, `roundContourCoordinates`,
+      `harmoniseCurvatureAtJoin`, `simplifyContour`, `reverseContour`, `knifeContour`,
+      `closePolylineToContour` are all called for real when a row runs, each against a small, fixed
+      demo shape (`CommandPalette.kt`'s own `demoSquare`/`demoSquareWithRedundantPoint`/`demoCircle`/
+      `demoTriangleForClose`) rather than a live selection — **`ui` has no contour-selection model
+      yet** (the sibling puck/primitives/Construct-inspector task is a parallel, separate piece of
+      work, not this one), so there is nothing live to run a command against. Each row's own result
+      (a real, computed point count, direction or "already matched"/"adjusted" outcome) is shown
+      under the list after running — genuine output, not a canned string. **"Run the gate on this
+      glyph" and "Compare with…" are left unwired** (`run = null`, shown but inert): `qa`'s Ship/gate
+      pipeline and the Google Fonts comparison flow are both out of this task's own reach in the
+      time available, stated here rather than claimed to work.
+    - **No drop shadow on the palette panel** (the explorer's own `.palette` rule:
+      `box-shadow:0 30px 60px rgba(0,0,0,.28)`) — this codebase's token system has no shadow token
+      anywhere yet (`UI_SPEC §1`'s own default is "nothing on the glass has a... shadow"; the palette
+      is one of a small number of documented exceptions for background only), so one was not invented
+      ad hoc for this single component. A future shadow token, if the product owner wants one, applies
+      here too.
+    - **Verified**, per this task's own instructions: `./gradlew :ui:spotlessCheck :ui:desktopTest`
+      — clean, 0 failures (`SheetScreenshotTest`'s own 4 cases included). Also compiled
+      `:ui:compileKotlinDesktop` and `:ui:compileKotlinWasmJs` directly (both clean) as a stronger
+      check that the new `commonMain` code — the keyboard-modifier `isCtrlPressed`/`isMetaPressed`
+      calls in particular — is genuinely cross-platform, not desktop-only code that happens to compile
+      once. `SheetScreenshotTest`'s own PNGs under `ui/build/screenshots/` were opened and read
+      directly (`draw-paper-rest.png`, `draw-blueprint.png`, `draw-radial-open.png`,
+      `space-panned.png`) rather than trusted from compilation alone — the guides, the Space kerning
+      demo/groups/`.fea` block and the unaffected puck/radial chrome all render as intended.
+
+    *Data points for whoever builds live contour selection (to wire the palette against a real
+    glyph instead of a demo shape), a guide-creation gesture, an editable `.fea` field, or `qa`'s
+    gate/compare wiring into the palette's two remaining rows; not product decisions, so no owner
+    tag.*
+

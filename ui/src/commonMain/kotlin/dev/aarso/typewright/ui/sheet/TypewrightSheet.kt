@@ -20,10 +20,12 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import dev.aarso.typewright.core.geometry.Vec2
+import dev.aarso.typewright.ui.glass.CommandPalette
 import dev.aarso.typewright.ui.glass.EdgeMarks
 import dev.aarso.typewright.ui.glass.Header
 import dev.aarso.typewright.ui.glass.InspectorField
 import dev.aarso.typewright.ui.glass.InspectorRow
+import dev.aarso.typewright.ui.glass.commandPaletteShortcut
 import dev.aarso.typewright.ui.glass.constructInspectorFields
 import dev.aarso.typewright.ui.puck.Puck
 import dev.aarso.typewright.ui.puck.PuckGestureConfig
@@ -96,6 +98,9 @@ fun TypewrightSheet(
     // P4b's own screenshot harness always renders at a known, fixed size, so this only matters
     // for the very first frame in a host that measures asynchronously).
     var canvasSizeDp by remember { mutableStateOf(Vec2(360.0, 780.0)) }
+    // P5b: the desktop command palette's own open/closed state (UI_SPEC §4, Ctrl/⌘ K) -- see
+    // CommandPalette.kt's own KDoc for why the shortcut lives in commonMain with no desktop gate.
+    var paletteOpen by remember { mutableStateOf(false) }
 
     val pin = rememberPuckPinState(canvasSizeDp)
     // P5b item 4: background/sketch layers -- see Layers.kt's own KDoc for scope.
@@ -114,9 +119,11 @@ fun TypewrightSheet(
                     canvasSizeDp =
                         Vec2(coordinates.size.width / density.density.toDouble(), coordinates.size.height / density.density.toDouble())
                 }.roomKeyboardNavigation(cameraState, scope)
-                .sheetRootGestures(cameraState) { target -> scope.launch { cameraState.flyTo(target) } },
+                .sheetRootGestures(cameraState) { target -> scope.launch { cameraState.flyTo(target) } }
+                .commandPaletteShortcut { paletteOpen = !paletteOpen },
     ) {
         WorldLinesPass(cameraState = cameraState, texture = texture)
+        WorldGuidesPass(cameraState = cameraState, texture = texture, guidelines = sampleGuidelines())
         BloomLayer(zones = bloomZones(pin.center, canvasSizeDp), texture = texture)
         WorldInkPass(cameraState = cameraState, texture = texture)
 
@@ -145,10 +152,28 @@ fun TypewrightSheet(
             config = initialGestureConfig,
         )
 
+        // TopCenter, not Center: this room's own world-space placeholder ink (RoomInk.kt's room
+        // wordmark, positioned just below the baseline) sits at screen-centre by default, so a
+        // centred glass panel visibly collided with it. Matches LayersPanel's own "just below the
+        // header" offset, the one other fixed-position glass element that isn't pinned to an edge.
+        SpaceRoomGlass(
+            room = cameraState.currentRoom,
+            texture = texture,
+            kerning = sampleKerning(),
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = LayersPanelTopPaddingDp.dp),
+        )
+
         InspectorRow(
             fields = inspectorFields(cameraState, puckState),
             texture = texture,
             modifier = Modifier.align(Alignment.BottomStart),
+        )
+
+        CommandPalette(
+            visible = paletteOpen,
+            onDismiss = { paletteOpen = false },
+            texture = texture,
+            modifier = Modifier.align(Alignment.TopCenter),
         )
 
         EdgeMarks(
