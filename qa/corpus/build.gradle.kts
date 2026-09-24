@@ -21,6 +21,11 @@ kotlin {
         commonMain {
             dependencies {
                 api(project(":core-geometry"))
+                // P1b: the style detector (dev.aarso.typewright.qa.corpus.style) builds its
+                // glyph set from `core-font`'s SfntFont (StyleGlyphSet.fromSfntFont), so the
+                // detector can run on an SfntFont directly rather than every caller first
+                // converting to core-geometry Glyphs by hand.
+                api(project(":core-font"))
                 implementation(libs.kotlinx.serialization.json)
             }
             resources.srcDir(syncCorpusData)

@@ -170,3 +170,59 @@ says what was done in the meantime, and names who decides. Answered entries move
       range against every class — that is exactly the decision this bullet still leaves open.
 
     *Data point for P1b and the `qa` checks task; not a product decision, so no owner tag.*
+
+19. **P1b's style detector is built, and honestly does not classify most sans sub-styles
+    correctly yet (P1b).** `dev.aarso.typewright.qa.corpus.style` (in `qa:corpus`) adds a feature
+    extractor (contrast ratio, stress angle, serif presence/bracket, a/g storeys, terminal style,
+    aperture openness, o roundness as a superellipse exponent, x-height/cap-height ratio, width
+    class — brief 8.4's nine) and a hand-written, explainable scorer (`rankStyleClasses`) over the
+    same ten corpus taxonomy keys, both pure common Kotlin with real unit tests on synthetic
+    glyphs (86 tests total between `qa:corpus` and `learn:scenes`, green on `jvmTest` and
+    `wasmJsNodeTest`).
+    - **Dependency change:** `qa:corpus`'s `build.gradle.kts` now depends on `:core-font` (not
+      only `:core-geometry`), since the extractor's `StyleGlyphSet.fromSfntFont` builds its glyph
+      set from `SfntFont`. No third-party dependency was added (`core-font` is an internal module),
+      so `THIRD_PARTY.md` is unchanged. `core-font` itself was untouched — no merge conflict with
+      whatever the `qa` checks task added there in parallel; its actual current API (`SfntFont`,
+      `readSfntFont`, `glyphForCodePoint`, `head.unitsPerEm`, and `core-geometry`'s `Contour`/
+      `Glyph`/`CurveSegment`/`extrema`/`signedArea`) is what P1b was built and read against.
+    - **Validation sample and method:** the ten corpus-#1-ranked families (`data/node-economy-
+      latin.json`'s `families[0]` per style class) plus the ten Lineages exemplars
+      (`data/exemplars.json`), fetched from `raw.githubusercontent.com/google/fonts` at the
+      corpus's own pinned commit `b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04`, by the same
+      `dir_name`/`regular_filename`/licence-directory method `data/scripts/
+      build_node_economy_corpus.py` uses. 20 fonts targeted; 19 classified, 1 failed
+      (`Chiron Sung HK`, a ~50 MB CJK variable font — `core-font`'s `readSfntFont` decodes every
+      glyph's `glyf` record eagerly regardless of which are ever read, which is fine for a
+      Latin-only font but ran the JVM test out of heap on that file; flagged here rather than
+      fixed, since changing `core-font`'s eagerness is out of `qa:corpus`'s scope and risks the
+      same file the `qa` checks task may be editing). The harness
+      (`StyleDetectorRealFontValidationTest`, `qa:corpus`'s `jvmTest`) is opt-in — it needs the
+      fonts fetched locally into `qa/corpus/build/validation-fonts/`, which is not committed
+      (copyrighted binaries, and not this module's generated data), so it no-ops on a normal
+      checkout or in CI rather than depending on network access CLAUDE.md law 4 does not promise.
+    - **Result: 8/19 correct top-1 (42%).** Full per-font ranking and confidences are in that
+      test's own `validation-report.txt` output (reproduced in the P1b prompt's response). By
+      class: `sans-grotesque` 2/2, `serif-didone` 2/2, `slab` 2/2, `serif-transitional` 1/1 all
+      correct; `sans-geometric` 1/2; `sans-humanist`, `sans-neogrotesque`, `serif-garalde`,
+      `display-artdeco`, `blackletter` 0/2 each. The four closely-related sans classes (geometric,
+      grotesque, neo-grotesque, humanist) are frequently confused with each other — genuinely hard
+      to separate from only these nine features, and not unlike the ambiguity brief 8.4 itself
+      names ("gothic" meaning sans versus blackletter by region). `display-artdeco` and
+      `blackletter` are the two classes the scorer's own KDoc already flags as weak (neither
+      "inline stripes, extreme widths" nor a genuinely broken/diamond stroke has a dedicated
+      feature among the nine); both empirically top-ranked as `serif-didone`/other classes
+      instead in this sample. No threshold was re-tuned against this validation sample after
+      seeing its results, to avoid overfitting a hand-set scorer to 19 fonts; a larger validation
+      pass is future work, not done here.
+    - **Item 22's third bullet ("decide what Task 4 compares Hyle Deco's o against") is still not
+      decided by this task either.** `rankStyleClasses` infers a class from a font's own outlines;
+      it does not assign Hyle Deco (or any font) a fixed class for the node-economy gate to use —
+      that remains `campaign`'s call (or the product owner's, per decision 6).
+    - The style-identification feature vocabulary (brief 8.4's closing sentence: "the inference
+      uses the same feature vocabulary the Lineages lesson teaches") is now in
+      `learn:scenes` as data (`StyleFeatureVocabulary.kt`, `STYLE_FEATURE_VOCABULARY`, 9 entries,
+      marked SCAFFOLD per docs/LESSONS_SCAFFOLD.md's convention) — plain-language definitions
+      only, not the scene-YAML engine itself, which is P6's job.
+
+    *Data point for `campaign` (Task 4) and P6 (Lineages); not a product decision, so no owner tag.*
