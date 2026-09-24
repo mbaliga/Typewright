@@ -146,6 +146,7 @@ docs/
   LESSONS_SCAFFOLD.md          scene format + Lineages / Craft / Scripts / Reading scaffolds
   DECISIONS.md                 the decision register from the design sessions
   OPEN_QUESTIONS.md            questions raised during the build, by prompt
+  HOSTED_BUILD_ENDPOINT.md     the web compile backend's wire contract and zero-retention policy (not deployed yet)
   hyle-outline-explainer.html  the explainer that started this
 data/
   node-economy-latin.json      per-style, per-glyph distributions + per-family counts (10 classes)

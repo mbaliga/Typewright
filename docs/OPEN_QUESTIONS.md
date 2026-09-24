@@ -2862,3 +2862,54 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     as a `Shaper` implementation, and `BrowserFontFaceShaperStub`'s only change is its own KDoc and
     `planned` message text.
 
+## P9: hosted build endpoint (`compile` module — `HostedBuildProtocol.kt`,
+`HostedEndpointBackend.kt`, `HostedEndpointTransport.kt`, `docs/HOSTED_BUILD_ENDPOINT.md`)
+
+115. **The wire contract in `docs/HOSTED_BUILD_ENDPOINT.md` is new and unreviewed.** No hosted
+     endpoint existed before this pass (`HostedEndpointBackend.compile()` was a stub, brief §3,
+     prompt P9), so there was no existing contract to match: the request/response JSON shape
+     (`POST {endpoint}/v1/compile`, files base64-whole in one JSON body, success/failure both as
+     HTTP 200 distinguished by a `status` field, non-2xx and transport errors folded into
+     `CompileResult.Failure`) is this pass's own design, made to be simple, testable and honest
+     rather than derived from any spec. It is exercised for real against a local mock server
+     (`HostedEndpointBackendRealHttpTest`, `:compile:wasmJsNodeTest`) and the encode/decode logic
+     is unit-tested on every target (`HostedBuildProtocolTest`), but nothing has checked it
+     against whatever the real fontmake-in-a-container service (once someone builds it) will
+     actually expect — that service does not exist yet either. Whoever builds the real endpoint
+     should treat this doc as the starting contract to implement against, not as settled the way
+     `docs/DECISIONS.md`'s entries are. `[CONFIRM]`. *Madhav, once a real deployment is being
+     built.*
+
+116. **`HostedEndpointBackend.availability()` now reports `Available` once an endpoint is
+     configured**, rather than always `Unavailable` as it did when the whole backend was a stub.
+     The originating task for this pass explicitly said not to change the `endpoint == null`
+     branch (unchanged: still `Unavailable(PLANNED)`, exact same value) but did not ask for the
+     non-null branch to change either way; reporting `Available` once there is a real `compile()`
+     to try was judged the honest reading — an endpoint the UI could otherwise never attempt
+     would be a worse kind of dishonesty than the stub it replaces — but it is a real behavioural
+     decision made without a request for it, not one this log's other entries can point to a
+     brief section for. `[CONFIRM]`. *Madhav.*
+
+117. **Zero-retention is written as a policy, not proven.** `docs/HOSTED_BUILD_ENDPOINT.md`'s own
+     "Zero-retention policy" section says plainly that nothing about a promise like "the endpoint
+     keeps nothing" can be verified by the client from outside the container — no response header
+     defined here would be trustworthy evidence even if one existed. The document recommends that
+     a real deployment publish its container image and infrastructure-as-code so the policy is
+     checkable rather than only promised, but building or publishing either of those is outside
+     this pass's own scope (no real endpoint is deployed, per `docs/DECISIONS.md`'s "hosted
+     endpoint's home" still being open). Whoever deploys the real endpoint should treat that
+     recommendation as a requirement, not a suggestion. *Madhav, at deployment time.*
+
+118. **`:compile:wasmJsBrowserTest` is registered but disabled** (`KmpPlatformConventionPlugin`'s
+     own default `testTask { enabled = false }`; confirmed by actually running it —
+     `BUILD SUCCESSFUL`, task `SKIPPED`, not merely believed from reading the plugin), so no
+     module in this repository proves `compile`'s wasmJs code inside a real browser; the real
+     proof this pass has is `wasmJsNodeTest` against a real local HTTP server, using Node's own
+     global `fetch()` (Node ≥ 18), which implements the same Fetch API a browser does but is not
+     a browser. If a later pass wants `compile`'s own wasmJs tests to also run under headless
+     Chrome the way `:ui`'s does (`ui/build.gradle.kts`'s own `testTask { enabled = true }`
+     override, with its CMP-4906 reasoning), that override was judged out of scope here since it
+     was not asked for and this module has no Compose dependency forcing the switch the way `ui`
+     did. Noted rather than done. *Not a product decision — implementation choice, flagged for
+     visibility.*
+

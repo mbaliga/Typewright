@@ -2,6 +2,7 @@ import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
     id("typewright.kmp.platform")
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -14,6 +15,10 @@ kotlin {
         commonMain {
             dependencies {
                 api(project(":core-font"))
+                // HostedBuildProtocol's request/response wire encoding (docs/HOSTED_BUILD_ENDPOINT.md).
+                // Already a build-wide dependency (qa:corpus's node-economy loader; see its own
+                // build.gradle.kts comment); same version, so nothing new resolves.
+                implementation(libs.kotlinx.serialization.json)
             }
         }
     }
