@@ -16,6 +16,14 @@ import kotlin.test.assertTrue
  * file is specifically about the entry point this task adds: the "Learn" corner tab, and
  * [dev.aarso.typewright.ui.learn.LearnScreen] actually appearing full-screen once
  * [TypewrightAppNavState.showLearn] is true.
+ *
+ * **Task P7 additions.** [dev.aarso.typewright.ui.workbook.WorkbookEntryButton] now stacks above
+ * the Learn button in the same bottom-end corner (this file's own top-level KDoc, "Task P7") --
+ * [closedStateShowsBothEntryButtonsStackedWithoutOverlapping] confirms by real pixel sampling
+ * (this task's own instruction: "verify this by screenshot, not by eye alone") that the two ink
+ * blocks do not collide at this phone size, and
+ * [workbookOpenStateShowsWorkbookScreenFullScreenInsteadOfTheEntryButtons] mirrors the existing
+ * Learn open-state test for the sibling screen.
  */
 class TypewrightAppEntryPointScreenshotTest {
     private val phoneWidthPx = 720
@@ -32,14 +40,47 @@ class TypewrightAppEntryPointScreenshotTest {
 
         val pixels = shot.bitmap.toPixelMap()
         val ink = CanvasTextures.PAPER.ink.toColor()
-        // The entry button is an ink block pinned to the bottom-end corner (16 dp inset, this
-        // task's own reasoned choice -- see TypewrightApp's own KDoc) -- sample a pixel well
-        // inside where it must be, at this exact phone size/density, and expect ink there.
+        // The Learn button is the *lower* of the two stacked ink blocks, still pinned to the
+        // bottom-end corner (16 dp inset) -- sample a pixel well inside where it must be, at this
+        // exact phone size/density, and expect ink there.
         val sampleX = phoneWidthPx - 40
         val sampleY = phoneHeightPx - 40
         assertTrue(
             pixels[sampleX, sampleY].isNear(ink),
             "expected the Learn entry button's own ink block near the bottom-end corner ($sampleX, $sampleY), was ${pixels[sampleX, sampleY]}",
+        )
+    }
+
+    @Test
+    fun closedStateShowsBothEntryButtonsStackedWithoutOverlapping() {
+        val shot =
+            ScreenshotHarness.capture(
+                name = "app-entry-buttons-closed",
+                width = phoneWidthPx,
+                height = phoneHeightPx,
+                density = phoneDensity,
+            ) {
+                TypewrightApp()
+            }
+        assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
+
+        val pixels = shot.bitmap.toPixelMap()
+        val ink = CanvasTextures.PAPER.ink.toColor()
+        val canvasColor = CanvasTextures.PAPER.canvas.toColor()
+        val sampleX = phoneWidthPx - 40
+        // Exact boundaries measured directly from this render (a vertical pixel scan at this same
+        // x, not guessed): Workbook button ink y in [1392, 1450), a real canvas-coloured gap in
+        // [1450, 1466), Learn button ink in [1466, 1528) -- this task's own instruction to verify
+        // no collision by screenshot, not by eye alone.
+        val workbookSampleY = 1420
+        assertTrue(
+            pixels[sampleX, workbookSampleY].isNear(ink),
+            "expected the Workbook entry button's own ink block above the Learn button ($sampleX, $workbookSampleY), was ${pixels[sampleX, workbookSampleY]}",
+        )
+        val gapY = 1458
+        assertTrue(
+            pixels[sampleX, gapY].isNear(canvasColor),
+            "expected a clear canvas-coloured gap between the two stacked entry buttons ($sampleX, $gapY), was ${pixels[sampleX, gapY]}",
         )
     }
 
@@ -60,6 +101,22 @@ class TypewrightAppEntryPointScreenshotTest {
         assertTrue(
             pixels[8, phoneHeightPx - 8].isNear(canvasColor),
             "bottom-start corner should read as LearnScreen's own paper canvas colour once open, was ${pixels[8, phoneHeightPx - 8]}",
+        )
+    }
+
+    @Test
+    fun workbookOpenStateShowsWorkbookScreenFullScreenInsteadOfTheEntryButtons() {
+        val shot =
+            ScreenshotHarness.capture(name = "app-workbook-open", width = phoneWidthPx, height = phoneHeightPx, density = phoneDensity) {
+                TypewrightApp(navState = TypewrightAppNavState(initialShowWorkbook = true))
+            }
+        assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
+
+        val pixels = shot.bitmap.toPixelMap()
+        val canvasColor = CanvasTextures.PAPER.canvas.toColor()
+        assertTrue(
+            pixels[8, phoneHeightPx - 8].isNear(canvasColor),
+            "bottom-start corner should read as WorkbookScreen's own paper canvas colour once open, was ${pixels[8, phoneHeightPx - 8]}",
         )
     }
 

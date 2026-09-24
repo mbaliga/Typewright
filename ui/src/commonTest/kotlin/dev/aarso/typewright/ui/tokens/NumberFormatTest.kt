@@ -46,4 +46,21 @@ class NumberFormatTest {
             // expected
         }
     }
+
+    @Test
+    fun thousandsStringGroupsEveryThreeDigitsFromTheRight() {
+        assertEquals("0", 0.toThousandsString())
+        assertEquals("44", 44.toThousandsString())
+        assertEquals("308", 308.toThousandsString())
+        assertEquals("1,252", 1252.toThousandsString())
+        assertEquals("1,763", 1763.toThousandsString())
+        assertEquals("68,941", 68941.toThousandsString())
+        assertEquals("1,000,000", 1000000.toThousandsString())
+    }
+
+    @Test
+    fun thousandsStringKeepsTheMinusSignOutOfTheGrouping() {
+        assertEquals("-1,252", (-1252).toThousandsString())
+        assertEquals("-44", (-44).toThousandsString())
+    }
 }

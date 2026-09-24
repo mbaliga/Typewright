@@ -6,22 +6,26 @@ import kotlin.test.assertTrue
 
 /**
  * Portable (desktop + wasmJs/browser) unit tests for [TypewrightApp]'s own minimal entry-point
- * state, [TypewrightAppNavState]. A plain class holding a Compose `mutableStateOf` field, exactly
- * like [dev.aarso.typewright.ui.puck.PuckUiState] and [dev.aarso.typewright.ui.learn.
+ * state, [TypewrightAppNavState]. A plain class holding two Compose `mutableStateOf` fields,
+ * exactly like [dev.aarso.typewright.ui.puck.PuckUiState] and [dev.aarso.typewright.ui.learn.
  * LearnScreenUiState] -- constructible and readable directly, no Compose test rule or simulated
  * pointer event needed. Asserting on [TypewrightAppNavState.openLearn]/[TypewrightAppNavState.
- * closeLearn] here is a real test of the exact mechanism the entry button and [dev.aarso.
- * typewright.ui.learn.LearnScreen]'s own back button call, not a stand-in for it.
+ * closeLearn]/[TypewrightAppNavState.openWorkbook]/[TypewrightAppNavState.closeWorkbook] here is a
+ * real test of the exact mechanism each entry button and each screen's own back button call, not a
+ * stand-in for it.
  */
 class TypewrightAppNavStateTest {
     @Test
     fun startsClosedByDefault() {
-        assertFalse(TypewrightAppNavState().showLearn)
+        val state = TypewrightAppNavState()
+        assertFalse(state.showLearn)
+        assertFalse(state.showWorkbook)
     }
 
     @Test
     fun canStartOpenWhenAskedTo() {
         assertTrue(TypewrightAppNavState(initialShowLearn = true).showLearn)
+        assertTrue(TypewrightAppNavState(initialShowWorkbook = true).showWorkbook)
     }
 
     @Test
@@ -52,5 +56,38 @@ class TypewrightAppNavStateTest {
         val state = TypewrightAppNavState(initialShowLearn = true)
         state.openLearn()
         assertTrue(state.showLearn)
+    }
+
+    @Test
+    fun openWorkbookSetsShowWorkbookTrue() {
+        val state = TypewrightAppNavState()
+        state.openWorkbook()
+        assertTrue(state.showWorkbook)
+    }
+
+    @Test
+    fun closeWorkbookSetsShowWorkbookFalse() {
+        val state = TypewrightAppNavState(initialShowWorkbook = true)
+        state.closeWorkbook()
+        assertFalse(state.showWorkbook)
+    }
+
+    @Test
+    fun openWorkbookClosesLearnAndOpenLearnClosesWorkbook() {
+        val state = TypewrightAppNavState(initialShowLearn = true)
+        state.openWorkbook()
+        assertTrue(state.showWorkbook)
+        assertFalse(state.showLearn, "opening the workbook must close Learn -- both are full-screen overlays")
+
+        state.openLearn()
+        assertTrue(state.showLearn)
+        assertFalse(state.showWorkbook, "opening Learn must close the workbook -- both are full-screen overlays")
+    }
+
+    @Test
+    fun closingOneScreenNeverAffectsTheOther() {
+        val state = TypewrightAppNavState(initialShowLearn = true)
+        state.closeWorkbook()
+        assertTrue(state.showLearn, "closing the workbook (never open) must not close Learn")
     }
 }

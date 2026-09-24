@@ -2093,3 +2093,185 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     interaction: it needs its own explorer mockup first (per law 6) before any code, `:campaign`'s
     data included — this task deliberately left that mockup unmade rather than inventing one.*
 
+## P7: WorkbookScreen (`:ui` — `WorkbookScreen.kt`, `WorkbookCampaignSnapshot.kt`,
+`WorkbookGateDisplay.kt`, `SeverityMark.kt`, `WorkbookReferenceProject.kt`,
+`WorkbookScreenState.kt`; `:campaign` — `WorkbookProgress.kt`; `TypewrightApp.kt`)
+
+89. **The corner taskcard is this build's own disclosed substitute for brief section 9's "a
+    one-line next-task on the specimen," not an attempt to build the specimen screen itself — and
+    the substitute's first render needed a width cap found and fixed by screenshot.** Per this
+    task's own instructions, item 82 above (and item 56 it points back to) already discloses that
+    the *full* cross-station navigation shell — a real Home/specimen screen included — is
+    separate, later, undesigned-by-the-explorer work; with no specimen screen to put a taskcard
+    on, `TypewrightApp`'s own bottom-end corner (the one corner P6's own `LearnEntryButton` left
+    free, that task's own KDoc) now stacks a second small ink block above it,
+    `WorkbookEntryButton`, showing the real current/next task's own label (`nextTaskLabel`,
+    `#s-home`'s own `.taskcard` copy shape) rather than a generic "Workbook" word. Confirmed by
+    screenshot, not by eye alone (this task's own instruction): the first unconstrained render
+    (`nextTaskLabel` returning a real, longer title like `"Task 10 · Extend a script (optional)"`)
+    spanned nearly the full phone width, reading as a banner rather than a corner tab —
+    `WorkbookEntryButton`'s own `widthIn(max = 190.dp)` plus `TextOverflow.Ellipsis` is the fix,
+    and `TypewrightAppEntryPointScreenshotTest.closedStateShowsBothEntryButtonsStackedWithoutOverlapping`
+    now samples real pixels (measured with a throwaway vertical pixel-transition probe against a
+    real render, not guessed) proving the two stacked blocks do not collide. `TypewrightAppNavState`
+    grew `showWorkbook`/`openWorkbook`/`closeWorkbook`, mutually exclusive with `showLearn` (both
+    are full-screen, texture-occluding overlays over the same `TypewrightSheet`) — the same plain,
+    directly-testable state shape `showLearn` already established, extended rather than a second
+    sibling class, since both flags are genuinely one "which full-screen overlay, if any" concern.
+
+90. **A real, screenshot-caught layout bug in the Demonstration section, found and fixed the same
+    way this build's own history keeps finding these: render the real data, not a hand-picked
+    example, and look.** `WorkbookDemonstrationSection`'s first version rendered every
+    `Demonstration.StatDemonstration.label` at `#s-workbook`'s own `.demo .dl` treatment — 40sp, in
+    the user's own font, next to the stats in an unweighted `Row` — because task 4's own real label
+    is exactly that shape (`"noHO"`, the explorer's only worked example). Every other real label in
+    `workbook-latin.yaml` is a descriptive phrase, not a short sample — task 6's own real
+    `"on-curve range across 13 open fonts (docs/RESEARCH_font_quality.md)"`, 68 characters — and
+    forcing one of those into the same unconstrained 40sp hero slot starved its own sibling stats
+    column of width, wrapping every character of every stat line onto its own line (confirmed by
+    screenshot, `ui/build/screenshots/workbook-screen-task6-pass-warn-mix.png` before the fix; the
+    same `Row`-sibling-width failure class items 74/81 above already name, a third real instance of
+    it in this codebase now). Fixed two ways together, not one: `isHeroStatLabel(label)`
+    (`WorkbookGateDisplay.kt`, a length/shape heuristic — `<= 10` characters and no space — not a
+    task-index special case, so it keeps working if the YAML content changes) decides whether a
+    label reads as a real hero sample at all, and the stats column now always carries
+    `Modifier.weight(1f)` regardless, so it can never again collapse to near-zero even if a future
+    label sits right at that heuristic's own boundary. A second, smaller instance of the same class
+    of bug (bottom-aligning a wrapped multi-line caption against a single-line hero in a `Row`, for
+    `Demonstration.SceneDemonstration`) was found and fixed the same session, before it ever reached
+    a committed screenshot — that section is a plain top-aligned `Column` now, not a `Row`.
+
+91. **`campaign`'s own real progress logic makes task 1 — not the mockup's "task 4" — this build's
+    real current/next task on the Hyle Deco reference project, and that is a genuine finding about
+    the data model, not a workaround.** `WorkbookProgress.kt`'s `campaignProgress` marks a task
+    [DONE] only when its real gate `isFullyPassing()` (implemented, at least one check, every check
+    PASS); the first non-DONE task in index order is CURRENT, and everything after it is TODO
+    regardless of its own gate (a later task's gate happening to pass alone, e.g. task 12's own
+    pure string generation almost always does, must never let it jump the queue — this exact bug
+    was caught by `WorkbookProgressTest.firstNonDoneTaskIsCurrentAndEveryTaskAfterItIsTodoRegardlessOfItsOwnGate`
+    on the first implementation, which checked `isFullyPassing()` before the "already blocked" flag
+    instead of after, and was fixed before this task was reported done). Run for real
+    (`loadWorkbookCampaignSnapshot`, JVM/`desktopTest`, a throwaway probe first, per this task's own
+    instruction not to guess): task 1's gate is NOT_IMPLEMENTED and stays task 1 by definition —
+    the campaign module has **no persisted "the learner manually confirmed this judgment-call task
+    is done" flag anywhere** (`WorkbookProgress.kt`'s own KDoc says so plainly), so on *any* project,
+    not just this one, tasks 1/2/7/8/10 can never read DONE and task 1 is always CURRENT until that
+    gap is closed — a real, disclosed limitation of the data model this task built on top of, not
+    fixed here (out of this task's own scope: no new state was added to `WorkbookTask`/
+    `WorkbookGateSpec`). Task 4's own gate needs a style-class key `WorkbookGateSpec` itself does not
+    carry (item 18's own closing line: "that remains `campaign`'s call"); `runWorkbookGate` decides
+    it once, `DEFAULT_TASK4_STYLE_KEY = "sans-geometric"`, matching `HyleDecoTask4GateTest`'s own
+    already-established choice, not a new one. Task 11's real gate (`WorkbookGates.task11Test`,
+    `suspend`, needs a real `LayerOneChecker`) is deliberately *not* called by `runWorkbookGate` —
+    there is no compiled-font pipeline reachable from a `UfoProject` alone (item 86's own gap, the
+    same shape the other direction), so every real call would return the identical "no compiled
+    font to check yet" result a `null` compiled input already gives; `runWorkbookGate` returns that
+    exact honest result directly and synchronously instead, documented as a deliberate
+    simplification in `WorkbookProgress.kt`'s own KDoc, not a silent shortcut.
+
+92. **Loading the real campaign snapshot in `ui` inherits item 18's already-disclosed wasmJs-browser
+    gap, one target wider than P1-corpus-loader's own prompt covered, and is honestly disclosed
+    rather than worked around.** `WorkbookCampaignSnapshot.Loaded` needs `qa:corpus`'s
+    `NodeEconomyCorpus.load()`, whose `wasmJs` actual reads its JSON pack with Node's own `fs`
+    (`CorpusResources.wasmJs.kt`) — real and tested under `wasmJsNodeTest`, but `ui`'s own `wasmJs`
+    target is a real **browser** (`ui/build.gradle.kts`'s own comment, confirmed again while
+    writing this task), where `process` is undefined. `loadWorkbookCampaignSnapshot` therefore
+    `runCatching`s the whole load and returns an honest `WorkbookCampaignSnapshot.Unavailable`
+    instead of crashing — the identical "not available on this target" convention
+    `dev.aarso.typewright.ui.learn.loadDefaultOverlayLayers` already established for a *different*
+    real gap on this exact same target (missing Learn-face bytes) — and `WorkbookScreen`/
+    `WorkbookEntryButton` both render an honest fallback for it (`WorkbookUnavailableBody`;
+    `nextTaskLabel`'s own plain `"Workbook"` word), screenshot-tested
+    (`rendersAnHonestUnavailableBodyWhenTheSnapshotFailedToLoad`). Not fixed here (this task's own
+    scope is the screen, not `qa:corpus`'s wasmJs resource loader) — a real, disclosed gap for
+    whoever next builds `app-web`'s own real Kotlin/Wasm browser target (P9), the same "browser
+    half is not [solved]" item 18 already named, now confirmed to reach `ui` itself, not only a
+    hypothetical future caller. **A second, smaller, disclosed inefficiency, not a correctness
+    gap:** `TypewrightApp`'s own `WorkbookEntryButton` and `WorkbookScreen`'s own
+    `rememberWorkbookScreenUiState` each independently call `loadWorkbookCampaignSnapshot()` —
+    two real font parses and corpus loads per app session, not a shared instance — because
+    `WorkbookScreen`'s own signature is fixed to `(modifier, texture, onBack, uiState)` (this
+    task's own instruction, matching `LearnScreen`'s established shape) with no fifth parameter to
+    thread a pre-loaded snapshot through; both loads are deterministic and always agree, so this
+    is a real, small perf cost, not a data-consistency risk (`TypewrightApp.kt`'s own KDoc on
+    `WorkbookEntryButton`).
+
+93. **Three more deliberate, disclosed calls made building this screen, none of them shown by the
+    explorer's own single worked example (task 4) and none of them guessed at silently.**
+    - **The Reflection section's text entry is real and reuses `dev.aarso.typewright.ui.learn.
+      ScrapbookPin`/`ScrapbookPinKind.NOTE`/`stablePinRotationDegrees` — the real scrapbook data
+      model and its real stable-rotation function — but appends to `WorkbookScreen`'s own
+      `remember`ed list, not `ScrapbookTab`'s.** There is no current-project flow or shared
+      scrapbook state anywhere in `ui` yet (the same gap `SampleScrapbook`'s own KDoc already
+      discloses); a reflection saved on this screen and a "+ note" pin added on the Scrapbook tab
+      are two different `remember` scopes today, both real, both in-memory-only, neither one
+      shared with the other. Whoever next gives this app a real current-project/scrapbook
+      repository is the one who can make these the same list.
+    - **`WorkbookGateSection`'s "Trace again with Fit ›" action is reproduced on task 4's own
+      screen only, and is unwired.** `#s-workbook`'s own markup shows exactly one task and exactly
+      one Gate action button; nothing in the explorer says whether that action is task-4-specific
+      (a re-trace makes sense for a node-economy miss) or a generic per-gate action, so per law 6
+      this file does not guess past the one real, literal case — and it does nothing when tapped,
+      since no real Trace screen composable exists anywhere in `ui` yet (confirmed by reading
+      `ui/src/commonMain` in full before writing this file), the same disclosed-not-fake convention
+      `LearnScreen`'s own commands button already established.
+    - **Task 12's real ship gate needs a `designer` name `campaign`'s data model has no source for**
+      (`ShipMetadata` carries `family`/`year`/`gitUrl` real values already quoted by task 12's own
+      YAML demonstration, `"Hyle Deco"`/`2026`/`"https://github.com/mbaliga/hyle-deco"`, but no
+      task or brief text ever names a designer). `WorkbookCampaignSnapshot.kt` uses `"Madhav"` —
+      the one real person named throughout this build's own docs as its product owner
+      (`TYPEWRIGHT_BUILD_BRIEF.md` section 16) — a reasonable, disclosed stand-in for a demo
+      project's own placeholder field, not a measured fact CLAUDE.md law 5 binds.
+
+94. **`LearnScreenScreenshotTest`'s own `width = 420, density = 2f` (210 dp) screenshot convention
+    is narrower than `ui/typewright-explorer.html`'s own real phone frame
+    (`.tw.phone{width:400px}`, line 70) — a real discrepancy found while choosing this screen's own
+    screenshot width, not fixed on `LearnScreen`'s own tests (out of this task's scope).**
+    `WorkbookScreenScreenshotTest` captures at `width = 800, density = 2f` (400 dp) instead, once a
+    210 dp canvas was confirmed by screenshot to over-truncate this screen's own longer real header
+    text (`"Workbook · Latin"`) and task titles far more than the real explorer frame would ever
+    force. `TypewrightAppEntryPointScreenshotTest`'s own existing `phoneWidthPx = 720, density = 2f`
+    (360 dp, P6's own choice, left unchanged here) sits between the two and was not the cause of
+    any truncation this task found. *Whoever next revisits `LearnScreenScreenshotTest`/
+    `ScrapbookTabScreenshotTest`/`OverlayTabScreenshotTest`/`LensTabHyleDecoTest`'s own shared
+    210 dp convention: this file's own finding is a data point that it reads narrower than the
+    explorer's own real frame, not a claim that those specific screens' own content is broken by
+    it (their own content was not re-audited here).*
+
+## P7: independent verification (campaign engine + WorkbookScreen UI)
+
+95. **A real, previously-uncaught bug: `ui`'s own commonTest fixture `WorkbookScreenStateTest.kt`'s
+    `fixtureSnapshot()` claimed to be "portable across every target" while actually calling
+    `WorkbookLatinContent.load()`, which is not -- caught only by running `:ui:wasmJsBrowserTest`
+    fresh, which neither prior P7 stage ran (it is not in `.github/workflows/ci.yml`; the "web" job
+    there runs `:app-web:wasmJsBrowserTest`, never `:ui:`'s own) and item 89-94's own report never
+    mentions.** `WorkbookLatinContent.load()` calls `campaign`'s `readCampaignResourceText`, whose
+    wasmJs actual (`CampaignResources.wasmJs.kt`) is, by its own KDoc, "Written for `wasmJs {
+    nodejs() }` only... not a browser" -- the same class of gap item 92 already discloses for
+    `qa:corpus`'s loader on this exact target, and structurally the same cross-module-wasmJs finding
+    item 87 already names, one level up (`ui` calling `campaign`'s resource reader from `ui`'s own
+    compiled wasmJs *browser* bundle, not `campaign`'s own Node one). `:ui:wasmJsBrowserTest
+    --rerun-tasks`, run fresh for this verify pass, failed 5 of 199 tests --
+    `WorkbookScreenUiStateTest` (3) and `NextTaskLabelTest` (2) -- every one the identical
+    `ReferenceError: process is not defined` inside `readNodeFileNextToThisModule`, reached through
+    `WorkbookLatinContent.load()` called from this test file's own `fixtureSnapshot()`. Fixed by
+    making `fixtureSnapshot()` genuinely synthetic (`syntheticTask(index)`, a hand-built
+    `WorkbookTask` per task, no resource read at all) rather than touching `campaign`'s own loader
+    (out of scope, and an honest, already-disclosed gap, not a bug in the loader itself). Confirmed:
+    `:ui:wasmJsBrowserTest --rerun-tasks` now reports 199/199, and a full combined repo-wide re-run
+    afterward (`spotlessCheck jvmTest wasmJsNodeTest :ui:desktopTest :ui:testAndroidHostTest
+    :ui:wasmJsBrowserTest --rerun-tasks`) is green: 820/820 jvmTest, 794/794 wasmJsNodeTest, 290/290
+    `:ui:desktopTest`, 198/198 `:ui:testAndroidHostTest`, 199/199 `:ui:wasmJsBrowserTest`. A second,
+    smaller inaccuracy fixed the same pass: `campaign/README.md`'s own "Tests" section named only
+    four `commonTest` classes and claimed "29 tests," omitting `WorkbookProgressTest` (15 tests)
+    from the list entirely -- the real, measured total is 44 `commonTest` tests on both `jvm` and
+    `wasmJs` (Node); corrected in place, no test content changed. Task 4's own real per-glyph counts
+    were independently re-derived in this pass too (a throwaway `jvmTest` probe reading
+    `fonts/HyleDeco-Regular.ttf` via `core-font`'s real `readSfntFont`, deleted after use, the
+    established pattern): n 44 / o 80 / H 1,252 / O 83 on-curve, 0 off-curve each, matching
+    `HyleDecoTask4GateTest`'s own assertions exactly and confirming `WorkbookScreen`'s real rendered
+    box ranges (`box 17 – 22` / `23 – 24` / `12 – 18` / `24 – 29`, from `data/node-economy-latin.
+    json`'s real `sans-geometric` quartiles) are genuinely computed, not the explorer's own
+    `#s-workbook` mockup box text (`12 – 14` / `10 – 10` / `12 – 13` / `10 – 12`) -- the two box sets
+    disagree everywhere despite the four on-curve *value* numbers coincidentally matching the
+    mockup's own (both being the same real shipped-font measurement to begin with).
