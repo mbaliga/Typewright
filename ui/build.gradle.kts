@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+
 plugins {
     id("typewright.kmp.platform")
     alias(libs.plugins.kotlin.compose)
@@ -5,13 +7,29 @@ plugins {
 }
 
 kotlin {
+    // P4a's sheet camera, room layout and puck gesture machine (dev.aarso.typewright.ui.sheet /
+    // .puck / .tokens) are plain Kotlin with zero Compose dependency, and expose core-geometry's
+    // Vec2 in their own public API, so unlike every other project dependency below, core-geometry
+    // is `api`, not `implementation` (matching how engine-construct and core-font already depend
+    // on it, for the same reason: their own public API surfaces expose its types too).
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        browser {
+            testTask {
+                enabled = true
+                useKarma {
+                    useChromeHeadlessNoSandbox()
+                }
+            }
+        }
+    }
     sourceSets {
         commonMain {
             dependencies {
                 api(libs.compose.runtime)
                 api(libs.compose.foundation)
                 api(libs.compose.ui)
-                implementation(project(":core-geometry"))
+                api(project(":core-geometry"))
                 implementation(project(":core-font"))
                 implementation(project(":engine-trace"))
                 implementation(project(":engine-construct"))
@@ -38,10 +56,19 @@ tasks.named<Test>("desktopTest") {
     outputs.dir(screenshotDir)
 }
 
-// ui runs no Wasm tests: Skiko's Wasm runtime cannot load under Node, and browser test runs are
-// off (see KmpPlatformConventionPlugin). Compose's guard for Wasm UI tests hangs off every
-// KotlinJsTest task, disabled ones included, so switch the guard off here (it is registered
-// after this script runs, hence `matching`). app-web runs its Wasm test in headless Chrome.
+// P4a tried `wasmJs { nodejs() }` first, the same way :compile and :shape-preview run their own
+// Compose-free tests under Node -- it does not work here, even for a commonTest file (e.g.
+// PuckGestureMachineTest) that itself never touches Compose. ui's commonMain already depends on
+// Compose (compose-runtime/foundation/ui above), so the wasmJs *test* binary links that in too
+// regardless of which test file is actually running, and Skiko boots eagerly at module load:
+// under Node this failed with "failed to asynchronously prepare wasm: both async and sync
+// fetching of the wasm failed" (reproduced by running `:ui:wasmJsNodeTest`, task P4a) -- exactly
+// CMP-4906 (KmpPlatformConventionPlugin's own doc comment), and a module-wide constraint, not one
+// P4a's own Compose-free files could route around by writing themselves any differently. Skiko's
+// Wasm runtime does load in a real browser, so this module's wasmJs test instead runs the same
+// way app-web's already does -- headless Chrome through Karma (`useChromeHeadlessNoSandbox()`,
+// reading `CHROME_BIN`) -- confirmed working here: `:ui:wasmJsBrowserTest` runs all 74 commonTest
+// cases (P4a's new ones plus the pre-existing PaperTokensTest) for real in Chrome, 0 failures.
 tasks.matching { it.name == "checkComposeUiTestConfigurationForWasmJs" }.configureEach {
     enabled = false
 }
