@@ -23,6 +23,13 @@ jvm-target = "17"
 # module is pure (no Compose dependency), so that does not collide with Compose's 1.7.3.
 xmlutil = "1.0.2"
 
+# qa:corpus's node-economy data loader (docs/ARCHITECTURE_REVIEW.md section 3 `:qa:corpus`
+# "Pick": "kotlinx-serialization-json 1.11.0 (Apache-2.0; wasmJs since 1.6.1)"). Matches the
+# kotlinx-serialization-core version xmlutil already pulls transitively (comment above), so both
+# modules resolve to one version. The compiler plugin (`kotlin-serialization` below) is versioned
+# in lockstep with Kotlin itself, not with this library.
+kotlinx-serialization = "1.11.0"
+
 [libraries]
 # Gradle plugins, on the build-logic classpath.
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -43,10 +50,14 @@ kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version
 # XML for core-font's UFO 3 / glif reader (Apache-2.0; see THIRD_PARTY.md).
 xmlutil-core = { module = "io.github.pdvrieze.xmlutil:core", version.ref = "xmlutil" }
 
+# JSON for qa:corpus's node-economy data packs (Apache-2.0; see THIRD_PARTY.md).
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }

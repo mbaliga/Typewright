@@ -138,3 +138,35 @@ says what was done in the meantime, and names who decides. Answered entries move
       TYPEWRIGHT_BUILD_BRIEF.md §7 (o 80·0·80 → 16·16·32, n 44·0·44 → 14·8·22).
 
     *Madhav, in the chat app, per law 6.*
+
+18. **P1's corpus loader confirms two things item 8 and item 22 left open, and narrows a third
+    (P1-corpus-loader).** `qa:corpus`'s data loader, box-statistics API (`NodeEconomyCorpus`,
+    `CompactNodeEconomyCorpus`) and fence/verdict logic (`outlierFence`, `verdictFor`) are built
+    and tested on both `jvmTest` and `wasmJsNodeTest` (29 and 28 tests respectively, all green).
+    - **Item 8, "Corpus data on Wasm": the JVM/Node half is solved, the browser half is not.**
+      The `wasmJs { nodejs() }` actual reads the resource with Node's `process.getBuiltinModule`
+      (needs Node >= 22.3.0; this container's Kotlin-tooling Node is 26.2.0, comfortably above
+      that) resolved relative to the compiled module's own `import.meta.url`, verified empirically
+      by probing `process.cwd()` and the module's resource layout under
+      `build/wasm/packages/typewright-qa-corpus-test/kotlin/typewright/corpus/` before writing
+      the real code. This only works because `qa:corpus` is a pure module whose Wasm target is
+      Node-only (`KmpPureConventionPlugin`); it uses the `process` global, which does not exist in
+      a browser, so a future `app-web` (a `wasmJs { browser {} }` target) cannot reuse this actual
+      as-is and needs its own strategy — most likely `fetch()` against the app's own distribution,
+      as this item already said. Which pack the app ships (the product question this item also
+      raises) is still undecided; both `loadNodeEconomyPack()` (317 KB) and
+      `loadCompactNodeEconomyPack()` (87 KB) are exposed so that decision is not forced here.
+    - **Item 22's third bullet, "decide what Task 4 compares Hyle Deco's o against", is still
+      undecided** — `verdictFor(count, box)` takes any style class's box as a parameter, so it
+      does not itself pick one; that choice belongs to whichever of `campaign` (Task 4's gate) or
+      P1b (the style detector) is built next. `docs/ARCHITECTURE_REVIEW.md` §5 item 19's claim
+      that Hyle Deco's fitted o is "an outlier against 6 of the 10 boxes" is now **superseded** by
+      the P0c-regenerated corpus, which item 17 above already restates: against the real,
+      regenerated sans-geometric box (Q1 23.25 · Q3 24 · n 30), Hyle Deco's fitted o (16 on-curve
+      + 16 off-curve, CLAUDE.md's fixture) is **in range** on both axes — its on-curve fence is
+      24 + max(1.5 × 0.75, 0.25 × 24) = 30 (the 0.25·Q3 minimum decides it: 1.5·IQR alone would
+      give 25.125), and 16 is well under Q3 itself, let alone the fence. This is one box of ten,
+      chosen because P1-corpus-loader's own prompt named it, not a claim that Hyle Deco is in
+      range against every class — that is exactly the decision this bullet still leaves open.
+
+    *Data point for P1b and the `qa` checks task; not a product decision, so no owner tag.*

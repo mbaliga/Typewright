@@ -4,7 +4,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
-/** Proves the data/ wiring only; the loader arrives with P1. */
+/**
+ * Proves the data/ -> classpath resource wiring on its own, independent of the P1 loader
+ * (CorpusResources.kt / CorpusLoader.kt), which now reads this same path.
+ */
 class CorpusDataResourceTest {
     @Test
     fun latinPackIsOnTheClasspath() {
