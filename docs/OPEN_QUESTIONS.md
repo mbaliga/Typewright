@@ -268,3 +268,71 @@ says what was done in the meantime, and names who decides. Answered entries move
 
     *Data point for a later cleanup/Snap-stage task and for whoever next tunes
     `DEFAULT_FIT_ERROR_TOLERANCE`; not a product decision, so no owner tag.*
+
+21. **The Snap stage's "insert on-curve points at extrema" makes `H`, `n` and `o` honestly worse,
+    not better, against `TYPEWRIGHT_BUILD_BRIEF.md` section 7's targets, and a global tuning knob
+    only partly closes that gap (P2b).** `TypeConstraints.kt` (`core-geometry`, this task) adds the
+    "Snap" stage brief section 7 stage 6 describes — insert on-curve points at extrema
+    (`insertExtremaOnCurvePoints`), snap near-axis tangents (`snapNearAxisTangents`), snap points
+    near a metric line except a genuinely curved approach (`snapPointsToMetricLines`, adapted from
+    `qa`'s `OvershootFinding.kt` "flat" idea per this task's own pointer), and enforce contour
+    direction by even-odd nesting (`enforceContourDirections`, a general point-in-polygon
+    containment test, not a "first contour is outer" assumption). `ConstructionClassifier.kt` adds
+    the four-way classifier (brief section 8.5), porting `qa/corpus`'s `Roundness.kt` grid-search
+    math for the superellipse-exponent fit (reused: the coarse-then-fine grid search and the
+    sum-of-squared-error objective and its constants; written fresh: the bounds/sample computation,
+    since `Roundness.kt` is `Glyph`-and-`qa/corpus`-shaped and core-geometry cannot depend on it).
+    `FittedContourResult.kt`/`NodeEconomyReport.kt` wire the full pipeline (dense polyline ->
+    corner-detect + Schneider fit -> Snap -> classify -> report) and add the before/after count
+    report. `./gradlew :core-geometry:check` passes on both `jvm` (131 tests) and `wasmJs` (122
+    tests; the 9-test gap is `FitPipelineHyleDecoValidationTest` and
+    `CubicFittingHyleDecoValidationTest`, both JVM-only for the same file-reading reason P2a's own
+    validation test already documents).
+    - **The honest finding.** Naively applying `insertExtremaOnCurvePoints` exactly as specified
+      (using `core-geometry`'s existing, purely algebraic `CurveSegment.extremaT`, with no
+      magnitude floor) against the real, noisy `fonts/HyleDeco-Regular.ttf` fit *increased* every
+      curved-or-nearly-straight glyph's on-curve count rather than helping: `H` 16 (P2a's raw fit)
+      to 21, `n` 17 to 24, `o` 28 to 39. The cause: the Schneider fitter's own least-squares solve
+      leaves plenty of segments that are `isEffectivelyStraight` within their own 1.5-unit
+      control-point tolerance yet still carry a tiny, non-zero, purely numerical wobble — enough
+      for the algebraically-exact `extremaT` to report a technically-real interior root with a
+      bulge nowhere near a font's actual design intent. A global (never per-glyph)
+      `minimumExtremumBulgeUnits` floor, tuned honestly against this same real data rather than a
+      synthetic fixture alone, helps: at its final default (`0.5`, `DEFAULT_MINIMUM_EXTREMUM_BULGE_UNITS`)
+      `o` drops to 37 and `n` to 23, both still over target but closer, and `T` is unaffected (it
+      never had any extrema to begin with — 8 on-curve, unchanged, hitting brief section 7's target
+      on the nose). `H` barely moves (21, since its own bulge exceeds even `1.0`) — raising the
+      floor further (`1.0` gives 18, `1.5` gives 16, matching P2a's raw fit exactly with zero
+      insertions) was tried and is reported rather than hidden: at `1.5` it also starts making the
+      construction classifier misclassify `H` as ROUNDED_RECTANGLE instead of POLYGONAL, because
+      the same real segment's ~1.5-2 unit residual curvature (plausibly an imperfectly-merged
+      corner "staircase" — `DEFAULT_CORNER_MERGE_DISTANCE`'s own P2a KDoc already names this exact
+      `H` corner near `(105, 193)`) then also clears the classifier's own straightness tolerance.
+      `0.5` is kept: a conservative floor that trims sub-visual-significance noise without reaching
+      past this stage's own scope to compensate for an upstream (P2a) fitter's residual error —
+      full numbers, honestly, in `TypeConstraints.kt`'s `DEFAULT_MINIMUM_EXTREMUM_BULGE_UNITS` KDoc
+      and `FitPipelineHyleDecoValidationTest`'s own KDoc and live `println` output.
+    - **Final honest numbers** (on-curve/off-curve, this tuning), against brief section 7's fitted
+      targets: `T` 8/16 against 8/0 (on-curve exact; off-curve still blocked by the type-gap item
+      20 already names); `H` 21/42 against 12/0; `n` 23/46 against 14/8 (the arch top does land
+      exactly at x-height 500 after snapping); `o` 37/74 against 16/16 (both contours; the outer
+      contour correctly classifies ROUNDED_RECTANGLE, and its flat top/bottom correctly *snap*
+      rather than falsely preserving an "overshoot" — both verified mechanically, not assumed).
+      `H`'s two stems measure 44.9-45.0 and 42.3-45.0 units across two probes (spread about 2.7
+      units — close to, not inside, brief section 7's "monolinear within 2 units", reported as
+      measured rather than forced). The off-centre stem survives verified against the real source
+      data's own (measured, not brief-quoted) foot positions, not a hard-coded approximation, and
+      the foot snaps to exactly y=0.
+    - **Genericity check, `L`** (never named in this task's fixtures): 11 on-curve / 22 off-curve,
+      correctly classified POLYGONAL, using the identical global parameters as `T`/`H`/`n`/`o`. More
+      than the roughly 6 true corners a plain L-shape has, for the same reason as `H`, `n` and `o`
+      above — small real quantisation noise along the nominally-straight left stem and base
+      producing a few extra, technically-real corners.
+    - **`n`'s construction classifies as ROUNDED_RECTANGLE, not a fifth "arch" category** — brief
+      section 8.5 names only four classes, and an arch's own shape (two long straight stems meeting
+      one curved top) is a genuine, non-gamed instance of "straight sides meeting sharply-curved
+      short corners", the same signal the classifier uses for a rounded rectangle. Whether the
+      taxonomy should grow a fifth class for this is a product question this task does not decide.
+
+    *Data point for whoever next revisits the Snap stage or the Schneider fitter's own corner
+    handling; not a product decision, so no owner tag.*

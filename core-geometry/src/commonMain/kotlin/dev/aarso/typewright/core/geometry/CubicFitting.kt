@@ -220,8 +220,14 @@ fun fitGlyphContoursToCubics(
  * `CubicFittingTest.squareFitsToFourCubicSegmentsWithNoInteriorSplits` and
  * `CubicFittingHyleDecoValidationTest`'s KDocs for the actual point counts this produces on a
  * straight-sided input.
+ *
+ * `internal`, not `private` (P2b): [dev.aarso.typewright.core.geometry]'s type-constraints stage
+ * (`TypeConstraints.kt`) rebuilds a [CurveFormat.CUBIC] [Contour] from a list of cubic segments in
+ * exactly this same way after splitting segments at extrema and after snapping tangents/metric
+ * lines, so it reuses this function and [roundToPoint] rather than duplicating the same
+ * round-and-flatten logic a second time.
  */
-private fun buildCubicContour(segments: List<CurveSegment.Cubic>): Contour {
+internal fun buildCubicContour(segments: List<CurveSegment.Cubic>): Contour {
     require(segments.isNotEmpty()) { "a fitted contour needs at least one segment" }
     val points =
         segments.flatMap { segment ->
@@ -234,7 +240,8 @@ private fun buildCubicContour(segments: List<CurveSegment.Cubic>): Contour {
     return Contour(points, CurveFormat.CUBIC)
 }
 
-private fun Vec2.roundToPoint(): Point = Point(x.roundToInt(), y.roundToInt())
+/** `internal`, not `private` (P2b): reused by `TypeConstraints.kt`; see [buildCubicContour]'s KDoc. */
+internal fun Vec2.roundToPoint(): Point = Point(x.roundToInt(), y.roundToInt())
 
 // ---------------------------------------------------------------------------------------------
 // Tangent estimation (Schneider: "initial tangent estimate at each end, e.g. from the first/last
