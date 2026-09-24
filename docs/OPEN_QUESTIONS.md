@@ -2614,3 +2614,123 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     `loadDevanagari()`/`loadKana()` yet — this task's own scope was the corpus and its loader,
     not a Devanagari/kana workbook gate, which does not exist yet either.
 
+## P8: independent verification (Devanagari/kana/Arabic script data, real shapers, corpus extension)
+
+111. **Every build/test claim in items 96-110 independently reproduced from a fresh, isolated
+    re-run, plus one real, previously-uncaught KDoc inaccuracy found and fixed — full method
+    below rather than just the totals, per this build's own verify-pass convention.** Fresh
+    `--rerun-tasks` runs, env `ANDROID_HOME=/opt/android-sdk
+    CHROME_BIN=/opt/pw-browsers/chromium-1194/chrome-linux/chrome LANG=en_US.UTF-8`:
+    `:scripts:spotlessCheck :scripts:jvmTest :scripts:wasmJsNodeTest` — BUILD SUCCESSFUL,
+    181/181 both targets (JUnit XML, not console text), both before and after the fix below.
+    **`:shape-preview:jvmTest`, exactly as this task's own instructions named it, does not
+    exist** — this module's JVM/Compose target is named `desktop`, not `jvm` (it has no
+    `jvmMain`/`jvmTest` source set at all), so the real equivalent is `desktopTest`; run as
+    `:shape-preview:spotlessCheck :shape-preview:desktopTest :shape-preview:wasmJsNodeTest` —
+    BUILD SUCCESSFUL, 16/16 `desktopTest` (the real `SkikoShaperTest`/`SkikoClustersTest`, not
+    stubs), 1/1 `wasmJsNodeTest` (the shared `ShaperStubTest`, correctly still a stub check on
+    this target). The real Android compile task, run separately:
+    `:shape-preview:compileAndroidMain :shape-preview:testAndroidHostTest` — BUILD SUCCESSFUL;
+    `testAndroidHostTest` is 1/1 because this module has no `androidHostTest`/`androidUnitTest`
+    source file for `AndroidTextRunShaper` at all (confirmed by directory listing, not
+    assumed) — consistent with, not contradicting, item 107's own "unverifiable on-device here"
+    disclosure. `:qa:corpus:spotlessCheck :qa:corpus:check` — BUILD SUCCESSFUL, 89/89 `jvmTest`,
+    85/85 `wasmJsNodeTest`. Combined repo-wide re-run (`spotlessCheck jvmTest wasmJsNodeTest
+    :ui:desktopTest :ui:testAndroidHostTest`, root, plus `:ui:wasmJsBrowserTest` separately) —
+    BUILD SUCCESSFUL both before and after the fix: `jvmTest` 1,007/1,007 (sum across all ten
+    pure modules' own XML), `wasmJsNodeTest` 977/977, `:ui:desktopTest` 290/290,
+    `:ui:testAndroidHostTest` 198/198, `:ui:wasmJsBrowserTest` 199/199 — the last three
+    byte-identical to P7's own item 95 totals, confirming P8 changed nothing `:ui:` depends on
+    in a way that broke it, even though `:ui:` genuinely depends on all three P8-touched modules
+    (`:scripts:`, `:shape-preview:`, and `:qa:corpus:` transitively via `:qa:`/`:campaign:` —
+    checked directly in `build.gradle.kts` files, not assumed). Zero failures, errors or
+    skips anywhere, in any run.
+    - **`ScriptProfile.kt` reuse, confirmed genuine, not forked:** all three of
+      `DevanagariScriptProfile.kt`/`ArabicScriptProfile.kt`/`KanaScriptProfiles.kt` import and
+      assemble the real shared `ScriptProfile`/`WritingScript` types (not a per-script
+      reimplementation); every file in `devanagari/` (6/6) and all but three files in `arabic/`
+      and one in `kana/` import the shared model directly — the exceptions
+      (`ArabicJoiningType.kt`, `ArabicLetters.kt`, `NastaliqOutOfScope.kt`, `KanaGlyphNaming.kt`)
+      are raw data/naming helpers with no need to, confirmed by reading each; no file anywhere
+      declares a second, competing `ScriptProfile`/`GlyphInventory`/etc.
+    - **Template-zip fidelity, independently recounted from a fresh `unzip`, not trusted from
+      the manifests:** `svg/Devanagari` 68 files (66 distinct by md5 — the same two duplicate
+      pairs item 96 names, confirmed by hash and filename), `svg/Hiragana` 55, `svg/Katakana`
+      57 (no duplicates), `svg/Naskh` 49, `svg/Nastaliq` 49 — all six exactly matching the zip's
+      own `HOW_TO_USE.md` table. Re-running all three generator scripts fresh
+      (`build_devanagari_template_manifest.py`, `generate_kana_manifest.py`,
+      `generate_naskh_manifest.py`) reproduces the checked-in manifests byte-for-byte (aside
+      from `generated_at`).
+    - **Naming convention, spot-checked and cross-verified against a live source, not just
+      read:** real glyph names sampled from each script's own manifest/test file all match —
+      `a-deva`/`aaMatra-deva`/`anusvara-deva` (Devanagari), `a-hira`/`a-kata` through the full
+      112-glyph list (kana), `beh-ar` → `beh-ar.init`/`.medi`/`.fina` (Arabic, `beh` being a
+      real dual-joining letter). The 39-letter `ArabicJoiningType` table was independently
+      re-derived by fetching the live `ArabicShaping.txt` (Unicode 18.0.0,
+      unicode.org/Public/UCD/latest/ucd/, this session's own fetch, not item 104's) and diffing
+      all 39 real codepoints programmatically against this build's table: **zero mismatches.**
+    - **Law 5 numeric cross-check, with real, independently-obtained numbers:** downloaded
+      Khula-Regular.ttf fresh from `raw.githubusercontent.com/google/fonts` at the pack's own
+      pinned commit (`23e54b51ddffbc7713c583748e3bd86f62b1fa4a`) and re-derived अ
+      (DEVANAGARI LETTER A)'s point count with a fresh, independent script (not calling the
+      build script's own function) — **on=38, off=24, contours=1**, exactly matching
+      `data/node-economy-devanagari.json`'s own committed `Khula`/`अ` entry. Independently
+      recomputed the `devanagari-sans`/`अ` quartiles from that same file's 25 raw per-family
+      counts by linear interpolation — min 34, q1 40.0, med 46.0, q3 54.0, max 70, matching the
+      committed `dist` block exactly; repeated for `kana-sans`/`あ` (min 36, q1 47.25, med 55.5,
+      q3 76.5, max 112, n 18) with the same exact match. Fetched `fonts.google.com/metadata/fonts`
+      live and independently confirmed the disclosed thin/excluded classes by name: Devanagari's
+      `devanagari` subset has exactly 62 families (34/62 in item 108's own ratio), its four real
+      Handwriting-category members are exactly `Amita`, `Dekko`, `Kalam`, `Playpen Sans Deva`
+      (item 109's own list), and its Monospace count is 0; the `japanese` subset has exactly 68
+      families (24/68), and its one real Monospace member is exactly `M PLUS 1 Code` — all five
+      numbers matching items 108/109 with nothing invented. The counting-rule function
+      (`_count_simple_contours`) in `build_script_node_economy_corpus.py` is algorithmically
+      byte-identical to Latin's own already-reviewed `build_node_economy_corpus.py` (diffed
+      directly; only docstrings differ), not a re-derived or drifted copy.
+    - **Shape-preview audit:** `SkikoShaperTest` genuinely shapes real text with real fonts
+      (`fonts/HyleDeco-Regular.ttf`, `fonts/NotoSansDevanagari-Regular.ttf`,
+      `fonts/NotoNaskhArabic-Regular.ttf` — both Noto files' real `name` table IDs 0/13
+      independently re-read here and confirmed OFL-1.1, matching `THIRD_PARTY.md`'s own claim)
+      through the real `org.jetbrains.skia.shaper.Shaper`, not a mock. `AndroidTextRunShaper` is
+      real code against the real Android SDK (`javap`, run directly against
+      `/opt/android-sdk/platforms/android-37.0/android.jar`, confirms
+      `android.graphics.text.PositionedGlyphs` genuinely has no `getCluster`/clusterrange method
+      on any level through API 37 — item 106's claim, now independently reproduced rather than
+      trusted) and its on-device behaviour is honestly disclosed as unverified, not claimed to
+      work. The no-JNI-HarfBuzz call is a real, reasoned decision, not a silent skip: it is
+      documented at length in the pre-existing (untouched by P8 — confirmed by `git log`)
+      `Shaper.kt` top KDoc, restated in `AndroidTextRunShaper`'s own KDoc, and the real diff
+      shows only stub deletions, two new real implementations, and a `README.md`/
+      `build.gradle.kts` update naming the decision — no HarfBuzz-JNI code was added or removed.
+      wasmJs's `BrowserFontFaceShaperStub` has zero diff (`git status` confirms) and is
+      correctly still a stub, named in the same `README.md` diff as "P9's own scope."
+    - **Anti-gaming audit: clean.** Grepped every new/changed main-source file (not test files)
+      across `scripts/`, `shape-preview/`, `qa/corpus/` for glyph-name/family/script literal
+      branching (`if (glyphName == "..."`, `when (family)`, etc.) and fixture-tied magic-number
+      equality checks — none found. `NodeEconomyCorpus`'s new `loadDevanagari()`/`loadKana()`
+      are a plain, generic default-parameter extension, not fixture-specific code.
+    - **One real bug found and fixed: `KanaFeaturePlan.kt`'s own KDoc miscounted Devanagari's
+      real GSUB stage count as "nine"; it is 15** (`DevanagariFeaturePlan.kt`'s real
+      `gsubStagesInOrder` list, pinned by `DevanagariFeaturePlanTest`'s own
+      `assertEquals(15, ...)`) — the "nine" only ever matched the first of Devanagari's own two
+      documented stage-groups (the nine pre-base/reordering-adjacent tags, `locl` through
+      `cjct`), not the real 15-entry total; Arabic's "eight" was already correct. The same
+      undercount was independently written into this log's own item 102 ("Devanagari (nine
+      GSUB stages)") — that entry is left as-is per this log's append-only rule; this entry is
+      the correction. Fixed by rewording `KanaFeaturePlan.kt`'s KDoc to state both real counts
+      (8 and 15) precisely; no code, data or test changed. `:scripts:spotlessCheck
+      :scripts:jvmTest :scripts:wasmJsNodeTest` re-run fresh after the fix: BUILD SUCCESSFUL,
+      181/181 both targets, unchanged from before the fix (doc-only change). The full combined
+      repo-wide re-run above was also re-run fresh after the fix and is the "after" set of
+      numbers quoted in this entry; before and after are numerically identical everywhere except
+      that this one KDoc's text changed, confirming the fix altered no behaviour.
+    - **Not independently reproduced, disclosed rather than silently skipped:** re-running the
+      full corpus-extension pack build from scratch (cloning `google/fonts`, downloading ~130
+      font files for both scripts) was judged too expensive for this pass; the Law 5 audit above
+      instead independently re-derives one real glyph's count from one freshly-downloaded real
+      font (the established throwaway-probe pattern) and independently recomputes quartiles from
+      the committed raw per-family data, which is the same standard `docs/OPEN_QUESTIONS.md`'s
+      own P6/P7 verify passes used.
+
+    *Independent verification pass; not a product decision, so no owner tag.*
