@@ -4,6 +4,7 @@ import dev.aarso.typewright.core.geometry.Contour
 import dev.aarso.typewright.core.geometry.ContourPoint
 import dev.aarso.typewright.core.geometry.CurveFormat
 import dev.aarso.typewright.core.geometry.Point
+import dev.aarso.typewright.core.geometry.Vec2
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -79,3 +80,47 @@ fun denseCirclePoints(
         val angle = 2.0 * kotlin.math.PI * i / count
         Point((cx + radius * cos(angle)).roundToInt(), (cy + radius * sin(angle)).roundToInt())
     }
+
+/**
+ * The local "ink width" at each of [samplePoints], measured as the sum of that point's own
+ * nearest distance to [outer] and to [inner] (each flattened to a dense polyline first) — a
+ * general proxy for "how thick is the stroke here" that needs no per-point correspondence between
+ * a sample point and either boundary (task P5a-hard item 2's own "measure the resulting stroke
+ * width at many points"). Test-only measurement tooling, not production API — see `ObliqueTest.kt`.
+ */
+fun measureRingWidths(
+    samplePoints: List<Vec2>,
+    outer: Contour,
+    inner: Contour,
+    tolerance: Double = DEFAULT_FLATTEN_TOLERANCE,
+): List<Double> {
+    val outerPoly = outer.flattenToPolyline(tolerance)
+    val innerPoly = inner.flattenToPolyline(tolerance)
+    return samplePoints.map { p -> distanceToPolyline(p, outerPoly) + distanceToPolyline(p, innerPoly) }
+}
+
+private fun distanceToPolyline(
+    p: Vec2,
+    polyline: List<Vec2>,
+): Double {
+    val n = polyline.size
+    var best = Double.MAX_VALUE
+    for (i in 0 until n) {
+        val d = distanceToSegment(p, polyline[i], polyline[(i + 1) % n])
+        if (d < best) best = d
+    }
+    return best
+}
+
+private fun distanceToSegment(
+    p: Vec2,
+    a: Vec2,
+    b: Vec2,
+): Double {
+    val ab = b - a
+    val len2 = ab.dot(ab)
+    if (len2 <= EPSILON) return (p - a).length()
+    val t = ((p - a).dot(ab) / len2).coerceIn(0.0, 1.0)
+    val proj = a + ab * t
+    return (p - proj).length()
+}

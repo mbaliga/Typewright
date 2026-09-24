@@ -41,8 +41,8 @@ const val DEFAULT_FLATTEN_TOLERANCE: Double = 0.25
 /** [OffsetParameters.miterLimit]'s default, matching SVG/Cairo/Skia's own shared stroking default. */
 const val DEFAULT_MITER_LIMIT: Double = 4.0
 
-/** How many recursive halvings [flattenCubic] allows before giving up on reaching [DEFAULT_FLATTEN_TOLERANCE] and accepting whatever flatness the last split reached (guards against infinite recursion on a degenerate, zero-length segment). */
-private const val MAX_FLATTEN_DEPTH = 24
+/** How many recursive halvings [flattenCubic] allows before giving up on reaching [DEFAULT_FLATTEN_TOLERANCE] and accepting whatever flatness the last split reached (guards against infinite recursion on a degenerate, zero-length segment). `internal`, not `private` (P5a-hard): `Booleans.kt`'s own parameter-tracking flattener ([CurveSegment.Cubic.flattenWithParameter]) reuses this same recursion-depth guard rather than a second constant. */
+internal const val MAX_FLATTEN_DEPTH = 24
 
 internal const val EPSILON = 1e-9
 
@@ -69,10 +69,12 @@ internal fun CurveSegment.Cubic.flatten(
     return left.flatten(tolerance, depth + 1) + right.flatten(tolerance, depth + 1).drop(1)
 }
 
-private fun CurveSegment.Cubic.isFlatEnough(tolerance: Double): Boolean =
+/** `internal`, not `private` (P5a-hard): `Booleans.kt`'s own parameter-tracking flattener reuses this exact flatness test rather than a second one. */
+internal fun CurveSegment.Cubic.isFlatEnough(tolerance: Double): Boolean =
     distanceToLine(control1, start, end) <= tolerance && distanceToLine(control2, start, end) <= tolerance
 
-private fun distanceToLine(
+/** `internal`, not `private` (P5a-hard): reused by `Booleans.kt` via [isFlatEnough]. */
+internal fun distanceToLine(
     point: Vec2,
     lineA: Vec2,
     lineB: Vec2,

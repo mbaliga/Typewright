@@ -453,3 +453,93 @@ says what was done in the meantime, and names who decides. Answered entries move
 
     *Data points for whoever next builds Spiro (P5a-hard, sharing this module) or revisits Hobby's
     own tangent system against the primary METAFONT source; not product decisions, so no owner tag.*
+
+## P5a-hard: curve-restoring booleans and oblique derivation
+
+24. **Booleans are a general planar-arrangement-and-winding-number algorithm, not a literal port
+    of Vatti's own sweep-line bookkeeping — union is solid; subtract/intersect/exclude are
+    verified only on this task's own named fixtures — and curve restoration measurably prevents
+    the 1,763-point-T problem from coming back (P5a-hard).** `engine-construct` adds `Booleans.kt`
+    (`union`/`subtract`/`intersect`/`exclude`/`booleanOp`) and `Oblique.kt`
+    (`strokeShearedCenterline`/`strokeThenShearNaively`). `./gradlew :engine-construct:check`
+    passes on both `jvm` and `wasmJs`, 79 tests each (up from 56 at P5a-foundations).
+    - **Method, stated once here rather than re-derived:** flatten both sides to dense polylines
+      with a breadcrumb per vertex (which original cubic segment, and at what parameter `t`);
+      find every crossing between a subject edge and a clip edge and split both there; classify
+      every resulting edge by sampling a point to each side and asking which side is inside the
+      requested op under the standard nonzero-winding rule (an edge whose two sides disagree is
+      kept, oriented so the result's interior is on its left); trace the kept edges into closed
+      loops by vertex adjacency; then **curve-restore**: a loop's consecutive edges from the same
+      original segment are merged back into one run, a run covering a whole original segment is
+      emitted **verbatim** (the untouched original control points, not refit), and a run covering
+      only part of one is extracted as an **exact** de Casteljau sub-arc (two applications of the
+      already-tested `subdivide`) — so away from an actual crossing, the output boundary is
+      byte-identical to the input.
+    - **This is deliberately not Vatti's own sweep-line active-edge-table algorithm** (Vatti
+      1992) — reconstructing that data structure correctly from a description alone, with no
+      primary source to check a from-scratch attempt against, is exactly the kind of risk this
+      build's own conventions (`HobbySpline.kt`'s `mp_make_choices` precedent) treat as a reason
+      to build and document a verified substitute rather than force a literal reproduction. What
+      is built instead is the same operation every scan-line boolean computes — the overlay of
+      two polygons' edges classified by winding number, the general technique the computational-
+      geometry literature describes for Boolean operations via map overlay — verified against
+      closed-form area, not merely asserted. Cost, stated plainly: this is `O(n*m)` in the two
+      inputs' edge counts (pairwise intersection search), not a sweep line's near-linear cost;
+      fine at a flattened letterform contour's realistic size (tens to a few hundred points), not
+      benchmarked past it. It is original code against that general structure, not a port of
+      Clipper2 or any other library (architecture review item 49's own warning).
+    - **Verified, with actual numbers, against the closed-form circle-circle intersection area**
+      on two overlapping 200-unit-radius circles 250 units apart (a real, non-trivial crossing —
+      two intersection points, not a containment or disjoint degenerate case): union 218,515
+      against an expected 218,705 (0.09% off), intersect 32,612 against 32,622 (0.03%), subtract
+      92,951 against 93,042 (0.10%), exclude 185,903 against 186,084 (0.10%) — all four ops, not
+      union alone, though union is the one this task asked to be made solid first and the one
+      exercised by every degenerate case below too. Also verified: a circle unioned with a
+      smaller circle fully inside it returns the outer circle **byte-for-byte** (not just
+      matching area); two disjoint circles union to **two** separate contours, never one; a
+      circle unioned with itself returns **exactly** its own 12 points back (idempotence, exact,
+      not approximate); a circle subtracted from a square leaves a two-contour annulus (outer
+      square byte-for-byte, inner hole correctly clockwise) at 179,253 against an expected
+      179,314 (0.03%).
+    - **The curve-restoration point count, the actual number this task asked for:** the union of
+      the two overlapping circles above restores to **8 on-curve, 16 off-curve — 24 points
+      total** for the whole merged shape, not the hundreds a polygon-only boolean (or a boolean
+      with no curve-restoration step at all — architecture review item 49) would leave behind.
+    - **Honesty on scope, stated plainly rather than left implicit.** All four ops pass on the
+      one fixture above (the task's own suggested cases: overlapping, nested, disjoint, self,
+      square-minus-circle) and nowhere else has this task tested them — no glyph-shaped input, no
+      near-tangency, no touching-at-a-vertex configuration, no more-than-two-crossing-point case.
+      A configuration `traceLoops` cannot close into simple loops throws `IllegalStateException`
+      rather than returning wrong geometry (this task's own "honesty rule applied to a failure
+      mode"), so a real gap surfaces loudly in a later task rather than silently shipping bad
+      outlines; it has not been triggered by anything built here.
+    - **Two `Offset.kt` helpers changed from `private` to `internal`** (`MAX_FLATTEN_DEPTH`,
+      `isFlatEnough`, `distanceToLine`) so `Booleans.kt`'s own parameter-tracking flattener
+      reuses the exact same recursion guard and flatness test rather than a second copy —
+      a pure visibility widening, no behaviour change, `OffsetTest.kt` untouched and still green.
+    - **Oblique derivation matches `docs/KNOWLEDGE.md` B2 once the measurement method's own noise
+      is accounted for, reported honestly rather than only asserted.** A synthetic 44-unit-stroke
+      monolinear circle sheared 9 degrees: shearing the centreline then re-stroking measures about
+      3.7 units of width variation against the naive shear-the-outline approach's about 9.7 — a
+      real, large improvement, but not B2's own ~0.2 on its own. A control (an *unsheared* ring,
+      exactly constant-width by construction) measures about 2.4 units of "variation" under this
+      same nearest-point-to-polyline measurement method — its own noise floor, not a shear
+      artifact. Tightening the fit tolerance (a normal, general `CubicFitParameters` knob, not a
+      per-shape hack) to 0.25 brings the sheared measurement to about 2.6, which is close to the
+      unsheared floor of 2.4 — so the shear-attributable residual is about `2.6 - 2.4 ≈ 0.2`
+      units, matching B2's own figure once the measurement method's own noise is subtracted out.
+    - **Spiro was not attempted.** Brief section 10 item 1 asks to "pick one [Spiro or Hobby] and
+      document why"; docs/ARCHITECTURE_REVIEW.md section 3 `:engine-construct` already picks
+      "Hobby first," with Spiro named as a possible follow-up, not a same-task requirement. Given
+      this task's own effort went first to booleans (its own explicit priority: "the hardest
+      remaining piece... at least union"), Hobby was already built and verified at
+      P5a-foundations, and this task's own instructions say plainly to prefer no Spiro at all
+      over a half-working one, the call made here is: Hobby alone for v1, Spiro left for a future
+      task if the product owner ever wants it. The raphlinus/spiro licence (Apache-2.0 OR MIT,
+      never libspiro's GPL-3.0) was not re-verified here, since nothing from it was used.
+
+    *Data points for whoever next hardens the boolean tracer against a real glyph corpus, revisits
+    the `O(n*m)` intersection search's cost at scale, or picks up Spiro; not product decisions
+    (the Hobby-for-v1 call is this task's own technical pick, per brief section 10's own "pick one,
+    document why," not one CLAUDE.md's "when unsure" rule reserves for the product owner), so no
+    owner tag.*
