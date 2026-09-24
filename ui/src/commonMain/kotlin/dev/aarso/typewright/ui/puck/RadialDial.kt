@@ -9,10 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
@@ -45,7 +42,7 @@ import kotlin.math.sin
 @Composable
 fun RadialDial(
     state: PuckGestureState.RadialOpen,
-    tools: List<PlaceholderTool>,
+    tools: List<Tool>,
     texture: CanvasTexture,
     density: Density,
 ) {
@@ -75,7 +72,11 @@ fun RadialDial(
                     val midDeg = (startDeg + sectorSweep / 2f) * (PI.toFloat() / 180f)
                     val midRadius = (innerRadiusPx + outerRadiusPx) / 2f
                     val iconCenter = hubPx + Offset(cos(midDeg), sin(midDeg)) * midRadius
-                    drawToolGlyph(tool, iconCenter, if (isCurrent) canvas else ink)
+                    // The explorer's own radial draws each sector's icon at its native 20x20
+                    // viewBox size (`drawRadial`'s own `width="20" height="20"`, not shrunk to
+                    // fit the sector) -- ICON_BOX_DP matches that exactly.
+                    val iconBoxPx = with(density) { ICON_BOX_DP.dp.toPx() }
+                    drawToolIcon(tool, iconCenter - Offset(iconBoxPx / 2f, iconBoxPx / 2f), iconBoxPx, if (isCurrent) canvas else ink)
                 }
             }
 
@@ -111,31 +112,8 @@ fun RadialDial(
     }
 }
 
-private fun DrawScope.drawToolGlyph(
-    tool: PlaceholderTool,
-    center: Offset,
-    color: Color,
-) {
-    val r = 5.dp.toPx()
-    when (tool) {
-        PlaceholderTool.SELECT -> {
-            drawCircle(color = color, radius = r * 0.6f, center = center)
-        }
-
-        PlaceholderTool.PEN -> {
-            drawLine(color, center - Offset(r, r), center + Offset(r, r), strokeWidth = r * 0.4f)
-        }
-
-        PlaceholderTool.SHAPE -> {
-            drawRect(
-                color = color,
-                topLeft = center - Offset(r, r),
-                size = Size(r * 2, r * 2),
-                style = Stroke(width = r * 0.3f),
-            )
-        }
-    }
-}
+/** The explorer's own radial-sector icon size (`drawRadial`'s own `width="20" height="20"`, `ic-*`'s native viewBox -- not shrunk to fit the sector). */
+private const val ICON_BOX_DP = 20.0
 
 private fun wedgePath(
     hubCenter: Offset,

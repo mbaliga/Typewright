@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -17,16 +18,20 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import dev.aarso.typewright.core.geometry.Vec2
 import dev.aarso.typewright.ui.glass.EdgeMarks
 import dev.aarso.typewright.ui.glass.Header
 import dev.aarso.typewright.ui.glass.InspectorField
 import dev.aarso.typewright.ui.glass.InspectorRow
+import dev.aarso.typewright.ui.glass.constructInspectorFields
 import dev.aarso.typewright.ui.puck.Puck
 import dev.aarso.typewright.ui.puck.PuckGestureConfig
 import dev.aarso.typewright.ui.puck.PuckUiState
+import dev.aarso.typewright.ui.puck.Tool
 import dev.aarso.typewright.ui.puck.rememberPuckPinState
 import dev.aarso.typewright.ui.puck.rememberPuckUiState
+import dev.aarso.typewright.ui.puck.viewCentreFontUnits
 import dev.aarso.typewright.ui.tokens.CanvasTexture
 import dev.aarso.typewright.ui.tokens.CanvasTextures
 import dev.aarso.typewright.ui.tokens.toColor
@@ -93,6 +98,8 @@ fun TypewrightSheet(
     var canvasSizeDp by remember { mutableStateOf(Vec2(360.0, 780.0)) }
 
     val pin = rememberPuckPinState(canvasSizeDp)
+    // P5b item 4: background/sketch layers -- see Layers.kt's own KDoc for scope.
+    val layers = rememberLayersState()
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
@@ -122,16 +129,24 @@ fun TypewrightSheet(
             onSwipeNext = { scope.launch { cameraState.flyTo(cameraState.currentRoom.next()) } },
         )
 
+        // P5b item 4: below the header, opposite the room-name/MAP corner.
+        LayersPanel(
+            state = layers,
+            texture = texture,
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = LayersPanelTopPaddingDp.dp),
+        )
+
         Puck(
             state = puckState,
             pin = pin,
             texture = texture,
             canvasSizeDp = canvasSizeDp,
+            viewCentreFontUnits = viewCentreFontUnits(cameraState.camera, canvasSizeDp),
             config = initialGestureConfig,
         )
 
         InspectorRow(
-            fields = inspectorFields(cameraState),
+            fields = inspectorFields(cameraState, puckState),
             texture = texture,
             modifier = Modifier.align(Alignment.BottomStart),
         )
@@ -147,13 +162,29 @@ fun TypewrightSheet(
 }
 
 /**
- * UI_SPEC §3 "Inspector": placeholder content for this task -- "show the camera's own X/Y/zoom as
- * a proof the row renders and updates live as you pan" (task P4b item 7). [InspectorRow] itself
- * reads [SheetCameraState.camera] each recomposition here (a plain composable read, not the
- * draw-phase-only discipline the world passes use), which is the right trade for this small,
- * cheap row of text -- unlike the grid/ink passes, there is no expensive geometry behind it.
+ * UI_SPEC §3 "Inspector": placeholder content for task P4b -- "show the camera's own X/Y/zoom as
+ * a proof the row renders and updates live as you pan" (task P4b item 7) -- for every tool but
+ * Primitives; P5b's own real Construct-inspector content
+ * ([dev.aarso.typewright.ui.glass.constructInspectorFields]) takes over when the Primitives tool
+ * is active and has already created something ([PuckUiState.activeConstruction]). The two field
+ * sets are not shown together: five Construct fields (stem/contrast/exponent/width/state) plus
+ * four camera fields would exceed [InspectorRow]'s own "never more than six pairs" rule, and
+ * camera X/Y/zoom is far less relevant while parameterizing a primitive than what that primitive
+ * actually holds -- this task's own judged call to replace rather than append (P5b's own explicit
+ * "alongside... unless you judge replacing is cleaner"). [InspectorRow] itself reads
+ * [SheetCameraState.camera]/[PuckUiState.activeConstruction] each recomposition here (a plain
+ * composable read, not the draw-phase-only discipline the world passes use), which is the right
+ * trade for this small, cheap row of text -- unlike the grid/ink passes, there is no expensive
+ * geometry behind it.
  */
-private fun inspectorFields(cameraState: SheetCameraState): List<InspectorField> {
+private fun inspectorFields(
+    cameraState: SheetCameraState,
+    puckState: PuckUiState,
+): List<InspectorField> {
+    val active = puckState.activeConstruction
+    if (puckState.currentTool == Tool.PRIMITIVES && active != null) {
+        return constructInspectorFields(active)
+    }
     val camera = cameraState.camera
     return listOf(
         InspectorField(label = "ROOM", value = cameraState.currentRoom.name),

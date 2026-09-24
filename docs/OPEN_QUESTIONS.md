@@ -825,4 +825,121 @@ says what was done in the meantime, and names who decides. Answered entries move
     *Data points for whoever builds the kerning-groups UI (side-uniqueness checking belongs there,
     at edit time, not in this codec) or wires guides/kerning/`.fea` into the sheet and Space; not
     product decisions, so no owner tag.*
+## P5b: wiring the primitives tool, Construct inspector and layers into the sheet
+
+29. **The real 8-tool puck, the Primitives tool's own two-level unfolded menu, the Construct
+    inspector and a minimal background/sketch layer toggle are wired in, each with an honest scope
+    cut disclosed here rather than forced or hidden.** New: `ui/puck/Tool.kt` (replaces P4b's own
+    `PlaceholderTool`), `ui/puck/ToolIcons.kt` (the eight `ic-*` icon paths, traced from the
+    explorer, shared by [Puck]'s own icon, [RadialDial]'s sector glyphs and
+    [UnfoldedToolList]'s row icon), `ui/puck/PrimitiveKind.kt`, `ui/puck/PrimitivesConstruction.kt`
+    (`ActiveConstruction`, `defaultPrimitiveInstance`, `constructValuesFor`,
+    `viewCentreFontUnits`), `ui/puck/PrimitivesMenu.kt` (`PrimitiveKindMenu`/
+    `PrimitiveEntryMethodMenu`), `ui/glass/ConstructInspector.kt` (`constructInspectorFields`),
+    `ui/sheet/Layers.kt`/`LayersPanel.kt`. `UnfoldedToolList.kt` is generalized into a shared
+    `GlassList`/`GlassListRow` (the primitives menu's own two lists reuse it, not a second
+    layout). `./gradlew :ui:spotlessCheck :ui:desktopTest` passes (every existing test plus two new
+    test files, `PrimitivesConstructionTest` and `LayersTest`); `:ui:compileKotlinWasmJs`,
+    `:ui:compileTestKotlinWasmJs`, `:ui:compileAndroidMain` and `:ui:testAndroidHostTest` all pass
+    too (all three platforms, not desktop alone). Screenshots under `ui/build/screenshots/` were
+    viewed directly (not just "it compiled") and compared against the explorer's own tool-rail and
+    icon defs.
+    - **Icon paths are traced, not invented, including the three P4b already had.** `ic-select`/
+      `ic-pen`/`ic-shape`'s exact path data (grep `id="ic-select"` etc., explorer lines 552-559)
+      replaces P4b's own documented "minimal geometric stand-in" for those three, and the same
+      path-drawing function adds `ic-bool`/`ic-stroke`/`ic-measure`/`ic-anchor`/`ic-metrics`. One
+      icon (`ic-stroke`) keeps the explorer's own `stroke-width="3"` override rather than the
+      shared 1.6-unit default -- read directly off the SVG, not guessed.
+    - **`GlassList`'s row arrangement changed from `Arrangement.SpaceBetween` across exactly three
+      always-present children to `icon, label (weighted), shortcut`, disclosed as a small,
+      deliberate layout change, not a silent one.** `SpaceBetween` only reads as "icon and name
+      together, shortcut alone on the right" (UI_SPEC's own words) when all three children are
+      always present, which stops being true the moment a row has no icon or no shortcut (every
+      primitive-kind/entry-method row). The new arrangement matches UI_SPEC's literal wording in
+      both cases; tool rows render the same way as before by inspection (screenshots compared).
+    - **The primitives menu reuses the puck's existing tap gesture, not a new one, and the
+      explorer shows no screen for this specific two-level content to check that choice
+      against.** When the current tool is Primitives, the puck's own single tap-to-unfold
+      (`PuckOutputEvent.ToolListToggled`) opens the primitive-kind list instead of the plain tool
+      list; picking a kind with more than one entry method opens that kind's entry-method list;
+      picking an entry method (or a one-method kind, Stem/Bowl, directly) creates a default
+      instance and closes the menu. This is this task's own reasonable reading of "the primitives
+      tool with entry methods as an unfolded list from the puck", not a reproduction of a shown
+      screen -- a different, equally defensible wiring (e.g. a dedicated third puck gesture) was
+      not built. *Madhav, if this reading should change before the on-canvas flow is built.*
+    - **Deferred, as the task itself allowed: on-canvas point-picking.** Selecting an entry method
+      creates a default-parameterized instance at the sheet's current view centre
+      (`defaultPrimitiveInstance`, sizes grounded in this codebase's own numbers -- 44-unit stroke
+      width matching Hyle Deco's own shipped stem, 2.5 exponent matching `BowlPrimitive`'s own
+      cited Piet Hein value) in parametric, not-yet-baked form; it does not place points by
+      clicking on the sheet, drag them, or feed a real curve into `LinePrimitive.TangentToCurve`'s
+      own "tangent to a curve" entry method (that one tangents to a synthetic default reference
+      line through the view centre instead, since nothing on the sheet exposes a real curve to
+      snap to yet). The created instance is also not rendered as ink on the canvas -- `RoomInk.kt`'s
+      own placeholder pass is untouched, per this task's own scope (wiring the puck/inspector, not
+      real glyph rendering). A full multi-step point-picking/dragging gesture flow, and rendering
+      the live construction as ink, are both later work.
+    - **The Construct inspector shows five fields (stem, contrast, exponent, width, state),
+      replacing rather than joining the camera placeholder when Primitives is active and
+      something has been created.** `InspectorRow`'s own "never more than six pairs" rule cannot
+      fit both sets (5 + 4 = 9), and camera X/Y/zoom reads as far less useful while
+      parameterizing a primitive -- a judged call, not a coin flip, stated in
+      `TypewrightSheet.kt`'s own `inspectorFields` KDoc. `contrast`/`exponent` render as "--" for a
+      kind that genuinely has neither (a plain line, arc, circle, rectangle); `width` is read as
+      directly as each kind allows (a stroke/stem width for Bowl/Stem, a line's own length, an
+      arc's own diameter, or a shape's own realized bounding-box width for Circle/Ellipse/
+      Superellipse/Rectangle/Rounded rectangle -- one general bounding-box reader, not nine
+      per-variant field reads). `stem` is always a placeholder font-wide constant (44, Hyle Deco's
+      own value) -- there is still no UFO `fontinfo` this app reads a real font-wide stem from
+      (the same gap `StemPrimitive`'s own P5b-construction-grammar entry already names).
+    - **"Parametric · bake" has no explorer look to reproduce, stated plainly rather than
+      invented.** The phrase is `TYPEWRIGHT_BUILD_BRIEF.md`/`docs/TYPEWRIGHT_HANDOFF.md`'s own
+      wording; the explorer's own CSS carries a dead, never-instantiated `.bake` rule
+      (`ui/typewright-explorer.html` line 224) with no markup anywhere using it. The inspector's
+      own STATE field (`constructInspectorFields`) is this task's own reasonable reading of
+      `InspectorField`'s existing label/value/emphasize pattern applied to that phrase. Nothing in
+      this task's own flow ever sets `ActiveConstruction.baked = true` -- there is no bake action
+      wired to a gesture yet (needs the same later on-canvas editing task), so the field always
+      reads "PARAMETRIC" today, honestly, not for show.
+    - **Layers: a minimal model and toggle only, no real image loading, and a likely scope
+      overlap with the sibling agent's own stated scope, flagged for the orchestrator rather than
+      silently resolved either way.** `Layers.kt`/`LayersPanel.kt` add a `LayerKind`
+      (Background/Sketch)/`LayerState` (visible, locked, opacity) model and a plain toggle panel
+      (tap the label to show/hide, tap the percentage to cycle opacity in quarters, tap "L" to
+      lock), reusing this module's own established canvas-background/ink-block/mono-uppercase
+      vocabulary rather than inventing chrome -- the explorer shows no layer-panel screen anywhere
+      to reproduce (only a bare "layers: 3" kv row on Learn's overlay screen and an unrelated
+      "Sketch · controls" scrapbook pin caption, neither a real panel). No background image or
+      sketch content is actually loaded or drawn -- there is no file-picker/image-import path in
+      `ui` yet, and CLAUDE.md law 4 governs claiming that capability before it exists; the model
+      exists so a later task that adds real image loading only has to plug into
+      `LayerState.visible`/`.opacity`, not invent the model too. **The orchestrator's own task
+      text for this agent named "a background/sketch layer toggle" as explicitly the *sibling*
+      agent's scope (guide rendering / Space kerning-`.fea` / command palette), while this same
+      task's own numbered item 4 explicitly asked *this* agent to build exactly that -- an
+      apparent contradiction in the computed task text, not something this agent could resolve by
+      re-reading it more carefully.** Built here, in new, small, isolated files
+      (`ui/sheet/Layers.kt`/`LayersPanel.kt`, one `rememberLayersState()` call and one
+      `LayersPanel(...)` composable added to `TypewrightSheet.kt`) specifically so the orchestrator
+      can drop this half cleanly if the sibling's own diff already covers it, rather than a change
+      threaded through shared files that would be costly to unpick. *Orchestrator, to deduplicate
+      against the sibling agent's own diff before merging.*
+    - **`TypewrightSheet.kt`'s own exact diff, for the orchestrator's merge against the sibling
+      agent's diff:** 5 import lines added (`padding`, `dp`, `constructInspectorFields`, `Tool`,
+      `viewCentreFontUnits`, alphabetised into the existing block); one `val layers =
+      rememberLayersState()` line (plus a one-line comment) after `val pin =
+      rememberPuckPinState(canvasSizeDp)`; one new `LayersPanel(...)` call (5 lines) inserted
+      before the `Puck(...)` call; one new `viewCentreFontUnits = ...` line inside the existing
+      `Puck(...)` call; the `InspectorRow(...)` call's `fields = inspectorFields(cameraState)`
+      changed to `fields = inspectorFields(cameraState, puckState)`; and the private
+      `inspectorFields` function's own signature (`cameraState: SheetCameraState` ->
+      `cameraState: SheetCameraState, puckState: PuckUiState`), KDoc and body (one new `if` branch
+      at the top) changed. 38 insertions, 7 deletions total (`git diff --stat`). No other line in
+      the file was touched.
+
+    *Data points for whoever builds the on-canvas point-picking/dragging flow this task's own
+    scope stopped short of, wires a bake gesture, adds real background/sketch image loading, or
+    reconciles this entry's own layers-scope-overlap flag against the sibling agent's diff; not
+    product decisions except the primitives-menu-gesture reading (Madhav, tagged above) and the
+    layers-scope conflict (orchestrator, tagged above).*
 

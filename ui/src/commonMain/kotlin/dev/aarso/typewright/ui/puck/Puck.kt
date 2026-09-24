@@ -20,19 +20,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.aarso.typewright.core.geometry.Point
 import dev.aarso.typewright.core.geometry.Vec2
 import dev.aarso.typewright.ui.toIntOffset
 import dev.aarso.typewright.ui.toVec2
@@ -51,23 +48,40 @@ import kotlin.time.TimeSource
  * ([RadialDial], [UnfoldedToolList]) need to read. Deliberately separate from [PuckGestureState]
  * (P4a's own pure state, re-exposed here as a Compose snapshot so reads trigger recomposition)
  * and from [PuckPinState] (position only).
+ *
+ * [primitivesMenuStage]/[selectedPrimitiveKind]/[activeConstruction] are P5b's own addition
+ * (task "primitives entry-method sub-menu" / "Construct inspector"): when [currentTool] is
+ * [Tool.PRIMITIVES], the puck's own tap-to-unfold gesture (see [Puck]'s own `handleOutputs`)
+ * drives this two-level menu instead of the plain [tools] list -- see [PrimitivesMenuStage]'s own
+ * KDoc for why tap is reused rather than a new gesture invented for it. They live here, next to
+ * [toolListUnfolded], rather than in a second parallel state holder, because they are exactly the
+ * same kind of thing: puck-glass UI state a `remember` block owns for the lifetime of one
+ * [Puck] composition.
  */
 class PuckUiState(
-    initialTools: List<PlaceholderTool> = PlaceholderTool.ORDERED,
+    initialTools: List<Tool> = Tool.ORDERED,
 ) {
-    val tools: List<PlaceholderTool> = initialTools
+    val tools: List<Tool> = initialTools
     var toolIndex: Int by mutableStateOf(0)
         internal set
     var gestureState: PuckGestureState by mutableStateOf(PuckGestureState.Idle)
         internal set
     var toolListUnfolded: Boolean by mutableStateOf(false)
         internal set
+    var primitivesMenuStage: PrimitivesMenuStage by mutableStateOf(PrimitivesMenuStage.CLOSED)
+        internal set
+    var selectedPrimitiveKind: PrimitiveKind? by mutableStateOf(null)
+        internal set
 
-    val currentTool: PlaceholderTool get() = tools[((toolIndex % tools.size) + tools.size) % tools.size]
+    /** The live, not-yet-baked instance the primitives menu last created ([defaultPrimitiveInstance]), read by the Construct inspector ([dev.aarso.typewright.ui.glass.constructInspectorFields]). `null` until an entry method has been picked at least once. */
+    var activeConstruction: ActiveConstruction? by mutableStateOf(null)
+        internal set
+
+    val currentTool: Tool get() = tools[((toolIndex % tools.size) + tools.size) % tools.size]
 }
 
 @Composable
-fun rememberPuckUiState(tools: List<PlaceholderTool> = PlaceholderTool.ORDERED): PuckUiState = remember { PuckUiState(tools) }
+fun rememberPuckUiState(tools: List<Tool> = Tool.ORDERED): PuckUiState = remember { PuckUiState(tools) }
 
 /**
  * The tool puck (UI_SPEC §3 "Puck"), wired to P4a's [reducePuckGesture] through **one**
@@ -89,6 +103,15 @@ fun Puck(
     pin: PuckPinState,
     texture: CanvasTexture,
     canvasSizeDp: Vec2,
+    /**
+     * The sheet's current view centre, in font units (P5b: "creates a default-parameterized
+     * instance of that primitive at the sheet's current view centre"). Read once, at the moment
+     * an entry method is picked ([PrimitivesMenuStage.ENTRY_METHOD] -> [defaultPrimitiveInstance]),
+     * not tracked live -- the created [ActiveConstruction] does not itself follow the camera
+     * afterwards (the on-canvas point-picking/dragging flow this would need is this task's own
+     * documented deferral, see [PrimitiveKind]'s KDoc).
+     */
+    viewCentreFontUnits: Point = Point(0, 0),
     config: PuckGestureConfig = PuckGestureConfig(),
     modifier: Modifier = Modifier,
 ) {
@@ -103,7 +126,23 @@ fun Puck(
         for (event in outputs) {
             when (event) {
                 PuckOutputEvent.ToolListToggled -> {
-                    state.toolListUnfolded = !state.toolListUnfolded
+                    // P5b: on the Primitives tool, the puck's one tap-to-unfold gesture drives the
+                    // primitive-kind/entry-method menu instead of the plain tool list -- the
+                    // explorer shows no dedicated screen for this two-level content (task's own
+                    // "the explorer does NOT show this specific two-level content anywhere"), so
+                    // reusing the puck's existing, documented tap affordance (UI_SPEC §3: "Tap:
+                    // unfold the collapsible tool list") is this task's own reasonable reading,
+                    // recorded in docs/OPEN_QUESTIONS.md, rather than inventing a second gesture.
+                    if (state.currentTool == Tool.PRIMITIVES) {
+                        state.primitivesMenuStage =
+                            if (state.primitivesMenuStage == PrimitivesMenuStage.CLOSED) {
+                                PrimitivesMenuStage.KIND
+                            } else {
+                                PrimitivesMenuStage.CLOSED
+                            }
+                    } else {
+                        state.toolListUnfolded = !state.toolListUnfolded
+                    }
                 }
 
                 is PuckOutputEvent.ToolCycled -> {
@@ -196,6 +235,38 @@ fun Puck(
             state.toolListUnfolded = false
         }
     }
+
+    // P5b: the Primitives tool's own two-level unfolded list (kind, then that kind's entry
+    // methods) -- see PuckOutputEvent.ToolListToggled's own handling above for why this reuses
+    // the puck's tap gesture, and PrimitivesMenuStage's KDoc for the two stages.
+    when (state.primitivesMenuStage) {
+        PrimitivesMenuStage.CLOSED -> {}
+
+        PrimitivesMenuStage.KIND -> {
+            PrimitiveKindMenu(pin = pin, texture = texture, canvasSizeDp = canvasSizeDp) { kind ->
+                state.selectedPrimitiveKind = kind
+                if (kind.entryMethodLabels.size == 1) {
+                    // Only one entry method (Stem, Bowl): create it directly, no second list.
+                    state.activeConstruction = defaultPrimitiveInstance(kind, 0, viewCentreFontUnits)
+                    state.primitivesMenuStage = PrimitivesMenuStage.CLOSED
+                } else {
+                    state.primitivesMenuStage = PrimitivesMenuStage.ENTRY_METHOD
+                }
+            }
+        }
+
+        PrimitivesMenuStage.ENTRY_METHOD -> {
+            val kind = state.selectedPrimitiveKind
+            if (kind == null) {
+                state.primitivesMenuStage = PrimitivesMenuStage.CLOSED
+            } else {
+                PrimitiveEntryMethodMenu(pin = pin, kind = kind, texture = texture, canvasSizeDp = canvasSizeDp) { methodIndex ->
+                    state.activeConstruction = defaultPrimitiveInstance(kind, methodIndex, viewCentreFontUnits)
+                    state.primitivesMenuStage = PrimitivesMenuStage.CLOSED
+                }
+            }
+        }
+    }
 }
 
 /**
@@ -271,7 +342,7 @@ private suspend fun PointerInputScope.puckGestureArbiter(
 @Composable
 private fun PuckBody(
     texture: CanvasTexture,
-    tool: PlaceholderTool,
+    tool: Tool,
     rollProgress: Float,
     showLabel: Boolean,
 ) {
@@ -311,55 +382,21 @@ private fun PuckBody(
 }
 
 /**
- * A minimal geometric stand-in for a real tool icon (task P4b: "Render the CURRENT tool's name as
- * placeholder text ... a fixed small list of placeholder tool names ... is enough to prove the
- * mechanism"; icons are a bonus, not the point). UI_SPEC §3: "canvas-coloured icon (26 dp,
- * 1.6 stroke)".
+ * The real tool icon (P5b; replaces task P4b's own documented "minimal geometric stand-in" --
+ * that KDoc's own words -- now that P5b's own task explicitly asks to "reproduce these paths
+ * faithfully... the same way `Puck.kt`'s existing `ToolIcon` composable draws SELECT/PEN/SHAPE
+ * today... and feel free to also correct the existing 3 icons"). UI_SPEC §3: "canvas-coloured
+ * icon (26 dp, 1.6 stroke)" -- [drawToolIcon] (`ToolIcons.kt`) does the actual path tracing, from
+ * the explorer's own `ic-*` symbol defs, shared with [RadialDial]'s own per-sector glyph and
+ * [UnfoldedToolList]'s own 18 dp row icon (its own `sizeDp` here).
  */
 @Composable
 fun ToolIcon(
-    tool: PlaceholderTool,
+    tool: Tool,
     color: Color,
     sizeDp: Dp = 26.dp,
 ) {
     Canvas(Modifier.size(sizeDp)) {
-        val strokeWidth = 1.6.dp.toPx()
-        val w = size.width
-        val h = size.height
-        when (tool) {
-            PlaceholderTool.SELECT -> {
-                // An arrow/cursor shape, echoing the explorer's own SELECT glyph (draw-wide.png).
-                val path =
-                    Path().apply {
-                        moveTo(w * 0.2f, h * 0.1f)
-                        lineTo(w * 0.2f, h * 0.9f)
-                        lineTo(w * 0.5f, h * 0.65f)
-                        lineTo(w * 0.75f, h * 0.75f)
-                        close()
-                    }
-                drawPath(path, color = color)
-            }
-
-            PlaceholderTool.PEN -> {
-                drawLine(color, Offset(w * 0.2f, h * 0.85f), Offset(w * 0.8f, h * 0.15f), strokeWidth = strokeWidth, cap = StrokeCap.Round)
-                drawLine(
-                    color,
-                    Offset(w * 0.65f, h * 0.05f),
-                    Offset(w * 0.95f, h * 0.35f),
-                    strokeWidth = strokeWidth,
-                    cap = StrokeCap.Round,
-                )
-            }
-
-            PlaceholderTool.SHAPE -> {
-                drawRoundRect(
-                    color = color,
-                    topLeft = Offset(w * 0.15f, h * 0.15f),
-                    size = Size(w * 0.7f, h * 0.7f),
-                    cornerRadius = CornerRadius(w * 0.15f, h * 0.15f),
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
-                )
-            }
-        }
+        drawToolIcon(tool = tool, topLeft = Offset.Zero, boxSizePx = size.width, color = color)
     }
 }
