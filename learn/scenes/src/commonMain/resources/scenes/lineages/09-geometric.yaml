@@ -1,0 +1,25 @@
+# scenes/lineages/09-geometric.yaml
+# docs/LESSONS_SCAFFOLD.md section 2, era 8 of 10 (see 08-artdeco.yaml's note on file numbering).
+id: lineages.geometric
+strand: lineages
+title: Geometric
+era: "1927"
+scaffold: true
+duration: 40
+faces:
+  - key: artdeco
+    family: Limelight
+  - key: geometric
+    family: Jost
+stage:
+  sample: "ago"
+  align: xheight
+  from: artdeco
+  to: geometric
+  stress: [0, 0]
+caption:
+  tool: "compass and ruler"
+  text: >
+    Futura. Circle, triangle, square. The o is a circle, the a is one storey, the
+    stroke is one weight.
+  tags: [circular o, single-storey a, monoline]

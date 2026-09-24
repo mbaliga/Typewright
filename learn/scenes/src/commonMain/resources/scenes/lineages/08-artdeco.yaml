@@ -1,0 +1,29 @@
+# scenes/lineages/08-artdeco.yaml
+# docs/LESSONS_SCAFFOLD.md section 2, era 7 of 10 (this strand's file numbering runs one
+# higher than the table's own "#" column from here on, to make room for the vocabulary aside
+# at 07-vocabulary.yaml, which the table's numbering does not account for). `stage.from` picks
+# up the historical thread from era 6 (Grotesque) directly -- the vocabulary aside is a note
+# beside the timeline, not a stop on it.
+id: lineages.artdeco
+strand: lineages
+title: Art Deco
+era: "1925"
+scaffold: true
+duration: 40
+faces:
+  - key: grotesque
+    family: Work Sans
+  - key: artdeco
+    family: Limelight
+stage:
+  sample: "ago"
+  align: xheight
+  from: grotesque
+  to: artdeco
+  stress: [6, 0]
+caption:
+  tool: "the draughtsman's set square"
+  text: >
+    Geometric bones with theatrical proportions: waists high or low, inline stripes,
+    extreme widths.
+  tags: [high or low crossbars, inline stripes, extreme widths]

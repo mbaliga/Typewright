@@ -1,0 +1,60 @@
+# scenes/craft/b2-shearing-an-italic.yaml
+# Craft strand (docs/LESSONS_SCAFFOLD.md section 4, row B2; docs/KNOWLEDGE.md B2).
+#
+# Live measure wired to REAL, already-measured numbers (P5a-hard; docs/OPEN_QUESTIONS.md item 24's
+# own neighbourhood), not restated prose. engine-construct's ObliqueTest shears a synthetic
+# 44-unit-stroke monolinear ring (radius 200) by 9 degrees -- docs/KNOWLEDGE.md B2's own angle and
+# stroke width -- two ways, both measured by the same method (measureRingWidths):
+#   - naive (stroke first, then shear the outline -- strokeThenShearNaively): about 9.7 units of
+#     width variation around the ring at this pipeline's own default fit tolerance
+#     (ObliqueTest.naivelyShearingTheAlreadyStrokedOutlineDistortsTheWidthSubstantially).
+#   - correct (shear the centreline first, then re-stroke -- strokeShearedCenterline): about 3.7
+#     units at default tolerance (ObliqueTest.correctlyReStrokingTheShearedCentrelineStaysCloseToConstantWidth),
+#     about 2.6 at a tightened fit tolerance of 0.25
+#     (ObliqueTest.tighteningTheFitToleranceGetsTheCorrectApproachMuchCloserToKnowledgeB2sOwnQuarterUnitFigure).
+#   - noise floor: an *unsheared* ring, exactly constant-width by construction, still measures
+#     about 2.4 units of "variation" under this same nearest-point measurement method
+#     (ObliqueTest.measurementFloorOnAnUnshearedRingShowsHowMuchOfAnyResidualIsMeasurementNoiseNotShearDistortion)
+#     -- so the shear-attributable residual of the correct approach, tight tolerance, is about
+#     2.6 - 2.4 = 0.2 units, matching docs/KNOWLEDGE.md B2's own ~0.2 figure once the
+#     measurement method's own noise is subtracted out.
+id: craft.b2-shearing-an-italic
+strand: craft
+title: Shearing an italic
+scaffold: true
+duration: 25
+faces:
+  - key: naive
+    family: "44-unit monolinear ring, stroked then sheared 9 degrees (naive) -- engine-construct's ObliqueTest fixture"
+    source: project
+  - key: correct
+    family: "same ring, centreline sheared 9 degrees then re-stroked at 44 units (correct) -- engine-construct's ObliqueTest fixture"
+    source: project
+stage:
+  sample: "o"
+  align: baseline
+  from: naive
+  to: correct
+  pipeline: "engine-construct.strokeThenShearNaively (from) / engine-construct.strokeShearedCenterline (to)"
+caption:
+  tool: "shear the centreline, then re-stroke at constant width (engine-construct's strokeShearedCenterline)"
+  text: >
+    docs/KNOWLEDGE.md's own account: naively shearing a finished 44-unit stroke by 9 degrees swung
+    its width from 40 to 49 around one letter -- a 19 percent wobble, and a reviewer's verdict of
+    "italic is simply slanted Regular". The mechanism reproduces on a synthetic 44-unit ring
+    sheared the same 9 degrees (engine-construct's ObliqueTest): stroke first, then shear the
+    outline, and width variation measures about 9.7 units; shear the centreline first, then
+    re-stroke it, and variation drops to about 3.7 units at this pipeline's own default fit
+    tolerance. Tightening that tolerance -- a general knob, not a per-shape hack -- to 0.25 brings
+    it to about 2.6, close to the roughly 2.4-unit noise floor this same measurement method
+    reports even on an unsheared, exactly constant ring. Subtract that floor and the
+    shear-attributable residual is about 0.2 units, matching docs/KNOWLEDGE.md B2's own figure
+    once the measurement method's own noise is accounted for.
+  tags: ["centreline shear vs. outline shear", "stroke probe", "monolinear stroke", "measurement noise floor"]
+callouts:
+  - glyph: "o"
+    part: "stroke width (naive)"
+    label: "about 9.7 units of variation around the ring at default fit tolerance"
+  - glyph: "o"
+    part: "stroke width (correct)"
+    label: "about 3.7 units at default tolerance, about 2.6 at tight tolerance -- about 0.2 once the ~2.4-unit measurement floor is subtracted, matching KNOWLEDGE.md B2's own figure"

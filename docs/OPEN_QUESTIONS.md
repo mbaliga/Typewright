@@ -1147,3 +1147,175 @@ says what was done in the meantime, and names who decides. Answered entries move
    change in this file for that, but it is worth confirming the whole-block reading is what the
    UI actually wants before scene content is authored against it. *Madhav, or whoever builds
    the Learn UI half of P6.*
+
+## P6: Lineages/vocabulary/identify-it content (data/logic half)
+
+Real YAML content for the ten Lineages era scenes, the vocabulary scene, and the identify-it
+bank, all under `learn/scenes/src/commonMain/resources/scenes/lineages/`, parsed through the
+sibling-built `parseScene`/`StrandSequencer` with a real round-trip test per file
+(`LineagesSceneContentTest`, `ScaffoldFieldTest`) — `./gradlew :learn:scenes:check`: jvm 79
+tests / 0 failures, wasmJs 77 tests / 0 failures (both counts include a concurrently-landed
+sibling addition, item 42 below, not this task's own tests).
+
+37. **The bank's own item 1 (Libre Baskerville → Transitional) can never actually surface,
+   confirmed against the real content, not just the synthetic fixtures open questions 35-36
+   already flagged this against.** `LineagesSceneContentTest.realContentReproducesThe
+   DocumentedCollisions` proves it directly: `StrandSequencer.plan` run on the real eleven-scene
+   block and the real eight-entry bank excludes exactly this one entry, leaving 7 of 8 bank
+   entries eligible. Kept verbatim in `identify-it-bank.yaml` rather than silently swapped for
+   a different face, per this task's own brief ("already-written content, not something you
+   invent; your job is encoding it faithfully") — and because there is no real substitute to
+   swap it for: `data/learn-faces/manifest.json` fetched exactly one exercise-bank face per
+   answer class *other than* Transitional (Transitional's only fetched face is Libre
+   Baskerville itself, already on stage as era 3). *Madhav or the product owner: either pick a
+   real OFL Transitional-class face for `fetch_learn_faces.py` to fetch and swap the bank entry
+   to it, or accept that this strand's identify-it bank effectively has 7 live questions, not 8.*
+
+38. **The Roboto Slab → Slab bank entry has no give-away phrase in `docs/LESSONS_SCAFFOLD.md`
+   section 2.** Every other of the eight bank entries has a parenthetical give-away
+   (`"(bracketed serifs, near-vertical stress)"` and so on); this one reads only "Roboto Slab →
+   Slab" with nothing after it. `identify-it-bank.yaml`'s giveaway for this entry ("square
+   serifs as thick as the stems, low contrast, even colour — made for the poster wall") is
+   drawn from this same strand's own `05-slab.yaml` (section 2's era table row 5's "note" and
+   "tags" columns for the Slab era), not invented from nothing, but it is this task's own
+   phrasing, not a copy of scaffold text the way the other seven entries are. *Whoever owns
+   `docs/LESSONS_SCAFFOLD.md` content: confirm this phrasing or supply the intended one.*
+
+39. **`StrandSequencer.ExerciseBankEntry` has no `word` or `options` field, unlike a scene's own
+   inline `exercise:` block.** This task's brief described the bank as needing "a give-away text
+   and options list per the scene format's exercise shape," but the real type `StrandSequencer.kt`
+   already ships (`ExerciseBankEntry(face, answer, giveaway)`) has neither `word` nor `options` —
+   only `Exercise` (a *scene's own* inline candidate) has those. `identify-it-bank.yaml` and
+   `ExerciseBankParser.kt` were written to match the real type exactly, per this task's own
+   practice (established by the sibling reports this task read) of reading the real built code
+   over a paraphrase of it. This leaves a real gap for whoever builds the actual identify-it
+   exercise card: it will need a sample word to set each bank face in (this task suggests
+   reusing "Hamburgefonstiv", the same word CANON's own worked example and section 6 both use)
+   and a multiple-choice options list per entry, neither of which exists on `ExerciseBankEntry`
+   today. *Whoever builds the Learn UI half of P6 (or extends `ExerciseBankEntry` first).*
+
+40. **The vocabulary scene's own mechanics (sample, faces, duration) are this task's own
+   construction, not scaffold-given.** `docs/LESSONS_SCAFFOLD.md` section 2 gives the vocabulary
+   note only as a floating paragraph ("Vocabulary scene (after era 6): ..."), not a described
+   scene — CANON's `Scene` schema still requires a `stage` and `faces`, so encoding it as one
+   meant choosing what goes on stage. `07-vocabulary.yaml` crossfades the sample word "gothic"
+   itself from this strand's own Grotesque face (Work Sans, era 6 — the American "sans" sense)
+   to its own Blackletter face (UnifrakturMaguntia, era 1 — the European sense), both already on
+   stage elsewhere in the block, over 20 seconds, with no era and no stress axis. `caption.text`
+   is section 2's own paragraph verbatim; the rest (the stage design, `caption.tool`,
+   `caption.tags`, the duration) is authored, documented inline in the file's own header
+   comment. *Madhav or whoever builds the Learn UI: confirm this staging reads the ambiguity
+   correctly before it is what the learner actually sees.*
+
+41. **`stage.stress` is `null` for era 1 and era 2, not just era 1.** Section 2's stress column
+   reads "none" for Blackletter (era 1) and "30°" for Garalde (era 2). `01-blackletter.yaml`'s
+   null is a direct reading of "none". `02-garalde.yaml`'s null is this task's own judgement
+   call, not a second literal "none" in the table: `stage.stress` describes the dial's motion
+   from the *from* face's own angle to the *to* face's, and era 2's `from` face is Blackletter,
+   which has no angle to start the dial from — inventing one (or showing Garalde's real 30°
+   twice, as a static value) would either fabricate a number Blackletter doesn't have or claim
+   motion that isn't there. The dial's first real motion is era 3 onward (`03-transitional.yaml`,
+   CANON's own `[30, 12]` worked example), chained forward with the table's own degrees through
+   era 10. *Whoever builds the Learn UI: confirm this reading — versus, say, having era 2
+   introduce the dial at a static 30° — before deciding how the dial's on-screen debut looks.*
+
+42. **A concurrent sibling agent extended `Scene.kt`/`SceneParser.kt` in the same module while
+   this task ran** (a `FaceSource` enum and `FaceRef.source`/`FaceRef.path`, and `Stage.pipeline`
+   — a Craft-strand schema extension, additive and backward-compatible the same way this task's
+   own `Scene.scaffold` is). Left entirely untouched; the two extensions compose cleanly
+   (`./gradlew :learn:scenes:check` green with both present — see this section's own header for
+   the counts). Noted here only as a heads-up for whoever integrates both halves of P6, since
+   neither agent coordinated the change directly; not a problem this task needed to resolve.
+   *Whoever reviews P6 as a whole.*
+
+    *Data points for whoever builds the Learn UI half of P6 (the actual identify-it exercise
+    card, the vocabulary scene's staging, the stress dial's on-screen behaviour), whoever owns
+    `docs/LESSONS_SCAFFOLD.md`'s real content (the Slab give-away, the Transitional bank-entry
+    swap), and whoever reviews P6 as a whole; not a single owner tag, per the individual items
+    above.*
+
+## P6: Craft scenes content (data/logic half)
+
+The four Craft before/after scenes P6's own content-authoring prompt names explicitly
+(`docs/LESSONS_SCAFFOLD.md` section 4, rows A1/B1/B2/C1), all under
+`learn/scenes/src/commonMain/resources/scenes/craft/`, parsed through the sibling-built
+`parseScene` with a real round-trip test per file (`CraftSceneContentTest`) —
+`./gradlew :learn:scenes:check`: jvm 85 tests / 0 failures, wasmJs 83 tests / 0 failures (the
+2-test gap is the two pre-existing jvm-only tests, `LearnFacesRealFontValidationTest` and
+`SceneResourcesJvmTest`; every test this task added runs on both platforms).
+
+43. **`FaceRef.source`/`FaceRef.path` and `Stage.pipeline` are this task's own schema extension,
+   additive and backward-compatible, needed because a Craft scene's `from`/`to` are this
+   project's own glyph before/after a construction-pipeline stage, not two independently-drawn
+   typefaces the way every Lineages scene's `from`/`to` are.** `Scene.kt`'s own KDoc on `Scene`,
+   `FaceSource` and `Stage.pipeline` has the full "why"; in short: forcing this shape through
+   `FaceRef.family` alone would mean either fetching a corpus family that does not exist, or
+   quietly overloading `family` (CANON's "a real, fetchable typeface name") to mean something
+   else, both of which CLAUDE.md's "measured, not invented" cuts against. `FaceSource` has two
+   values (`CORPUS`, the unchanged default; `PROJECT`, this project's own material, told apart by
+   whether `FaceRef.path` is set — a real checked-in file, e.g. `fonts/HyleDeco-Regular.ttf`, or
+   nothing, meaning either live-pipeline output named by `Stage.pipeline` or a fixed illustration
+   with no live mechanism yet). Every existing two-argument `FaceRef(key, family)` call and every
+   existing `Stage(...)` call keeps compiling and keeps its old meaning unchanged
+   (`CraftSchemaExtensionTest` checks this directly, including the sibling's own worked-example
+   call shape). **This was written independently of, and lands the same session as, a sibling
+   agent's own concurrent note about it** (this file's own item 42, filed from the Lineages-
+   content task's side after noticing the modification mid-session): both sides confirm the two
+   extensions (this one and `Scene.scaffold`, the sibling's own addition, found already landed
+   when this task started and reused unchanged rather than re-added) compose cleanly with a green
+   `:learn:scenes:check`. *Whoever reviews P6 as a whole; whoever eventually builds the Craft
+   half of the Learn UI, since `Stage.pipeline`'s named functions are not called by anything yet
+   — this task's own scope is data and parsing, not wiring a live renderer to them.*
+
+44. **A1's honest live-measure numbers are more nuanced than a clean "outlier to in range" story
+   on both axes, and the scene says so rather than only reporting the flattering half.** Re-run
+   directly for this task (`:core-geometry:jvmTest --tests FitPipelineHyleDecoValidationTest`,
+   system-out captured 2026-09-24): the real fit pipeline's own current output for the shipped T
+   is **8 on-curve / 16 off-curve**, not CLAUDE.md's fixture-table target of 8/0. On-curve hits
+   the target exactly, and against `qa/corpus`'s real `sans-geometric` T box
+   (`Quartiles(min=8, q1=8, med=8, q3=12.5, max=28, n=30)`, fence 19.25) the count genuinely goes
+   OUTLIER (1,763) → IN_RANGE (8) — the product's own thesis, real. But the off-curve axis, told
+   honestly against that same corpus's real off-curve box (`Quartiles(0, 0, 0, 0, 16, n=30)`,
+   fence 0): the shipped T's 0 is trivially IN_RANGE, and the *fitted* T's real 16 is itself an
+   OUTLIER by this box's own fence — a known representational limit (item 20 above: `Contour`'s
+   `CUBIC` format has no line-only point kind, so a straight run is always an (on, off, off)
+   triple with two redundant, on-line control points), not a drawing defect, but also not the
+   clean story a less careful scene would tell. `a1-tracing-destroys-the-drawing.yaml`'s caption
+   and callouts state both axes; `CraftSceneContentTest` checks both numbers and both verdict
+   words are present in the real parsed text. *Whoever revisits item 20's own "type gap" (a
+   `Contour` line-point kind, or a post-fit collinear-control-point cleanup pass) should know this
+   Craft scene is now a second, user-facing place that gap surfaces, beyond the P2 validation
+   test's own KDoc.*
+
+45. **B1 and C1 each name a real aspirational gap plainly, per this task's own instructions, rather
+   than inventing a fixture or a mechanism to fill it.** Two separate, unrelated gaps:
+   - **B1 ("Inflating a bold"): no "properly drawn bold" fixture exists anywhere in this
+     codebase.** `fonts/` holds only `HyleDeco-Regular.ttf` and `HyleDeco-Italic.ttf` — no bold.
+     The scene is built entirely around what *is* real: `engine-construct`'s `offsetContour` and
+     its own `OffsetTest` fixture (a 100-unit square stem/counter pair; +20 outward grows every
+     side by exactly 20 with corners preserved; -50 inward — only half that distance — collapses
+     the counter completely to a single degenerate point). The caption states the drawn-bold
+     comparison is aspirational in so many words and the scene's own `tags` carry an
+     `"aspirational: ..."` entry (`CraftSceneContentTest` checks both). *Whoever eventually draws
+     or interpolates a real Hyle Deco bold master: that fixture, once it exists, is what would let
+     this scene's `to` face become the real drawn bold instead of the naive-offset stand-in.*
+   - **C1 ("Baked composites"): no anchor-driven composite-rebuild mechanism, and no bounding-box
+     accent-placement function either, exist anywhere in this codebase yet.** Confirmed by grep
+     before writing this scene, not assumed: `core-font`'s `GlifCodec` reads/writes outlines,
+     anchors (`Anchor`, losslessly — `GlifCodecTest.writesAndParsesAnchorsLosslessly`) and
+     guidelines only; there is no UFO `<component>` support at all (brief section 10's own v1.5
+     tier, item 8, "anchors-driven composites" — not yet built), and no function anywhere computes
+     a mark's position from a base's bounding box either. `Stage.pipeline` is therefore left
+     `null` on this scene (`CraftSceneContentTest.c1WiresTheRealAnchorRoundTripAndNamesNoInventedPipeline`
+     asserts this directly) and both faces are illustrative (`FaceSource.PROJECT`, no `path`) —
+     the scene shows the two real, static states (unattached, anchored) and states the composite-
+     rebuild gap in its own caption text rather than staging a live demo that does not exist.
+     *Whoever builds anchors-driven composites (brief section 10 v1.5, item 8): this scene's own
+     `to` face is exactly where a live rebuild-on-anchor-move demo belongs once that mechanism is
+     real.*
+
+    *Data points for whoever builds the Craft half of the Learn UI (which reads
+    `Stage.pipeline`/`FaceRef.source` and must decide how to actually render a `PROJECT`/pipeline
+    face live), whoever revisits the CUBIC line-point "type gap" (item 20), and whoever draws a
+    real Hyle Deco bold or builds anchors-driven composites; not a single owner tag, per the
+    individual items above.*

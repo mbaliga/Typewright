@@ -1,0 +1,27 @@
+# scenes/lineages/10-humanist.yaml
+# docs/LESSONS_SCAFFOLD.md section 2, era 9 of 10 ("Humanist sans" -- see 08-artdeco.yaml's
+# note on file numbering). File named "10-humanist" rather than "10-humanist-sans" only to
+# keep the slug short; `title` below carries the table's full class name.
+id: lineages.humanist
+strand: lineages
+title: Humanist sans
+era: "1928"
+scaffold: true
+duration: 40
+faces:
+  - key: geometric
+    family: Jost
+  - key: humanist
+    family: Source Sans 3
+stage:
+  sample: "ago"
+  align: xheight
+  from: geometric
+  to: humanist
+  stress: [0, 10]
+caption:
+  tool: "the pen, remembered"
+  text: >
+    Gill Sans, later Frutiger. A sans that remembers the pen: open apertures,
+    calligraphic proportions.
+  tags: [open apertures, pen proportions, two-storey a and g]

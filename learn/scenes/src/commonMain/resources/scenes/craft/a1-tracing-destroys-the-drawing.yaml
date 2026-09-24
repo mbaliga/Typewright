@@ -1,0 +1,71 @@
+# scenes/craft/a1-tracing-destroys-the-drawing.yaml
+# Craft strand (docs/LESSONS_SCAFFOLD.md section 4, row A1; docs/KNOWLEDGE.md A1). This is the
+# Craft-strand extension's own worked case (Scene.kt's KDoc on FaceRef.source/Stage.pipeline):
+# `from`/`to` are not two independent typefaces but this project's own T before and after
+# Typewright's fit pipeline, so both `faces` entries use `source: project`.
+#
+# Live measure, wired to REAL pipeline output rather than restated prose (P6 content-authoring
+# task's own instruction) -- every number below is read off an actual run, not invented:
+#   - shipped/fitted point counts: CLAUDE.md's canon T fixture line ("T 1,763.0.1,763 -> 8.0.8")
+#     gives the *target*; the real fit pipeline's own honest output, re-verified here directly
+#     from core-geometry's FitPipelineHyleDecoValidationTest[jvm] system-out (2026-09-24 run):
+#       "P2b Hyle Deco 'T': source 1763 on-curve -> fitted 8 on-curve / 16 off-curve (target 8/0)"
+#     -- on-curve hits the CANON target exactly (8); off-curve does not reach 0. That gap is
+#     docs/OPEN_QUESTIONS.md item 20's own "type gap": Contour's CUBIC format has no line-only
+#     point kind, so a straight run the fitter correctly detects as needing no interior split is
+#     still emitted as an (on, off, off) triple with two on-line, degenerate control points --
+#     a representational limit, not a drawing defect. Same test's own printed line verifies the
+#     stem foot too: "stem foot center: source=279.5, fitted=280.0" against the bar's own centre
+#     at x=227 -- off-centre by design, kept, never pulled toward symmetry.
+#   - node-economy verdicts: qa/corpus's NodeEconomyCorpus.onCurveBox("sans-geometric", "T") =
+#     Quartiles(min=8.0, q1=8.0, med=8.0, q3=12.5, max=28.0, n=30) -- "sans-geometric" is the
+#     class Hyle Deco belongs to (qa/corpus's own HyleDecoNodeEconomyTest, stated verbatim for
+#     'o'). outlierFence(box) = q3 + max(1.5*iqr, 0.25*q3) = 12.5 + max(6.75, 3.125) = 19.25.
+#     verdictFor(1763, box) = OUTLIER. verdictFor(8, box) = IN_RANGE, at the box's own floor.
+#     offCurveBox("sans-geometric", "T") = Quartiles(min=0.0, q1=0.0, med=0.0, q3=0.0, max=16.0,
+#     n=30); outlierFence = 0. verdictFor(0, box) = IN_RANGE (shipped T has 0 off-curve, trivially
+#     in range). verdictFor(16, box) = OUTLIER -- the fitted T's real off-curve count is *also* an
+#     outlier by this same box, honestly: this scene reports both axes rather than only the one
+#     that tells the clean story. See this file's own caption for both, plainly.
+id: craft.a1-tracing-destroys-the-drawing
+strand: craft
+title: Tracing destroys the drawing
+scaffold: true
+duration: 30
+faces:
+  - key: shipped
+    family: "Hyle Deco Regular -- shipped T"
+    source: project
+    path: fonts/HyleDeco-Regular.ttf
+  - key: fitted
+    family: "Hyle Deco Regular -- fitted T (Typewright's own fit pipeline)"
+    source: project
+stage:
+  sample: "T"
+  align: baseline
+  from: shipped
+  to: fitted
+  pipeline: core-geometry.fitPolylineToFinishedContour
+caption:
+  tool: "corner detection + Schneider cubic fit + the Snap stage's type-constraint pass (TYPEWRIGHT_BUILD_BRIEF.md section 7)"
+  text: >
+    The shipped T has 1,763 on-curve points and 0 off-curve -- every curve a polygon standing
+    in for a curve (docs/KNOWLEDGE.md A1). Typewright's fit pipeline reduces the same drawing to
+    8 on-curve points, exactly the target, keeping the stem's own off-centre position and
+    snapping its foot to the baseline rather than pulling it toward symmetry. Node economy tells
+    the on-curve half of the story as a distribution, not a threshold: against the sans-geometric
+    class's own T box, 1,763 is an outlier; 8 lands in range, right at the box's own floor. Told
+    honestly, not the whole story: the fit still leaves 16 off-curve points on this glyph, not
+    the target's 0 -- a known gap in a cubic-only outline format, which has no way to represent a
+    straight line without two redundant, on-line control points.
+  tags: ["node economy", "on-curve vs off-curve", "outlier to in range", "the type gap"]
+callouts:
+  - glyph: "T"
+    part: "on-curve count"
+    label: "1,763 -> 8; sans-geometric T box verdict OUTLIER -> IN_RANGE"
+  - glyph: "T"
+    part: "off-curve count"
+    label: "0 -> 16; still OUTLIER by this box -- 16 on-line degenerate points, the CUBIC format's own type gap, not a drawing defect"
+  - glyph: "T"
+    part: "stem foot"
+    label: "snaps exactly to the baseline; the off-centre stem is kept, never symmetrised"

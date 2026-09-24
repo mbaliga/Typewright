@@ -1,0 +1,59 @@
+# scenes/craft/b1-inflating-a-bold.yaml
+# Craft strand (docs/LESSONS_SCAFFOLD.md section 4, row B1; docs/KNOWLEDGE.md B1).
+#
+# What IS real and wired here: engine-construct's offsetContour (Offset.kt), the naive uniform
+# offset this codebase's own KDoc already documents as the wrong way to bold -- reproducible
+# right now on the same 100-unit square fixture OffsetTest verifies it against:
+#   - OffsetTest.squareOffsetOutwardGrowsBySideAndKeepsSquareCorners: side=100, distance=20.0 ->
+#     grows by exactly 20 on every side, corners preserved exactly at (-20,-20)/(120,-20)/
+#     (120,120)/(-20,120) (4 on-curve points).
+#   - OffsetTest.squareOffsetInwardByExactlyHalfSideAlsoCollapses /
+#     ...PastHalfSideCollapsesToAPoint: side=100, distance=-50.0 (or beyond) -> collapses
+#     completely to a single degenerate point near the centroid (50, 50) -- Offset.kt's own
+#     documented rule (a per-edge direction-reversal check catches the self-intersection and
+#     returns one degenerate point rather than bad geometry).
+# What is aspirational, said plainly rather than invented (P6 content-authoring task's own
+# instruction): a "properly drawn bold" -- counters redrawn, junctions rebuilt, proportions
+# widened, per docs/KNOWLEDGE.md B1's own lesson -- has no fixture anywhere in this codebase yet.
+# This scene's `to` face is the naive offset result, not a drawn bold; see this scene's own
+# caption for the honest comparison. Flagged in docs/OPEN_QUESTIONS.md.
+id: craft.b1-inflating-a-bold
+strand: craft
+title: Inflating a bold
+scaffold: true
+duration: 25
+faces:
+  - key: skeleton
+    family: "Typewright construction primitive -- 100-unit square stem/counter pair, offset distance 0 (engine-construct's OffsetTest fixture)"
+    source: project
+  - key: naive-bold
+    family: "same primitive, offset outward on the stem and inward on the counter by engine-construct's offsetContour"
+    source: project
+stage:
+  sample: "o"
+  align: baseline
+  from: skeleton
+  to: naive-bold
+  pipeline: engine-construct.offsetContour
+caption:
+  tool: "a uniform per-vertex offset, refit to cubics (engine-construct's offsetContour)"
+  text: >
+    docs/KNOWLEDGE.md's own account of this failure: a Heavy weight built by offsetting finished
+    outlines collapsed the e's eye to 46 units tall, grew lumps at junctions, and grew blobs in
+    the digits' own counters. The mechanism is exact and reproducible, not just anecdote:
+    offsetting a 100-unit square stem outward by 20 units grows every side by exactly 20, corners
+    preserved (engine-construct's OffsetTest); offsetting the matching 100-unit counter inward by
+    50 -- only half that distance -- collapses it completely, to a single degenerate point, because
+    past half the counter's own width a naive per-vertex offset folds through itself. The stem is
+    only a little bolder. The counter is already gone. A properly drawn bold -- counters redrawn,
+    junctions rebuilt, proportions widened by hand or by interpolation between two drawn masters --
+    has no fixture in this codebase yet; that half of this comparison is aspirational until one
+    exists.
+  tags: ["counter collapse", "offset vs. drawn", "degenerate-offset detection", "aspirational: no drawn-bold fixture yet"]
+callouts:
+  - glyph: "o"
+    part: "counter"
+    label: "inward offset >= half the counter's own width collapses it to a single point (engine-construct's OffsetTest.squareOffsetInwardPastHalfSideCollapsesToAPoint)"
+  - glyph: "o"
+    part: "stem"
+    label: "outward offset grows the stem by exactly the offset distance on every side -- no compensation for the counter it is starving"

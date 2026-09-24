@@ -39,6 +39,7 @@ private fun sceneFromMapping(mapping: YamlValue.Mapping): Scene {
     val caption = captionFromMapping(mapping.requireMapping("caption"), id)
     val callouts = calloutsFromSequence(mapping, id)
     val exercise = mapping.mappingOrNull("exercise")?.let { exerciseFromMapping(it, id) }
+    val scaffold = scaffoldFromMapping(mapping, id)
     return Scene(
         id = id,
         strand = strand,
@@ -50,7 +51,25 @@ private fun sceneFromMapping(mapping: YamlValue.Mapping): Scene {
         caption = caption,
         callouts = callouts,
         exercise = exercise,
+        scaffold = scaffold,
     )
+}
+
+/**
+ * `scaffold: true/false` (see [Scene.scaffold]'s KDoc for why this field exists), optional and
+ * defaulting to `false` like [callouts]/[exercise] above rather than required — a scene with no
+ * opinion on the question is not silently marked SCAFFOLD.
+ */
+private fun scaffoldFromMapping(
+    mapping: YamlValue.Mapping,
+    sceneId: String,
+): Boolean {
+    val raw = mapping.scalarOrNull("scaffold") ?: return false
+    return when (raw.trim().lowercase()) {
+        "true" -> true
+        "false" -> false
+        else -> throw YamlParseException("scene '$sceneId': 'scaffold' must be true or false, found '$raw'")
+    }
 }
 
 private fun strandFromScalar(
@@ -100,6 +119,27 @@ private fun facesFromSequence(
         FaceRef(
             key = faceMapping.requireScalar("key"),
             family = faceMapping.requireScalar("family"),
+            source = faceSourceFromScalar(faceMapping.scalarOrNull("source"), sceneId),
+            path = faceMapping.scalarOrNull("path"),
+        )
+    }
+
+/**
+ * `faces[].source: corpus/project` ([FaceSource]'s own KDoc), optional and defaulting to
+ * [FaceSource.CORPUS] like every other Craft-strand addition here — an existing `faces` entry
+ * with no `source` key keeps its original CANON meaning unchanged.
+ */
+private fun faceSourceFromScalar(
+    raw: String?,
+    sceneId: String,
+): FaceSource =
+    when (raw?.trim()?.lowercase()) {
+        null, "corpus" -> FaceSource.CORPUS
+
+        "project" -> FaceSource.PROJECT
+
+        else -> throw YamlParseException(
+            "scene '$sceneId': unknown faces[].source '$raw' (expected corpus or project)",
         )
     }
 
@@ -113,6 +153,7 @@ private fun stageFromMapping(
         from = mapping.requireScalar("from"),
         to = mapping.requireScalar("to"),
         stress = stressFromMapping(mapping, sceneId),
+        pipeline = mapping.scalarOrNull("pipeline"),
     )
 
 private fun stressFromMapping(

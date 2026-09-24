@@ -1,0 +1,63 @@
+# scenes/craft/c1-baked-composites.yaml
+# Craft strand (docs/LESSONS_SCAFFOLD.md section 4, row C1; docs/KNOWLEDGE.md C1).
+#
+# Honesty note (P6 content-authoring task's own instruction, followed plainly rather than
+# glossed over): this scene's own scaffold title promises "composites rebuilding as the anchor
+# moves". No such mechanism exists anywhere in this codebase yet -- there is no UFO `<component>`
+# construction at all (core-font's GlifCodec reads/writes outlines, anchors and guidelines only;
+# anchors-driven composites is brief section 10's own v1.5 tier, item 8, not yet built), and no
+# bounding-box accent-placement function exists either to compute the honest "before" state live.
+# `stage.pipeline` is therefore deliberately absent (null) on both faces -- neither state is
+# computed by a real function in this codebase; both are a fixed teaching illustration
+# (FaceSource.PROJECT with no `path`, per Scene.kt's own KDoc on that combination).
+#
+# What IS real and wired here instead: core-geometry's Anchor(name, point) and Glyph.anchors,
+# round-tripped losslessly through core-font's UFO .glif codec -- verified directly by
+# GlifCodecTest.writesAndParsesAnchorsLosslessly: Anchor("top", Point(300, 700)) on a base and
+# Anchor("_top", Point(300, 0)) on a mark both write and read back exactly
+# (`<anchor x="300" y="700" name="top"/>`, `<anchor x="300" y="0" name="_top"/>`) -- and qa's
+# checkAnchorsPresent, which flags any of the 52 base Latin letters carrying no
+# appropriately-named (non-underscore) anchor. Flagged in docs/OPEN_QUESTIONS.md for whoever
+# builds the anchors-driven composite mechanism this scene's own title anticipates.
+id: craft.c1-baked-composites
+strand: craft
+title: Baked composites
+scaffold: true
+duration: 25
+faces:
+  - key: bbox
+    family: "illustrative: accent centred by matching bounding boxes only, no anchors (docs/KNOWLEDGE.md C1)"
+    source: project
+  - key: anchored
+    family: "illustrative: base carries anchor \"top\", mark carries anchor \"_top\" -- verified to round-trip exactly through UFO (core-font's GlifCodecTest)"
+    source: project
+stage:
+  sample: "Á"
+  align: baseline
+  from: bbox
+  to: anchored
+caption:
+  tool: "a named anchor point per base and mark (core-geometry's Anchor; core-font's GlifCodec)"
+  text: >
+    docs/KNOWLEDGE.md's own account: accented letters were positioned by copying bounding boxes,
+    no anchors, no mark attachment -- and a Google Fonts reviewer flagged the diacritics on
+    sight. What Typewright has built for real: a named anchor (a point, like "top" or "_top") on
+    a Glyph, written and read back byte-for-byte through the UFO .glif codec -- verified directly,
+    not merely asserted, by writing Anchor("top", Point(300, 700)) on a base and Anchor("_top",
+    Point(300, 0)) on a mark and reading the exact same points back -- and a check that flags any
+    of the 52 base Latin letters carrying no appropriately-named anchor. What this scene's own
+    title promises -- composites rebuilding live as an anchor moves -- does not exist in this
+    codebase yet: there is no component/composite-glyph construction mechanism at all on the UFO
+    side (build brief section 10's own v1.5 tier). This scene shows the two real states honestly
+    -- unattached and anchored -- without staging a live rebuild that has not been built.
+  tags: ["mark attachment", "anchor round trip", "aspirational: composite auto-build not yet built"]
+callouts:
+  - glyph: "Á"
+    part: "accent (before)"
+    label: "centred by bounding box only -- drifts if the base is redrawn, no anchor at all"
+  - glyph: "A"
+    part: "anchor \"top\""
+    label: "a named point at (300, 700) on the base -- round-trips exactly through UFO (core-font's GlifCodecTest)"
+  - glyph: "acutecomb"
+    part: "anchor \"_top\""
+    label: "the mark's matching attachment point, (300, 0), same verified round trip"

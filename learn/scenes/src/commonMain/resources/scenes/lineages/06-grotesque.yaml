@@ -1,0 +1,27 @@
+# scenes/lineages/06-grotesque.yaml
+# docs/LESSONS_SCAFFOLD.md section 2, era 6 of 10. The vocabulary scene
+# (07-vocabulary.yaml) follows this one directly -- section 2's own placement:
+# "Vocabulary scene (after era 6)".
+id: lineages.grotesque
+strand: lineages
+title: Grotesque
+era: "c. 1830"
+scaffold: true
+duration: 40
+faces:
+  - key: slab
+    family: Zilla Slab
+  - key: grotesque
+    family: Work Sans
+stage:
+  sample: "ago"
+  align: xheight
+  from: slab
+  to: grotesque
+  stress: [0, 6]
+caption:
+  tool: "the same posters, serifs dropped"
+  text: >
+    The first sans. A little contrast left, slightly awkward proportions; the name was
+    an insult.
+  tags: [no serifs, slight contrast, narrow apertures]

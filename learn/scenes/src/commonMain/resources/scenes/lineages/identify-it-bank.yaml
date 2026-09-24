@@ -1,0 +1,60 @@
+# scenes/lineages/identify-it-bank.yaml
+# docs/LESSONS_SCAFFOLD.md section 2's "Identify-it bank (faces not on stage)" paragraph,
+# parsed by ExerciseBankParser.parseExerciseBank into StrandSequencer.ExerciseBankEntry
+# (face, answer, giveaway). Not part of the CANON scene schema (section 1) -- there is no
+# `exercise:`-shaped Scene for a bank, only inline per-scene exercises -- so this file's shape
+# is this task's own, kept deliberately small: one `bank:` sequence of mappings, each with
+# exactly the three fields ExerciseBankEntry actually has. (The task brief that requested this
+# file paraphrased it as needing a `word` and `options` list "per the scene format's exercise
+# shape"; ExerciseBankEntry, the real type StrandSequencer.plan consumes, carries neither --
+# read literally here, per this task's own established practice of preferring the real built
+# code over a paraphrase. See this task's final report for the open item this leaves for
+# whoever builds the actual identify-it exercise card.)
+#
+# Each `giveaway` ends by naming the class and the year, per section 2's own closing line:
+# "Each exercise names the give-away and the year." Seven of these eight giveaway phrases are
+# section 2's own parenthetical, copied verbatim; the fifth (Roboto Slab / Slab) has none in
+# section 2's text, so its phrase is drawn instead from this strand's own Slab era scene
+# (05-slab.yaml / section 2's era table row 5) -- flagged in this task's report, not invented
+# from nothing.
+#
+# Item 1 (Libre Baskerville -> Transitional) is section 2's own first bank entry, kept here
+# verbatim even though it is also this strand's era-3 on-stage face (docs/OPEN_QUESTIONS.md
+# items 35-36): StrandSequencer.plan will always exclude it as a same-block collision, by
+# design, so it can never actually surface in the app as written. This task's own report
+# repeats that open question rather than silently swapping the face for something not in
+# `data/learn-faces/manifest.json`.
+bank:
+  - face: Libre Baskerville
+    answer: Transitional
+    giveaway: >
+      bracketed serifs, near-vertical stress. Transitional, 1757.
+  - face: Libre Bodoni
+    answer: Didone
+    giveaway: >
+      hairlines. Didone, c. 1790.
+  - face: Poppins
+    answer: Geometric
+    giveaway: >
+      circular o, monoline. Geometric, 1927.
+  - face: Libre Franklin
+    answer: Grotesque
+    giveaway: >
+      slight contrast, closed apertures. Grotesque, c. 1830.
+  - face: Roboto Slab
+    answer: Slab
+    giveaway: >
+      square serifs as thick as the stems, low contrast, even colour — made for the
+      poster wall. Slab, 1815.
+  - face: Cormorant
+    answer: Garalde
+    giveaway: >
+      oblique stress, small x-height. Garalde, c. 1530.
+  - face: Open Sans
+    answer: Humanist sans
+    giveaway: >
+      open apertures, two-storey g. Humanist sans, 1928.
+  - face: Josefin Sans
+    answer: Art Deco
+    giveaway: >
+      low crossbars, geometric bones. Art Deco, 1925.

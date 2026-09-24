@@ -1,0 +1,37 @@
+# scenes/lineages/07-vocabulary.yaml
+# docs/LESSONS_SCAFFOLD.md section 2's "Vocabulary scene (after era 6)" note, encoded as a
+# Scene. `caption.text` below is that note's own paragraph, verbatim. Everything about *how*
+# this note becomes a stage (the sample word, the two faces, the tool line, the tags) is this
+# task's own construction -- the scaffold gives the fact, not a described scene -- explained
+# here rather than left silent:
+#
+#   - sample/stage: "gothic" is the very word the note is about, crossfaded from this strand's
+#     own Grotesque face (Work Sans, era 6 -- the American "gothic" sense: sans, e.g. Franklin
+#     Gothic) to its own Blackletter face (UnifrakturMaguntia, era 1 -- the European sense).
+#     Both faces are already on stage elsewhere in the block, so this introduces no new font.
+#   - no stress axis: Blackletter has none (per 01-blackletter.yaml), so there is nothing to
+#     interpolate the dial from or to here either, same reasoning as 02-garalde.yaml.
+#   - era: left unset (null) -- this is a naming aside, not tied to one date the way the ten
+#     era scenes are.
+#   - no exercise: section 2 gives no identify-it question for this note.
+id: lineages.vocabulary
+strand: lineages
+title: "\"Gothic\""
+scaffold: true
+duration: 20
+faces:
+  - key: grotesque
+    family: Work Sans
+  - key: blackletter
+    family: UnifrakturMaguntia
+stage:
+  sample: "gothic"
+  align: xheight
+  from: grotesque
+  to: blackletter
+caption:
+  tool: "no new tool here — a naming note, not a drawing lesson"
+  text: >
+    "Gothic" means sans in American usage (Franklin Gothic, News Gothic) and blackletter
+    in European usage. The app uses the Google Fonts taxonomy names; this is why.
+  tags: [naming ambiguity, American usage, European usage]
