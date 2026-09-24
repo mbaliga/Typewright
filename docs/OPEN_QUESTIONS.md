@@ -1052,3 +1052,63 @@ says what was done in the meantime, and names who decides. Answered entries move
     gate/compare wiring into the palette's two remaining rows; not product decisions, so no owner
     tag.*
 
+## P6: Learn faces fetch (data/logic half)
+
+31. **Roboto Slab is Apache-2.0, not OFL.** Every other family this task fetched has
+   `METADATA.pb`'s `license:` field reading `"OFL"`; Roboto Slab's reads `"APACHE2"` (its
+   licence text is `apache/robotoslab/LICENSE.txt`, not an `OFL.txt` — there is none at that
+   path). Recorded correctly throughout (`data/learn-faces/manifest.json`'s `licence`/
+   `licence_field_raw` fields, `data/learn-faces/robotoslab/LICENSE.txt`, `THIRD_PARTY.md`'s
+   new table) rather than assumed OFL like its sixteen siblings. Apache-2.0 is not GPL
+   (CLAUDE.md law "GPL code ... is not linked" is about code, not font assets, and does not
+   block this), so this is not a build blocker — flagged only because a reviewer skimming
+   "OFL fonts for Learn" should know one of the seventeen is not. *Madhav, if the Learn UI's
+   licence/attribution screen (open question 14, "a licences page") should call this out
+   per-face rather than blanket-labelling the set "OFL".*
+
+32. **Real font binaries are committed under `data/learn-faces/`, unlike the node-economy
+   corpus.** `data/scripts/build_node_economy_corpus.py` deliberately does **not** commit the
+   TTFs it downloads (`qa/corpus`'s own `StyleDetectorRealFontValidationTest` KDoc: "this
+   repository does not commit [them] — they are copyrighted, several megabytes each, and not
+   'generated data' this module owns") — only the derived per-glyph statistics
+   (`data/node-economy-latin.json`) are checked in. This task instead commits the seventeen
+   actual font files (5.8 MB total; `data/learn-faces/manifest.json` has each one's SHA-256),
+   because docs/LESSONS_SCAFFOLD.md section 1 is explicit that Lineages scenes render "a real
+   font loaded at build time" live on the canvas — a statistics pack cannot crossfade a
+   glyph. Both are OFL/Apache-2.0 and both are attributed, so this is not a licence problem;
+   it is a repository-size and precedent question (every future `learn/scenes` addition that
+   wants a new on-stage face grows this directory further, unlike the corpus's build-once,
+   commit-nothing pattern). *Madhav: confirm committing lesson font binaries is the intended
+   long-term pattern (versus, say, a `.gitattributes` LFS rule, or fetching at app-build time
+   into a gitignored directory the way `qa/corpus`'s validation test expects its own fonts).*
+
+33. **wasmJs loading of `data/learn-faces/` is out of this task's scope.** This task is data/
+   logic only (no UI); the sibling P6 task that builds the actual Lineages/Overlay/Lens/
+   Scrapbook screens (`ui/typewright-explorer.html`'s `#s-learn`) is the one that reads these
+   files at runtime. `qa/corpus` already hit the same fork in the road for
+   `data/node-economy-*.json` and left it open (open question 8, "Corpus data on Wasm":
+   "Kotlin/Wasm has no classpath: the web loader will need to fetch the pack from the app's
+   distribution or embed it"). `data/learn-faces/manifest.json`'s `path` field for every face
+   is repo-root-relative exactly like `data/exemplars.json`'s existing scheme, so whichever
+   approach that task picks (a `Sync`-into-resources Gradle task the way `qa/corpus/
+   build.gradle.kts`'s `syncCorpusData` already does it, versus a wasmJs-only fetch of the
+   app's own bundled assets — never a *build-time* GitHub fetch repeated at runtime, which
+   CLAUDE.md law 3 would not permit) has a manifest to read paths from. *Decide in the P6 UI
+   task, per open question 8's own precedent.*
+
+34. **A future re-fetch onto a newer `google/fonts` commit must re-check every family's
+   `license:` field, not assume today's is permanent.** Google Fonts has migrated some
+   families between Apache-2.0 and OFL-1.1 over time (Open Sans, fetched here, reads `"OFL"`
+   at this pinned commit; various public trackers put its licence history as Apache-2.0
+   originally). `data/scripts/fetch_learn_faces.py` re-derives `licence`/`licence_field_raw`
+   from `METADATA.pb` on every run rather than hard-coding a licence per family, so a re-run
+   on a later commit will catch a future change automatically — but whoever re-runs it should
+   diff `THIRD_PARTY.md`'s table against the new `manifest.json` by hand before committing,
+   since that file is prose, not generated. *Not a decision; a standing instruction for
+   whoever re-runs this script, recorded here since there is nowhere else for it to live.*
+
+
+    *Data points for whoever builds the Learn UI (which reads this manifest and decides the
+    wasmJs loading path), whoever re-runs the fetch script on a later commit, or the product
+    owner deciding the long-term pattern for committing lesson font binaries; not a single
+    owner tag, per the individual items above.*
