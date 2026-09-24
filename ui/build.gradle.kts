@@ -4,6 +4,10 @@ plugins {
     id("typewright.kmp.platform")
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.compose.multiplatform)
+    // P6 (Learn UI half, Scrapbook tab): ScrapbookManifest's own JSON codec needs
+    // kotlinx.serialization's @Serializable classes, the same plugin qa/corpus's and
+    // learn/scenes's own build.gradle.kts files already apply for their own data packs.
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -38,6 +42,7 @@ kotlin {
                 implementation(project(":campaign"))
                 implementation(project(":scripts"))
                 implementation(project(":compile"))
+                implementation(libs.kotlinx.serialization.json)
                 implementation(project(":shape-preview"))
             }
         }

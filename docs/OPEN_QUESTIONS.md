@@ -1793,3 +1793,107 @@ succeed.
     wider invisible stroke or a small custom hit-test, neither built here. *Minor — flagging rather
     than fixing, since the dot and label together already cover the two ends a reader's eye and
     finger would naturally reach for.*
+
+## P6: Learn UI — Scrapbook tab composable (`ui/src/commonMain/kotlin/dev/aarso/typewright/ui/learn/ScrapbookTab.kt`)
+
+The real, self-contained `ScrapbookTab(texture: CanvasTexture, modifier: Modifier = Modifier)`
+composable (`ui/typewright-explorer.html`'s `#ln-scrap`): a real `ScrapbookManifest`/`ScrapbookPin`
+data model with a real JSON codec (`ScrapbookManifestCodec`, snake_case fields matching
+`data/learn-faces/manifest.json`'s own convention — full reasoning in `ScrapbookManifest.kt`'s own
+KDoc, including why this is one flat JSON file rather than `core-font`'s `UfoProject`-style
+many-files-as-a-map), a fixed four-pin `SampleScrapbook.MANIFEST` (three photo pins carrying the
+explorer's own `.pinmark`, one note pin that does not — the same 3-of-4-driving proportion the
+explorer's own real 14-pin board has), and the pin grid itself (pattern-block/note-text image
+block, caption row, `.pinmark`). `ui/build.gradle.kts` gained the `kotlin.serialization` plugin and
+`kotlinx-serialization-json` for this (the same dependency `qa/corpus`'s and `learn/scenes`'s own
+`build.gradle.kts` files already carry). `./gradlew :ui:spotlessCheck :ui:desktopTest`: desktopTest
+242 tests, 0 failures; spotlessCheck fails only on one pre-existing, unrelated file this task never
+touched (`src/desktopTest/kotlin/dev/aarso/typewright/ui/GeometryInteropPathTest.kt`, a real
+dangling-top-level-KDoc ktlint violation, untracked in git at the time this task ran — apparently a
+concurrent sibling agent's in-progress file — confirmed unrelated by running `spotlessCheck` before
+touching anything: `:ui:spotlessKotlin` itself reports `UP-TO-DATE`/clean for every file this task
+wrote once its own two real formatting bugs, items 72–73 below, were fixed).
+
+74. **A real, screenshot-caught Compose `Row` bug, found and fixed twice in this one file, not
+    merely worked around — worth recording generally, since the next Learn tab (or any tab) can
+    walk into the exact same trap.** `Row`'s own measurement (confirmed by disassembling
+    `foundation-layout`'s own `RowScope.class`, not guessed) measures every *unweighted* child
+    first, each against the **entire** remaining main-axis budget in declaration order — not a
+    fresh full-width budget per child, and not a fair share. A short *label* text can still eat
+    almost the whole row if its own content happens to need it (e.g. `"Devanagari"` at 11sp easily
+    fills a narrow pin column on its own), starving a sibling that has real content to show. Two
+    real instances this task hit and fixed: `ScrapbookHeader`'s own `"4 pins · 3 driving the
+    design"` label originally crushed the sibling `"+ photo · + note"` row into unreadable
+    one-character-per-line wrapping (fixed: give the *label*, not the affordance row, a real
+    `Modifier.weight(1f, fill = false)`, so the short affordance row is measured first, at its
+    own natural width, and the label absorbs whatever is left); `PinCaption`'s own `captionTitle`
+    versus `captionSource` had the mirror problem (`"Devanagari"` — plausible-looking as "the short
+    one" — still greedily consumed most of a narrow pin column before the *actually* long
+    `captionTitle` was measured at all, e.g. `"1912 primer · scan"` collapsing into single letters
+    per line), fixed with fixed *proportional* weights on both sides (`weight(3f)` /
+    `weight(2f)`, both `fill = true`) rather than "weight the one that looks long", since neither
+    side's true rendered width is knowable from its string alone. Every published screenshot in
+    `ui/build/screenshots/scrapbook-tab-*.png` was regenerated and eyeballed after both fixes.
+    *No action needed elsewhere in this codebase today — no other `Row`/`Column` here currently
+    puts two variable-length real-content texts side by side without a weight on each — but
+    whoever next builds a tab with two adjacent text elements should give both a real weight from
+    the start, not just the one that looks like it will need protecting.*
+
+75. **"+ note" is a real, working affordance this task built from nothing — `#ln-scrap`'s own
+    markup never draws an input for it at all** (`<span class="mut">+ photo · + note</span>` is a
+    single static label; the explorer never shows what tapping either half does). "+ photo" reads
+    straightforwardly (append a placeholder pin — there is no image picker to open, CLAUDE.md law
+    4), but "+ note" needed an actual text-entry surface this task invented: a single-line
+    `BasicTextField` plus "add"/"cancel" (`NoteDraftRow`), styled off `ui.glass`'s own
+    `CommandPalette` input row (the one other place in `ui` that already builds a real text field)
+    rather than off anything in `#ln-scrap`, since there is nothing there to reproduce. Both
+    affordances only ever append to this composable's own `remember`ed, in-memory pin list — never
+    written to any file — the same "no real project to persist into yet" gap
+    `HyleDecoProjectFontBytes`'s own KDoc and this section's own item 56 already disclose for their
+    own pieces of Learn.
+    *Whoever owns `ui/typewright-explorer.html`: a real `#ln-scrap` note-composer design (so a
+    future rebuild has something concrete to reproduce, per law 6) would replace `NoteDraftRow`'s
+    own improvised look. Whoever wires a real current-project flow into `ui`: `ScrapbookManifest`/
+    `ScrapbookManifestCodec` are ready to read/write a real `scrapbook/manifest.json` the moment
+    there is a real project directory to point them at — nothing about the data model or codec is
+    sample-specific.*
+
+76. **The two-column pin board is a small greedy shortest-column heuristic
+    (`splitIntoBalancedColumns`, keyed off a fixed per-kind `estimatedPinHeightDp`), not a real
+    measured layout and not CSS multi-column.** `.scrap{columns:2}` is browser-native balanced
+    masonry over each pin's own *real* rendered height; Compose has no direct equivalent short of
+    an experimental staggered-grid API this codebase uses nowhere else, so this task built the
+    smaller, plain thing instead — good enough for a 4-pin sample plus a handful of appended ones,
+    but it will drift from a true height-balanced board once note pins carry very different
+    amounts of text (every note pin is estimated at the same fixed height today, regardless of
+    what was actually typed into `NoteDraftRow`).
+    *Whoever wants real masonry parity with the explorer's own CSS: swap `splitIntoBalancedColumns`
+    for `androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid` (real per-item
+    measured heights, shortest-column placement) once a board with more than a handful of pins
+    makes the difference visible.*
+
+77. **A deliberate visual departure from `#ln-scrap`'s own literal CSS: pins are tilted.**
+    `ui/typewright-explorer.html`'s own `.pin`/`.im` rules carry no rotation at all — its board is
+    flat. This task's own instructions still ask for "a rotation degrees value for the pinned look"
+    in the data model and a stable per-pin tilt in the rendering, so `PinCard` applies
+    `ScrapbookPin.rotationDegrees` as a whole-card `graphicsLayer` rotation — mirroring a
+    *different* real part of this app's own house style (the review-grid cells' own small `--rot`
+    tilt elsewhere in the explorer, `.cell .cg{transform:rotate(var(--rot,0deg))}`) rather than
+    inventing the idea from nothing, but still not what `#ln-scrap` itself draws today.
+    *Whoever owns `ui/typewright-explorer.html`: either add the tilt to `#ln-scrap`'s own CSS (so
+    the mock and the real composable agree, per law 6), or say the board should in fact stay flat
+    and this composable should drop `graphicsLayer` and read `rotationDegrees` for nothing but
+    round-trip fidelity.*
+
+78. **`SampleScrapbook`'s three photo pins' own ids were chosen, among otherwise-equivalent
+    spellings, so `patternVariantForPinId` lands on a different pattern for each.** The first
+    spelling tried (`"signage-charminar"`, `"1912-primer-scan"`, `"sketch-controls"`) hashed all
+    three to the same `DOT` variant by real coincidence — caught in this task's own screenshot step,
+    not a hypothetical — and `patternVariantForPinId`/`stableHashCode` themselves were *not*
+    tuned to fix it (they stay general-purpose, tested functions); only the three ids' own
+    spellings changed. This is an honest, disclosed cosmetic choice about *sample data*, not a
+    correctness fix — a real manifest's own pin ids (a timestamp, a UUID, whatever a real "+ photo"
+    flow generates) will keep landing on whichever of the three patterns their own hash lands on,
+    collisions included, and nothing about this composable treats that as a bug.
+    *No action needed — noted for the record so a future reader of `SampleScrapbook.kt`'s own ids
+    does not mistake the specific spellings for meaningful data.*
