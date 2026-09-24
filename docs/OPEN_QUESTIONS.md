@@ -1319,3 +1319,22 @@ The four Craft before/after scenes P6's own content-authoring prompt names expli
     face live), whoever revisits the CUBIC line-point "type gap" (item 20), and whoever draws a
     real Hyle Deco bold or builds anchors-driven composites; not a single owner tag, per the
     individual items above.*
+
+## P6: content-foundations verification pass
+
+46. **B2's stated ~0.2-unit shear-attributable residual is a rounded-input subtraction, not the
+    raw figure.** `scenes/craft/b2-shearing-an-italic.yaml`'s caption states "about 0.2 once the
+    ~2.4-unit measurement floor is subtracted" from the tight-tolerance figure of "about 2.6".
+    Re-running `engine-construct`'s `ObliqueTest` live gives the unrounded values
+    `2.5844494163740563` (tight-tolerance correct approach) and `2.4393519052570056` (unsheared
+    noise floor) — a raw residual of `0.145`, not `0.2`; the stated `0.2` comes from subtracting
+    the already-rounded display figures (`2.6 − 2.4`). This rounding-before-subtracting
+    convention is inherited from `ObliqueTest`'s own pre-existing KDoc (P5a-hard, written before
+    this scene existed), and both the raw (`0.145`) and rounded (`0.2`) values are consistent with
+    `docs/KNOWLEDGE.md` B2's own hedged "~0.2" figure, so this is not a fabrication — just worth a
+    note for whoever next revisits B2 that the precise residual reads closer to 0.15 than 0.2.
+    *Whoever next revisits B2's own measurement, not a decision.*
+
+    *A data point, not a decision; found by this task's own adversarial verification pass, which
+    otherwise confirmed every build/test count, licence, file hash, scene-content number and face
+    resolution in items 31–45 independently and found nothing else to fix.*
