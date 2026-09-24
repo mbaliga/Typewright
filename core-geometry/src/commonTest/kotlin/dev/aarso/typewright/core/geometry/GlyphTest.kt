@@ -23,4 +23,17 @@ class GlyphTest {
         val topAlt = Anchor("_top", Point(250, 700))
         assertEquals(false, top == topAlt)
     }
+
+    @Test
+    fun guidelinesDefaultToEmptyForAGlyphBuiltWithoutThem() {
+        val glyph = Glyph("A", 500, emptyList())
+        assertEquals(emptyList(), glyph.guidelines)
+    }
+
+    @Test
+    fun aGlyphCanCarryItsOwnGuidelines() {
+        val overshoot = Guideline(y = -12.0, name = "overshoot")
+        val glyph = Glyph("o", 500, emptyList(), guidelines = listOf(overshoot))
+        assertEquals(listOf(overshoot), glyph.guidelines)
+    }
 }

@@ -5,11 +5,14 @@ import dev.aarso.typewright.core.geometry.Contour
 import dev.aarso.typewright.core.geometry.ContourPoint
 import dev.aarso.typewright.core.geometry.CurveFormat
 import dev.aarso.typewright.core.geometry.Glyph
+import dev.aarso.typewright.core.geometry.Guideline
 import dev.aarso.typewright.core.geometry.Point
 import nl.adaptivity.xmlutil.EventType
 import nl.adaptivity.xmlutil.XmlReader
 import nl.adaptivity.xmlutil.skipElement
 import nl.adaptivity.xmlutil.xmlStreaming
+import kotlin.math.abs
+import kotlin.math.floor
 import kotlin.math.roundToInt
 
 /**
@@ -24,8 +27,11 @@ import kotlin.math.roundToInt
  *   order; an `<anchor>` with no `name` attribute is rejected (mirroring how a `<glyph>` with no
  *   `name` is rejected below), since an unnamed anchor cannot pair with a mark's `_name` and so
  *   cannot do the one thing an anchor is for;
- * - `<unicode>`, `<guideline>`, `<image>`, `<lib>` and `<note>` are skipped on read (nothing in
- *   [Glyph] has anywhere to put them) and never written;
+ * - `<guideline .../>` elements map to [Glyph.guidelines] ([Guideline]s), in document order; a
+ *   structurally invalid one ([angle] with no `x`/`y`, or a non-numeric `x`/`y`/`angle`) is
+ *   rejected — see [Guideline]'s own KDoc for the exact rule;
+ * - `<unicode>`, `<image>`, `<lib>` and `<note>` are skipped on read (nothing in [Glyph] has
+ *   anywhere to put them) and never written;
  * - a `<point>`'s `smooth`, `name` and `identifier` attributes are dropped on read, for the same
  *   reason ([ContourPoint] carries only a location and on/off-curve flag).
  *
@@ -57,6 +63,7 @@ fun parseGlif(xml: String): Glyph {
     var advanceWidth = 0
     var contours: List<Contour> = emptyList()
     val anchors = mutableListOf<Anchor>()
+    val guidelines = mutableListOf<Guideline>()
 
     event = skipToStartOrEnd(reader, reader.next())
     while (event != EventType.END_ELEMENT) {
@@ -75,13 +82,17 @@ fun parseGlif(xml: String): Glyph {
                 anchors += readAnchor(reader)
             }
 
+            "guideline" -> {
+                guidelines += readGuideline(reader)
+            }
+
             else -> {
                 reader.skipElement()
-            } // unicode, guideline, image, lib, note: not modelled, see KDoc
+            } // unicode, image, lib, note: not modelled, see KDoc
         }
         event = skipToStartOrEnd(reader, reader.next())
     }
-    return Glyph(name, advanceWidth, contours, anchors)
+    return Glyph(name, advanceWidth, contours, anchors, guidelines)
 }
 
 private fun readAnchor(reader: XmlReader): Anchor {
@@ -93,6 +104,24 @@ private fun readAnchor(reader: XmlReader): Anchor {
     reader.skipElement()
     return Anchor(name, Point(x, y))
 }
+
+private fun readGuideline(reader: XmlReader): Guideline {
+    val x = reader.getAttributeValue(null, "x")?.let { parseGuidelineNumber(it, "x") }
+    val y = reader.getAttributeValue(null, "y")?.let { parseGuidelineNumber(it, "y") }
+    val angle = reader.getAttributeValue(null, "angle")?.let { parseGuidelineNumber(it, "angle") }
+    val name = reader.getAttributeValue(null, "name")
+    val color = reader.getAttributeValue(null, "color")
+    val identifier = reader.getAttributeValue(null, "identifier")
+    reader.skipElement()
+    return Guideline(x, y, angle, name, color, identifier)
+}
+
+private fun parseGuidelineNumber(
+    text: String,
+    attribute: String,
+): Double =
+    text.toDoubleOrNull()
+        ?: throw IllegalArgumentException("<guideline> attribute '$attribute' must be numeric, found '$text'")
 
 private fun skipToStartOrEnd(
     reader: XmlReader,
@@ -220,6 +249,7 @@ fun writeGlif(glyph: Glyph): String {
         append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
         append("<glyph name=\"").append(escapeXmlAttribute(glyph.name)).append("\" format=\"2\">\n")
         append("  <advance width=\"").append(glyph.advanceWidth).append("\"/>\n")
+        for (guideline in glyph.guidelines) writeGuideline(this, guideline)
         for (anchor in glyph.anchors) {
             append("  <anchor x=\"")
                 .append(anchor.point.x)
@@ -237,6 +267,35 @@ fun writeGlif(glyph: Glyph): String {
         append("</glyph>\n")
     }
 }
+
+/** Writes one `<guideline .../>` element (self-closing; the spec gives it no child elements), in the attribute order [Guideline] declares them. */
+private fun writeGuideline(
+    out: StringBuilder,
+    guideline: Guideline,
+) {
+    out.append("  <guideline")
+    guideline.x?.let { out.append(" x=\"").append(formatGuidelineNumber(it)).append('"') }
+    guideline.y?.let { out.append(" y=\"").append(formatGuidelineNumber(it)).append('"') }
+    guideline.angle?.let { out.append(" angle=\"").append(formatGuidelineNumber(it)).append('"') }
+    guideline.name?.let { out.append(" name=\"").append(escapeXmlAttribute(it)).append('"') }
+    guideline.color?.let { out.append(" color=\"").append(escapeXmlAttribute(it)).append('"') }
+    guideline.identifier?.let { out.append(" identifier=\"").append(escapeXmlAttribute(it)).append('"') }
+    out.append("/>\n")
+}
+
+/**
+ * Formats a guideline `x`/`y`/`angle` value as a `.glif` XML attribute: a whole number is written
+ * without a trailing `.0` (matching how real UFO tools write, e.g., `x="500"` rather than
+ * `x="500.0"`); a fractional value is written via [Double.toString]. Mirrors [numericPlistValue]'s
+ * integer-vs-real choice for the same values in `fontinfo.plist`'s `guidelines` list, just as XML
+ * attribute text rather than a [PlistValue].
+ */
+private fun formatGuidelineNumber(value: Double): String =
+    if (value.isFinite() && value == floor(value) && abs(value) < 1e15) {
+        value.toLong().toString()
+    } else {
+        value.toString()
+    }
 
 private fun writeContour(
     out: StringBuilder,

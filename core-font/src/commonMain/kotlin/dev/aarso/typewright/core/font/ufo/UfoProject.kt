@@ -1,14 +1,17 @@
 package dev.aarso.typewright.core.font.ufo
 
 import dev.aarso.typewright.core.geometry.Glyph
+import dev.aarso.typewright.core.geometry.Guideline
 
 /**
  * The `fontinfo.plist` fields `core-font` models: font-wide metadata every screen in the app
  * needs (family/style name for display, `unitsPerEm`/`ascender`/`descender`/`xHeight`/`capHeight`
- * to size the sheet and to give `qa`'s alignment-miss check its metric lines). The UFO 3 spec's
- * `fontinfo.plist` has many more optional keys (kerning groups, PostScript hints, OpenType
- * name-table overrides, ...); [writeFontInfo]/[readFontInfo] round-trip exactly these nine and
- * silently keep only these on a read of a richer file, since nothing downstream of `core-font`
+ * to size the sheet and to give `qa`'s alignment-miss check its metric lines), plus the font-wide
+ * `guidelines` list (per-glyph guidelines are a different, glyph-level list — see `Glyph.guidelines`
+ * in `core-geometry`). The UFO 3 spec's `fontinfo.plist` has many more optional keys (PostScript
+ * hints, OpenType name-table overrides, style-mapping fields, ...); [fontInfoToPlist]/
+ * [fontInfoFromPlist] (called from [writeUfoProject]/[readUfoProject]) round-trip exactly these ten
+ * and silently keep only these on a read of a richer file, since nothing downstream of `core-font`
  * yet needs the rest. All keys are optional in both this type and the file: a `null` field is
  * simply left out of `fontinfo.plist`, which the spec allows.
  */
@@ -22,17 +25,21 @@ data class UfoFontInfo(
     val capHeight: Int? = null,
     val versionMajor: Int? = null,
     val versionMinor: Int? = null,
+    val guidelines: List<Guideline>? = null,
 )
 
 /**
  * A UFO 3 project's contents as `core-font` models them: [fontInfo] plus every glyph on the
  * default layer ([glyphs], in [Glyph.name]'s natural — that is, caller-chosen — order, which
- * becomes `glyphs/contents.plist`'s order). UFO's non-default layers, kerning, groups and features
- * are out of this task's scope (see `core-font/README.md` for what comes next).
+ * becomes `glyphs/contents.plist`'s order), plus [kerningInfo] (`groups.plist`, `kerning.plist`
+ * and `features.fea` — see [UfoKerning]'s own KDoc for why these three travel together). UFO's
+ * non-default layers are still out of this task's scope (see `core-font/README.md` for what comes
+ * next).
  */
 data class UfoProject(
     val fontInfo: UfoFontInfo,
     val glyphs: List<Glyph>,
+    val kerningInfo: UfoKerning = UfoKerning(),
 )
 
 private const val UFO_CREATOR = "dev.aarso.typewright.core.font"
@@ -43,13 +50,18 @@ private const val DEFAULT_LAYER_DIRECTORY = "glyphs"
 /**
  * Writes [project] as a complete UFO 3 project: `metainfo.plist`, `fontinfo.plist`,
  * `layercontents.plist`, `glyphs/contents.plist` and one `.glif` file per glyph — every file
- * the UFO 3 spec requires, as a path-to-content map. `core-font` never touches a filesystem
- * itself (CLAUDE.md law 2); a caller (a platform module, or a JVM test using `java.io`) writes
- * this map's values to files at its keys' paths, relative to the project's `.ufo` directory.
- * Byte-stable: the same [UfoProject] always produces the same map (see [writePlist] and
- * [writeGlif]'s own byte-stability notes) — including glyph file names, since
- * [userNameToFileName] is run against a running "already used" set in [UfoProject.glyphs]' own
- * order, not against Kotlin's (unspecified beyond insertion order) map iteration.
+ * the UFO 3 spec requires — plus `groups.plist`, `kerning.plist` and `features.fea` when
+ * [UfoProject.kerningInfo] has anything to write, all as a path-to-content map. These three are
+ * spec-optional files, so (like a `null` `fontinfo.plist` field) each is left out entirely rather
+ * than written empty: `groups.plist` only when [UfoKerning.groups] is non-empty, `kerning.plist`
+ * only when [UfoKerning.kerning] is non-empty, `features.fea` only when [UfoKerning.features] is
+ * non-`null`. `core-font` never touches a filesystem itself (CLAUDE.md law 2); a caller (a platform
+ * module, or a JVM test using `java.io`) writes this map's values to files at its keys' paths,
+ * relative to the project's `.ufo` directory. Byte-stable: the same [UfoProject] always produces
+ * the same map (see [writePlist] and [writeGlif]'s own byte-stability notes) — including glyph
+ * file names, since [userNameToFileName] is run against a running "already used" set in
+ * [UfoProject.glyphs]' own order, not against Kotlin's (unspecified beyond insertion order) map
+ * iteration.
  */
 fun writeUfoProject(project: UfoProject): Map<String, String> {
     val files = LinkedHashMap<String, String>()
@@ -85,15 +97,25 @@ fun writeUfoProject(project: UfoProject): Map<String, String> {
     }
     files["$DEFAULT_LAYER_DIRECTORY/contents.plist"] = writePlist(PlistValue.PDict(contentsEntries))
 
+    if (project.kerningInfo.groups.isNotEmpty()) {
+        files["groups.plist"] = writeGroupsPlist(project.kerningInfo.groups)
+    }
+    if (project.kerningInfo.kerning.isNotEmpty()) {
+        files["kerning.plist"] = writeKerningPlist(project.kerningInfo.kerning)
+    }
+    project.kerningInfo.features?.let { files["features.fea"] = it }
+
     return files
 }
 
 /**
  * Reads a UFO 3 project from [files] (as [writeUfoProject] produces, or any spec-conforming UFO's
  * files read off disk by a caller): validates `metainfo.plist`'s `formatVersion` is 3, then reads
- * `fontinfo.plist` (if present) and every glyph `glyphs/contents.plist` lists (the default layer's
+ * `fontinfo.plist` (if present), every glyph `glyphs/contents.plist` lists (the default layer's
  * directory is read from `layercontents.plist` when present, defaulting to `"glyphs"` per the spec
- * when the file is absent — a minimal, non-conforming-but-common project some tools still emit).
+ * when the file is absent — a minimal, non-conforming-but-common project some tools still emit),
+ * and `groups.plist`/`kerning.plist`/`features.fea` when present (absent becomes, respectively, an
+ * empty map, an empty map and `null` — see [UfoKerning]'s own KDoc).
  */
 fun readUfoProject(files: Map<String, String>): UfoProject {
     val metaInfoXml =
@@ -122,7 +144,14 @@ fun readUfoProject(files: Map<String, String>): UfoProject {
             parseGlif(glifXml)
         }
 
-    return UfoProject(fontInfo, glyphs)
+    val kerningInfo =
+        UfoKerning(
+            groups = files["groups.plist"]?.let { readGroupsPlist(it) } ?: emptyMap(),
+            kerning = files["kerning.plist"]?.let { readKerningPlist(it) } ?: emptyMap(),
+            features = files["features.fea"],
+        )
+
+    return UfoProject(fontInfo, glyphs, kerningInfo)
 }
 
 private fun readDefaultLayerDirectory(layerContentsXml: String?): String {
@@ -146,6 +175,7 @@ private fun fontInfoToPlist(info: UfoFontInfo): PlistValue.PDict {
     info.capHeight?.let { entries += "capHeight" to PlistValue.PInteger(it.toLong()) }
     info.descender?.let { entries += "descender" to PlistValue.PInteger(it.toLong()) }
     info.familyName?.let { entries += "familyName" to PlistValue.PString(it) }
+    info.guidelines?.let { guidelines -> entries += "guidelines" to PlistValue.PArray(guidelines.map { guidelineToPlist(it) }) }
     info.styleName?.let { entries += "styleName" to PlistValue.PString(it) }
     info.unitsPerEm?.let { entries += "unitsPerEm" to PlistValue.PInteger(it.toLong()) }
     info.versionMajor?.let { entries += "versionMajor" to PlistValue.PInteger(it.toLong()) }
@@ -165,4 +195,39 @@ private fun fontInfoFromPlist(dict: PlistValue.PDict): UfoFontInfo =
         capHeight = dict.intOrNull("capHeight"),
         versionMajor = dict.intOrNull("versionMajor"),
         versionMinor = dict.intOrNull("versionMinor"),
+        guidelines =
+            dict.arrayOrNull("guidelines")?.items?.map {
+                require(it is PlistValue.PDict) { "fontinfo.plist guidelines entry must be a <dict>, found <${it.elementName()}>" }
+                guidelineFromPlist(it)
+            },
+    )
+
+/**
+ * A [Guideline]'s six attributes (see its own KDoc for the vertical/horizontal/angled shapes the
+ * spec allows) as a `fontinfo.plist` `guidelines` array entry: the same attribute names a
+ * `.glif` file's `<guideline>` element uses (`x`, `y`, `angle`, `name`, `color`, `identifier`), but
+ * as plist dict keys instead of XML attributes, since `fontinfo.plist`'s `guidelines` list is a
+ * plist array of dicts, not XML elements of its own vocabulary. `x`/`y`/`angle` go through
+ * [numericPlistValue] like a kerning value does, for the same "integer or float" spec reason.
+ */
+private fun guidelineToPlist(guideline: Guideline): PlistValue.PDict {
+    val entries = mutableListOf<Pair<String, PlistValue>>()
+    guideline.x?.let { entries += "x" to numericPlistValue(it) }
+    guideline.y?.let { entries += "y" to numericPlistValue(it) }
+    guideline.angle?.let { entries += "angle" to numericPlistValue(it) }
+    guideline.name?.let { entries += "name" to PlistValue.PString(it) }
+    guideline.color?.let { entries += "color" to PlistValue.PString(it) }
+    guideline.identifier?.let { entries += "identifier" to PlistValue.PString(it) }
+    return PlistValue.PDict(entries)
+}
+
+/** The inverse of [guidelineToPlist]; [Guideline]'s own `init` block rejects a structurally invalid entry (e.g. `angle` with no `x`/`y`). */
+private fun guidelineFromPlist(dict: PlistValue.PDict): Guideline =
+    Guideline(
+        x = dict.doubleOrNull("x"),
+        y = dict.doubleOrNull("y"),
+        angle = dict.doubleOrNull("angle"),
+        name = dict.stringOrNull("name"),
+        color = dict.stringOrNull("color"),
+        identifier = dict.stringOrNull("identifier"),
     )

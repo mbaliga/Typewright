@@ -30,19 +30,9 @@ fun parsePlist(xml: String): PlistValue {
 /** [parsePlist], requiring (and returning) a `<dict>`-rooted plist — the common case for every UFO plist except `layercontents.plist`. */
 fun parsePlistDict(xml: String): PlistValue.PDict {
     val root = parsePlist(xml)
-    require(root is PlistValue.PDict) { "expected the plist's root value to be a <dict>, found <${rootElementName(root)}>" }
+    require(root is PlistValue.PDict) { "expected the plist's root value to be a <dict>, found <${root.elementName()}>" }
     return root
 }
-
-private fun rootElementName(value: PlistValue): String =
-    when (value) {
-        is PlistValue.PDict -> "dict"
-        is PlistValue.PArray -> "array"
-        is PlistValue.PString -> "string"
-        is PlistValue.PInteger -> "integer"
-        is PlistValue.PReal -> "real"
-        is PlistValue.PBoolean -> "true/false"
-    }
 
 /** Advances past ignorable events (whitespace, comments, the document preamble) to the next [EventType.START_ELEMENT] or [EventType.END_ELEMENT]. */
 private fun skipToNextStartElement(

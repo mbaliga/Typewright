@@ -762,3 +762,67 @@ says what was done in the meantime, and names who decides. Answered entries move
     except the serif-style definition itself, which is a design decision. Madhav, when the serif
     style parameter set is designed.*
 
+## P5b-ufo-guides-kerning: guides, kerning groups and the .fea escape hatch (core-font)
+
+28. **UFO 3's four data-model pieces this task asked for — font-wide and per-glyph guidelines at
+    any angle, `groups.plist` kerning groups, `kerning.plist` kerning pairs, and `features.fea`'s
+    raw FEA text — are all built as a faithful, spec-conformant `read(write(x)) == x` round trip in
+    `core-font`/`core-geometry`, with every field name and structure checked against the fetched
+    UFO 3 spec (unifiedfontobject.org/versions/ufo3) rather than trusted from memory.** New:
+    `core-geometry`'s `Glyph.kt` gains `Guideline` (`x`/`y`/`angle: Double?`,
+    `name`/`color`/`identifier: String?`, an `init` block enforcing the spec's
+    vertical/horizontal/angled shape rule — at least one of `x`/`y`; `angle` only when both are
+    set; `angle` in 0–360) and `Glyph.guidelines: List<Guideline> = emptyList()`, following the
+    `Anchor`/`Glyph.anchors` precedent already in this file (a UFO-specific concept `Glyph` needs)
+    rather than inventing a separate UFO-only wrapper type. `core-font`'s `UfoFontInfo` gains
+    `guidelines: List<Guideline>? = null` (font-wide, `fontinfo.plist`'s own `guidelines` key, `null`
+    meaning "no key" versus an explicit empty list meaning "key present, no guidelines" — both round-
+    trip distinctly). `UfoProject` gains `kerningInfo: UfoKerning = UfoKerning()`; new file
+    `UfoKerning.kt` (`UfoKerning(groups: Map<String, List<String>>, kerning: Map<String, Map<String,
+    Double>>, features: String?)`, `writeGroupsPlist`/`readGroupsPlist`, `writeKerningPlist`/
+    `readKerningPlist`) — one small model rather than three flat `UfoProject` fields, since the
+    spec's own `features.fea` page describes these three files as one related cluster with allowed
+    but unsynchronised overlap. `GlifCodec.kt` reads/writes per-glyph `<guideline .../>` elements.
+    `PlistValue.kt` gains two small helpers both the kerning and guideline-coordinate paths share:
+    `numericPlistValue`/`asDoubleOrNull` (the int-vs-real choice for a field the spec types
+    "integer or float") and `elementName()` (replacing `PlistCodec.kt`'s near-duplicate
+    `rootElementName` — a drive-by dedup, not new scope). `./gradlew :core-font:check` passes on
+    both `jvm` (151 tests, up from 130 — 21 new, across `GlifCodecTest`/`UfoProjectTest`/the new
+    `UfoKerningTest`) and `wasmJs` (150, up from 129); `:core-geometry:check` passes on `jvm` (188,
+    up from 177 — 11 new, `GuidelineTest` plus two `GlyphTest` additions) and `wasmJs` (179, up from
+    168) — the jvm/wasmJs gaps in both modules are pre-existing `jvmTest`-only disk/fixture tests,
+    unrelated to this task. `spotlessCheck` passes on both modules; `:qa:check` and
+    `:engine-construct:check` (the two other modules that construct `Glyph`/`UfoFontInfo`/
+    `UfoProject` directly) still pass unchanged, confirming the new defaulted fields are additive.
+    - **Every UFO 3 fact this task depended on was fetched from the live spec, not recalled**: the
+      guideline vertical/horizontal/angled rule and its exact "optional if `y` is provided and
+      `angle` is not provided" wording (`fontinfo.plist` and `.glif` pages, which state the rule
+      identically); `groups.plist`'s `public.kern1.`/`public.kern2.` prefixes and its own
+      side-uniqueness rules (Rule 4/5, see the next bullet); `kerning.plist`'s dict-of-dict-of-number
+      shape and its "integer or float" value typing; `features.fea`'s "plain text... AFDKO
+      syntax... self-contained... `include()` relative to the UFO path... synchronization [with
+      kerning.plist/groups.plist/fontinfo.plist] is not a requirement" wording. Three of the fetched
+      pages' own example documents (`groups.plist`'s, `kerning.plist`'s, and the `.glif` page's
+      `period` guideline example) are used verbatim as test input in `UfoKerningTest`/
+      `GlifCodecTest`, not just paraphrased into KDoc — `matchesTheUfo3SpecsOwnGroupsPlistExample`,
+      `matchesTheUfo3SpecsOwnKerningPlistExample`, `matchesTheUfo3SpecsOwnGlifGuidelineExample`.
+    - **`groups.plist`'s own Rule 4/5 ("glyphs must not appear in more than one kerning group per
+      side"; "should not appear more than once in a single group") are deliberately not enforced**
+      by `readGroupsPlist`/`writeGroupsPlist` — this codec is a faithful carrier of whatever groups
+      map it is given or reads, the same "plain files, faithful round-trip, not interpretation"
+      scope `features.fea`'s own spec page states explicitly for the three-file cluster. Enforcing
+      cross-group membership uniqueness means checking a *combination* of groups against each
+      other, which is a kerning-groups-UI's job (catching it as the person edits), not a
+      single-file codec's.
+    - **`Guideline.name`'s own spec rule (at least one character, no control characters) and
+      `color`'s own comma-separated-component syntax are not validated**; both round-trip as plain
+      strings verbatim — the same choice this codebase already made for anchor names (`GlifCodec.kt`
+      only requires an anchor's `name` to be present, never validates its content).
+    - **Non-default UFO layers (background/sketch — the other half of P5b's "background and sketch
+      layers" ask) remain out of `UfoProject`'s scope**, unchanged from before this task;
+      `core-font/README.md` still says so plainly rather than implying layers are covered.
+
+    *Data points for whoever builds the kerning-groups UI (side-uniqueness checking belongs there,
+    at edit time, not in this codec) or wires guides/kerning/`.fea` into the sheet and Space; not
+    product decisions, so no owner tag.*
+

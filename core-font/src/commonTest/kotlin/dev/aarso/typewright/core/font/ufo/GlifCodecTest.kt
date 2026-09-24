@@ -5,6 +5,7 @@ import dev.aarso.typewright.core.geometry.Contour
 import dev.aarso.typewright.core.geometry.ContourPoint
 import dev.aarso.typewright.core.geometry.CurveFormat
 import dev.aarso.typewright.core.geometry.Glyph
+import dev.aarso.typewright.core.geometry.Guideline
 import dev.aarso.typewright.core.geometry.Point
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -261,6 +262,97 @@ class GlifCodecTest {
                 .points[0]
                 .point,
         )
+    }
+
+    @Test
+    fun writesAndParsesGuidelinesLosslessly() {
+        val glyph =
+            Glyph(
+                "o",
+                600,
+                listOf(cubicLensContour()),
+                guidelines =
+                    listOf(
+                        Guideline(x = 500.0), // vertical
+                        Guideline(y = -12.0, name = "overshoot"), // horizontal
+                        Guideline(x = 100.0, y = 200.0, angle = 12.5, name = "italic", color = "1,0,0,1", identifier = "g1"), // angled
+                    ),
+            )
+        val xml = writeGlif(glyph)
+        assertTrue(xml.contains("<guideline x=\"500\"/>"))
+        assertTrue(xml.contains("<guideline y=\"-12\" name=\"overshoot\"/>"))
+        assertTrue(
+            xml.contains(
+                "<guideline x=\"100\" y=\"200\" angle=\"12.5\" name=\"italic\" color=\"1,0,0,1\" identifier=\"g1\"/>",
+            ),
+        )
+        assertEquals(glyph, parseGlif(xml))
+    }
+
+    @Test
+    fun aGlyphWithNoGuidelinesWritesNoGuidelineElement() {
+        val glyph = Glyph("space", 300, emptyList())
+        val xml = writeGlif(glyph)
+        assertEquals(false, xml.contains("<guideline"))
+        assertEquals(emptyList(), parseGlif(xml).guidelines)
+    }
+
+    @Test
+    fun rejectsAGuidelineWithAnAngleButNoY() {
+        val glif =
+            """
+            <?xml version="1.0"?><glyph name="g" format="2">
+              <guideline x="10" angle="45"/>
+            </glyph>
+            """.trimIndent()
+        assertFailsWith<IllegalArgumentException> { parseGlif(glif) }
+    }
+
+    @Test
+    fun rejectsAGuidelineWithNeitherXNorY() {
+        val glif =
+            """
+            <?xml version="1.0"?><glyph name="g" format="2">
+              <guideline name="stray"/>
+            </glyph>
+            """.trimIndent()
+        assertFailsWith<IllegalArgumentException> { parseGlif(glif) }
+    }
+
+    @Test
+    fun rejectsAGuidelineWithANonNumericCoordinate() {
+        val glif =
+            """
+            <?xml version="1.0"?><glyph name="g" format="2">
+              <guideline x="not-a-number"/>
+            </glyph>
+            """.trimIndent()
+        assertFailsWith<IllegalArgumentException> { parseGlif(glif) }
+    }
+
+    @Test
+    fun matchesTheUfo3SpecsOwnGlifGuidelineExample() {
+        // unifiedfontobject.org/versions/ufo3/glyphs/glif -- the spec's own example glyph.
+        val glif =
+            """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <glyph name="period" format="2">
+              <advance width="268"/>
+              <unicode hex="002E"/>
+              <image fileName="period sketch.png" xScale="0.5" yScale="0.5"/>
+              <guideline y="-12" name="overshoot"/>
+              <anchor x="74" y="197" name="top"/>
+              <outline>
+              </outline>
+              <lib>
+              </lib>
+            </glyph>
+            """.trimIndent()
+        val glyph = parseGlif(glif)
+        assertEquals("period", glyph.name)
+        assertEquals(268, glyph.advanceWidth)
+        assertEquals(listOf(Guideline(y = -12.0, name = "overshoot")), glyph.guidelines)
+        assertEquals(listOf(Anchor("top", Point(74, 197))), glyph.anchors)
     }
 
     @Test

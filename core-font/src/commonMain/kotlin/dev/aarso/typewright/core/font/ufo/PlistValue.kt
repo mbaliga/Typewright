@@ -1,5 +1,8 @@
 package dev.aarso.typewright.core.font.ufo
 
+import kotlin.math.abs
+import kotlin.math.floor
+
 /**
  * A parsed value from a property list (plist): the restricted XML vocabulary UFO 3 uses for every
  * `.plist` file (`metainfo.plist`, `fontinfo.plist`, `layercontents.plist`,
@@ -49,12 +52,45 @@ fun PlistValue.PDict.intOrNull(key: String): Int? = longOrNull(key)?.toInt()
  * This dict's value for [key] as a [Double]: plists routinely encode a whole-number real as
  * `<integer>`, so both `<integer>` and `<real>` are accepted. `null` if absent or a different kind.
  */
-fun PlistValue.PDict.doubleOrNull(key: String): Double? =
-    when (val v = get(key)) {
-        is PlistValue.PReal -> v.value
-        is PlistValue.PInteger -> v.value.toDouble()
-        else -> null
-    }
+fun PlistValue.PDict.doubleOrNull(key: String): Double? = get(key)?.asDoubleOrNull()
 
 /** This dict's value for [key] as a [PlistValue.PArray], or `null` if absent or a different kind. */
 fun PlistValue.PDict.arrayOrNull(key: String): PlistValue.PArray? = get(key) as? PlistValue.PArray
+
+/**
+ * This value as a [Double] when it is a [PlistValue.PInteger] or [PlistValue.PReal] (plists
+ * routinely encode a whole-number real as `<integer>`, so both are accepted here too), else `null`.
+ * Shared by [PlistValue.PDict.doubleOrNull] and anything reading a numeric value that is not
+ * sitting under a known dict key (`kerning.plist`'s per-pair values, read by
+ * [readKerningPlist]).
+ */
+internal fun PlistValue.asDoubleOrNull(): Double? =
+    when (this) {
+        is PlistValue.PReal -> value
+        is PlistValue.PInteger -> value.toDouble()
+        else -> null
+    }
+
+/**
+ * The most natural [PlistValue] for a numeric [value] the UFO 3 spec types as "integer or float"
+ * (a kerning value, or a guideline's `x`/`y`/`angle`): `<integer>` when [value] is a whole number
+ * within [Long] range, matching how real UFO tools write a whole-number field (the spec's own
+ * `kerning.plist` example uses `<integer>7</integer>`, not `<real>7.0</real>`); `<real>` otherwise.
+ */
+internal fun numericPlistValue(value: Double): PlistValue =
+    if (value.isFinite() && value == floor(value) && abs(value) < 1e15) {
+        PlistValue.PInteger(value.toLong())
+    } else {
+        PlistValue.PReal(value)
+    }
+
+/** This [PlistValue]'s XML tag name (`dict`, `array`, `string`, `integer`, `real`, or `true`/`false`), for error messages. */
+internal fun PlistValue.elementName(): String =
+    when (this) {
+        is PlistValue.PDict -> "dict"
+        is PlistValue.PArray -> "array"
+        is PlistValue.PString -> "string"
+        is PlistValue.PInteger -> "integer"
+        is PlistValue.PReal -> "real"
+        is PlistValue.PBoolean -> "true/false"
+    }

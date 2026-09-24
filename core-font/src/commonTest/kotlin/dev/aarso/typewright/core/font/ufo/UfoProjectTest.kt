@@ -4,6 +4,7 @@ import dev.aarso.typewright.core.geometry.Contour
 import dev.aarso.typewright.core.geometry.ContourPoint
 import dev.aarso.typewright.core.geometry.CurveFormat
 import dev.aarso.typewright.core.geometry.Glyph
+import dev.aarso.typewright.core.geometry.Guideline
 import dev.aarso.typewright.core.geometry.Point
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -169,6 +170,70 @@ class UfoProjectTest {
         val project = UfoProject(UfoFontInfo(), listOf(Glyph("A", 500, listOf(triangleCubic()))))
         val files = writeUfoProject(project).toMutableMap()
         files.remove("layercontents.plist")
+        assertEquals(project, readUfoProject(files))
+    }
+
+    @Test
+    fun fontInfoRoundTripsGuidelinesOfAllThreeShapes() {
+        val guidelines =
+            listOf(
+                Guideline(x = 500.0), // vertical
+                Guideline(y = 0.0, name = "baseline"), // horizontal
+                Guideline(x = 100.0, y = 200.0, angle = 12.5, name = "italic", color = "1,0,0,1", identifier = "g1"), // angled
+            )
+        val files = writeUfoProject(UfoProject(UfoFontInfo(guidelines = guidelines), emptyList()))
+        val fontInfo = parsePlistDict(files.getValue("fontinfo.plist"))
+        assertTrue(fontInfo.arrayOrNull("guidelines") != null)
+        assertEquals(UfoFontInfo(guidelines = guidelines), readUfoProject(files).fontInfo)
+    }
+
+    @Test
+    fun fontInfoOmitsTheGuidelinesKeyWhenNull() {
+        val files = writeUfoProject(UfoProject(UfoFontInfo(guidelines = null), emptyList()))
+        val fontInfo = parsePlistDict(files.getValue("fontinfo.plist"))
+        assertEquals(null, fontInfo.get("guidelines"))
+        assertEquals(null, readUfoProject(files).fontInfo.guidelines)
+    }
+
+    @Test
+    fun fontInfoDistinguishesAnAbsentGuidelinesKeyFromAnEmptyOne() {
+        val files = writeUfoProject(UfoProject(UfoFontInfo(guidelines = emptyList()), emptyList()))
+        val fontInfo = parsePlistDict(files.getValue("fontinfo.plist"))
+        assertTrue(fontInfo.arrayOrNull("guidelines") != null)
+        assertEquals(emptyList(), readUfoProject(files).fontInfo.guidelines)
+    }
+
+    @Test
+    fun writeUfoProjectOmitsGroupsKerningAndFeaturesFilesWhenTheProjectHasNone() {
+        val files = writeUfoProject(UfoProject(UfoFontInfo(), emptyList()))
+        assertEquals(false, files.containsKey("groups.plist"))
+        assertEquals(false, files.containsKey("kerning.plist"))
+        assertEquals(false, files.containsKey("features.fea"))
+        assertEquals(UfoKerning(), readUfoProject(files).kerningInfo)
+    }
+
+    @Test
+    fun writeUfoProjectRoundTripsGroupsKerningAndFeatures() {
+        val kerningInfo =
+            UfoKerning(
+                groups =
+                    mapOf(
+                        "public.kern1.A" to listOf("A", "Aacute", "Acircumflex"),
+                        "public.kern2.O" to listOf("O", "Odieresis"),
+                        "Group1" to listOf("A", "A.alt"),
+                    ),
+                kerning =
+                    mapOf(
+                        "public.kern1.A" to mapOf("public.kern2.O" to 7.0, "V" to -25.0),
+                        "A" to mapOf("V" to -18.5),
+                    ),
+                features = "# comment\nfeature kern {\n    pos A V -25;\n} kern;\n",
+            )
+        val project = UfoProject(UfoFontInfo(), listOf(Glyph("A", 500, listOf(triangleCubic()))), kerningInfo)
+        val files = writeUfoProject(project)
+        assertTrue(files.containsKey("groups.plist"))
+        assertTrue(files.containsKey("kerning.plist"))
+        assertEquals(kerningInfo.features, files["features.fea"])
         assertEquals(project, readUfoProject(files))
     }
 
