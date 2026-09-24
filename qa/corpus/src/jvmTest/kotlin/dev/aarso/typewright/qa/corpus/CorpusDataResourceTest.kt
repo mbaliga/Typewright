@@ -14,4 +14,16 @@ class CorpusDataResourceTest {
         val stream = assertNotNull(javaClass.getResourceAsStream("/typewright/corpus/node-economy-latin.json"))
         stream.use { assertEquals('{'.code, it.read()) }
     }
+
+    @Test
+    fun devanagariPackIsOnTheClasspath() {
+        val stream = assertNotNull(javaClass.getResourceAsStream("/typewright/corpus/node-economy-devanagari.json"))
+        stream.use { assertEquals('{'.code, it.read()) }
+    }
+
+    @Test
+    fun kanaPackIsOnTheClasspath() {
+        val stream = assertNotNull(javaClass.getResourceAsStream("/typewright/corpus/node-economy-kana.json"))
+        stream.use { assertEquals('{'.code, it.read()) }
+    }
 }

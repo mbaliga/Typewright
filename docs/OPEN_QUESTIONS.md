@@ -2540,3 +2540,77 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     says must not be faked is worse than an honest, named gap. Both belong to whoever next works
     on the Android half of this module with a real device in hand.
 
+## P8: Node-economy corpus — Devanagari and kana (`data/scripts/build_script_node_economy_corpus.py`, `qa:corpus`)
+
+108. **Extended the node-economy corpus to Devanagari and kana with real google/fonts data, and
+    deliberately used a different, coarser style-class taxonomy than Latin's ten classes,
+    because google/fonts' own catalog does not support Latin's taxonomy for these scripts.**
+    `data/scripts/build_script_node_economy_corpus.py --script {devanagari,kana}` is a sibling
+    to `build_node_economy_corpus.py`, reusing its counting rule (`_count_simple_contours`,
+    `count_points`, `process`) and its family-selection rules (rank by `/Quality/Drawing` from
+    `data/families.csv`, tie-break reverse-alphabetical family name, dedupe to one face per
+    superfamily) verbatim. What differs: (a) the glyph set is extracted at run time from this
+    build's own already-committed inventories — `scripts/.../devanagari/
+    DevanagariGlyphInventory.kt` (66 glyphs) and `.../kana/{Hiragana,Katakana}Glyphs.kt` (55 +
+    57 = 112 glyphs, one pack covering both kana scripts since no candidate family in either
+    corpus supports one without the other) — via a regex over the real `.kt` source, not
+    retyped by hand; (b) style classes are Google Fonts' own `category` field (Sans Serif /
+    Serif / Display / Handwriting / Monospace, from the public `fonts.google.com/metadata/fonts`
+    endpoint, no key needed), not google/fonts' volunteer style-tag project's specific
+    sub-style tags (`/Sans/Geometric` and the like), because that tag project's coverage is far
+    thinner outside Latin: checked directly before writing the script, only 34/62 (55%) of
+    families that genuinely cover Devanagari, and 24/68 (35%) of those that cover Japanese
+    (kana), carry any of Latin's specific sub-style tags at a score ≥ 50, versus 100% coverage
+    for `/Quality/Drawing` (used for in-class ranking) and 100% for Google's own `category`
+    field. This is the "small handful of style classes, not Latin's ten" this task's own
+    instruction anticipated, arrived at from the real, checked catalog, not assumed.
+
+109. **Real family counts per class, and the classes that were too thin to build at all (law 5:
+    a box needs a real distribution behind it, not a fabrication).** Regenerated fresh
+    (`git ls-remote` pinned `google/fonts@23e54b51ddffbc7713c583748e3bd86f62b1fa4a`,
+    2026-09-24): `devanagari-sans` 25 families, `devanagari-serif` 19, `devanagari-display` 9;
+    `kana-sans` 18, `kana-serif` 11, `kana-display` 11, `kana-handwriting` 6. Two classes'
+    real candidate pools ran under this script's own `MIN_FAMILIES = 5` and were **not**
+    written into the pack: `devanagari-handwriting` (4 real candidates: Playpen Sans Deva,
+    Dekko, Kalam, Amita) and `devanagari-mono` (0). For kana, `kana-mono` also fell under the
+    line (1 real candidate: M PLUS 1 Code) and was skipped. `data/node-economy-devanagari.json`
+    therefore has 3 style classes, not the 5 categories the taxonomy defines; kana has 4, not 5.
+    Family counts for the thinner classes are sensitive to google/fonts' live network
+    (transient per-file fetch failures) in a way Latin's 30-wide classes are not buffered
+    against, because a thin category's full real candidate pool is already inside the "a few
+    spares for failed downloads" window (`cands[: top + 8]` already covers every candidate when
+    the pool is under ~38) — a re-run of `devanagari-serif`/`devanagari-display` during this
+    same task varied by one family each (19→17, 9→8) on a transient download failure, while
+    `devanagari-sans` and every kana class reproduced exactly. The **committed** files
+    (`data/node-economy-devanagari.json`, `data/node-economy-kana.json`) are from the run whose
+    console summary is quoted above and match the numbers this section and the new
+    `qa:corpus` tests pin; they were not overwritten by the flakier verification re-run.
+
+110. **Loader wiring: `NodeEconomyCorpus.load()`/`loadNodeEconomyPack()` took no parameters at
+    all before this — extended, not replaced, so every existing call site
+    (`ui/.../WorkbookCampaignSnapshot.kt`, `campaign/.../HyleDecoTask4GateTest.kt`, and every
+    test that called `NodeEconomyCorpus.load()` or `loadNodeEconomyPack()` bare) keeps
+    compiling and behaving identically.** `loadNodeEconomyPack(resourcePath: String =
+    FULL_PACK_RESOURCE_PATH)` and `NodeEconomyCorpus.load(resourcePath: String =
+    FULL_PACK_RESOURCE_PATH)` gained a defaulted parameter; two new named, zero-argument
+    companion functions, `NodeEconomyCorpus.loadDevanagari()` and `NodeEconomyCorpus.loadKana()`
+    (`qa/corpus/.../NodeEconomyCorpus.kt`), are the intended call sites for the new packs so a
+    caller never has to know the literal classpath resource string. `CorpusResources.kt` gained
+    `DEVANAGARI_PACK_RESOURCE_PATH`/`KANA_PACK_RESOURCE_PATH` alongside the existing
+    `FULL_PACK_RESOURCE_PATH`/`COMPACT_PACK_RESOURCE_PATH`; `qa/corpus/build.gradle.kts`'s
+    existing `syncCorpusData` task already globs `node-economy-*.json`, so both new files reach
+    the classpath/Wasm-Node resource bundle with no build-script change. New tests:
+    `qa/corpus/src/commonTest/.../ScriptNodeEconomyCorpusTest.kt` (5 tests: both packs' real
+    source/glyph-count/style-class shape, a handful of real glyph boxes checked against the
+    committed JSON's own numbers, every style class's box for 4 glyphs each checked min ≤ q1 ≤
+    med ≤ q3 ≤ max with max > 0 and n ≥ 5, and family-row/box agreement) plus two
+    `CorpusDataResourceTest.kt` classpath checks — 61/61 `qa:corpus` tests pass (`jvmTest` and
+    `wasmJsNodeTest` both green; `:qa:corpus:spotlessCheck :qa:corpus:check` clean). **Left
+    open, not decided here:** no compact (on-curve-only) derivative was built for either new
+    pack — `build_compact_corpus.py` is Latin-specific (hardcodes `node-economy-latin.json` as
+    its default source) and item 8's own "which pack the app ships" question is still
+    unresolved for Latin, so extending compaction to two more packs before that question is
+    answered would be speculative; and no UI/campaign code was wired to consume
+    `loadDevanagari()`/`loadKana()` yet — this task's own scope was the corpus and its loader,
+    not a Devanagari/kana workbook gate, which does not exist yet either.
+

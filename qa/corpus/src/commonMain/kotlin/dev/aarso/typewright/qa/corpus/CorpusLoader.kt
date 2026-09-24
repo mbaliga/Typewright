@@ -9,13 +9,18 @@ import kotlinx.serialization.json.Json
 private val corpusJson = Json { ignoreUnknownKeys = true }
 
 /**
- * Loads and decodes the full node-economy pack (data/node-economy-latin.json): every member
- * face's raw counts plus the per-glyph on/off-curve boxes, for all ten style classes (brief
- * 8.1). Re-parses the resource on every call; wrap the result once, or use [NodeEconomyCorpus],
- * if a caller queries it repeatedly.
+ * Loads and decodes a node-economy pack: by default the full Latin pack
+ * (data/node-economy-latin.json, [FULL_PACK_RESOURCE_PATH]) -- every member face's raw counts
+ * plus the per-glyph on/off-curve boxes, for all ten style classes (brief 8.1). Pass
+ * [DEVANAGARI_PACK_RESOURCE_PATH] or [KANA_PACK_RESOURCE_PATH] to load one of the sibling
+ * packs data/scripts/build_script_node_economy_corpus.py builds instead -- same
+ * [NodeEconomyPack] shape, a small handful of style classes rather than Latin's ten (see that
+ * script's module doc for why). Re-parses the resource on every call; wrap the result once, or
+ * use [NodeEconomyCorpus] (its `load`/`loadDevanagari`/`loadKana`), if a caller queries it
+ * repeatedly.
  */
-fun loadNodeEconomyPack(): NodeEconomyPack =
-    corpusJson.decodeFromString(NodeEconomyPack.serializer(), readCorpusResourceText(FULL_PACK_RESOURCE_PATH))
+fun loadNodeEconomyPack(resourcePath: String = FULL_PACK_RESOURCE_PATH): NodeEconomyPack =
+    corpusJson.decodeFromString(NodeEconomyPack.serializer(), readCorpusResourceText(resourcePath))
 
 /**
  * Loads and decodes the compact node-economy pack (data/node-economy-latin.compact.json):

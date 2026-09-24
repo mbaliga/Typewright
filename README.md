@@ -87,7 +87,7 @@ Notes:
 | `campaign/` | `:campaign` | JVM, Wasm | the workbook engine |
 | `scripts/` | `:scripts` | JVM, Wasm | per-script metrics, inventories, features; `scripts/templates/` holds the capture sheets |
 | `compile/` | `:compile` | Android, desktop JVM, Wasm | `CompileBackend`: fontmake via system Python, Chaquopy, or a hosted endpoint (stubs) |
-| `shape-preview/` | `:shape-preview` | Android, desktop JVM, Wasm | `Shaper`: TextRunShaper, Skiko, browser `FontFace` (stubs) |
+| `shape-preview/` | `:shape-preview` | Android, desktop JVM, Wasm | `Shaper`: TextRunShaper and Skiko real (P8), browser `FontFace` still a stub (P9) |
 | `ui/` | `:ui` | Android, desktop JVM, Wasm | Compose UI; `TypewrightApp()`; the screenshot harness |
 | `app-android/` | `:app-android` | Android | application shell |
 | `app-desktop/` | `:app-desktop` | desktop JVM | application shell, Linux packaging |
@@ -150,9 +150,12 @@ docs/
 data/
   node-economy-latin.json      per-style, per-glyph distributions + per-family counts (10 classes)
   node-economy-latin.compact.json  the app-side pack the explorer embeds
+  node-economy-devanagari.json per-style, per-glyph distributions for Devanagari (3 classes: sans/serif/display)
+  node-economy-kana.json       per-style, per-glyph distributions for Hiragana+Katakana (4 classes)
   families.csv                 Google Fonts taxonomy snapshot (google/fonts tags/all/families.csv)
   exemplars.json               the ten lesson faces: family, file, cap and x-height ratios
-  scripts/build_node_economy_corpus.py   regenerates the corpus from the repository
+  scripts/build_node_economy_corpus.py   regenerates the Latin corpus from the repository
+  scripts/build_script_node_economy_corpus.py   regenerates the Devanagari/kana corpora
 fonts/
   HyleDeco-Regular.ttf, HyleDeco-Italic.ttf   the fixtures
 scripts/templates/hyle-all-templates.zip     capture template sheets, six scripts
@@ -179,10 +182,13 @@ tools/
 ```
 cd data/scripts
 python3 build_node_economy_corpus.py --top 30 --tags ../families.csv --out ../node-economy-latin.json
+python3 build_script_node_economy_corpus.py --script devanagari --tags ../families.csv --out ../node-economy-devanagari.json
+python3 build_script_node_economy_corpus.py --script kana --tags ../families.csv --out ../node-economy-kana.json
 ```
 
-Needs `fontTools` and network access to raw.githubusercontent.com. Optional: set
-`GOOGLE_FONTS_API_KEY` to add the popularity ranking (P1 wires this in).
+Needs `fontTools` and network access to raw.githubusercontent.com (both scripts) and
+fonts.google.com (the second script only, for real subset/category metadata; no API key
+needed). Optional: set `GOOGLE_FONTS_API_KEY` to add the popularity ranking (P1 wires this in).
 
 ### Status markers
 

@@ -60,8 +60,35 @@ class NodeEconomyCorpus(
     fun families(styleKey: String): List<FamilyEntry> = pack.styles[styleKey]?.families ?: emptyList()
 
     companion object {
-        /** Loads and decodes the full pack ([loadNodeEconomyPack]), then wraps it. */
-        fun load(): NodeEconomyCorpus = NodeEconomyCorpus(loadNodeEconomyPack())
+        /**
+         * Loads and decodes a full pack ([loadNodeEconomyPack]), then wraps it. Defaults to the
+         * Latin pack ([FULL_PACK_RESOURCE_PATH]); pass [DEVANAGARI_PACK_RESOURCE_PATH] or
+         * [KANA_PACK_RESOURCE_PATH] (or use [loadDevanagari]/[loadKana]) for a sibling script's
+         * pack.
+         */
+        fun load(resourcePath: String = FULL_PACK_RESOURCE_PATH): NodeEconomyCorpus = NodeEconomyCorpus(loadNodeEconomyPack(resourcePath))
+
+        /**
+         * Loads the Devanagari sibling pack (data/node-economy-devanagari.json, built by
+         * data/scripts/build_script_node_economy_corpus.py --script devanagari): a small
+         * handful of style classes (`devanagari-sans`, `devanagari-serif`,
+         * `devanagari-display` as of this pack's own generation run -- see that script's
+         * module doc for why there are fewer classes than Latin's ten, and
+         * docs/OPEN_QUESTIONS.md for the classes that were too thin to build), keyed and
+         * queried the same way as the Latin pack (glyph keys are the real Devanagari
+         * characters, e.g. "क").
+         */
+        fun loadDevanagari(): NodeEconomyCorpus = load(DEVANAGARI_PACK_RESOURCE_PATH)
+
+        /**
+         * Loads the kana sibling pack (data/node-economy-kana.json, built by
+         * data/scripts/build_script_node_economy_corpus.py --script kana): covers both
+         * Hiragana and Katakana in one pack (see that script's module doc for why), a small
+         * handful of style classes (`kana-sans`, `kana-serif`, `kana-display`,
+         * `kana-handwriting` as of this pack's own generation run), glyph keys are the real
+         * kana characters (e.g. "あ", "ア").
+         */
+        fun loadKana(): NodeEconomyCorpus = load(KANA_PACK_RESOURCE_PATH)
     }
 }
 

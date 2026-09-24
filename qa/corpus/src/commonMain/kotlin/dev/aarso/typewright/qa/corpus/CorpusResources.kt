@@ -12,6 +12,24 @@ internal const val FULL_PACK_RESOURCE_PATH = "typewright/corpus/node-economy-lat
 internal const val COMPACT_PACK_RESOURCE_PATH = "typewright/corpus/node-economy-latin.compact.json"
 
 /**
+ * Path, relative to this module's resources root, of the Devanagari sibling pack
+ * (data/node-economy-devanagari.json, built by
+ * data/scripts/build_script_node_economy_corpus.py --script devanagari). Same
+ * [NodeEconomyPack] shape as [FULL_PACK_RESOURCE_PATH]'s Latin pack, decoded the same way --
+ * see [loadNodeEconomyPack] and [NodeEconomyCorpus.loadDevanagari].
+ */
+internal const val DEVANAGARI_PACK_RESOURCE_PATH = "typewright/corpus/node-economy-devanagari.json"
+
+/**
+ * Path, relative to this module's resources root, of the kana sibling pack
+ * (data/node-economy-kana.json, built by data/scripts/build_script_node_economy_corpus.py
+ * --script kana). Covers both Hiragana and Katakana in one pack -- see that script's module
+ * doc for why. Same [NodeEconomyPack] shape as [FULL_PACK_RESOURCE_PATH]'s Latin pack -- see
+ * [loadNodeEconomyPack] and [NodeEconomyCorpus.loadKana].
+ */
+internal const val KANA_PACK_RESOURCE_PATH = "typewright/corpus/node-economy-kana.json"
+
+/**
  * Reads one of this module's embedded corpus resources as UTF-8 text. [resourcePath] is
  * relative to the resources root, e.g. [FULL_PACK_RESOURCE_PATH] or [COMPACT_PACK_RESOURCE_PATH].
  *
