@@ -18,6 +18,13 @@ android-minSdk = "31"
 # Bytecode level for every JVM and Android compilation.
 jvm-target = "17"
 
+# shape-preview's desktop shaper (P8): org.jetbrains.skia.shaper.Shaper, Skia's SkShaper over
+# HarfBuzz. 0.150.1 is the exact version Compose Multiplatform 1.12.1 already resolves
+# elsewhere in this build (docs/ARCHITECTURE_REVIEW.md section 4.3, THIRD_PARTY.md), pinned
+# here explicitly because shape-preview has no Compose dependency of its own to pull it in
+# transitively (its README: "No Compose here").
+skiko = "0.150.1"
+
 # core-font's UFO/glif XML reader (docs/ARCHITECTURE_REVIEW.md section 3 `:core-font`, section 7
 # "What P1 and P2 need first" item 4). Pulls kotlinx-serialization-core 1.11.0 transitively; this
 # module is pure (no Compose dependency), so that does not collide with Compose's 1.7.3.
@@ -52,6 +59,12 @@ xmlutil-core = { module = "io.github.pdvrieze.xmlutil:core", version.ref = "xmlu
 
 # JSON for qa:corpus's node-economy data packs (Apache-2.0; see THIRD_PARTY.md).
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+
+# shape-preview's desktop shaper (P8; Apache-2.0; see THIRD_PARTY.md). skiko-awt is the JVM API
+# jar; skiko-awt-runtime-linux-x64 is the native library, needed only to actually run (Linux is
+# the only desktop OS this build targets — app-desktop/build.gradle.kts).
+skiko-awt = { module = "org.jetbrains.skiko:skiko-awt", version.ref = "skiko" }
+skiko-awt-runtime-linux-x64 = { module = "org.jetbrains.skiko:skiko-awt-runtime-linux-x64", version.ref = "skiko" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

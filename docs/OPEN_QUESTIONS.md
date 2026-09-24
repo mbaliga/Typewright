@@ -2487,3 +2487,56 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     `NastaliqOutOfScope.kt`'s own disclosure states the concrete OpenType-sloping-baseline reason
     from `docs/RESEARCH_font_quality.md` directly, per this task's own instruction.
 
+## P8: Shaping preview — desktop and Android real implementations (`shape-preview`)
+
+106. **Cluster data is genuinely available on desktop, genuinely not on Android — checked
+    empirically, not assumed from the brief, and the v1 no-JNI-HarfBuzz decision (`Shaper.kt`'s
+    own top KDoc: "not through JNI, in v1"; `docs/DECISIONS.md` D14) is not overridden for
+    either.** Desktop: `org.jetbrains.skia.shaper.RunHandler.commitRun`'s `clusters: IntArray`
+    parameter is real per-glyph UTF-16 cluster data (Skiko 0.150.1's own KDoc on that parameter:
+    "clusters[i] is an utf-16 offset starting run which produced glyphs[i]"), and `SkikoShaper`
+    now wires it into `ShapedRun.clusters` for real — confirmed against real output, not just the
+    doc comment: `SkikoShaperTest.shapesRealDevanagariConjunctAndFindsRealClusterData` shapes a
+    real three-codepoint Devanagari conjunct (क् + ष, U+0915 U+094D U+0937) with
+    `fonts/NotoSansDevanagari-Regular.ttf` and gets exactly one glyph (id 90) and one cluster
+    spanning the whole `[0, 3)` text range — genuine ligation, genuinely captured. Android:
+    `android.graphics.text.PositionedGlyphs`' full API surface (`getGlyphId`, `getGlyphX`/
+    `getGlyphY`, `getFont`, `getAdvance`, and API 35's `getFakeBold`/`getFakeItalic`/
+    `getWeightOverride`/`getItalicOverride`) has no `getCluster`/`getClusterStart`/text-range
+    method at all, on any API level through `android-37` (`/opt/android-sdk`, this task's own
+    compile target) — verified by listing the class's real members with `javap`, not by reading
+    only the one method (`shapeTextRun`) the brief named. `AndroidTextRunShaper.shape()` therefore
+    always returns `clusters = null`, exactly as `Shaper.kt`'s own KDoc says a stack should when
+    it withholds the data, and matching `docs/ARCHITECTURE_REVIEW.md` section 4.3's earlier
+    finding. Given this, and that the real gap is narrow (`TextRunShaper` still gives real glyph
+    ids and real positions; only the text-range-per-glyph map is missing, and the interface
+    already models that as nullable), a new JNI HarfBuzz binding was not added: it would need
+    NDK-built native code and per-ABI packaging this build does not already pay for anywhere
+    (`docs/ARCHITECTURE_REVIEW.md` section 4.3's own "Risk"/"Recommendation" already name direct
+    HarfBuzz-via-JNI as future, "explain this conjunct"-tier work, not a v1 requirement), and no
+    existing pure-Kotlin-Multiplatform HarfBuzz binding with no native-compile step was found to
+    propose instead (a search would need network access to a Maven/npm registry this task did not
+    spend on a negative result). Recorded rather than silently left null: whoever builds Android's
+    glyph-level conjunct explanation later (the "lookup trace" work `docs/ARCHITECTURE_REVIEW.md`
+    section 4.3 already scopes past v1) will need that binding then, not a cluster map from this
+    API, because this API genuinely has none to give.
+
+107. **Two more Android gaps disclosed rather than smoothed over, both unverifiable on-device here
+    (CLAUDE.md law 4) so recorded as known, not fixed.** (a) `ShapeRequest.script` cannot be
+    forced through `android.graphics.text.TextRunShaper.shapeTextRun` — it takes no script
+    parameter, unlike Skiko's desktop path (`SkikoShaper` uses
+    `org.jetbrains.skia.shaper.TrivialScriptRunIterator` when `request.script` is non-null); on
+    Android, Minikin's own script detection on the text is all there is, so `AndroidTextRunShaper`
+    silently drops that field rather than pretending to honour it, and `AndroidTextRunShaper`'s
+    own KDoc says so. (b) `Typeface.CustomFallbackBuilder`'s system fallback (`ui/src/androidMain/
+    .../LearnFaceFonts.android.kt`'s own KDoc already names this: "processed only when no matching
+    font is found" and "cannot be switched off") means a character the compiled preview font does
+    not cover could render silently from a system font on-device, unlike desktop's `SkikoShaper`
+    (which is deliberately given a `null` `FontMgr`, `SkFontMgr::RefEmpty()` inside Skia, so a
+    missing glyph renders `.notdef` there instead) — `docs/ARCHITECTURE_REVIEW.md` section 4.3
+    already found this ("Check `getFont(i)` every time"); this task did not add per-glyph
+    `getFont(i)` fallback-detection logic on top of it, because that logic cannot be exercised or
+    checked without a device or emulator here, and untested logic guarding exactly the thing law 4
+    says must not be faked is worse than an honest, named gap. Both belong to whoever next works
+    on the Android half of this module with a real device in hand.
+
