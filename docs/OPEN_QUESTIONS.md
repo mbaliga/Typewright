@@ -2913,3 +2913,39 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
      did. Noted rather than done. *Not a product decision — implementation choice, flagged for
      visibility.*
 
+## P9: web canvas frame-time measurement — a headless-targeting limitation, disclosed
+
+119. **The puck's grip-drag (`PuckGestureMachine.GripDragging`, repositioning the puck via its
+    top-of-disc handle) could not be reliably engaged from this task's headless Playwright
+    session, despite systematic testing.** `docs/WEB_PERFORMANCE.md` needed a real, sustained
+    single-pointer drag against the Draw sheet's canvas to measure frame times. The plan was the
+    puck's grip-drag specifically. Candidate press points were computed directly from
+    `PuckGeometry.gripVisualCenter`'s own formula (`center.y - radiusDp + GRIP_INSET_FROM_EDGE_DP`,
+    `PUCK_DIAMETER_DP = 68`, `GRIP_MIN_HIT_DP = 44`) using the puck's actual on-screen centre,
+    itself measured two ways that agreed with each other and with `PuckPinState.defaultFor`'s own
+    x formula (`canvasSizeDp.x - 18 - 34` = 308 CSS px at a 360 px-wide viewport, matching the
+    rendered circle's measured horizontal centre exactly): a dark-pixel bounding box of the
+    rendered disc, and a direct per-pixel scan for the grey grip bar itself (found at CSS y
+    ≈ 287, inside the theoretically correct ±22 dp hit square either way). Nine candidate points
+    spanning the full theoretical 44×44 dp hit box (CSS x 300–316, y 270–300) were each pressed
+    and dragged 60 CSS px in a real `page.mouse` sequence; every one engaged `Swiping` (the
+    tool-cycle drag) instead of `GripDragging`, confirmed visually each time by the puck's tool
+    label changing (SELECT → PEN → BOOLEAN → MEASURE → …) rather than the puck's position
+    changing (confirmed by a row-based pixel scan of the rendered disc's vertical position,
+    identical — 935.5 px, i.e. unmoved — across all nine trials). The canvas element's own
+    `getBoundingClientRect()` was also checked and is exactly `(0, 0, 360, 640)` at
+    `devicePixelRatio: 3`, ruling out a canvas-offset explanation. **This is logged as a real
+    limitation encountered, not a claimed bug**: the coordinate math checks out against the
+    source on paper, this task could not identify why the live hit-test disagrees within the time
+    available, and it did not modify `Puck.kt`/`PuckGestureMachine.kt`/`PuckGestureConfig.kt` to
+    investigate further, since debugging a gesture state machine was out of this task's own scope
+    (frame-time measurement). `docs/WEB_PERFORMANCE.md`'s own numbers instead use the `Swiping`
+    drag, which is still a real, single-pointer, continuously-repainting gesture recognised by the
+    same state machine — a worked-around limitation, not a fabricated result. Worth a look by
+    whichever task next touches `ui/puck/`: either a genuine coordinate-space mismatch between
+    `PointerInputChange.position` (as delivered to `puckGestureArbiter`) and `PuckGeometry.center`
+    on the wasmJs target specifically, or a gap in this task's own reasoning about Compose's
+    local-vs-global pointer coordinate contract — worth a real on-device or real-browser
+    (non-headless, human-observed) check either way, since this task's evidence is consistent but
+    entirely headless.
+
