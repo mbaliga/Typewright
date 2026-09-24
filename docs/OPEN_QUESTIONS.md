@@ -592,3 +592,173 @@ says what was done in the meantime, and names who decides. Answered entries move
     tool, Construct inspector, background/sketch layers, guides) or a future task that adds
     numeric/expression entry, the command palette, and the contextual object radial; not product
     decisions, so no owner tag.*
+
+## P5b: Palette commands (core-geometry)
+
+26. **The eight Palette commands (`TYPEWRIGHT_BUILD_BRIEF.md` line 372-373) are built as pure
+    functions in `core-geometry`, with two honest scope cuts disclosed here rather than forced into
+    a false symmetry or a silent guess.** New: `Curvature.kt` (`curvatureAt`, `harmoniseCurvatureAtJoin`
+    — two overloads, segment-pair and contour-level — `HarmoniseFixedSide`), `ContourSimplify.kt`
+    (`simplifyContour`, `SimplifyResult`), `ContourKnife.kt` (`ContourLocation`, `knifeContour`),
+    `Palette.kt` (`PaletteCommand`/`PaletteTarget` registry, `reverseContour`,
+    `roundContourCoordinates`, `closePolylineToContour`, `straightLineCubic`). Widened `internal` to
+    `public` in `TypeConstraints.kt`: `insertExtremaOnCurvePoints` (add extremes) and
+    `enforceContourDirections` (correct direction) — reused directly, not reimplemented, a pure
+    visibility widening with no behaviour change, in the same spirit as `Offset.kt`'s own P4b
+    precedent (item in this file's P5a-hard entry). `./gradlew :core-geometry:check` passes on both
+    `jvm` (177 tests) and `wasmJs` (168 — the 9-test gap is `CubicFittingHyleDecoValidationTest`/
+    `FitPipelineHyleDecoValidationTest`, already `jvmTest`-only before this task, for reading the
+    real `fonts/HyleDeco-Regular.ttf` off disk).
+    - **"Close/open contour": "open" does not apply to an already-valid `Contour`, and this is not
+      a gap silently papered over.** `Contour.kt`'s own KDoc is explicit that this type is *always*
+      closed and cyclic — there is no "open `Contour`" representation to toggle at all
+      (`HobbySpline.kt`'s `hobbySplineOpen` hit the identical wall: "`core-geometry` has no `open
+      Contour` type, so the result is the segment list directly"). An "open path" is a Pen tool's
+      own *authoring-time* idea — a drawing in progress that has not yet looped back to its start —
+      not a property a finished, already-valid `Contour` can carry or query. Inventing a fake
+      `isOpen` flag on `Contour` to make "close" and "open" look like a symmetric pair of commands
+      would mean either quietly breaking `Contour`'s own documented invariant or building a second,
+      parallel meaning of "open" nothing else in this module recognises. What is built instead is
+      the one half that genuinely applies: `closePolylineToContour(points: List<Point>): Contour`
+      closes an open polyline — a plain, not-yet-looped-back point list, exactly what a pen tool has
+      placed so far — into a valid, closed `CurveFormat.CUBIC` contour by connecting the last point
+      to the first with one more straight segment (`straightLineCubic`, the same degenerate-cubic
+      convention `CubicFitting.kt`'s own `buildCubicContour` KDoc already documents for a straight
+      run). There is no `openContour` command; `PaletteCommand.CLOSE_CONTOUR` is the only entry the
+      registry carries for this brief line.
+    - **"Cut/knife"'s natural primitive, de Casteljau subdivision, already lives on both sides of a
+      dependency edge that only runs one way — resolved by reusing `core-geometry`'s own existing
+      copy, not `engine-construct`'s.** `engine-construct/build.gradle.kts` depends on
+      `core-geometry` (`api(project(":core-geometry"))`); `core-geometry/build.gradle.kts` has no
+      dependency back (confirmed directly, not assumed, before writing `ContourKnife.kt`), so
+      `Booleans.kt`'s own `CurveSegment.Cubic.subdivide` is unreachable from here. Rather than add a
+      second, near-identical de Casteljau implementation to `core-geometry`, `knifeContour` reuses
+      `TypeConstraints.kt`'s own `splitCubicAt` — the identical standard construction, already
+      written, tested and in production use one file over (P2b's extrema-insertion stage) — so
+      there are exactly two de Casteljau splits in this codebase, one native to each module that
+      independently needs one, never a third copy invented for this task.
+    - **"Round coordinates" is an honest identity, stated plainly rather than dressed up as doing
+      something it cannot.** `Point.x`/`Point.y` are Kotlin `Int`, never a float (`Point.kt`: CLAUDE.md's
+      "integers at rest ... floats only inside algorithms") — every `Contour` this app can hold is
+      already rounded to the nearest font unit by construction, so there is no sub-integer
+      coordinate anywhere in the type for a rounding pass to find. `roundContourCoordinates` still
+      exists, and still rebuilds a genuinely new `Contour` from its own point list rather than
+      short-circuiting to `return contour`, so `PaletteCommand.ROUND_COORDINATES` is a real,
+      testable entry point (`PaletteTest`'s own round-trip test) rather than a command a UI has to
+      know is secretly a no-op.
+    - **"Harmonise curvature" needs one more convention than the brief states, because matching
+      curvature at a join is one equation in two unknowns.** Given a smooth join's two *fixed* far
+      control points and its shared tangent direction, each side's own curvature reduces to a clean
+      closed form in that side's own near-handle length alone (`Curvature.kt`'s own KDoc has the
+      full derivation): `kappa = (2/3) * K / h^2`. Matching the two sides' `kappa` is one equation;
+      "the two handle lengths" is two unknowns — solvable only by holding one side fixed and solving
+      the other, so `harmoniseCurvatureAtJoin` takes an explicit `HarmoniseFixedSide` (default
+      `INCOMING`) rather than guessing which side the brief's one-line "harmonise curvature" meant.
+      A later UI task decides how a person expresses this (the side they did *not* just drag,
+      most likely) when it wires `PaletteCommand.HARMONISE_CURVATURE` to a gesture.
+    - **`simplifyContour`'s greedy, restart-after-each-removal design is `O(n)` removals times an
+      `O(n)` rescan each — `O(n^2)` worst case, not the fastest possible single-pass algorithm** —
+      a deliberate simplicity choice (this file's own KDoc), fine at a glyph's real point counts
+      (tens to low hundreds) and never asked to run at a scale where it would matter.
+
+    *Data points for the later UI task that lists these eight commands generically via
+    `PaletteCommand` and wires each to a gesture (P5b's own remaining sheet-wiring half, or a
+    follow-up); not product decisions, so no owner tag.*
+
+## P5b-construction-grammar: the construction grammar's primitives
+
+27. **Every primitive and entry method the handoff's M2 list asks for is built except Serif and
+    Terminal, deferred because nothing in this codebase defines the "font-wide serif style" they
+    would derive from — a real, disclosed scope gap, not a shortcut.** `engine-construct` adds the
+    construction grammar itself (brief section 10 M2; `docs/TYPEWRIGHT_HANDOFF.md`'s own M2 list),
+    each primitive a data type holding its own entry method's parameters plus a pure `realize()`
+    recomputed fresh from them on every call — no caching anywhere, so "stays parametric until
+    baked" is exactly "call `realize()` again after changing a field"; "baked" is a caller keeping
+    one `realize()` result as plain `Contour` geometry, which needs no separate wrapper type since
+    `Contour` already is that. New files: `PrimitiveGeometry.kt` (shared circumcenter/line-
+    intersection/fillet/rounding/tangent helpers every primitive below builds on), `Arc.kt`
+    (`ArcPrimitive`, `CircularArc`), `LinePrimitive.kt`, `Circle.kt` (`CirclePrimitive`),
+    `Ellipse.kt` (`EllipsePrimitive`, `SuperellipsePrimitive`), `Rectangle.kt`
+    (`RectanglePrimitive`, `RoundedRectanglePrimitive`), `StemPrimitive.kt`, `BowlPrimitive.kt`.
+    `./gradlew :engine-construct:check` passes on both `jvm` and `wasmJs`, 148 tests each (up from
+    79 at P5a-hard — 69 new tests, one test class per primitive file plus `PrimitiveGeometryTest`).
+    - **Arc — all six entry methods built, none deferred** (three points; start/centre/end;
+      start/end/radius; start/end/bulge; tangent-tangent-radius fillet; centre/radius/start/sweep),
+      each reduced to one canonical `CircularArc` and checked against a closed-form fact, not
+      merely "it compiled": the swept-angle-to-chord-length relationship
+      (`chordLength = 2 * radius * sin(|sweep| / 2)`), exact circumcenter equidistance, exact
+      fillet tangency (distance from the fillet's own centre to each original line equals the
+      radius), and the arc-to-cubic conversion's own deviation from the true circle (`ArcTest`,
+      `PrimitiveGeometryTest`). `start/end/radius`'s four largeArc/direction combinations are
+      solved by generating all four actual candidate arcs directly (two circle centres times two
+      sweep directions) and filtering, deliberately **not** by transcribing the W3C SVG path
+      spec's own endpoint-to-centre sign algebra (`F.6.5`) — that derivation's signs are tied to
+      SVG's y-down convention, and reproducing it blind in this module's y-up convention from a
+      general description risked exactly the silent sign error `HobbySpline.kt`'s own honesty note
+      warns about (`Arc.kt`, `arcThroughChordAndRadius`'s own KDoc). The arc-to-cubic conversion
+      itself is Riškus's published closed form (A. Riškus, "Approximation of a Cubic Bezier Curve
+      by Circular Arcs and Vice Versa", *Information Technology and Control* 35(4), 2006) — the
+      same kappa constant `TestShapes.circleContour` already uses independently as a fixture,
+      cross-checked against it directly in `ArcTest.fullCircleCubicSegmentsMatchTheIndependentFourArcKappaFixture`.
+    - **Circle/Ellipse/Superellipse — centre+radius and three-point built for all three; tangent-
+      tangent-radius also built for Circle; fit-to-points also built for Circle.** A circle and an
+      ellipse are exact (four/eight cubic arcs via `CircularArc.toCubicSegments`, an ellipse as an
+      affine image of the unit circle through the existing `AffineTransform`); a superellipse has
+      no closed-form Bezier approximation for a general Lame exponent, so it samples the exact
+      parametric equation (360 points) and refits through `core-geometry`'s own
+      `fitClosedContourToCubics` — the one general fitter, never a second one written here. Circle's
+      fit-to-points is the Kåsa algebraic least-squares fit (I. Kåsa, "A circle fitting procedure
+      and its error analysis", *IEEE Transactions on Instrumentation and Measurement*, 1976; exact
+      for points that truly lie on a circle, checked directly in `CircleTest`). Ellipse/
+      superellipse's own three-point method is AutoCAD's `ELLIPSE` command's three-point axis-
+      endpoint construction (two points fix one axis, a third point's perpendicular distance fixes
+      the other) — a true three-point fit to a *general* (freely rotated) ellipse is mathematically
+      under-determined (an ellipse has 5 degrees of freedom; even an axis-aligned one has 4), so no
+      literal three-points-pick-an-ellipse method exists to build; ellipse/superellipse
+      fit-to-points (least-squares, not just three points) was left for a future task if the
+      product owner wants it — not attempted here.
+    - **Rectangle/RoundedRectangle — both of Rectangle's own entry methods (two corners, centre
+      plus size) and all three of RoundedRectangle's (two corners, centre plus size, each with a
+      uniform radius; per-corner radius) are built.** A corner whose combined radii would overlap
+      its neighbour's is resolved by the CSS Backgrounds and Borders Module Level 3 section 5.5
+      "Corner Overflow" algorithm (scale every radius down by one shared factor so adjacent radii
+      exactly meet), reused here as a general, well-defined answer to an over-constrained input
+      rather than an arbitrary per-shape clamp (`RectangleTest.cornerRadiiThatOverflowAreScaledDownProportionally`).
+    - **Stem is a parameter, not a font.** `StemPrimitive` accepts `stemValue` as a plain `Double`
+      (this task's own scope: wiring it to a real font's UFO `fontinfo` is a later task's job).
+    - **Bowl's contrast is a genuinely new technique in this codebase, built and cited rather than
+      stubbed, honestly scoped to what it does not attempt.** `strokeClosedContour` (`Stroke.kt`)
+      has no notion of a direction-dependent width, so a monolinear bowl (`contrast = 1.0`, the
+      default) literally delegates to it, but a contrasted one needs a real extension: this file
+      models the pen as an ellipse and offsets the flattened superellipse skeleton, at each vertex,
+      by that ellipse's own **support function** evaluated at the vertex's local outward-normal
+      angle (`h(phi) = sqrt((rx*cos(phi-alpha))^2 + (ry*sin(phi-alpha))^2)`, the closed-form
+      support function of an ellipse of semi-axes `rx`/`ry` rotated by `alpha` — independently
+      re-derived from the ellipse's own implicit equation and gradient, checked in `BowlTest`
+      directly against a hand-evaluated point and against the constant-circle-pen `rx == ry`
+      reduction) — the standard "elliptical pen" idea best known from Knuth's METAFONT. Like
+      `Offset.kt`'s own offset primitives, this does not attempt self-intersection cleanup: an
+      extreme `contrast`/`strokeWidth` combination on a very small, sharply-curved bowl is this
+      primitive's own out-of-scope input, not silently corrected (`BowlPrimitive`'s own KDoc says
+      so plainly).
+    - **Serif and Terminal primitives are not built, and nothing fakes a "font-wide serif style"
+      for them to consume.** The handoff is explicit that these are "derived from font wide
+      parameters" (a serif style setting) — the brief's own project-declaration layer (section
+      9.2: "serif or sans... serif presence and bracket... terminal style") names this as a
+      *user-declared/classifier-detected* property elsewhere in the app, but no type anywhere in
+      this codebase (`core-font`'s `fontinfo`, or any other module) currently represents "the
+      font's serif style" as a construction parameter (fillet radii, bracket curvature, terminal
+      shape) a primitive could read. Inventing one here would be exactly the kind of guess CLAUDE.md's
+      "when unsure, stop and report" rule exists to prevent — this is a real, disclosed scope gap,
+      not a shortcut.
+    - **Nothing here is wired into the sheet yet.** Like P4a/P4b's own primitives-tool/Construct-
+      inspector entry above, this task built only the geometry (`engine-construct`, no UI); the
+      puck's primitives tool, the "parametric · bake" inspector toggle and per-entry-method input
+      fields are P5b's own remaining UI work.
+
+    *Data points for whoever wires this grammar into the sheet's primitives tool and Construct
+    inspector, defines a font-wide serif style for a future Serif/Terminal primitive task, or adds
+    ellipse/superellipse least-squares fit-to-points; not product decisions, so no owner tag,
+    except the serif-style definition itself, which is a design decision. Madhav, when the serif
+    style parameter set is designed.*
+

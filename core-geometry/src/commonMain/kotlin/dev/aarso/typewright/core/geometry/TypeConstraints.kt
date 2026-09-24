@@ -148,8 +148,13 @@ fun applyTypeConstraintsToContours(
  * uses, evaluated at the extremum's own `t` rather than at its control points — to clear this floor
  * before it is inserted at all. This is one more global, glyph-agnostic tuning knob (P2a's
  * anti-gaming rule), not a special case for any of these four letters.
+ *
+ * `public`, not `internal` (P5b): this is also the Palette's own "add extremes" command
+ * (`TYPEWRIGHT_BUILD_BRIEF.md` line 372-373) — used directly by a later UI task rather than
+ * reimplemented, in the same pure-visibility-widening spirit as `Offset.kt`'s own `MAX_FLATTEN_DEPTH`/
+ * `isFlatEnough`/`distanceToLine` (P4b: `private` to `internal`). No behaviour change here either.
  */
-internal fun insertExtremaOnCurvePoints(
+fun insertExtremaOnCurvePoints(
     contour: Contour,
     minimumBulgeUnits: Double = DEFAULT_MINIMUM_EXTREMUM_BULGE_UNITS,
 ): Contour {
@@ -389,8 +394,14 @@ internal fun snapPointsToMetricLines(
  * Containment is tested with a standard even-odd ray-casting point-in-polygon test
  * ([pointInPolygon]) against each contour flattened to a dense sample ([flattenForContainment]),
  * general-purpose and independent of which glyph or shape produced the contours.
+ *
+ * `public`, not `internal` (P5b): this is also the Palette's own "correct direction" command
+ * (`TYPEWRIGHT_BUILD_BRIEF.md` line 372-373) — used directly, not reimplemented as a second
+ * point-in-polygon containment check (see `Palette.kt`'s module KDoc for the full Palette registry
+ * this belongs to). A pure visibility widening, no behaviour change, matching `Offset.kt`'s own
+ * P4b precedent.
  */
-internal fun enforceContourDirections(contours: List<Contour>): List<Contour> {
+fun enforceContourDirections(contours: List<Contour>): List<Contour> {
     if (contours.isEmpty()) return contours
     val flattened = contours.map { it.flattenForContainment() }
     val interiorPoints = contours.map { it.representativeInteriorPoint() }
