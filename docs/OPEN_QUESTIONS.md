@@ -1112,3 +1112,38 @@ says what was done in the meantime, and names who decides. Answered entries move
     wasmJs loading path), whoever re-runs the fetch script on a later commit, or the product
     owner deciding the long-term pattern for committing lesson font binaries; not a single
     owner tag, per the individual items above.*
+
+## P6: Learn scene format and renderer logic (data/logic half)
+
+35. **`docs/LESSONS_SCAFFOLD.md` section 2's identify-it bank names a face that is also on
+   stage.** The bank's own framing is "faces not on stage", and its first entry is "Libre
+   Baskerville → Transitional". But section 2's own era table (row 3) has Libre Baskerville as
+   the on-stage face for the Transitional era, and section 1's own worked example (the
+   `lineages.transitional` scene) shows this concretely: that scene's `stage.to` is the
+   `transitional` key, which resolves to family "Libre Baskerville", and that same scene's own
+   inline `exercise.face` is *also* "Libre Baskerville" — the exact face the learner just
+   watched crossfade onto stage. `StrandSequencer.plan` (`learn/scenes`) enforces the CANON
+   rule ("never shows a face used on stage in that block") structurally, so this collision is
+   filtered out automatically wherever real content is loaded — it will not surface as a bug
+   in the app, only as a missing exercise question. But whoever authors the real Lineages YAML
+   (the content-authoring stage of this same P6 task) should swap that bank entry for a face
+   genuinely absent from all ten on-stage faces, since as written it can never actually be
+   shown. *Whoever authors the real `scenes/lineages/*.yaml` content.*
+
+36. **"Used on stage in that block" was read as the whole block, not "earlier than this
+   scene".** `docs/LESSONS_SCAFFOLD.md` section 1's own CANON text says only "never shows a
+   face used on stage in that block" — no "earlier" qualifier. `StrandSequencer` (`learn/
+   scenes`) implements exactly that: a candidate exercise face is ineligible if it was used as
+   `stage.from`/`stage.to` by *any* scene in the given block, including the exercise's own
+   scene, not just scenes before it. This reading is what makes open question 35's collision
+   detectable at all (a strictly-"earlier-than-this-scene" reading would let era 3's own
+   self-referential exercise through, since nothing *before* era 3 puts Libre Baskerville on
+   stage) and matches section 2's "faces not on stage" framing for the bank as a whole. If the
+   Learn UI task (the second half of this P6 prompt) needs a different reading — for example,
+   surfacing a scene's own exercise immediately after that scene rather than pooling every
+   block's exercises after its last scene — `StrandSequencer.plan` takes the scene list as an
+   ordinary ordered `List<Scene>`, so a caller wanting a narrower "strictly earlier" collision
+   check can already get it by calling `plan` once per prefix of the block; nothing needs to
+   change in this file for that, but it is worth confirming the whole-block reading is what the
+   UI actually wants before scene content is authored against it. *Madhav, or whoever builds
+   the Learn UI half of P6.*
