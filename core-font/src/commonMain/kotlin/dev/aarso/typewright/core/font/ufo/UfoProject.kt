@@ -4,12 +4,13 @@ import dev.aarso.typewright.core.geometry.Glyph
 
 /**
  * The `fontinfo.plist` fields `core-font` models: font-wide metadata every screen in the app
- * needs (family/style name for display, `unitsPerEm`/`ascender`/`descender` to size the sheet).
- * The UFO 3 spec's `fontinfo.plist` has many more optional keys (kerning groups, PostScript
- * hints, OpenType name-table overrides, ...); [writeFontInfo]/[readFontInfo] round-trip exactly
- * these seven and silently keep only these on a read of a richer file, since nothing downstream
- * of `core-font` yet needs the rest. All keys are optional in both this type and the file: a
- * `null` field is simply left out of `fontinfo.plist`, which the spec allows.
+ * needs (family/style name for display, `unitsPerEm`/`ascender`/`descender`/`xHeight`/`capHeight`
+ * to size the sheet and to give `qa`'s alignment-miss check its metric lines). The UFO 3 spec's
+ * `fontinfo.plist` has many more optional keys (kerning groups, PostScript hints, OpenType
+ * name-table overrides, ...); [writeFontInfo]/[readFontInfo] round-trip exactly these nine and
+ * silently keep only these on a read of a richer file, since nothing downstream of `core-font`
+ * yet needs the rest. All keys are optional in both this type and the file: a `null` field is
+ * simply left out of `fontinfo.plist`, which the spec allows.
  */
 data class UfoFontInfo(
     val familyName: String? = null,
@@ -17,6 +18,8 @@ data class UfoFontInfo(
     val unitsPerEm: Int? = null,
     val ascender: Int? = null,
     val descender: Int? = null,
+    val xHeight: Int? = null,
+    val capHeight: Int? = null,
     val versionMajor: Int? = null,
     val versionMinor: Int? = null,
 )
@@ -140,12 +143,14 @@ private fun readDefaultLayerDirectory(layerContentsXml: String?): String {
 private fun fontInfoToPlist(info: UfoFontInfo): PlistValue.PDict {
     val entries = mutableListOf<Pair<String, PlistValue>>()
     info.ascender?.let { entries += "ascender" to PlistValue.PInteger(it.toLong()) }
+    info.capHeight?.let { entries += "capHeight" to PlistValue.PInteger(it.toLong()) }
     info.descender?.let { entries += "descender" to PlistValue.PInteger(it.toLong()) }
     info.familyName?.let { entries += "familyName" to PlistValue.PString(it) }
     info.styleName?.let { entries += "styleName" to PlistValue.PString(it) }
     info.unitsPerEm?.let { entries += "unitsPerEm" to PlistValue.PInteger(it.toLong()) }
     info.versionMajor?.let { entries += "versionMajor" to PlistValue.PInteger(it.toLong()) }
     info.versionMinor?.let { entries += "versionMinor" to PlistValue.PInteger(it.toLong()) }
+    info.xHeight?.let { entries += "xHeight" to PlistValue.PInteger(it.toLong()) }
     return PlistValue.PDict(entries)
 }
 
@@ -156,6 +161,8 @@ private fun fontInfoFromPlist(dict: PlistValue.PDict): UfoFontInfo =
         unitsPerEm = dict.intOrNull("unitsPerEm"),
         ascender = dict.intOrNull("ascender"),
         descender = dict.intOrNull("descender"),
+        xHeight = dict.intOrNull("xHeight"),
+        capHeight = dict.intOrNull("capHeight"),
         versionMajor = dict.intOrNull("versionMajor"),
         versionMinor = dict.intOrNull("versionMinor"),
     )

@@ -106,4 +106,47 @@ class CurveSegmentTest {
         assertEquals(0.5, mid.x, absoluteTolerance = 1e-12)
         assertEquals(0.75, mid.y, absoluteTolerance = 1e-12)
     }
+
+    @Test
+    fun chordsOfACubicContourAreExactIntegerAnchorToAnchorSegments() {
+        val contour =
+            Contour(
+                listOf(on(0, 0), off(1, 2), off(3, 2), on(4, 0), off(3, -2), off(1, -2)),
+                CurveFormat.CUBIC,
+            )
+        assertEquals(
+            listOf(Segment(Point(0, 0), Point(4, 0)), Segment(Point(4, 0), Point(0, 0))),
+            contour.chords(),
+        )
+    }
+
+    @Test
+    fun chordsOfAPolygonAreItsOwnLineSegments() {
+        val square = Contour(listOf(on(0, 0), on(1, 0), on(1, 1), on(0, 1)), CurveFormat.QUADRATIC)
+        assertEquals(
+            listOf(
+                Segment(Point(0, 0), Point(1, 0)),
+                Segment(Point(1, 0), Point(1, 1)),
+                Segment(Point(1, 1), Point(0, 1)),
+                Segment(Point(0, 1), Point(0, 0)),
+            ),
+            square.chords(),
+        )
+    }
+
+    @Test
+    fun chordsRoundAnImpliedQuadraticAnchorToTheNearestFontUnit() {
+        // The off-curve pair (3, 1) / (4, 1) implies an on-curve midpoint at (3.5, 1), which is
+        // not an integer; the chords touching it round that midpoint to the nearest unit.
+        val contour = Contour(listOf(on(0, 0), off(3, 1), off(4, 1), on(10, 0)), CurveFormat.QUADRATIC)
+        val chords = contour.chords()
+        assertEquals(
+            listOf(
+                Segment(Point(0, 0), Point(4, 1)),
+                Segment(Point(4, 1), Point(10, 0)),
+                Segment(Point(10, 0), Point(0, 0)),
+            ),
+            chords,
+        )
+    }
 }

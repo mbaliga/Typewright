@@ -1,5 +1,6 @@
 package dev.aarso.typewright.core.font.ufo
 
+import dev.aarso.typewright.core.geometry.Anchor
 import dev.aarso.typewright.core.geometry.Contour
 import dev.aarso.typewright.core.geometry.ContourPoint
 import dev.aarso.typewright.core.geometry.CurveFormat
@@ -19,8 +20,12 @@ import kotlin.math.roundToInt
  * **Scope.** Only what a `core-geometry` [Glyph] can actually represent is read or written:
  * - a glyph's `name` and `<advance width="…"/>` map directly to [Glyph.name]/[Glyph.advanceWidth];
  * - `<contour>` elements map to [Contour]s of [CurveFormat.CUBIC];
- * - `<unicode>`, `<anchor>`, `<guideline>`, `<image>`, `<lib>` and `<note>` are skipped on read
- *   (nothing in [Glyph] has anywhere to put them) and never written;
+ * - `<anchor name="…" x="…" y="…"/>` elements map to [Glyph.anchors] ([Anchor]s), in document
+ *   order; an `<anchor>` with no `name` attribute is rejected (mirroring how a `<glyph>` with no
+ *   `name` is rejected below), since an unnamed anchor cannot pair with a mark's `_name` and so
+ *   cannot do the one thing an anchor is for;
+ * - `<unicode>`, `<guideline>`, `<image>`, `<lib>` and `<note>` are skipped on read (nothing in
+ *   [Glyph] has anywhere to put them) and never written;
  * - a `<point>`'s `smooth`, `name` and `identifier` attributes are dropped on read, for the same
  *   reason ([ContourPoint] carries only a location and on/off-curve flag).
  *
@@ -51,6 +56,7 @@ fun parseGlif(xml: String): Glyph {
 
     var advanceWidth = 0
     var contours: List<Contour> = emptyList()
+    val anchors = mutableListOf<Anchor>()
 
     event = skipToStartOrEnd(reader, reader.next())
     while (event != EventType.END_ELEMENT) {
@@ -65,13 +71,27 @@ fun parseGlif(xml: String): Glyph {
                 contours = readOutline(reader)
             }
 
+            "anchor" -> {
+                anchors += readAnchor(reader)
+            }
+
             else -> {
                 reader.skipElement()
-            } // unicode, anchor, guideline, image, lib, note: not modelled, see KDoc
+            } // unicode, guideline, image, lib, note: not modelled, see KDoc
         }
         event = skipToStartOrEnd(reader, reader.next())
     }
-    return Glyph(name, advanceWidth, contours)
+    return Glyph(name, advanceWidth, contours, anchors)
+}
+
+private fun readAnchor(reader: XmlReader): Anchor {
+    val name =
+        reader.getAttributeValue(null, "name")
+            ?: throw IllegalArgumentException("<anchor> is missing its required 'name' attribute")
+    val x = parseCoordinate(reader.getAttributeValue(null, "x") ?: throw IllegalArgumentException("<anchor> is missing 'x'"))
+    val y = parseCoordinate(reader.getAttributeValue(null, "y") ?: throw IllegalArgumentException("<anchor> is missing 'y'"))
+    reader.skipElement()
+    return Anchor(name, Point(x, y))
 }
 
 private fun skipToStartOrEnd(
@@ -200,6 +220,15 @@ fun writeGlif(glyph: Glyph): String {
         append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
         append("<glyph name=\"").append(escapeXmlAttribute(glyph.name)).append("\" format=\"2\">\n")
         append("  <advance width=\"").append(glyph.advanceWidth).append("\"/>\n")
+        for (anchor in glyph.anchors) {
+            append("  <anchor x=\"")
+                .append(anchor.point.x)
+                .append("\" y=\"")
+                .append(anchor.point.y)
+                .append("\" name=\"")
+                .append(escapeXmlAttribute(anchor.name))
+                .append("\"/>\n")
+        }
         if (glyph.contours.isNotEmpty()) {
             append("  <outline>\n")
             for (contour in glyph.contours) writeContour(this, contour)

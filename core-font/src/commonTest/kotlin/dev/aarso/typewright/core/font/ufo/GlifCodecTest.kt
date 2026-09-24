@@ -1,5 +1,6 @@
 package dev.aarso.typewright.core.font.ufo
 
+import dev.aarso.typewright.core.geometry.Anchor
 import dev.aarso.typewright.core.geometry.Contour
 import dev.aarso.typewright.core.geometry.ContourPoint
 import dev.aarso.typewright.core.geometry.CurveFormat
@@ -127,6 +128,40 @@ class GlifCodecTest {
         val glyph = parseGlif(glif)
         assertEquals(0, glyph.advanceWidth)
         assertEquals(emptyList(), glyph.contours)
+    }
+
+    @Test
+    fun writesAndParsesAnchorsLosslessly() {
+        val glyph =
+            Glyph(
+                "a",
+                600,
+                listOf(cubicLensContour()),
+                anchors = listOf(Anchor("top", Point(300, 700)), Anchor("_top", Point(300, 0))),
+            )
+        val xml = writeGlif(glyph)
+        assertTrue(xml.contains("<anchor x=\"300\" y=\"700\" name=\"top\"/>"))
+        assertTrue(xml.contains("<anchor x=\"300\" y=\"0\" name=\"_top\"/>"))
+        assertEquals(glyph, parseGlif(xml))
+    }
+
+    @Test
+    fun aGlyphWithNoAnchorsWritesNoAnchorElement() {
+        val glyph = Glyph("space", 300, emptyList())
+        val xml = writeGlif(glyph)
+        assertEquals(false, xml.contains("<anchor"))
+        assertEquals(emptyList(), parseGlif(xml).anchors)
+    }
+
+    @Test
+    fun rejectsAnAnchorWithNoName() {
+        val glif =
+            """
+            <?xml version="1.0"?><glyph name="g" format="2">
+              <anchor x="10" y="20"/>
+            </glyph>
+            """.trimIndent()
+        assertFailsWith<IllegalArgumentException> { parseGlif(glif) }
     }
 
     @Test

@@ -52,6 +52,8 @@ class UfoProjectTest {
                         unitsPerEm = 1000,
                         ascender = 800,
                         descender = -200,
+                        xHeight = 500,
+                        capHeight = 700,
                         versionMajor = 1,
                         versionMinor = 0,
                     ),
@@ -83,6 +85,15 @@ class UfoProjectTest {
         val files = writeUfoProject(UfoProject(UfoFontInfo(), emptyList()))
         val metaInfo = parsePlistDict(files.getValue("metainfo.plist"))
         assertEquals(3L, metaInfo.longOrNull("formatVersion"))
+    }
+
+    @Test
+    fun fontInfoRoundTripsXHeightAndCapHeightLikeAscenderAndDescender() {
+        val files = writeUfoProject(UfoProject(UfoFontInfo(xHeight = 500, capHeight = 700), emptyList()))
+        val fontInfo = parsePlistDict(files.getValue("fontinfo.plist"))
+        assertEquals(500L, fontInfo.longOrNull("xHeight"))
+        assertEquals(700L, fontInfo.longOrNull("capHeight"))
+        assertEquals(UfoFontInfo(xHeight = 500, capHeight = 700), readUfoProject(files).fontInfo)
     }
 
     @Test

@@ -1,5 +1,7 @@
 package dev.aarso.typewright.core.geometry
 
+import kotlin.math.roundToInt
+
 /**
  * One curve segment between two anchor points, in algorithm space ([Vec2]). Produced by
  * [Contour.segments], which resolves [CurveFormat.QUADRATIC]'s implied on-curve points into real
@@ -61,6 +63,30 @@ fun Contour.segments(): List<CurveSegment> =
         CurveFormat.QUADRATIC -> decodeQuadraticSegments(points)
         CurveFormat.CUBIC -> decodeCubicSegments(points)
     }
+
+/**
+ * This contour's [Segment] chords, one per [Contour.segments] entry, in point order: the straight
+ * line from a curve segment's anchor to the next anchor, ignoring any control points in between —
+ * exactly what [Segment]'s own KDoc means by "the chord of a curve segment". This is the primitive
+ * the `qa` module's fontbakery-style outline heuristics (alignment miss, collinear, short, jaggy,
+ * semi-vertical — docs/RESEARCH_font_quality.md's outline section) are built from: each check
+ * reasons about the straight node-to-node polygon a designer actually placed, not about how much a
+ * curve bulges between two nodes.
+ *
+ * A [CurveFormat.CUBIC] anchor is always one of the contour's own explicit on-curve [Point]s (see
+ * [Contour]'s "starts on-curve, (on, off, off) triples" contract), so its chord endpoints are
+ * exact integers with no rounding. A [CurveFormat.QUADRATIC] anchor can also be an *implied*
+ * on-curve point — the midpoint of two consecutive off-curve points — which is not generally an
+ * integer (for example the midpoint of `(3, 5)` and `(4, 5)` is `(3.5, 5)`); [roundToNearestPoint]
+ * rounds that midpoint to the nearest font unit for reporting purposes only. That is a half-unit
+ * approximation at most, small next to the 2-3 unit thresholds these checks compare against, and
+ * it is never written back as a glyph's coordinate (see the module overview's "integers at rest"
+ * note) — only used to describe *where* a heuristic fired.
+ */
+fun Contour.chords(): List<Segment> = segments().map { Segment(it.start.roundToNearestPoint(), it.end.roundToNearestPoint()) }
+
+/** [v] rounded to the nearest integer [Point], each axis independently. */
+private fun Vec2.roundToNearestPoint(): Point = Point(x.roundToInt(), y.roundToInt())
 
 /**
  * This segment's exact contribution to `2 x signedArea` (`∮ x dy − y dx` over the segment's own
