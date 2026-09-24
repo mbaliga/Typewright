@@ -12,6 +12,18 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+/**
+ * desktopTest, not commonTest: constructing a real `androidx.compose.ui.graphics.Path` and
+ * calling into it (`getBounds()` etc.) works on desktop's Skia-backed `Path` with no special test
+ * infrastructure, but on Android's host (non-instrumented) unit tests `Path` wraps the real
+ * `android.graphics.Path`, whose native methods are stubbed to throw ("Method moveTo in
+ * android.graphics.Path not mocked") unless a Robolectric shadow is set up -- which this module
+ * does not have. Living here, alongside this module's other Compose-rendering tests
+ * (`ScreenshotHarness`'s own desktopTest-only precedent), tests the real geometry-to-Path bridge
+ * for real on one platform rather than failing on Android CI for infrastructure this task's own
+ * scope did not call for adding.
+ */
+
 /** A straight-sided square [Contour], on-curve-only ([CurveFormat.QUADRATIC], so every segment is a plain line). */
 private fun squareContour(size: Int): Contour =
     Contour(
