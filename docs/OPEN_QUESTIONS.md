@@ -2949,3 +2949,123 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     (non-headless, human-observed) check either way, since this task's evidence is consistent but
     entirely headless.
 
+## P9: independent verification (hosted build endpoint, browser shaping preview, frame times)
+
+120. **Every P9 build/test/audit claim (items 112-119) independently reproduced from fresh,
+    isolated re-runs, plus one real numeric inconsistency found in `docs/WEB_PERFORMANCE.md` and
+    disclosed with a re-measurement rather than silently corrected.** Fresh `--rerun-tasks` runs,
+    env `ANDROID_HOME=/opt/android-sdk CHROME_BIN=/opt/pw-browsers/chromium-1194/chrome-linux/chrome
+    LANG=en_US.UTF-8`: `:compile:spotlessCheck :compile:desktopTest :compile:testAndroidHostTest
+    :compile:wasmJsNodeTest` — BUILD SUCCESSFUL, 16/16 `desktopTest`, 16/16 `testAndroidHostTest`,
+    21/21 `wasmJsNodeTest` (16 `HostedBuildProtocolTest` + 5 `HostedEndpointBackendRealHttpTest`,
+    JUnit XML, not console text) — matching item 115's own "Tested" section exactly.
+    `:compile:wasmJsBrowserTest` re-run separately: task genuinely `SKIPPED` (disabled), confirming
+    item 118 by running it, not by reading the plugin. `:shape-preview:spotlessCheck
+    :shape-preview:wasmJsNodeTest :shape-preview:wasmJsBrowserTest :shape-preview:desktopTest` —
+    BUILD SUCCESSFUL, 4/4 `wasmJsNodeTest`, 4/4 `wasmJsBrowserTest` (real headless Chrome, 3 real
+    `BrowserFontFaceVisualPreviewBrowserTest` cases), 16/16 `desktopTest` — exactly item 114's own
+    numbers. Combined repo-wide re-run (`spotlessCheck jvmTest wasmJsNodeTest :ui:desktopTest
+    :ui:testAndroidHostTest`, root, plus `:ui:wasmJsBrowserTest` separately) — BUILD SUCCESSFUL:
+    `jvmTest` 829/829, `wasmJsNodeTest` 832/832 (both sums across every pure module's own XML,
+    covering `:scripts:`/`:qa:corpus:`/`:campaign:` in full), `:ui:desktopTest` 290/290,
+    `:ui:testAndroidHostTest` 198/198, `:ui:wasmJsBrowserTest` 199/199 — the last three
+    byte-identical to P7/P8's own item 95/111 totals, confirming zero regression anywhere `:ui:`
+    depends on. Zero failures, errors or skips anywhere, in any run.
+    - **`:app-web:wasmJsBrowserDistribution --rerun-tasks` rebuilt fresh independently** — BUILD
+      SUCCESSFUL (109 actionable tasks, all executed; the same pre-existing webpack asset-size
+      warnings item 119's own predecessor doc already names, not new errors). Served locally and
+      loaded in this session's own real headless Chromium (`/opt/pw-browsers/chromium-1194`, at a
+      360x640/DPR-3 mobile viewport), with a real screenshot taken and looked at directly (not
+      trusted from any other stage's own description): the Draw sheet renders correctly — header
+      ("DRAW -- pts", "MAP"), BACKGROUND/SKETCH layer rows, the glyph bounding box with its guide
+      lines, the "DRAW" watermark, the puck at "SELECT", and the Workbook/Learn corner buttons all
+      present, matching `docs/WEB_PERFORMANCE.md`'s own description. Console/network capture during
+      load: zero failed requests, zero HTTP >= 400 in the `response` listener, one `[error] Failed
+      to load resource: 404` console line consistent with the same cosmetic `favicon.ico` 404
+      `docs/WEB_PERFORMANCE.md` already names (not a new problem).
+    - **Browser-shaper audit: the glyph-id/cluster-availability finding independently re-run live,
+      today, in this session's own real Chromium 141.0.7390.37, not trusted from item 112's own
+      write-up.** A real `FontFace` built from `fonts/NotoSansDevanagari-Regular.ttf`'s real bytes,
+      loaded for real, used to measure the same real Devanagari conjunct (क्ष) against a single क
+      and three unligated ककक on a real `<canvas>`: **71.70 px / 76.80 px / 230.40 px — exact,
+      byte-for-byte matches of item 112's own three widths**, on the identical Chrome build.
+      `CanvasRenderingContext2D.prototype`'s own real property list, independently re-filtered for
+      `/glyph|shape|cluster|run/i`, is empty here too; `TextMetrics.getSelectionRects` is still
+      absent; `FontFace.prototype`'s own real property list is still the same fifteen names with no
+      readable `ascent`/`descent` getter (`face.ascent` reads `undefined`); `'fonts' in navigator`
+      and `'GlyphRun' in window` are still both `false`. Finding: **independently CONFIRMED, not
+      merely re-read.** Grepped every P9-touched main-source file (`compile/`, `shape-preview/`)
+      for a fake `ShapeResult.Shaped(` or a literal `"Shaped"`/`status = "success"` construction
+      outside real response-parsing logic: **zero matches** — the only two real
+      `ShapeResult.Shaped(` call sites in the whole module are `SkikoShaper.kt` (desktop) and
+      `AndroidTextRunShaper.kt` (Android), both pre-existing from P8 and untouched here (`git diff`
+      confirms). `Shaper.kt` itself: `git log` shows its last real change is P0's own scaffold
+      commit — its public API is genuinely untouched by P9, not merely claimed to be.
+    - **Hosted-endpoint audit: `HostedEndpointBackend.compile()` genuinely builds a real request
+      from a real `CompileRequest` and performs a real HTTP call, confirmed by reading
+      `HostedEndpointBackend.kt`/`HostedBuildProtocol.kt`/`HostedEndpointTransport.kt`/
+      `MockHttpServer.kt` directly, not assumed from the doc.** `encodeRequest` walks
+      `request.project.listFiles()`/`readBytes()` and base64-encodes every byte; the one `fetch(`
+      call site in the module's entire main source is `HostedEndpointTransport.kt`'s
+      `fetchOutcomeJson`, reached only from `HostedEndpointBackend.compile()`, reached only when a
+      caller explicitly invokes it with a request — `availability()` and construction touch no
+      network, confirmed by reading both, not merely the KDoc's claim. `endpoint == null` still
+      returns `Unavailable(PLANNED)` with the exact same `PLANNED` string, byte for byte, against
+      the pre-P9 version (`git diff` on `HostedEndpointBackend.kt` shows the `PLANNED` constant
+      itself outside the diff hunks entirely) — item 116's own claim, independently confirmed by
+      diff rather than by reading the class's own KDoc. `HostedEndpointBackendRealHttpTest` genuinely
+      starts a real Node `http` server on a real loopback socket (`MockHttpServer.kt`'s own
+      `process.getBuiltinModule('http')` call, read directly) and `HostedEndpointBackend("http://
+      127.0.0.1:$port").compile(request)` genuinely POSTs to it — not a Kotlin fake standing in for
+      either side, confirmed by reading the raw JS interop in both files rather than trusting the
+      class-level KDoc's own claim. `docs/HOSTED_BUILD_ENDPOINT.md`'s request/response shapes were
+      cross-checked line by line against `HostedBuildProtocol.kt`'s real `RequestPayload`/
+      `ResponsePayload`/`BinaryPayload`/`LogPayload` classes and `interpretTransportOutcome`/
+      `decodeResponseBody`'s real branching (unrecognised log level -> INFO, not dropped;
+      unrecognised binary format -> dropped with a WARNING, not mislabelled; any non-2xx or
+      transport failure -> `CompileResult.Failure` naming the endpoint, up to 2,000 echoed body
+      characters) — **every claim in the doc matches the real code**, no discrepancy found. The
+      doc's own "what the client can verify, and what it must simply trust" section on zero-
+      retention is genuinely present (confirmed by reading it, not by its own table of contents)
+      and is internally honest about being a policy statement, not proof — it does not claim more
+      than the code (there is no real deployment) can back up.
+    - **Frame-times audit: re-measured independently, one run per rate, same technique
+      (`Emulation.setCPUThrottlingRate`, real `page.mouse` drag against the puck body — `Swiping`,
+      the same worked-around gesture item 119 already discloses, not `GripDragging`), full numbers
+      and method in a new section appended directly to `docs/WEB_PERFORMANCE.md` (not reproduced
+      here in full).** Headline finding **reproduced**: median frame time pinned at vsync (~16.7 ms,
+      60 fps) at 1x/4x/6x alike, and the tail visibly worsens under throttling (max 49.9 -> 100.0 ->
+      150.0 ms here, against the original's 41.1 -> 91.6 -> 90.5 ms) — same real ballpark, same
+      qualitative shape, in an independent run. **One real thing flagged, not smoothed over:**
+      `docs/WEB_PERFORMANCE.md`'s own three frame counts (510/510/520) do not arithmetically fit its
+      own stated "4 real seconds" gesture window against its own stated median deltas — `(frames -
+      1) x median` lands at roughly 8.3-8.6 real seconds at every rate, not 4; this session's own
+      re-run, using a `Date.now()`-bounded drive loop rather than a fixed step count, produced frame
+      counts consistent with an actual 4-second window (250/240/237) at every rate. Flagged as an
+      unresolved inconsistency (a plausible but unconfirmed explanation is offered) rather than
+      silently corrected, since the original `frame_times.mjs` script lives in a different, prior
+      session's scratchpad and was not available here to confirm which side of the mismatch is
+      wrong. `docs/WEB_PERFORMANCE.md` still states plainly, at its top and now again in the
+      appended section, that no physical phone was used.
+    - **Law 3 audit (no backend of ours, no phoning home): clean.** The only `fetch(`/network call
+      anywhere in the diff is the one already covered by the hosted-endpoint audit above, gated
+      behind an explicit `compile()` call with no automatic or speculative caller anywhere in this
+      session's own grep of `ui/src` and `app-web/src` for `HostedEndpointBackend`/`CompileBackend`
+      usage (there is none yet — no Ship room UI screen exists in `ui/` at all, matching every other
+      not-yet-built brief-§4.1 screen (Capture/Trace/Economy/Check) at this point in the build, per
+      `docs/ARCHITECTURE_REVIEW.md` §4.1's own finding that only Draw/Space/Learn are wired into the
+      one-sheet UI so far — not a P9-specific gap, and not a law 3 violation, since the network call
+      is unreachable from the shipped app until a future task wires a Ship room UI to it).
+    - **Anti-gaming audit: clean.** Grepped every P9 main-source file (`HostedEndpointBackend.kt`,
+      `HostedBuildProtocol.kt`, `HostedEndpointTransport.kt`, `BrowserFontFaceShaperStub.kt`,
+      `BrowserFontFaceVisualPreview.kt`) for glyph-name/endpoint-literal branching (`if (... ==
+      "..."`, `when (...)` on a name/family/endpoint) and fixture-tied magic-number checks: zero
+      matches anywhere.
+    - **Not independently reproduced, disclosed rather than silently skipped:** a real fontmake-
+      backed server deployment was not stood up to test `HostedEndpointBackend` end to end (none
+      exists, per item 115's own disclosure and `docs/DECISIONS.md`'s still-open "hosted endpoint's
+      home"), so this pass reproduces the same narrower proof item 115/117 already describe honestly
+      (the client speaks the contract correctly against a real local server) rather than a claim
+      neither this pass nor P9 itself can make yet.
+
+    *Independent verification pass; not a product decision, so no owner tag.*

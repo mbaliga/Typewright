@@ -143,3 +143,54 @@ setCPUThrottlingRate', { rate })` call. The exact script used for this task's ow
 final report; not committed to the repository, since it is a one-off measurement script rather
 than an app source file).
 
+## Independently re-verified (P9 verify pass, 2026-09-24)
+
+A separate session re-ran a fresh `:app-web:wasmJsBrowserDistribution --rerun-tasks` (BUILD
+SUCCESSFUL, unmodified since this document was written), served it locally, loaded it in this
+same sandbox's own real headless Chromium, and re-drove the identical `Swiping` puck-body drag
+(a real `page.mouse` down/circular-move-loop/up sequence, own script, not this document's
+`frame_times.mjs`) for a real, `Date.now()`-bounded 4-second window per CPU rate, using the same
+CDP `Emulation.setCPUThrottlingRate` technique. Real numbers, one run each, own screenshot taken
+separately and confirmed to render correctly first:
+
+| rate | frames | median | p95 | mean | min | max |
+|---|---|---|---|---|---|---|
+| 1x | 250 | 16.7 ms | 16.8 ms | 17.0 ms | 16.5 ms | 49.9 ms |
+| 4x | 240 | 16.7 ms | 16.8 ms | 17.9 ms | 16.6 ms | 100.0 ms |
+| 6x | 237 | 16.7 ms | 16.8 ms | 18.2 ms | 16.5 ms | 150.0 ms |
+
+**Same real ballpark as the table above, on the central claim.** The median stays pinned at
+vsync (~16.7 ms, 60 fps) at every throttle level, exactly reproducing this document's headline
+finding. The max grows sharply under throttling (49.9 -> 100.0 -> 150.0 ms), the same qualitative
+"the tail gets worse, the median doesn't" shape this document reports (its own max: 41.1 -> 91.6
+-> 90.5 ms) -- real, reproducible main-thread cost showing up only in occasional frames, in both
+independent runs.
+
+**Two real differences worth flagging plainly, not smoothed over:**
+- **p95 did not grow with throttling in this shorter run** (flat at 16.8 ms across 1x/4x/6x,
+  against this document's own 17.6 -> 20.6 -> 22.7 ms). With only ~237-250 frames per rate here
+  (a `Date.now()`-bounded 4-second window; see below) against this document's own ~510-520, the
+  top-5% bucket this run's p95 falls into is a smaller, coarser sample (about 12 frames here
+  versus about 25-26 there) -- plausible enough to explain a flatter p95 without the underlying
+  per-frame behaviour actually differing, but not verified further here.
+- **This document's own frame counts do not arithmetically match its own stated "4 real
+  seconds" gesture window, independent of this re-run.** 510 frames at a reported median of
+  16.8 ms (1x), 510 at 16.4 ms (4x), and 520 at 16.6 ms (6x) each imply roughly 8.3-8.6 *seconds*
+  of real inter-frame time (`(frames - 1) x median`, and `(frames - 1) x mean` lands in the same
+  8.6-9.0 s range) -- about double the "4 real seconds" the gesture section and the table header
+  both state. This session's own re-run, using a `while (Date.now() - start < 4000)`-bounded
+  drive loop rather than a fixed step count, produced frame counts consistent with an actual
+  4-second window (250/240/237, matching `4000 ms / ~16.7 ms/frame`) at every rate. A plausible,
+  unverified explanation: if the original script instead looped a fixed number of `page.mouse.
+  move()` calls sized for a nominal 4-second, ~60 Hz sweep, real per-call CDP round-trip latency
+  (not bounded by wall-clock inside the loop) could stretch actual elapsed time well past the
+  nominal figure without the script itself noticing -- but this was not confirmed against the
+  original `frame_times.mjs`, which lives in a different, prior session's scratchpad and was not
+  available to read here. The per-frame statistics above (median, p95, tail growth) are still
+  real, internally consistent numbers either way; only the "4 real seconds" duration label next
+  to the original frame counts does not add up on its own arithmetic, and is flagged here rather
+  than silently corrected, since this session cannot confirm which side of the mismatch (the
+  stated duration or the frame count) is the one that is off.
+
+No physical phone was used for this re-verification either, for the same reason CLAUDE.md law 4
+states at the top of this document: this container has no device and no emulator.
