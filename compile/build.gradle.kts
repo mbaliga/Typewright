@@ -17,6 +17,8 @@ kotlin {
         commonMain {
             dependencies {
                 api(project(":core-font"))
+                // ProjectDirectory is now a typealias of com.asoc.typewright.project.ProjectFiles (docs/PROJECT_MODEL.md §2).
+                api(project(":project"))
                 // HostedBuildProtocol's request/response wire encoding (docs/HOSTED_BUILD_ENDPOINT.md).
                 // Already a build-wide dependency (qa:corpus's node-economy loader; see its own
                 // build.gradle.kts comment); same version, so nothing new resolves.

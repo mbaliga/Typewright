@@ -18,6 +18,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,9 +52,20 @@ import com.asoc.typewright.core.geometry.knifeContour
 import com.asoc.typewright.core.geometry.reverseContour
 import com.asoc.typewright.core.geometry.roundContourCoordinates
 import com.asoc.typewright.core.geometry.simplifyContour
+import com.asoc.typewright.project.ProjectWorkspace
+import com.asoc.typewright.ui.project.InMemoryProjectFolderPicker
+import com.asoc.typewright.ui.project.LocalProjectWorkspace
+import com.asoc.typewright.ui.project.LocalZipTransferSupported
+import com.asoc.typewright.ui.project.closeCurrentProject
+import com.asoc.typewright.ui.project.createUntitledProject
+import com.asoc.typewright.ui.project.downloadProjectZip
+import com.asoc.typewright.ui.project.openPickedProject
+import com.asoc.typewright.ui.project.saveProjectNow
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.Typography
 import com.asoc.typewright.ui.tokens.toColor
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * The desktop command palette (`UI_SPEC.md` §4 and brief §5.2/§10 item 6: "command palette on
@@ -98,8 +110,14 @@ fun CommandPalette(
     var query by remember { mutableStateOf("") }
     var highlighted by remember { mutableStateOf(0) }
     var lastResult by remember { mutableStateOf<String?>(null) }
-    val entries = remember { paletteEntries() }
-    val filtered = remember(query) { entries.filter { it.label.contains(query, ignoreCase = true) } }
+    val workspace = LocalProjectWorkspace.current
+    val zipTransferSupported = LocalZipTransferSupported.current
+    val scope = rememberCoroutineScope()
+    val entries =
+        remember(workspace, zipTransferSupported) {
+            paletteEntries() + projectPaletteEntries(workspace, zipTransferSupported, scope) { lastResult = it }
+        }
+    val filtered = remember(query, entries) { entries.filter { it.label.contains(query, ignoreCase = true) } }
     if (highlighted >= filtered.size) highlighted = 0
 
     val focusRequester = remember { FocusRequester() }
@@ -366,6 +384,85 @@ private fun paletteEntries(): List<PaletteEntry> =
             },
         ),
     )
+
+/**
+ * The P11 WP5 stopgap project entries (docs/PROJECT_MODEL.md §13's palette table): "New
+ * project…"/"Open project…"/"Save now"/"Close project" always, and the two `.zip` rows only when
+ * [zipTransferSupported] (web in-memory mode). Empty when [workspace] is null -- no
+ * [LocalProjectWorkspace] was provided at all (Android's real entry waits on P13's deck, per that
+ * table's own last row; every existing screenshot test, which never provides one either). Each
+ * `run` launches the real, `suspend` [ProjectWorkspace] call on [scope] and reports through
+ * [setResult] once it finishes, returning a "working…" line immediately so [CommandPalette]'s own
+ * synchronous result line has something honest to show meanwhile.
+ */
+private fun projectPaletteEntries(
+    workspace: ProjectWorkspace?,
+    zipTransferSupported: Boolean,
+    scope: CoroutineScope,
+    setResult: (String) -> Unit,
+): List<PaletteEntry> {
+    if (workspace == null) return emptyList()
+    val picker = InMemoryProjectFolderPicker(workspace)
+    val entries =
+        mutableListOf(
+            PaletteEntry(
+                id = "project-new",
+                label = "New project…",
+                description = "choose a folder; creates Untitled/ inside",
+                run = {
+                    scope.launch { setResult(createUntitledProject(workspace, picker)) }
+                    "New project…: working…"
+                },
+            ),
+            PaletteEntry(
+                id = "project-open",
+                label = "Open project…",
+                description = "choose an existing project's folder",
+                run = {
+                    scope.launch { setResult(openPickedProject(workspace, picker)) }
+                    "Open project…: working…"
+                },
+            ),
+            PaletteEntry(
+                id = "project-save",
+                label = "Save now",
+                description = "flush the open project to disk",
+                run = {
+                    scope.launch { setResult(saveProjectNow(workspace)) }
+                    "Save now: working…"
+                },
+            ),
+            PaletteEntry(
+                id = "project-close",
+                label = "Close project",
+                description = "flush and close the open project",
+                run = {
+                    scope.launch { setResult(closeCurrentProject(workspace)) }
+                    "Close project: working…"
+                },
+            ),
+        )
+    if (zipTransferSupported) {
+        entries +=
+            PaletteEntry(
+                id = "project-zip-download",
+                label = "Download project (.zip)",
+                description = "web in-memory mode only",
+                run = {
+                    scope.launch { setResult(downloadProjectZip(workspace)) }
+                    "Download project (.zip): working…"
+                },
+            )
+        entries +=
+            PaletteEntry(
+                id = "project-zip-open",
+                label = "Open project (.zip)…",
+                description = "web in-memory mode only",
+                run = { "Open project (.zip)…: not available in this build (no file picker is wired yet)." },
+            )
+    }
+    return entries
+}
 
 /** A plain 4-corner square, closed with [closePolylineToContour] -- straight (degenerate-cubic) edges, no curvature. */
 private fun demoSquare(): Contour = closePolylineToContour(listOf(Point(0, 0), Point(200, 0), Point(200, 200), Point(0, 200)))

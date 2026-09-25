@@ -70,15 +70,23 @@ data class Guideline(
 
 /**
  * One glyph: a name, its advance width in font units, its outline as a list of [Contour]s, its
- * mark-attachment [anchors], and its local [guidelines] (per-glyph alignment lines; a font's
+ * mark-attachment [anchors], its local [guidelines] (per-glyph alignment lines; a font's
  * font-wide guidelines are a project-level concept, not a glyph one, so they live instead on
- * `core-font`'s `UfoFontInfo.guidelines`). All contours share one [CurveFormat] in practice (a
- * glyph is read from one font, which is either all-quadratic or all-cubic), but that is a
- * convention of the readers that build a [Glyph], not a constraint this type enforces. [anchors]
- * and [guidelines] both default to empty so every existing caller that builds a [Glyph]
- * positionally with just (name, advanceWidth, contours) keeps compiling unchanged; a TrueType
- * [Glyph] (`core-font`'s sfnt reader has no GDEF anchor support and no guideline concept) is always
- * built with both defaults, honestly empty.
+ * `core-font`'s `UfoFontInfo.guidelines`), and the Unicode code points it is mapped from
+ * ([unicodes]). All contours share one [CurveFormat] in practice (a glyph is read from one font,
+ * which is either all-quadratic or all-cubic), but that is a convention of the readers and of the
+ * editing session that build a [Glyph], not a constraint this type enforces. [anchors],
+ * [guidelines] and [unicodes] all default to empty so every caller that builds a [Glyph]
+ * positionally with just (name, advanceWidth, contours) keeps compiling unchanged, and `copy()`
+ * carries them along; a TrueType [Glyph] from `core-font`'s sfnt reader has no GDEF anchor support
+ * and no guideline concept, so it is always built with those two empty.
+ *
+ * [unicodes] lives here rather than on a UFO-only wrapper because every consumer of a glyph
+ * (coverage checks, the workbook, the editor) already takes a [Glyph], and a glyph's code points
+ * are as much a part of it as its anchors. Its order is meaningful: as in a `.glif` file's
+ * `<unicode>` elements, the first entry is the primary code point, the one a tool shows when it
+ * needs just one. [init] rejects a value outside Unicode's code space (0 to 0x10FFFF) and a
+ * repeated value, so a list this type holds is always writable as-is.
  */
 data class Glyph(
     val name: String,
@@ -86,4 +94,18 @@ data class Glyph(
     val contours: List<Contour>,
     val anchors: List<Anchor> = emptyList(),
     val guidelines: List<Guideline> = emptyList(),
-)
+    val unicodes: List<Int> = emptyList(),
+) {
+    init {
+        for (codePoint in unicodes) {
+            require(codePoint in 0..MAX_CODE_POINT) {
+                "glyph '$name' has unicode $codePoint, outside Unicode's code space (0 to 0x10FFFF)"
+            }
+        }
+        require(unicodes.size < 2 || unicodes.toSet().size == unicodes.size) {
+            "glyph '$name' lists a unicode more than once: $unicodes"
+        }
+    }
+}
+
+private const val MAX_CODE_POINT = 0x10FFFF

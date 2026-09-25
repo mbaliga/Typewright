@@ -19,6 +19,7 @@ dependencies {
     testImplementation(project(":qa"))
     testImplementation(project(":qa:corpus"))
     testImplementation(project(":compile"))
+    testImplementation(project(":project"))
     // CompileBackend.compile is suspend (compile/src/commonMain/.../CompileBackend.kt); step 5
     // calls it from a plain JUnit test with kotlinx.coroutines.runBlocking.
     testImplementation(libs.kotlinx.coroutines.core)

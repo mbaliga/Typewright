@@ -20,6 +20,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +37,15 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.asoc.typewright.project.MetaChange
+import com.asoc.typewright.project.ProjectSession
+import com.asoc.typewright.project.scrapbook.ScrapbookManifest
+import com.asoc.typewright.project.scrapbook.ScrapbookPin
+import com.asoc.typewright.project.scrapbook.ScrapbookPinKind
+import com.asoc.typewright.project.scrapbook.stablePinHash
+import com.asoc.typewright.project.scrapbook.stablePinRotationDegrees
+import com.asoc.typewright.project.scrapbookBoard
+import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.MeaningColors
 import com.asoc.typewright.ui.tokens.SpacingTokens
@@ -47,29 +57,29 @@ import com.asoc.typewright.ui.tokens.toColor
  * `#ln-scrap` markup and `.scrap` / `.pin` / `.im` / `.cap` / `.pinmark` CSS -- CLAUDE.md law 6,
  * reproduced rather than improvised). Its own standalone tab, matching
  * [com.asoc.typewright.ui.learn.LineagesTab]'s/[com.asoc.typewright.ui.learn.OverlayTab]'s own
- * shape (`texture: CanvasTexture, modifier: Modifier = Modifier`), fully self-contained: its own
- * `remember`ed pin list, seeded from [SampleScrapbook.MANIFEST] and never anything real -- there
- * is no current-project flow wired into `ui` yet (see that object's own KDoc for the same,
- * already-disclosed gap).
+ * shape (`texture: CanvasTexture, modifier: Modifier = Modifier`).
  *
- * **What is real here.** [ScrapbookManifest] and [ScrapbookPin] are a real, tested data model with
- * a real JSON codec ([ScrapbookManifestCodec], [ScrapbookManifestCodecTest]'s own round-trip
- * proof); [stablePinRotationDegrees] is a real, tested, deterministic function
- * ([ScrapbookManifestCodecTest] again), not a stand-in. What is *not* real: the pins on screen.
- * They come from [SampleScrapbook.MANIFEST], a fixed, honestly-labelled four-pin sample reusing
- * the explorer's own worked example, not a real project's own scrapbook -- this tab reads and
- * writes no project file.
+ * **With a project open** (P11 WP5, docs/PROJECT_MODEL.md §10.1 -- [LocalProjectWorkspace]'s
+ * current [ProjectSession], non-null), the board is the real one: [scrapbookBoard] of
+ * `session.state.value.meta.scrapbook`'s own pins plus every workbook's reflection pins, and
+ * "+ photo"/"+ note" call `session.update(`[MetaChange.AddPin]`(...))`, so a pin actually persists
+ * with the project. **With none open** (still the only state reachable before P13's Home screen
+ * exists, OPEN_QUESTIONS 123), this tab behaves exactly as it did before P11: its own `remember`ed
+ * pin list, seeded from [SampleScrapbook.MANIFEST] and never anything real, with the same
+ * disclosure line.
  *
- * **"+ photo" / "+ note" are real, in-memory-only appends.** Tapping "+ photo" really appends a
- * new [ScrapbookPinKind.PHOTO] pin to this composable's own `remember`ed list (own id, own stable
- * rotation via [stablePinRotationDegrees]) -- it cannot open a real image picker (this container
- * has no device and no filesystem picker to call, CLAUDE.md law 4), so it adds an honestly labelled
- * placeholder pin ("Untitled photo") rather than faking a captured photo. Tapping "+ note" opens a
- * real single-line [BasicTextField] (the same pattern `ui.glass`'s own `CommandPalette` already
- * uses); confirming really appends a new [ScrapbookPinKind.NOTE] pin carrying the typed text.
- * Neither append reaches any file or any other screen -- both are lost on recomposition of a fresh
- * [ScrapbookTab] (a new `remember` scope), exactly the honesty this task's own instructions ask
- * for rather than a real "project" to persist into.
+ * **What is real here regardless.** [ScrapbookManifest] and [ScrapbookPin]
+ * (`com.asoc.typewright.project.scrapbook`, moved there from `ui` in WP2 stage A) are a real,
+ * tested data model with a real JSON codec; [stablePinRotationDegrees] is a real, tested,
+ * deterministic function, not a stand-in.
+ *
+ * **"+ photo" / "+ note" never open a real image/file picker.** Neither this container has a
+ * device nor a filesystem picker to call (CLAUDE.md law 4), so "+ photo" always adds an honestly
+ * labelled placeholder pin ("Untitled photo") rather than faking a captured photo, whether or not
+ * a project is open. "+ note" opens a real single-line [BasicTextField] (the same pattern
+ * `ui.glass`'s own `CommandPalette` already uses); confirming appends a new [ScrapbookPinKind.NOTE]
+ * pin carrying the typed text -- to the open project when there is one, or to this composable's
+ * own `remember`ed sample list when there is not.
  *
  * **One deliberate departure from `#ln-scrap`'s own literal CSS: a small per-pin rotation.**
  * The explorer's own `.pin`/`.im` rules carry no `transform: rotate(...)` at all -- its board is
@@ -94,6 +104,24 @@ import com.asoc.typewright.ui.tokens.toColor
  */
 @Composable
 public fun ScrapbookTab(
+    texture: CanvasTexture,
+    modifier: Modifier = Modifier,
+) {
+    val session =
+        LocalProjectWorkspace.current
+            ?.current
+            ?.collectAsState()
+            ?.value
+    if (session == null) {
+        SampleScrapbookBoard(texture = texture, modifier = modifier)
+    } else {
+        LiveScrapbookBoard(session = session, texture = texture, modifier = modifier)
+    }
+}
+
+/** No project open: exactly [ScrapbookTab]'s own pre-P11 behaviour -- see that function's own KDoc. */
+@Composable
+private fun SampleScrapbookBoard(
     texture: CanvasTexture,
     modifier: Modifier = Modifier,
 ) {
@@ -162,6 +190,96 @@ public fun ScrapbookTab(
         }
         PinGrid(pins = manifest.pins, texture = texture)
         BasicText(text = SCRAPBOOK_SAMPLE_DISCLOSURE, style = Typography.mono(sizeSp = 9.0).copy(color = texture.muted.toColor()))
+    }
+}
+
+/**
+ * A project is open: the real board (docs/PROJECT_MODEL.md §10.1). [pins] is [scrapbookBoard] of
+ * the session's own manifest pins plus every workbook's reflection pins, recomputed whenever
+ * [ProjectSession.state] changes (a reflection saved on the Workbook screen shows up here too,
+ * with no separate fetch). "+ photo"/"+ note" call [ProjectSession.update] with
+ * [MetaChange.AddPin] -- a real pin, persisted with the project, not a local `remember` append.
+ */
+@Composable
+private fun LiveScrapbookBoard(
+    session: ProjectSession,
+    texture: CanvasTexture,
+    modifier: Modifier = Modifier,
+) {
+    val state by session.state.collectAsState()
+    var noteDraftOpen by remember(session) { mutableStateOf(false) }
+    var noteDraftText by remember(session) { mutableStateOf("") }
+    val pins = remember(state) { scrapbookBoard(state.meta.scrapbook, state.meta.lessons.values) }
+    val manifest = remember(pins) { ScrapbookManifest(pins) }
+
+    Column(
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(texture.canvas.toColor())
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = SpacingTokens.GUTTER_DP.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        ScrapbookHeader(
+            manifest = manifest,
+            texture = texture,
+            onAddPhoto = {
+                val id = state.meta.scrapbook.nextPinId()
+                session.update(
+                    MetaChange.AddPin(
+                        ScrapbookPin(
+                            id = id,
+                            kind = ScrapbookPinKind.PHOTO,
+                            captionTitle = "Untitled photo",
+                            captionSource = "photo",
+                            rotationDegrees = stablePinRotationDegrees(id),
+                        ),
+                        image = null,
+                        imageExtension = null,
+                    ),
+                )
+            },
+            onToggleNoteDraft = { noteDraftOpen = !noteDraftOpen },
+        )
+        if (noteDraftOpen) {
+            NoteDraftRow(
+                text = noteDraftText,
+                texture = texture,
+                onTextChange = { noteDraftText = it },
+                onConfirm = {
+                    val trimmed = noteDraftText.trim()
+                    if (trimmed.isNotEmpty()) {
+                        val id = state.meta.scrapbook.nextPinId()
+                        session.update(
+                            MetaChange.AddPin(
+                                ScrapbookPin(
+                                    id = id,
+                                    kind = ScrapbookPinKind.NOTE,
+                                    captionTitle = "Note",
+                                    captionSource = "note",
+                                    noteText = trimmed,
+                                    rotationDegrees = stablePinRotationDegrees(id),
+                                ),
+                                image = null,
+                                imageExtension = null,
+                            ),
+                        )
+                        noteDraftText = ""
+                        noteDraftOpen = false
+                    }
+                },
+                onCancel = {
+                    noteDraftOpen = false
+                    noteDraftText = ""
+                },
+            )
+        }
+        PinGrid(pins = manifest.pins, texture = texture)
+        BasicText(
+            text = "${state.meta.manifest.name}'s own scrapbook -- pins and reflections saved with the project.",
+            style = Typography.mono(sizeSp = 9.0).copy(color = texture.muted.toColor()),
+        )
     }
 }
 
@@ -379,10 +497,10 @@ internal fun PinMark(
 /** The three `.im.pat1`/`.pat2`/`.pat3` looks, reproduced as real drawn strokes rather than a CSS `repeating-linear-gradient`/`radial-gradient` Compose has no direct equivalent for. */
 internal enum class PinPatternVariant { VERTICAL_STRIPES, DOT, DIAGONAL_STRIPES }
 
-/** Deterministic per [id] (via [stableHashCode]), so a pin's own pattern never changes across recompositions -- the same stability [stablePinRotationDegrees] gives the tilt. */
+/** Deterministic per [id] (via [stablePinHash]), so a pin's own pattern never changes across recompositions -- the same stability [stablePinRotationDegrees] gives the tilt. */
 internal fun patternVariantForPinId(id: String): PinPatternVariant {
     val variants = PinPatternVariant.entries
-    return variants[stableHashCode(id) % variants.size]
+    return variants[stablePinHash(id) % variants.size]
 }
 
 @Composable

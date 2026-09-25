@@ -2,15 +2,16 @@
 
 package com.asoc.typewright.core.font.ufo
 
+import kotlin.io.encoding.Base64
 import kotlin.math.abs
 import kotlin.math.floor
 
 /**
  * A parsed value from a property list (plist): the restricted XML vocabulary UFO 3 uses for every
- * `.plist` file (`metainfo.plist`, `fontinfo.plist`, `layercontents.plist`,
- * `glyphs/contents.plist`, ...). Only the six value kinds a plist actually has are modelled; `data`
- * and `date` are not part of anything `core-font` reads or writes, so [parsePlist] rejects them
- * with a clear message rather than silently dropping them.
+ * `.plist` file (`metainfo.plist`, `fontinfo.plist`, `lib.plist`, `layercontents.plist`,
+ * `glyphs/contents.plist`, ...). All eight value kinds a plist has are modelled, so a key another
+ * tool wrote (a `<data>` blob or a `<date>` in `lib.plist`, say) reads and writes back unchanged
+ * even though nothing in `core-font` interprets it.
  */
 sealed class PlistValue {
     data class PDict(
@@ -39,6 +40,55 @@ sealed class PlistValue {
     data class PBoolean(
         val value: Boolean,
     ) : PlistValue()
+
+    /**
+     * A `<data>` value: bytes, held as their Base64 text in canonical form (the standard alphabet,
+     * padded, no whitespace), which is what [writePlist] writes. [parsePlist] accepts the text
+     * wrapped over several lines, as `plistlib` writes it, and canonicalises it; [init] requires
+     * the canonical form, so equal bytes are always an equal value.
+     */
+    data class PData(
+        val base64: String,
+    ) : PlistValue() {
+        init {
+            require(canonicalBase64OrNull(base64) == base64) {
+                "PData.base64 must be canonical Base64 (standard alphabet, padded, no whitespace), found \"$base64\""
+            }
+        }
+    }
+
+    /**
+     * A `<date>` value, held as the ISO 8601 text the file gives it (`2026-09-25T12:00:00Z`), so it
+     * is written back exactly as read. [init] requires the form `plistlib` reads: a date, optionally
+     * a time to the hour, minute or second, then `Z`.
+     */
+    data class PDate(
+        val text: String,
+    ) : PlistValue() {
+        init {
+            require(PLIST_DATE.matches(text)) {
+                "PDate.text must be an ISO 8601 plist date such as 2026-09-25T12:00:00Z, found \"$text\""
+            }
+        }
+    }
+}
+
+/** The `<date>` forms `plistlib` reads: `YYYY-MM-DD`, optionally `THH`, `:MM` and `:SS`, then `Z`. */
+private val PLIST_DATE = Regex("""\d{4}-\d{2}-\d{2}(T\d{2}(:\d{2}(:\d{2})?)?)?Z""")
+
+/**
+ * [text] as canonical Base64 (see [PlistValue.PData]) once whitespace is removed, or `null` when it
+ * is not Base64 at all (a character outside the alphabet, or missing or misplaced padding).
+ */
+internal fun canonicalBase64OrNull(text: String): String? {
+    val compact = text.filterNot { it == ' ' || it == '\t' || it == '\n' || it == '\r' }
+    val bytes =
+        try {
+            Base64.Default.decode(compact)
+        } catch (e: IllegalArgumentException) {
+            return null
+        }
+    return Base64.Default.encode(bytes)
 }
 
 /** This dict's value for [key] as a [PlistValue.PString], or `null` if absent or a different kind. */
@@ -86,7 +136,7 @@ internal fun numericPlistValue(value: Double): PlistValue =
         PlistValue.PReal(value)
     }
 
-/** This [PlistValue]'s XML tag name (`dict`, `array`, `string`, `integer`, `real`, or `true`/`false`), for error messages. */
+/** This [PlistValue]'s XML tag name (`dict`, `string`, `true`/`false`, `data`, ...), for error messages. */
 internal fun PlistValue.elementName(): String =
     when (this) {
         is PlistValue.PDict -> "dict"
@@ -95,4 +145,6 @@ internal fun PlistValue.elementName(): String =
         is PlistValue.PInteger -> "integer"
         is PlistValue.PReal -> "real"
         is PlistValue.PBoolean -> "true/false"
+        is PlistValue.PData -> "data"
+        is PlistValue.PDate -> "date"
     }

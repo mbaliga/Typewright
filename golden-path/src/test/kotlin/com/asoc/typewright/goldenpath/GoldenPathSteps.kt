@@ -10,11 +10,38 @@ import com.asoc.typewright.compile.ProjectDirectory
 import com.asoc.typewright.compile.platformCompileBackend
 import com.asoc.typewright.core.font.sfnt.NameId
 import com.asoc.typewright.core.font.sfnt.readSfntFont
+import com.asoc.typewright.core.font.ufo.readKerningPlist
+import com.asoc.typewright.core.font.ufo.readUfoProject
 import com.asoc.typewright.core.geometry.Glyph
 import com.asoc.typewright.core.geometry.Vec2
+import com.asoc.typewright.core.geometry.count
 import com.asoc.typewright.core.geometry.extrema
 import com.asoc.typewright.core.geometry.pointAt
 import com.asoc.typewright.core.geometry.segments
+import com.asoc.typewright.project.ApprovalOrigin
+import com.asoc.typewright.project.Approve
+import com.asoc.typewright.project.Brief
+import com.asoc.typewright.project.BriefSource
+import com.asoc.typewright.project.CreateResult
+import com.asoc.typewright.project.EditResult
+import com.asoc.typewright.project.FileSystemProjectStore
+import com.asoc.typewright.project.GlyphRef
+import com.asoc.typewright.project.LockState
+import com.asoc.typewright.project.MetaChange
+import com.asoc.typewright.project.MovePoints
+import com.asoc.typewright.project.NewMaster
+import com.asoc.typewright.project.NewProjectSpec
+import com.asoc.typewright.project.OpenResult
+import com.asoc.typewright.project.PointRef
+import com.asoc.typewright.project.ProjectSession
+import com.asoc.typewright.project.Refusal
+import com.asoc.typewright.project.ReplaceOutline
+import com.asoc.typewright.project.SetKerning
+import com.asoc.typewright.project.StyleClass
+import com.asoc.typewright.project.Unlock
+import com.asoc.typewright.project.UpdateFontInfo
+import com.asoc.typewright.project.scrapbook.ScrapbookPin
+import com.asoc.typewright.project.scrapbook.ScrapbookPinKind
 import com.asoc.typewright.qa.LayerOneAvailability
 import com.asoc.typewright.qa.platformLayerOneChecker
 import kotlinx.coroutines.runBlocking
@@ -120,14 +147,124 @@ object GoldenPathSteps {
         )
     }
 
-    fun step3DrawSpaceEdit() {
-        notBuilt(
-            "3",
-            "Draw/Space edit",
-            "no undo/redo, and no edit or kerning command API outside Compose state",
-            "P11 (history) + P17",
-        )
-    }
+    /**
+     * Fully built (docs/PROJECT_MODEL.md §12): S-ufo through a real [ProjectSession] over a
+     * temp [FileSystemProjectStore], driving exactly the scenario `:project`'s own
+     * `GoldenPathScenariosTest.step3PointMovesEconomyKerningAndLocksBehaveAsSpecified` proves
+     * against the same API -- a point move, a live-economy check, kerning flushed to
+     * `kerning.plist`, a locked-glyph refusal and its diff, and undo-all/redo-all byte identity.
+     */
+    fun step3DrawSpaceEdit() =
+        runBlocking {
+            val root = ProjectFixtures.tempDir("step3")
+            val sUfo = readUfoProject(ProjectFixtures.readUfoDir(Seeds.newSUfoDirectory()))
+            val spec =
+                NewProjectSpec(
+                    name = "Hyle Deco",
+                    brief = Brief(source = BriefSource.FONT, styleClass = StyleClass(declared = "sans-geometric", confirmed = null)),
+                    scripts = listOf("Latn"),
+                    masters = listOf(NewMaster(id = "regular", styleName = "Regular", ufo = sUfo)),
+                )
+            val store = FileSystemProjectStore(root.toPath())
+            val session = (ProjectSession.create(store, spec, ProjectFixtures.env(this)) as CreateResult.Created).session
+            val initial = session.state.value.font
+            val treeAfterCreate = ProjectFixtures.hashTree(root)
+            val glyphN = GlyphRef("regular", "n")
+            val glyphH = GlyphRef("regular", "H")
+
+            // A point move changes only that point.
+            val before = initial.glyph(glyphN)!!
+            session.execute(MovePoints(glyphN, setOf(PointRef(0, 0)), 10, 0))
+            val afterMove = session.state.value.font
+            val movedGlyph = afterMove.glyph(glyphN)!!
+            assertEquals(
+                before.contours[0]
+                    .points[0]
+                    .point.x + 10,
+                movedGlyph.contours[0]
+                    .points[0]
+                    .point.x,
+            )
+            for (master in afterMove.masters) {
+                for (glyph in master.ufo.glyphs) {
+                    if (GlyphRef(master.id, glyph.name) == glyphN) continue
+                    assertEquals(
+                        initial
+                            .master(master.id)!!
+                            .ufo.glyphs
+                            .single { it.name == glyph.name },
+                        glyph,
+                    )
+                }
+            }
+
+            // Live economy: replacing an outline changes the count, and the session's own economy agrees with it.
+            val economyBefore = session.economy.value.count(glyphN)
+            val newContours = movedGlyph.contours + movedGlyph.contours
+            session.execute(ReplaceOutline(glyphN, newContours, "Duplicate contour"))
+            assertEquals(
+                session.state.value.font
+                    .glyph(glyphN)!!
+                    .count(),
+                session.economy.value.count(glyphN),
+            )
+            assertTrue(economyBefore != session.economy.value.count(glyphN))
+
+            // Kerning, then flush and read back kerning.plist from disk.
+            session.execute(SetKerning("regular", "T", "o", -40.0))
+            session.flush()
+            val masterPath =
+                session.state.value.font.masters
+                    .single()
+                    .path
+            val kerningText = store.read("$masterPath/kerning.plist")!!.decodeToString()
+            assertEquals(-40.0, readKerningPlist(kerningText).getValue("T").getValue("o"))
+
+            // Locked glyph: refused, then unlocked, moved, flushed and a diff appears containing the change.
+            session.execute(Approve(glyphH, ApprovalOrigin.DRAW))
+            val refusal = session.execute(MovePoints(glyphH, setOf(PointRef(0, 0)), 1, 0))
+            assertEquals(EditResult.Refused(Refusal.Locked(glyphH)), refusal)
+            session.execute(Unlock(glyphH))
+            session.execute(MovePoints(glyphH, setOf(PointRef(0, 0)), 1, 0))
+            session.flush()
+            val diffPaths = store.list().filter { it.startsWith("locks/regular/H_.") && it.endsWith(".diff") }
+            assertEquals(1, diffPaths.size)
+            val diffText = store.read(diffPaths.single())!!.decodeToString()
+            assertTrue(diffText.contains("-") && diffText.contains("+"))
+
+            // Undo-all restores the initial font and, once flushed, the initial file tree (kerning.plist and locks/ gone).
+            while (session.undo()) { /* keep undoing */ }
+            assertEquals(initial, session.state.value.font)
+            session.flush()
+            assertEquals(treeAfterCreate, ProjectFixtures.hashTree(root))
+
+            while (session.redo()) { /* keep redoing */ }
+            session.flush()
+            assertEquals(
+                -40.0,
+                session.state.value.font.masters
+                    .single()
+                    .ufo.kerningInfo.kerning
+                    .getValue("T")
+                    .getValue("o"),
+            )
+            // H was approved, then unlocked and moved (never re-approved), so it ends UNLOCKED with one open episode.
+            assertEquals(
+                LockState.UNLOCKED,
+                session.state.value.font.locks
+                    .getValue(glyphH)
+                    .state,
+            )
+            assertEquals(
+                1,
+                session.state.value.font.locks
+                    .getValue(glyphH)
+                    .episodes.size,
+            )
+
+            session.close()
+            ProjectFixtures.assertNoTempFiles(root)
+        }
 
     fun step4Check() {
         val availability = runBlocking { platformLayerOneChecker().availability() }
@@ -220,14 +357,68 @@ object GoldenPathSteps {
         )
     }
 
-    fun step7CloseAndReopen() {
-        notBuilt(
-            "7",
-            "Close and reopen",
-            "no ProjectSession; UfoProject touches disk only in core-font's jvmTest",
-            "P11",
-        )
-    }
+    /**
+     * Fully built (docs/PROJECT_MODEL.md §12): S-ufo through a real [ProjectSession] over a
+     * temp [FileSystemProjectStore], driving exactly the scenario `:project`'s own
+     * `GoldenPathScenariosTest.step7CloseAndReopenRoundTripsExactlyAndReSavingWritesNothing`
+     * proves against the same API -- edits, a frozen diff, an open diff, kerning, font info, a
+     * pin, a reflection and a task confirmation, closed and reopened byte-identically, with a
+     * no-op save writing nothing and `rewriteAll()` re-encoding byte-identically.
+     */
+    fun step7CloseAndReopen() =
+        runBlocking {
+            val root = ProjectFixtures.tempDir("step7")
+            val sUfo = readUfoProject(ProjectFixtures.readUfoDir(Seeds.newSUfoDirectory()))
+            val spec =
+                NewProjectSpec(
+                    name = "Hyle Deco",
+                    brief = Brief(source = BriefSource.FONT, styleClass = StyleClass(declared = "sans-geometric", confirmed = null)),
+                    scripts = listOf("Latn"),
+                    masters = listOf(NewMaster(id = "regular", styleName = "Regular", ufo = sUfo)),
+                )
+            val store = FileSystemProjectStore(root.toPath())
+            val a = (ProjectSession.create(store, spec, ProjectFixtures.env(this)) as CreateResult.Created).session
+            val glyphT = GlyphRef("regular", "T")
+            val glyphH = GlyphRef("regular", "H")
+
+            a.execute(Approve(glyphT, ApprovalOrigin.TRACE))
+            a.execute(Unlock(glyphT))
+            a.execute(MovePoints(glyphT, setOf(PointRef(0, 0)), 0, -1))
+            a.execute(Approve(glyphT, ApprovalOrigin.DRAW)) // frozen diff: the episode just opened is relocked
+
+            a.execute(Approve(glyphH, ApprovalOrigin.DRAW))
+            a.execute(Unlock(glyphH))
+            a.execute(MovePoints(glyphH, setOf(PointRef(0, 0)), 5, 0)) // left open
+
+            a.execute(SetKerning("regular", "T", "o", -40.0))
+            val fontInfo =
+                a.state.value.font.masters
+                    .single()
+                    .ufo.fontInfo
+            a.execute(UpdateFontInfo("regular", fontInfo.copy(openTypeNameDesigner = "Golden Path")))
+
+            a.update(MetaChange.AddPin(ScrapbookPin("pin-1", ScrapbookPinKind.NOTE, "Note", "note", noteText = "A note"), null, null))
+            a.update(MetaChange.AddReflection("latn", 4, "Round ends everywhere, or nowhere."))
+            a.update(MetaChange.SetTaskConfirmed("latn", 1, true))
+
+            val expected = a.state.value
+            a.close()
+
+            ProjectFixtures.assertNoTempFiles(root)
+            val hashes = ProjectFixtures.hashTree(root)
+
+            val b = (ProjectSession.open(FileSystemProjectStore(root.toPath()), ProjectFixtures.env(this)) as OpenResult.Opened).session
+            assertEquals(expected, b.state.value) // project, locks, diffs, typewright.json, scrapbook and lessons
+            assertTrue(b.openReport.externalEdits.isEmpty())
+            b.close()
+            assertEquals(hashes, ProjectFixtures.hashTree(root)) // saving with no changes: no writes
+
+            val c = (ProjectSession.open(FileSystemProjectStore(root.toPath()), ProjectFixtures.env(this)) as OpenResult.Opened).session
+            c.rewriteAll()
+            c.close()
+            assertEquals(hashes, ProjectFixtures.hashTree(root)) // re-encoding is byte-identical
+            ProjectFixtures.assertNoTempFiles(root)
+        }
 }
 
 private fun formatLog(log: List<CompileLogLine>): String = log.joinToString("\n") { "[${it.level}] ${it.message}" }

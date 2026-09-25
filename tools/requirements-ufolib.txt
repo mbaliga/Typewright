@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Pins the fontTools version tools/validate_ufo.py reads UFO samples with (docs/PROJECT_MODEL.md
+# §11): the reference Python UFO tooling every file core-font/:project write must actually open
+# in, not just this repo's own Kotlin round-trip tests.
+fonttools==4.66.0

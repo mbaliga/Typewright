@@ -44,6 +44,12 @@ kotlin {
                 implementation(project(":campaign"))
                 implementation(project(":scripts"))
                 implementation(project(":compile"))
+                // P11 WP5: the scrapbook model and ProjectSession/ProjectWorkspace (docs/PROJECT_MODEL.md
+                // §10, §13). `api`, not `implementation`: app-desktop's and app-web's own `main()`
+                // (docs/PROJECT_MODEL.md §13's lifecycle-flush wiring) construct and hold a
+                // com.asoc.typewright.project.ProjectWorkspace themselves, outside Compose, so it must be
+                // on their own compile classpath too, not just `ui`'s.
+                api(project(":project"))
                 implementation(libs.kotlinx.serialization.json)
                 implementation(project(":shape-preview"))
             }

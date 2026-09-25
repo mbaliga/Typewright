@@ -3138,3 +3138,126 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     counts CLAUDE.md's fixtures state). Law 1 favours keeping the source outline.
 
     *build (P11 + P12).*
+
+## P11: projects are real files
+
+126. **Owner decisions in `docs/PROJECT_MODEL.md` §14 (D1–D14 there).** P11 proceeds on each
+    recommended default, and each can be changed later, except where noted:
+    - **D1:** an imported font's glyphs are approved and locked on import (P12).
+    - **D2:** spacing, kerning, unicodes and renaming stay allowed on a locked glyph.
+    - **D3:** saving a reflection confirms a judgment-call Workbook task.
+    - **D4:** navigation state lives in app config, not in the project.
+    - **D5:** undo history is not kept across reopen.
+    - **D6:** no OPFS crash mirror for the web's tab-only projects in V1.
+    - **D7:** P16 may add a versioned `capture/` folder.
+    - **D9:** the desktop folder picker runs `zenity` or `kdialog` as a subprocess, falling back
+      to Swing.
+    - **D10:** a locked glyph edited outside Typewright is unlocked with an "external-edit" diff
+      and never reverted.
+    - **D11:** UFO names drop spaces (`HyleDeco-Regular.ufo`).
+    - **D12:** `build/.gitignore` is written when a project is created.
+    - **D13:** lessons are stored as JSON.
+    - **D14:** a SAF folder whose storage app can't rename is refused.
+    - **D8 is the one that can't be undone:** the scrapbook data model, about 60 lines, moves from
+      `ui` (FSL-1.1-ALv2) to `:project` (Apache-2.0). Code published under Apache stays Apache.
+
+    *Madhav.*
+
+127. **Recovery touches only temp files of paths the project format writes (P11, WP2).**
+    `RecoveryPlan` (`project/.../ProjectPath.kt`) deletes `X.tmp`/`X.crswap` and rolls `X.new`
+    forward only when `X` passes `ProjectLayout.isFormatPath`, the list of files §3 of
+    `docs/PROJECT_MODEL.md` says a project writes. That follows §3's "never touches … a README, or
+    unmodelled UFO content such as `images/`, `data/`": before, a `notes.txt.new` replaced the
+    user's `notes.txt` and a tool's `cache.tmp` inside a UFO's `data/` was deleted. Two things for
+    the lead:
+    - `ProjectLayout.isFormatPath` must grow with the codec in stage B (for example if comparison
+      fonts may be `.otf`, or `capture/` lands, D7).
+    - `FileSystemProjectStore.recover()` also rolls a format path's `X.new` forward, which goes
+      beyond §5's desktop row ("delete `*.tmp`"). A desktop never writes `.new`, but a project
+      synced or copied from Android mid-save can hold one, and rolling it forward is always
+      correct under the swap protocol. Amend §5's row, or say to drop it on the desktop.
+
+    *lead.*
+
+128. **`build/.session-lock` stays after close (P11, WP2).** §3 says it is "Removed on close".
+    Deleting it on release lets two instances hold the lease: one opened the old file before the
+    release, a third created and locked a new one, and the first then locked the old, unlinked
+    file. `FileSystemProjectStore` now only unlocks and closes, so every claimant locks the same
+    file; it sits in `build/`, which `build/.gitignore` already ignores. A jvmTest reproduces the
+    race with a second process. Amend §3's line.
+
+    *lead.*
+
+129. **`ProjectZip.read` strips a shared top folder only when it is a project folder (P11, WP2).**
+    §4 says it "strips one shared top folder". Stripping unconditionally dropped a zipped `.ufo`'s
+    own folder (so an import finds no UFO) and turned a `root = ""` zip of `scrapbook/…` into
+    `manifest.json`. It now strips only when that folder holds `typewright.json` or a `.ufo`
+    directly, and never when the folder is itself a `.ufo`. Amend §4's comment.
+
+    *lead.*
+
+130. **Diff provenance (P11, WP2).** The first draft of `UnifiedDiff` shipped as Apache-2.0 with
+    a boundary-shifting pass and a middle-snake search that followed GNU diffutils'
+    `shift_boundaries` and `diag` (`src/analyze.c`, GPL-3.0-or-later) statement for statement.
+    Both were removed before merge. The search is now written from Myers' paper (1986, §4b), and
+    the placement rule for ambiguous runs is our own: a run of only deletions or only insertions
+    slides down as far as identical lines allow. So diffs no longer claim GNU's placement where
+    several minimal diffs exist; the jvmTest compares hunks with GNU `diff` only where the minimal
+    diff is unique, and change counts everywhere. The draft was never committed. Confirm the
+    provenance decision before merge (CLAUDE.md: GPL code "is not linked; reimplement from
+    published descriptions").
+
+    A second, independent pass (review round 1's fix-up) repeated this check from scratch:
+    `grep -rniE "GPL|diffutils|shift_boundaries|analyze\.c|GNU General Public"` over the whole
+    worktree found no trace outside this entry and the jvmTest's own comment naming the `diff`
+    binary it cross-checks against, and `UnifiedDiff.kt` read start to finish matches Myers'
+    paper's forward/reverse meeting-point search with an originally-named placement rule
+    (`slidePureRunsDown`), not `analyze.c`'s structure. It also asserted that `git log --all`,
+    `git reflog` and `git fsck --unreachable` turned up no commit or dangling object holding
+    the removed draft. That assertion was never actually checked against those commands'
+    output, and it was false.
+
+    A third, independent pass (review round 2's fix-up) ran `git fsck --unreachable` for real,
+    from a worktree sharing this clone's object store. It found three loose blobs holding the
+    draft: `141e3aeff2` (6,812 bytes compressed) and its two test files, `0b288365` and
+    `95790eab`. `git cat-file -p 141e3aeff2` printed the actual removed draft —
+    `object UnifiedDiff { ... private fun shiftBoundaries(lines, changed, other) ... }` built
+    on `compareMatchable`, the same boundary-sliding structure this item already names as GNU
+    diffutils' `shift_boundaries`/`analyze.c` — materially different from the shipped
+    `UnifiedDiff.kt`, which uses `MyersDiff(...).solve(...)` and `slidePureRunsDown`. None of
+    the three was reachable from any ref, any worktree's reflog, or any of this clone's
+    worktrees' indexes (`git rev-list --objects --all`, and each worktree's index read via
+    `GIT_INDEX_FILE`, checked directly); all three were timestamped 2026-09-25 06:44:50 UTC,
+    hours before this pass, so they were a genuine leftover, most likely a `git add` of the
+    draft that was later discarded without ever being committed, which is why no reflog entry
+    protected it.
+
+    A scan of every unreachable object's content for the same GPL terms, restricted to loose
+    objects timestamped at or before that same 06:44:50 batch (a scan without that limit drifts:
+    a shared object store in active use grows new unreachable objects — ordinary `git stash` and
+    history-rewrite debris — every hour, and two such objects had already appeared by the next
+    check minutes later), found four more hits, all false positives on inspection: three are
+    earlier whole-file revisions of this document, matching its own unrelated libspiro/AGPL
+    passage elsewhere in the file, and one is core-font's `UfoProject.kt`, matching
+    `kerningPlist` as a case-insensitive substring of "GPL". (An earlier draft of this paragraph
+    miscounted this as "five... four are earlier revisions"; the number above is the one that
+    reproduces under the time-bounded method, and is not expected to match a re-run beyond that
+    same batch, for the reason just given.)
+
+    **Pruned.** `git prune --dry-run --expire=now` listed exactly the objects `git fsck
+    --unreachable` had already found and nothing referenced by any ref, reflog or worktree
+    index, so the lead ran `git prune --expire=now` from the main checkout on 25 Sep 2026, which
+    shares its object store with every worktree of this clone. `git fsck --unreachable` then
+    found zero unreachable blobs, and `git cat-file -e` failed on all three of `141e3aeff2`,
+    `0b288365` and `95790eab`. The draft is gone from every copy of this repository the lead has
+    write access to.
+
+    What is settled: the shipped `UnifiedDiff.kt` is Myers' published algorithm, correctly
+    attributed, with an originally-named placement rule, and the GPL-resembling draft that
+    preceded it never reached any commit and no longer exists anywhere in this clone's object
+    store. What only Madhav can settle, as sole licensor: whether that is enough diligence to
+    close this item, given that a draft can still exist in another clone (this branch's earlier
+    pushes to `origin`, before the draft was ever written, never carried it — `git log -p` on
+    every pushed commit confirms `UnifiedDiff.kt` first appears already in its shipped form).
+
+    *Madhav, as sole licensor.*

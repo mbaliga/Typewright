@@ -20,6 +20,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,11 +40,14 @@ import com.asoc.typewright.campaign.Demonstration
 import com.asoc.typewright.campaign.WorkbookTask
 import com.asoc.typewright.campaign.WorkbookTaskProgress
 import com.asoc.typewright.campaign.WorkbookTaskState
+import com.asoc.typewright.project.MetaChange
+import com.asoc.typewright.project.ProjectSession
+import com.asoc.typewright.project.scrapbook.ScrapbookPin
+import com.asoc.typewright.project.scrapbook.ScrapbookPinKind
+import com.asoc.typewright.project.scrapbook.stablePinRotationDegrees
 import com.asoc.typewright.qa.NodeEconomyReport
-import com.asoc.typewright.ui.learn.ScrapbookPin
-import com.asoc.typewright.ui.learn.ScrapbookPinKind
 import com.asoc.typewright.ui.learn.hyleDecoFontFamily
-import com.asoc.typewright.ui.learn.stablePinRotationDegrees
+import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.CanvasTextures
 import com.asoc.typewright.ui.tokens.MeaningColors
@@ -83,18 +87,25 @@ import com.asoc.typewright.ui.tokens.toColor
  * in full before writing this file -- the same situation [com.asoc.typewright.ui.learn.
  * LearnScreen]'s own commands button is already in, and the same disclosed convention).
  *
- * **The Reflection section's "+ note"-equivalent text entry is real, in-memory-only, and does not
- * reach [com.asoc.typewright.ui.learn.ScrapbookTab]'s own pin list.** It reuses
- * [com.asoc.typewright.ui.learn.ScrapbookPin]/[ScrapbookPinKind.NOTE]/[stablePinRotationDegrees]
- * -- the real scrapbook data model and its real stable-rotation function, not a second, parallel
- * note type -- but appends to *this composable's own* `remember`ed list, exactly the same
- * "GESTURE HONESTY" shape [com.asoc.typewright.ui.learn.ScrapbookTab] already uses for its own
- * "+ note". The two are honestly separate: this app has no current-project flow or shared
- * scrapbook state anywhere yet (the same already-disclosed gap [com.asoc.typewright.ui.learn.
- * SampleScrapbook]'s own KDoc names), so a reflection saved here and a pin added on the Scrapbook
- * tab are two different `remember` scopes, not one shared list -- both real, both in-memory-only,
- * both lost on recomposition of a fresh instance, neither pretending to be a persisted project
- * file (`docs/OPEN_QUESTIONS.md`).
+ * **The Reflection section's "+ note"-equivalent text entry (P11 WP5, docs/PROJECT_MODEL.md
+ * §10.1).** With a project open ([LocalProjectWorkspace]'s current [ProjectSession], non-null),
+ * "Save to scrapbook" calls `session.update(`[MetaChange.AddReflection]`("latn", task.index,
+ * text))` -- a real, persisted [com.asoc.typewright.project.Reflection], and one
+ * [com.asoc.typewright.ui.learn.ScrapbookTab] *does* then show (`scrapbookBoard` reads every
+ * workbook's own reflections): the two screens share the one real project, not two separate
+ * `remember` scopes. Saving a reflection also confirms the task ([ProjectSession]'s own
+ * `addReflection`, docs/PROJECT_MODEL.md §10.3's D3 trigger) -- but [WorkbookScreenUiState]'s own
+ * `campaignProgress` call (`WorkbookScreenState.kt`, outside this work package's touch list) does
+ * not yet pass that confirmation back in, so the progress strip above does not yet move because
+ * of it; a follow-up wiring gap, not a bug in this section.
+ *
+ * **With no project open**, this section behaves exactly as it did before P11: reusing
+ * [ScrapbookPin]/[ScrapbookPinKind.NOTE]/[stablePinRotationDegrees] -- the real scrapbook data
+ * model and its real stable-rotation function, not a second, parallel note type -- but appending
+ * to *this composable's own* `remember`ed list, the same "GESTURE HONESTY" shape
+ * [com.asoc.typewright.ui.learn.ScrapbookTab] uses for its own sample-data "+ note": real,
+ * in-memory-only, lost on recomposition of a fresh instance, neither pretending to be a persisted
+ * project file (`docs/OPEN_QUESTIONS.md`).
  */
 @Composable
 public fun WorkbookScreen(
@@ -581,12 +592,31 @@ private fun WorkbookReflectionSection(
     texture: CanvasTexture,
     modifier: Modifier = Modifier,
 ) {
-    var draft by remember(task.index) { mutableStateOf("") }
-    var savedNotes by remember(task.index) { mutableStateOf(emptyList<ScrapbookPin>()) }
-    var nextSeq by remember(task.index) { mutableStateOf(1) }
+    val session =
+        LocalProjectWorkspace.current
+            ?.current
+            ?.collectAsState()
+            ?.value
+    var draft by remember(task.index, session) { mutableStateOf("") }
+    var savedNotes by remember(task.index, session) { mutableStateOf(emptyList<ScrapbookPin>()) }
+    var nextSeq by remember(task.index, session) { mutableStateOf(1) }
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()
     val violet = MeaningColors.VIOLET.forTexture(texture.id).toColor()
+
+    // With a project open, the real, persisted reflections for this task replace the local
+    // remember-only list above (see this file's own top KDoc, "The Reflection section...").
+    val liveReflections =
+        session
+            ?.state
+            ?.collectAsState()
+            ?.value
+            ?.meta
+            ?.lessons
+            ?.get(WORKBOOK_SCRIPT_KEY)
+            ?.reflectionsFor(task.index)
+    val savedCount = liveReflections?.size ?: savedNotes.size
+    val savedTexts = liveReflections?.map { it.text } ?: savedNotes.map { it.noteText.orEmpty() }
 
     Column(modifier = modifier.fillMaxWidth().padding(vertical = 12.dp)) {
         WorkbookSectionHeading(text = "Reflection · saves to the scrapbook", texture = texture)
@@ -621,44 +651,55 @@ private fun WorkbookReflectionSection(
                 Modifier.padding(top = 8.dp).clickable(enabled = draft.isNotBlank()) {
                     val trimmed = draft.trim()
                     if (trimmed.isNotEmpty()) {
-                        val id = "workbook-reflection-${task.index}-$nextSeq"
-                        savedNotes =
-                            savedNotes +
-                            ScrapbookPin(
-                                id = id,
-                                kind = ScrapbookPinKind.NOTE,
-                                captionTitle = "Reflection · Task ${task.index}",
-                                captionSource = "note",
-                                noteText = trimmed,
-                                rotationDegrees = stablePinRotationDegrees(id),
-                            )
-                        nextSeq += 1
+                        if (session != null) {
+                            session.update(MetaChange.AddReflection(WORKBOOK_SCRIPT_KEY, task.index, trimmed))
+                        } else {
+                            val id = "workbook-reflection-${task.index}-$nextSeq"
+                            savedNotes =
+                                savedNotes +
+                                ScrapbookPin(
+                                    id = id,
+                                    kind = ScrapbookPinKind.NOTE,
+                                    captionTitle = "Reflection · Task ${task.index}",
+                                    captionSource = "note",
+                                    noteText = trimmed,
+                                    rotationDegrees = stablePinRotationDegrees(id),
+                                )
+                            nextSeq += 1
+                        }
                         draft = ""
                     }
                 },
         )
-        if (savedNotes.isNotEmpty()) {
+        if (savedCount > 0) {
             BasicText(
-                text = "${savedNotes.size} saved this session",
+                text = if (session != null) "$savedCount saved to the project" else "$savedCount saved this session",
                 style = Typography.mono(sizeSp = 9.5).copy(color = muted),
                 modifier = Modifier.padding(top = 8.dp),
             )
-            for (pin in savedNotes) {
+            for (text in savedTexts) {
                 BasicText(
-                    text = "— ${pin.noteText}",
+                    text = "— $text",
                     style = TextStyle(fontFamily = FontFamily.Default, fontSize = 11.5.sp, fontStyle = FontStyle.Italic, color = muted),
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
         }
         BasicText(
-            text = WORKBOOK_REFLECTION_DISCLOSURE,
+            text = if (session != null) WORKBOOK_REFLECTION_LIVE_DISCLOSURE else WORKBOOK_REFLECTION_DISCLOSURE,
             style = Typography.mono(sizeSp = 9.0).copy(color = muted),
             modifier = Modifier.padding(top = 10.dp),
         )
     }
 }
 
+/** The workbook key [MetaChange.AddReflection] and [WorkbookLessons][com.asoc.typewright.project.WorkbookLessons] use for the Latin workbook (docs/PROJECT_MODEL.md §12's golden-path fixture: `AddReflection("latn", ...)`). */
+private const val WORKBOOK_SCRIPT_KEY = "latn"
+
 private const val WORKBOOK_REFLECTION_DISCLOSURE =
-    "Saves to this session's own scrapbook only -- no current project is wired into ui yet, so this stays in " +
-        "memory and is lost on recomposition or process death, the same limit ScrapbookTab's own \"+ note\" already discloses."
+    "Saves to this session's own scrapbook only -- no project is open, so this stays in memory and is lost on " +
+        "recomposition or process death, the same limit ScrapbookTab's own \"+ note\" already discloses with no project open."
+
+private const val WORKBOOK_REFLECTION_LIVE_DISCLOSURE =
+    "Saves a real reflection to the open project's own lessons file, and confirms this task if it is a judgment " +
+        "call the project can't gate by itself (docs/PROJECT_MODEL.md §10.3)."

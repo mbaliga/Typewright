@@ -42,6 +42,7 @@ include(
     ":learn:scenes",
     ":campaign",
     ":scripts",
+    ":project",
 )
 
 // Platform modules and apps: these have an Android target, so they need the Android SDK.
@@ -50,6 +51,7 @@ val withAndroid = providers.gradleProperty("typewright.android").orNull?.toBoole
 if (withAndroid) {
     include(
         ":compile",
+        ":project:storage",
         ":shape-preview",
         ":ui",
         ":app-android",

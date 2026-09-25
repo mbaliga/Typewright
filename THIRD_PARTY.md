@@ -67,6 +67,11 @@ distributions. The apps have no licences screen yet; see `docs/OPEN_QUESTIONS.md
 |---|---|---|---|
 | `kotlin-test`, `kotlin-test-junit` | 2.4.20 | Apache-2.0 | POM |
 | JUnit 4 (`app-android` host tests, via `kotlin-test-junit`) | 4.13.2 | EPL-1.0 | POM |
+| `kotlinx-coroutines-test` (`project`'s common tests: virtual time for autosave; since P11 WP3, `project:storage`'s common tests too) | 1.9.0 | Apache-2.0 | POM; the same version as `kotlinx-coroutines-core` above |
+| `androidx.test:runner`, `androidx.test:rules` (P11 WP3's `app-android` instrumented tests, `docs/PROJECT_MODEL.md` §13) | 1.7.0 | Apache-2.0 | POM |
+| `androidx.test.ext:junit` (same) | 1.3.0 | Apache-2.0 | POM |
+| `androidx.test.uiautomator:uiautomator` (same: drives S02's folder-picker dialog by resource id) | 2.4.0 | Apache-2.0 | POM |
+| `androidx.test:orchestrator` (same: `app-android/build.gradle.kts`'s `testInstrumentationRunnerArguments["clearPackageData"]`/`androidTestUtil`) | 1.6.1 | Apache-2.0 | POM |
 | Hamcrest core (via JUnit 4) | 1.3 | BSD-3-Clause ("New BSD License") | POM (parent) |
 | Karma and launchers (`app-web` browser test), mocha: part of KGP's npm tooling below | — | MIT | package.json |
 

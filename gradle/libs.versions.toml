@@ -8,6 +8,14 @@ spotless = "8.10.2"
 ktlint = "1.8.0"
 androidx-activity = "1.13.0"
 
+# P11 WP3's Android instrumented tests (docs/PROJECT_MODEL.md §13): androidx.test's runner and
+# rules are one release train (1.7.0); the JUnit4 extension, UiAutomator and the orchestrator are
+# each versioned on their own (checked against dl.google.com's own maven-metadata.xml).
+androidx-test = "1.7.0"
+androidx-test-ext-junit = "1.3.0"
+androidx-test-uiautomator = "2.4.0"
+androidx-test-orchestrator = "1.6.1"
+
 # Android levels. compileSdk 37: Compose 1.12.1's androidx artifacts require it (AAR metadata).
 # targetSdk 36: Google Play's current target-API requirement. minSdk 31: shape-preview's
 # Android stack is TextRunShaper, which is API 31.
@@ -66,6 +74,13 @@ androidx-activity-compose = { module = "androidx.activity:activity-compose", ver
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 
+# P11 WP3's Android instrumented tests (docs/PROJECT_MODEL.md §13; Apache-2.0, THIRD_PARTY.md).
+androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-test" }
+androidx-test-rules = { module = "androidx.test:rules", version.ref = "androidx-test" }
+androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-test-ext-junit" }
+androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "androidx-test-uiautomator" }
+androidx-test-orchestrator = { module = "androidx.test:orchestrator", version.ref = "androidx-test-orchestrator" }
+
 # XML for core-font's UFO 3 / glif reader (Apache-2.0; see THIRD_PARTY.md).
 xmlutil-core = { module = "io.github.pdvrieze.xmlutil:core", version.ref = "xmlutil" }
 
@@ -81,6 +96,7 @@ skiko-awt-runtime-linux-x64 = { module = "org.jetbrains.skiko:skiko-awt-runtime-
 # shape-preview's wasmJs visual preview (P9; Apache-2.0; see THIRD_PARTY.md, both already listed
 # there as transitively shipped).
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlinx-browser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version.ref = "kotlinx-browser" }
 
 [plugins]
