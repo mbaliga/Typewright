@@ -6,17 +6,14 @@ package com.asoc.typewright.compile
  * A read-only view of a project directory (brief §11): one UFO 3 per master, an optional
  * designspace, `typewright.json`. Paths are relative and `/`-separated so the same project can
  * live on a filesystem, in Android storage or in browser memory.
+ *
+ * This is `:project`'s own [com.asoc.typewright.project.ProjectFiles] (docs/PROJECT_MODEL.md §2
+ * "Reconciling"), moved down so `:compile` reads exactly the snapshot a
+ * [com.asoc.typewright.project.ProjectSession.buildSnapshot] hands out, with no call site
+ * changes: a session's in-memory encode of its current state, so an autosave can never race a
+ * build.
  */
-interface ProjectDirectory {
-    /** The project's name as the UI shows it. */
-    val displayName: String
-
-    /** Every file in the project as a relative, `/`-separated path. */
-    fun listFiles(): List<String>
-
-    /** The bytes of one file; [path] is one of [listFiles]. */
-    fun readBytes(path: String): ByteArray
-}
+typealias ProjectDirectory = com.asoc.typewright.project.ProjectFiles
 
 /** What to compile inside a [ProjectDirectory]. */
 sealed interface CompileSource {
