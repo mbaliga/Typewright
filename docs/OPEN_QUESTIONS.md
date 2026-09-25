@@ -3162,3 +3162,94 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
       `ui` (FSL-1.1-ALv2) to `:project` (Apache-2.0). Code published under Apache stays Apache.
 
     *Madhav.*
+
+127. **Recovery touches only temp files of paths the project format writes (P11, WP2).**
+    `RecoveryPlan` (`project/.../ProjectPath.kt`) deletes `X.tmp`/`X.crswap` and rolls `X.new`
+    forward only when `X` passes `ProjectLayout.isFormatPath`, the list of files §3 of
+    `docs/PROJECT_MODEL.md` says a project writes. That follows §3's "never touches … a README, or
+    unmodelled UFO content such as `images/`, `data/`": before, a `notes.txt.new` replaced the
+    user's `notes.txt` and a tool's `cache.tmp` inside a UFO's `data/` was deleted. Two things for
+    the lead:
+    - `ProjectLayout.isFormatPath` must grow with the codec in stage B (for example if comparison
+      fonts may be `.otf`, or `capture/` lands, D7).
+    - `FileSystemProjectStore.recover()` also rolls a format path's `X.new` forward, which goes
+      beyond §5's desktop row ("delete `*.tmp`"). A desktop never writes `.new`, but a project
+      synced or copied from Android mid-save can hold one, and rolling it forward is always
+      correct under the swap protocol. Amend §5's row, or say to drop it on the desktop.
+
+    *lead.*
+
+128. **`build/.session-lock` stays after close (P11, WP2).** §3 says it is "Removed on close".
+    Deleting it on release lets two instances hold the lease: one opened the old file before the
+    release, a third created and locked a new one, and the first then locked the old, unlinked
+    file. `FileSystemProjectStore` now only unlocks and closes, so every claimant locks the same
+    file; it sits in `build/`, which `build/.gitignore` already ignores. A jvmTest reproduces the
+    race with a second process. Amend §3's line.
+
+    *lead.*
+
+129. **`ProjectZip.read` strips a shared top folder only when it is a project folder (P11, WP2).**
+    §4 says it "strips one shared top folder". Stripping unconditionally dropped a zipped `.ufo`'s
+    own folder (so an import finds no UFO) and turned a `root = ""` zip of `scrapbook/…` into
+    `manifest.json`. It now strips only when that folder holds `typewright.json` or a `.ufo`
+    directly, and never when the folder is itself a `.ufo`. Amend §4's comment.
+
+    *lead.*
+
+130. **Diff provenance (P11, WP2).** The first draft of `UnifiedDiff` shipped as Apache-2.0 with
+    a boundary-shifting pass and a middle-snake search that followed GNU diffutils'
+    `shift_boundaries` and `diag` (`src/analyze.c`, GPL-3.0-or-later) statement for statement.
+    Both were removed before merge. The search is now written from Myers' paper (1986, §4b), and
+    the placement rule for ambiguous runs is our own: a run of only deletions or only insertions
+    slides down as far as identical lines allow. So diffs no longer claim GNU's placement where
+    several minimal diffs exist; the jvmTest compares hunks with GNU `diff` only where the minimal
+    diff is unique, and change counts everywhere. The draft was never committed. Confirm the
+    provenance decision before merge (CLAUDE.md: GPL code "is not linked; reimplement from
+    published descriptions").
+
+    A second, independent pass (review round 1's fix-up) repeated this check from scratch:
+    `grep -rniE "GPL|diffutils|shift_boundaries|analyze\.c|GNU General Public"` over the whole
+    worktree found no trace outside this entry and the jvmTest's own comment naming the `diff`
+    binary it cross-checks against, and `UnifiedDiff.kt` read start to finish matches Myers'
+    paper's forward/reverse meeting-point search with an originally-named placement rule
+    (`slidePureRunsDown`), not `analyze.c`'s structure. It also asserted that `git log --all`,
+    `git reflog` and `git fsck --unreachable` turned up no commit or dangling object holding
+    the removed draft. That assertion was never actually checked against those commands'
+    output, and it was false.
+
+    A third, independent pass (review round 2's fix-up) ran `git fsck --unreachable` for real,
+    from a worktree sharing this clone's object store. It lists 87 unreachable objects, three
+    of them loose blobs: `141e3aeff2` (6,812 bytes compressed) and its two test files,
+    `0b288365` and `95790eab`. `git cat-file -p 141e3aeff2` prints the actual removed draft —
+    `object UnifiedDiff { ... private fun shiftBoundaries(lines, changed, other) ... }` built
+    on `compareMatchable`, the same boundary-sliding structure this item already names as GNU
+    diffutils' `shift_boundaries`/`analyze.c` — materially different from the shipped
+    `UnifiedDiff.kt`, which uses `MyersDiff(...).solve(...)` and `slidePureRunsDown`. None of
+    the three is reachable from any ref, any worktree's reflog, or any of this clone's three
+    worktrees' indexes (`git rev-list --objects --all`, and each worktree's index read via
+    `GIT_INDEX_FILE`, checked directly); they are timestamped 2026-09-25 06:44:50 UTC, hours
+    before this pass, so they are a genuine leftover, most likely a `git add` of the draft that
+    was later discarded without ever being committed, which is why no reflog entry protects it.
+    Re-scanning all 87 objects' content, not just these three, for the same GPL terms turns up
+    five more hits, all false positives on inspection: four are earlier whole-file revisions of
+    this document, matching its own unrelated libspiro/AGPL passage elsewhere in the file, and
+    one is core-font's `UfoProject.kt`, matching `kerningPlist` as a case-insensitive substring
+    of "GPL".
+
+    So the draft is not gone in the sense CLAUDE.md's "reimplement... and say so" needs: it is
+    unreferenced but still recoverable from this clone's object store, one `git cat-file -p`
+    away. `git prune --dry-run --expire=now` lists exactly these 87 already-unreachable objects
+    and nothing else, so a plain `git prune --expire=now` (no reflog expiry needed; these blobs
+    were never reflog-reachable to begin with) would remove them without touching any ref,
+    reflog or in-progress work in any of this clone's worktrees. That prune was not run in this
+    pass: deleting objects from the shared `.git` store is an irreversible local action this
+    environment's permission layer refuses to an executor, and working around that refusal is
+    out of bounds here. Whoever has standing permission for destructive git commands — the
+    lead, or Madhav, outside a sandboxed executor — should run it from any worktree of this
+    clone, then confirm with `git fsck --unreachable | grep -c '^unreachable blob'` dropping by
+    exactly 3 and `git cat-file -e 141e3aeff2...` failing, before this item reads clean. Until
+    then this entry's own corroboration is unverified in the one way that matters, and closing
+    it is further than ever from an executor's call to make.
+
+    *lead, then Madhav as sole licensor — and only after the prune above is confirmed run and
+    re-verified.*
