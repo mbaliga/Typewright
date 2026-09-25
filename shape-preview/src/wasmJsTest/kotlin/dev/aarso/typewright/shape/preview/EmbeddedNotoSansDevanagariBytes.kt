@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: OFL-1.1
 
 package dev.aarso.typewright.shape.preview
 
@@ -6,15 +6,17 @@ import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 /**
- * The real bytes of `fonts/NotoSansDevanagari-Regular.ttf` (641944 bytes -- the same real
- * conjunct-bearing font `SkikoShaperTest.shapesRealDevanagariConjunctAndFindsRealClusterData`
+ * The real bytes of `fonts/NotoSansDevanagari-Regular.ttf` (641944 bytes, Noto Sans Devanagari
+ * Regular, Copyright 2022 The Noto Project Authors -- the same real conjunct-bearing font
+ * `SkikoShaperTest.shapesRealDevanagariConjunctAndFindsRealClusterData`
  * already shapes on desktop, and this task's own real-Chromium research already measured real
  * ligation-driven width differences with directly, see `docs/OPEN_QUESTIONS.md`, P9), base64
  * embedded the same way [embeddedHyleDecoRegularBytes] is (see its KDoc for the full reasoning
  * and the exact generating command, repeated here with this filename). Large (this is a full
  * Devanagari face, not a subset) but this is the only Devanagari font this repository has --
  * `BrowserFontFaceVisualPreviewBrowserTest` needs a real conjunct-bearing font, not a Latin one,
- * to show this preview doing more than painting plain Latin glyphs.
+ * to show this preview doing more than painting plain Latin glyphs. Licensed OFL-1.1; the
+ * licence text is in `fonts/OFL.txt`.
  */
 private const val EMBEDDED_NOTO_SANS_DEVANAGARI_BASE64 =
     """

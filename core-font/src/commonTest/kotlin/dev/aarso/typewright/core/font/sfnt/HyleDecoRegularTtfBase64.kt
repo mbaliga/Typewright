@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: OFL-1.1
 
 package dev.aarso.typewright.core.font.sfnt
 
@@ -6,13 +6,15 @@ import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 /**
- * A byte-for-byte copy of `fonts/HyleDeco-Regular.ttf` (57692 bytes), embedded as base64 text
- * so [HyleDecoCrossCheckTest] runs identically on the JVM and Kotlin/Wasm without either platform
+ * A byte-for-byte copy of `fonts/HyleDeco-Regular.ttf` (57692 bytes, Hyle Deco Regular,
+ * Copyright 2026 The Hyle Deco Project Authors), embedded as base64 text so
+ * [HyleDecoCrossCheckTest] runs identically on the JVM and Kotlin/Wasm without either platform
  * needing filesystem access from a `commonTest` source set (Kotlin/Wasm under Node has no
  * reliable relative-path access to files outside its own module during a Gradle test run, and
  * `core-font` is pure common code regardless — see CLAUDE.md law 2). Split into multiple string
  * literals because a single JVM class file's UTF-8 constant-pool entry is capped at 65,535
- * bytes, well under this file's one contiguous base64 string.
+ * bytes, well under this file's one contiguous base64 string. Licensed OFL-1.1; the licence
+ * text is in `fonts/OFL.txt`.
  *
  * Regenerate after any change to `fonts/HyleDeco-Regular.ttf` with:
  * `python3 -c "import base64; print(base64.b64encode(open('fonts/HyleDeco-Regular.ttf','rb').read()).decode())"`

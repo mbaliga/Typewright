@@ -7,11 +7,12 @@ South East Asian scripts, Arabic, kana) as first class, and runs as one Kotlin M
 and Compose Multiplatform app on Android, Linux (JVM desktop) and the web (Kotlin/Wasm).
 Working name, pending registry clearance. Studio: A System of Cells.
 
-**Status: P0, scaffold only.** The modules, build, CI and test harnesses exist; no feature is
-implemented. Every module holds a placeholder and one test. The platform backends in
-`compile` and `shape-preview` are stubs that return an explicit "not implemented" result
-and never fake output. There is no phone or emulator in the build environment, so nothing
-about on-device behaviour is claimed.
+**Status: prompts P0–P9 are built.** The engine is real: geometry, font I/O, the trace chain,
+fitting, construction, qa and the node-economy corpus, and scripts with shaping. Three UI
+surfaces work: the sheet with Draw and Space, Learn, and the Workbook. The web build renders.
+No one can make a font with it end to end yet: the UI has no import, save, capture or compile
+path. The V1 prompts, P10–P19, close that gap. There is no phone or emulator in the build
+environment, so on-device behaviour is verified by the owner only and never claimed here.
 
 Read `CLAUDE.md` (the laws) before changing anything, then `TYPEWRIGHT_BUILD_BRIEF.md` and
 `UI_SPEC.md`. Open questions live in `docs/OPEN_QUESTIONS.md`, licences in `THIRD_PARTY.md`.
@@ -61,7 +62,7 @@ build-tools it needs if the SDK licences are accepted.
 | Android debug APK | `./gradlew :app-android:assembleDebug` | `app-android/build/outputs/apk/debug/app-android-debug.apk` (installs on API 31+; on-device behaviour is owner-verified) |
 | Desktop app | `./gradlew :app-desktop:run` | opens the window (seen under Xvfb) |
 | Desktop packages | `./gradlew :app-desktop:packageDeb` (or `packageRpm`, `packageAppImage`) | declared; not run at P0 (they need `jpackage` and the distro's packaging tools) |
-| Screenshot harness | `./gradlew :ui:desktopTest --rerun` | renders composables headlessly to `ui/build/screenshots/*.png` (`placeholder.png` today) |
+| Screenshot harness | `./gradlew :ui:desktopTest --rerun` | renders composables headlessly to `ui/build/screenshots/*.png` (e.g. `draw-paper-rest.png`, `app-learn-open.png`) |
 | Web, production | `./gradlew :app-web:wasmJsBrowserDistribution` | `app-web/build/dist/wasmJs/productionExecutable/`; serve it with `python3 -m http.server -d app-web/build/dist/wasmJs/productionExecutable 8080` |
 | Web, development server | `./gradlew :app-web:wasmJsBrowserDevelopmentRun` | not run at P0 |
 | Wasm tests under Node | `./gradlew wasmJsNodeTest` | the pure modules, `compile` and `shape-preview` |
@@ -97,11 +98,11 @@ Notes:
 | `engine-construct/` | `:engine-construct` | JVM, Wasm | construction geometry, booleans, spiro (M2) |
 | `qa/` | `:qa` | JVM, Wasm | the quality gate's own checks and the Fontbakery result model |
 | `qa/corpus/` | `:qa:corpus` | JVM, Wasm | node-economy distributions and the style detector; `data/node-economy-*.json` is copied into its generated resources |
-| `learn/` | `:learn` | JVM, Wasm | overlay, anatomy lens, scrapbook |
+| `learn/` | `:learn` | JVM, Wasm | still a P0 placeholder; the overlay, anatomy lens and scrapbook logic lives in `ui` (`ui/src/commonMain/.../ui/learn/`) |
 | `learn/scenes/` | `:learn:scenes` | JVM, Wasm | lesson scene format and model |
 | `campaign/` | `:campaign` | JVM, Wasm | the workbook engine |
 | `scripts/` | `:scripts` | JVM, Wasm | per-script metrics, inventories, features; `scripts/templates/` holds the capture sheets |
-| `compile/` | `:compile` | Android, desktop JVM, Wasm | `CompileBackend`: fontmake via system Python, Chaquopy, or a hosted endpoint (stubs) |
+| `compile/` | `:compile` | Android, desktop JVM, Wasm | `CompileBackend`: fontmake via system Python (desktop) and Chaquopy (Android) are both stubs; the hosted-endpoint backend (web) makes a real `fetch()` call but stays a stub result until an endpoint is deployed (`compile/README.md`) |
 | `shape-preview/` | `:shape-preview` | Android, desktop JVM, Wasm | `Shaper`: TextRunShaper and Skiko real (P8), browser `FontFace` still a stub (P9) |
 | `ui/` | `:ui` | Android, desktop JVM, Wasm | Compose UI; `TypewrightApp()`; the screenshot harness |
 | `app-android/` | `:app-android` | Android | application shell |
@@ -132,10 +133,11 @@ newer run cancels the one it supersedes, and no job uploads artifacts.
 
 - `core`: JDK 21, `jvmTest` and ktlint for the pure modules with the runner's Android SDK
   unset.
-- `android`: `:app-android:assembleDebug`, then the platform modules' desktop and Android
-  host tests, including the screenshot harness.
-- `web`: the production Wasm distribution, the Wasm tests under Node, and `app-web`'s test in
-  headless Chrome.
+- `android`: `:app-android:assembleDebug`, the platform modules' desktop and Android
+  host tests including the screenshot harness, and a whole-project `spotlessCheck` (the only
+  job with the Android SDK on PATH, so the only one that lints the Android-bearing modules too).
+- `web`: the production Wasm distribution, the Wasm tests under Node, and `app-web`'s,
+  `shape-preview`'s and `ui`'s tests in headless Chrome.
 
 `gradle/actions/setup-gradle` runs with `cache-provider: basic`, its MIT-licensed cache,
 rather than the default proprietary one.
@@ -168,7 +170,6 @@ data/
   node-economy-latin.compact.json  the app-side pack the explorer embeds
   node-economy-devanagari.json per-style, per-glyph distributions for Devanagari (3 classes: sans/serif/display)
   node-economy-kana.json       per-style, per-glyph distributions for Hiragana+Katakana (4 classes)
-  families.csv                 Google Fonts taxonomy snapshot (google/fonts tags/all/families.csv)
   exemplars.json               the ten lesson faces: family, file, cap and x-height ratios
   scripts/build_node_economy_corpus.py   regenerates the Latin corpus from the repository
   scripts/build_script_node_economy_corpus.py   regenerates the Devanagari/kana corpora
@@ -195,16 +196,21 @@ tools/
 
 ### Regenerating the corpus
 
+Each run fetches `tags/all/families.csv` fresh from the pinned `google/fonts` commit (it is not
+committed here — `google/fonts` states no licence for `tags/`, `docs/OPEN_QUESTIONS.md` item
+121). Pass `--tags path/to/families.csv` instead for an offline run against a local copy.
+
 ```
 cd data/scripts
-python3 build_node_economy_corpus.py --top 30 --tags ../families.csv --out ../node-economy-latin.json
-python3 build_script_node_economy_corpus.py --script devanagari --tags ../families.csv --out ../node-economy-devanagari.json
-python3 build_script_node_economy_corpus.py --script kana --tags ../families.csv --out ../node-economy-kana.json
+python3 build_node_economy_corpus.py --top 30 --out ../node-economy-latin.json
+python3 build_script_node_economy_corpus.py --script devanagari --out ../node-economy-devanagari.json
+python3 build_script_node_economy_corpus.py --script kana --out ../node-economy-kana.json
 ```
 
 Needs `fontTools` and network access to raw.githubusercontent.com (both scripts) and
 fonts.google.com (the second script only, for real subset/category metadata; no API key
-needed). Optional: set `GOOGLE_FONTS_API_KEY` to add the popularity ranking (P1 wires this in).
+needed). Popularity ranking is not built; the corpus ranks by Google's /Quality/Drawing tag
+score only.
 
 ### Status markers
 

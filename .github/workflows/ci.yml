@@ -59,6 +59,11 @@ jobs:
         run: ./gradlew :app-android:assembleDebug
       - name: Platform-module tests (desktop JVM, Android host, screenshot harness)
         run: ./gradlew :compile:desktopTest :compile:testAndroidHostTest :shape-preview:desktopTest :shape-preview:testAndroidHostTest :ui:desktopTest :ui:testAndroidHostTest :app-android:testDebugUnitTest :app-desktop:test
+      # The core job's spotlessCheck runs with -Ptypewright.android=false, so it never lints the
+      # Android-bearing modules (app-android, and every module's androidMain). This is the only
+      # job with the Android SDK on PATH, so it is the one whole-project ktlint check.
+      - name: ktlint, whole project
+        run: ./gradlew spotlessCheck
 
   web:
     name: web (Wasm distribution, Wasm tests under Node)
@@ -76,5 +81,5 @@ jobs:
           cache-provider: basic
       - name: Production browser distribution (Binaryen downloaded from its GitHub releases)
         run: ./gradlew :app-web:wasmJsBrowserDistribution
-      - name: Wasm tests (pure and compile/shape-preview under Node, app-web in headless Chrome)
-        run: ./gradlew wasmJsNodeTest :app-web:wasmJsBrowserTest
+      - name: Wasm tests (pure and compile/shape-preview under Node; app-web, shape-preview and ui in headless Chrome)
+        run: ./gradlew wasmJsNodeTest :app-web:wasmJsBrowserTest :shape-preview:wasmJsBrowserTest :ui:wasmJsBrowserTest

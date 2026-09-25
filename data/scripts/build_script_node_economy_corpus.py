@@ -24,13 +24,14 @@ rule:
     family list under two names.
 
 2.  Style-class taxonomy. Latin's ten classes (STYLES in build_node_economy_corpus.py) come
-    from google/fonts' own volunteer tag project (tags/all/families.csv, this repo's
-    data/families.csv snapshot), which tags nearly every Latin family with a specific
-    sub-style ("/Sans/Geometric", "/Serif/Transitional", ...). That richness does not carry
-    over: of the google/fonts families that genuinely cover Devanagari, only 34/62 (55%)
-    carry any of Latin's specific sub-style tags at a score >= 50, and for kana it is 24/68
-    (35%) -- checked directly against data/families.csv before writing this script (see
-    docs/OPEN_QUESTIONS.md for the exact command and counts). Grouping by those tags would
+    from google/fonts' own volunteer tag project (tags/all/families.csv, fetched fresh from the
+    pinned commit by load_tags() below -- not committed here, see docs/OPEN_QUESTIONS.md item
+    121), which tags nearly every Latin family with a specific sub-style ("/Sans/Geometric",
+    "/Serif/Transitional", ...). That richness does not carry over: of the google/fonts families
+    that genuinely cover Devanagari, only 34/62 (55%) carry any of Latin's specific sub-style
+    tags at a score >= 50, and for kana it is 24/68 (35%) -- checked directly against a fetch of
+    tags/all/families.csv before writing this script (see docs/OPEN_QUESTIONS.md for the exact
+    command and counts). Grouping by those tags would
     silently drop roughly half of each script's real candidate pool into no class at all.
     Google Fonts' own `category` field (Sans Serif / Serif / Display / Handwriting /
     Monospace), fetched from fonts.google.com/metadata/fonts -- the public endpoint the
@@ -42,7 +43,7 @@ rule:
     thinness is real and disclosed, not smoothed over.
 
 Selection within a class still ranks by the SAME /Quality/Drawing tag score as Latin
-(data/families.csv covers every family in the catalog, not just Latin ones -- checked: all 62
+(tags/all/families.csv covers every family in the catalog, not just Latin ones -- checked: all 62
 Devanagari-subset and all 68 japanese-subset families carry a /Quality/Drawing score), with
 the same tie-break (reverse-alphabetical family name) and the same "one face per superfamily"
 dedupe rule, and the same per-family download/count path (process(), reused verbatim). A class
@@ -52,9 +53,14 @@ skipped and left for docs/OPEN_QUESTIONS.md, per this task's own instruction and
 distribution, it is noise with quartile labels on it.
 
 Usage: python3 build_script_node_economy_corpus.py --script devanagari [--top 30]
-           [--tags ../families.csv] [--out ../node-economy-devanagari.json]
+           [--tags path/to/families.csv] [--out ../node-economy-devanagari.json]
        python3 build_script_node_economy_corpus.py --script kana [--top 30]
-           [--tags ../families.csv] [--out ../node-economy-kana.json]
+           [--tags path/to/families.csv] [--out ../node-economy-kana.json]
+
+--tags is normally omitted: tags/all/families.csv is fetched fresh from the pinned google/fonts
+commit on every run (never committed here -- google/fonts states no licence for tags/, so we
+don't redistribute it, docs/OPEN_QUESTIONS.md item 121). Pass --tags for an offline run against
+a local copy instead.
 """
 import argparse
 import collections
@@ -180,7 +186,8 @@ def resolve_source_commit(repo=GOOGLE_FONTS_GIT, ref="refs/heads/main"):
 def fetch_gf_metadata():
     """Fetches Google Fonts' own public family metadata: every family's real `subsets`
     coverage and Google's own `category`. This is the source this script uses to know which
-    tag-project families (data/families.csv) genuinely support the target script, and to
+    tag-project families (tags/all/families.csv, load_tags() below) genuinely support the
+    target script, and to
     define this script's style classes -- see the module docstring for why `category` and not
     the tag project's own style tags. No API key needed; this is the same endpoint
     fonts.google.com's own UI calls.
@@ -190,15 +197,33 @@ def fetch_gf_metadata():
     return data["familyMetadataList"]
 
 
-def load_tags(path):
+def parse_tags(text):
+    """Parse google/fonts' tags/all/families.csv text (family, ?, tag, score rows) into
+    family -> {tag: score}. Split out from load_tags() so the parsing itself is unit-testable
+    against a plain string, independent of where that text came from.
+    """
     fam_tag = collections.defaultdict(dict)
-    with open(path, newline="") as f:
-        for row in csv.reader(f):
-            if len(row) < 4: continue
-            fam, _, tag, score = row[0], row[1], row[2], row[3]
-            try: fam_tag[fam][tag] = max(fam_tag[fam].get(tag, 0), int(score))
-            except ValueError: pass
+    for row in csv.reader(io.StringIO(text)):
+        if len(row) < 4: continue
+        fam, _, tag, score = row[0], row[1], row[2], row[3]
+        try: fam_tag[fam][tag] = max(fam_tag[fam].get(tag, 0), int(score))
+        except ValueError: pass
     return fam_tag
+
+
+def load_tags(path):
+    # `path` is None (the default, see main()) to fetch tags/all/families.csv fresh from RAW --
+    # the pinned google/fonts commit, set by main() before this is called -- with the same
+    # fetch() helper every other google/fonts read here uses, or a local file path for an
+    # offline run (--tags path/to/families.csv). This file is never committed to this repo
+    # (google/fonts states no licence for tags/, so we don't redistribute it,
+    # docs/OPEN_QUESTIONS.md item 121, Madhav's call, not blocking).
+    if path is None:
+        text = fetch(f"{RAW}tags/all/families.csv").decode("utf-8")
+    else:
+        with open(path, newline="") as f:
+            text = f.read()
+    return parse_tags(text)
 
 
 def dir_name(family):
@@ -360,7 +385,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--script", required=True, choices=sorted(SCRIPTS.keys()))
     ap.add_argument("--top", type=int, default=30)
-    ap.add_argument("--tags", default="families.csv")
+    ap.add_argument(
+        "--tags", default=None,
+        help="local families.csv for an offline run; omit to fetch tags/all/families.csv fresh from the pinned commit",
+    )
     ap.add_argument("--out", default=None)
     ap.add_argument("--commit", default=None, help="pin to this google/fonts commit SHA instead of resolving main")
     a = ap.parse_args()

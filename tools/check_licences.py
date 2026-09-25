@@ -4,7 +4,9 @@
 
 1. Every source file names its licence in an SPDX line: the first line, or the second after a
    shebang. App directories carry FSL-1.1-ALv2; engine, build and tooling directories carry
-   Apache-2.0.
+   Apache-2.0 -- except the handful of files listed by exact path in LICENCE_BY_FILE, third-party
+   material embedded directly in a source file (font bytes, ported code), which carry that
+   material's own licence instead of their directory's.
 2. No Apache-2.0 module depends on an FSL-1.1-ALv2 module, in any source set, tests included.
 
 Every Gradle module and every source file must fall under a directory listed below, so a new
@@ -21,6 +23,8 @@ from pathlib import Path
 
 FSL = "FSL-1.1-ALv2"
 APACHE = "Apache-2.0"
+OFL = "OFL-1.1"
+UFO_PORT = "Apache-2.0 AND MIT AND BSD-3-Clause"
 
 # Directory -> licence. The longest matching directory wins.
 LICENCE_BY_DIR = {
@@ -35,7 +39,11 @@ LICENCE_BY_DIR = {
     "engine-trace": APACHE,
     "engine-construct": APACHE,
     "qa": APACHE,  # includes qa/corpus
-    "scripts": APACHE,  # the templates themselves are CC0 data, not source files
+    "scripts": APACHE,  # generator and pipeline scripts; scripts/templates is called out below
+    # scripts/templates: its only source files are the *-manifest generator *.py scripts, which
+    # are Apache-2.0; the sheets, HOW_TO_USE.md and the manifests themselves are CC0 data
+    # (scripts/templates/LICENSE), and data files carry no SPDX line.
+    "scripts/templates": APACHE,
     "shape-preview": APACHE,
     "compile": APACHE,
     "build-logic": APACHE,
@@ -43,6 +51,26 @@ LICENCE_BY_DIR = {
     "data/scripts": APACHE,
 }
 ROOT_BUILD_FILES = {"settings.gradle.kts": APACHE, "build.gradle.kts": APACHE}
+
+# Exact repo-relative path -> SPDX expression. This exists for the rare source file that is not
+# Typewright's own code under its directory's licence: third-party material embedded directly in
+# a source file (font bytes encoded as a base64 constant, or an algorithm ported line-for-line
+# from another project). It overrides LICENCE_BY_DIR, so licence_for() checks it first.
+LICENCE_BY_FILE = {
+    # Hyle Deco Regular, base64-embedded as core-font's own commonTest cross-check fixture.
+    "core-font/src/commonTest/kotlin/dev/aarso/typewright/core/font/sfnt/HyleDecoRegularTtfBase64.kt": OFL,
+    # Hyle Deco Regular, base64-embedded and shipped in the app itself (Overlay tab project layer).
+    "ui/src/commonMain/kotlin/dev/aarso/typewright/ui/learn/HyleDecoProjectFontBytes.kt": OFL,
+    # Hyle Deco Regular, base64-embedded wasmJsTest fixture for the browser shaping preview.
+    "shape-preview/src/wasmJsTest/kotlin/dev/aarso/typewright/shape/preview/EmbeddedTestFontBytes.kt": OFL,
+    # Noto Sans Devanagari Regular, base64-embedded wasmJsTest fixture (real conjunct shaping).
+    "shape-preview/src/wasmJsTest/kotlin/dev/aarso/typewright/shape/preview/EmbeddedNotoSansDevanagariBytes.kt": OFL,
+    # UnifrakturMaguntia Book, base64-embedded wasmJsTest fixture (Learn face font resolution).
+    "ui/src/wasmJsTest/kotlin/dev/aarso/typewright/ui/learn/EmbeddedTestFontBytes.kt": OFL,
+    # Line-for-line port of fontTools.ufoLib.filenames (MIT) and ufoLib (BSD-3-Clause); both
+    # notices are reproduced in full in the file's own header, above its package line.
+    "core-font/src/commonMain/kotlin/dev/aarso/typewright/core/font/ufo/GlyphFileNames.kt": UFO_PORT,
+}
 
 COMMENT_BY_SUFFIX = {".kt": "//", ".kts": "//", ".mjs": "//", ".js": "//", ".py": "#", ".sh": "#"}
 
@@ -52,6 +80,8 @@ def spdx_line(comment: str, licence: str) -> str:
 
 
 def licence_for(path: str) -> str | None:
+    if path in LICENCE_BY_FILE:
+        return LICENCE_BY_FILE[path]
     if path in ROOT_BUILD_FILES:
         return ROOT_BUILD_FILES[path]
     best = None

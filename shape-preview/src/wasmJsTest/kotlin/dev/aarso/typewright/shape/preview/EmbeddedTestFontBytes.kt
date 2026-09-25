@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: OFL-1.1
 
 package dev.aarso.typewright.shape.preview
 
@@ -6,8 +6,9 @@ import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 /**
- * The real bytes of `fonts/HyleDeco-Regular.ttf` (57692 bytes, this repository's own
- * reference font -- the same file `SkikoShaperTest`'s `desktopTest` already shapes for real),
+ * The real bytes of `fonts/HyleDeco-Regular.ttf` (57692 bytes, Hyle Deco Regular, Copyright
+ * 2026 The Hyle Deco Project Authors, this repository's own reference font -- the same file
+ * `SkikoShaperTest`'s `desktopTest` already shapes for real),
  * base64-embedded directly in this generated test file so
  * `BrowserFontFaceVisualPreviewBrowserTest` can exercise
  * [dev.aarso.typewright.shape.preview.BrowserFontFaceVisualPreview.renderPng] under headless
@@ -18,7 +19,8 @@ import kotlin.io.encoding.ExperimentalEncodingApi
  * `base64.b64encode(open("fonts/HyleDeco-Regular.ttf","rb").read())`
  * -- not hand-typed, and never edited by hand; regenerate the same way if that file ever
  * changes. A raw triple-quoted string, not `+`-joined literals, for the same ktlint-`indent`
- * reason `ui`'s own `EmbeddedTestFontBytes.kt` KDoc already gives.
+ * reason `ui`'s own `EmbeddedTestFontBytes.kt` KDoc already gives. Licensed OFL-1.1; the
+ * licence text is in `fonts/OFL.txt`.
  */
 private const val EMBEDDED_HYLE_DECO_REGULAR_BASE64 =
     """

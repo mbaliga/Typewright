@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: FSL-1.1-ALv2
+// SPDX-License-Identifier: OFL-1.1
 
 package dev.aarso.typewright.ui.learn
 
@@ -6,10 +6,11 @@ import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 /**
- * A byte-for-byte copy of `fonts/HyleDeco-Regular.ttf` (57692 bytes), embedded as base64 text
- * so the Overlay tab's project layer (`ui/typewright-explorer.html`'s `#ln-ov` `.ly[data-l=ink]`,
- * "Hyle Deco ... project") has this build's own real font bytes at runtime on every KMP
- * target, with no new resource-sync/classpath/fetch machinery of its own: `core-font`'s own
+ * A byte-for-byte copy of `fonts/HyleDeco-Regular.ttf` (57692 bytes, Hyle Deco Regular,
+ * Copyright 2026 The Hyle Deco Project Authors), embedded as base64 text so the Overlay tab's
+ * project layer (`ui/typewright-explorer.html`'s `#ln-ov` `.ly[data-l=ink]`, "Hyle Deco ...
+ * project") has this build's own real font bytes at runtime on every KMP target, with no new
+ * resource-sync/classpath/fetch machinery of its own: `core-font`'s own
  * `HyleDecoRegularTtfBase64.kt` (`core-font/src/commonTest`) already proves this exact
  * pattern works identically on the JVM and Kotlin/Wasm (see its own KDoc), but that copy sits
  * in `core-font`'s *test* source set, unreachable from `ui`'s main compilation -- this file
@@ -23,7 +24,8 @@ import kotlin.io.encoding.ExperimentalEncodingApi
  *
  * Split into multiple string literals for the same reason `HyleDecoRegularTtfBase64.kt` is: a
  * single JVM class file's UTF-8 constant-pool entry is capped at 65,535 bytes, well under this
- * file's one contiguous base64 string.
+ * file's one contiguous base64 string. Licensed OFL-1.1; the licence text is in
+ * `fonts/OFL.txt`.
  *
  * Regenerate after any change to `fonts/HyleDeco-Regular.ttf` with:
  * `python3 -c "import base64; print(base64.b64encode(open('fonts/HyleDeco-Regular.ttf','rb').read()).decode())"`

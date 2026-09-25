@@ -241,10 +241,10 @@ directly — see docs/ARCHITECTURE_REVIEW.md section 5 items 13–22):
 
 ### 8.1 The corpus
 
-For each style class in the Google Fonts taxonomy (`data/families.csv`, refreshed from
-`google/fonts/tags/all/families.csv` at a pinned commit each regeneration — `tags/` has no
-stated licence in google/fonts, an open question, not a blocker: docs/OPEN_QUESTIONS.md item
-4/20), take families whose tag score is ≥ 50, rank them by `/Quality/Drawing` score (tie-break:
+For each style class in the Google Fonts taxonomy (`google/fonts/tags/all/families.csv`, fetched
+fresh at a pinned commit on each regeneration and not committed here — `tags/` has no stated
+licence in google/fonts, an open question, not a blocker: docs/OPEN_QUESTIONS.md item 121),
+take families whose tag score is ≥ 50, rank them by `/Quality/Drawing` score (tie-break:
 tag score, then reverse-alphabetical family name), keep one face per superfamily (first word
 of the family name — documented, not changed, in the script), take the top 30, download the
 Regular face from the google/fonts repository, count points per glyph with fontTools, and

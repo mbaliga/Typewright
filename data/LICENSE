@@ -4,6 +4,9 @@ measurements. The full text is in ../LICENSES/CC0-1.0.txt.
 
 Not covered by that dedication:
 - scripts/ is engine code, Apache-2.0 (see scripts/LICENSE).
-- learn-faces/<family>/ holds fonts from Google Fonts, each under the OFL.txt beside it.
-- families.csv is a snapshot of google/fonts' tags/all/families.csv. It is Google's data, not
-  ours; google/fonts publishes no separate licence for it.
+- learn-faces/<family>/ holds fonts from Google Fonts, each under the OFL.txt beside it
+  (Roboto Slab: the Apache-2.0 LICENSE.txt beside it).
+
+google/fonts' tags/all/families.csv is not in this directory: the generators in scripts/ fetch
+it fresh from the pinned google/fonts commit on each run instead of committing a copy, since
+google/fonts publishes no separate licence for tags/ and it is Google's data, not ours.

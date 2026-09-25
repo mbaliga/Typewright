@@ -29,8 +29,13 @@ have no Latin LETTER coverage at all (digit-only coverage was enough to slip
 through), which silently shrank every letter box's n below the family count.
 See count_points() and process() below.
 
-Usage: python3 build_node_economy_corpus.py [--top 30] [--tags families.csv]
+Usage: python3 build_node_economy_corpus.py [--top 30] [--tags path/to/families.csv]
                                              [--out node-economy-latin.json]
+
+--tags is normally omitted: tags/all/families.csv is fetched fresh from the pinned google/fonts
+commit on every run (never committed here -- google/fonts states no licence for tags/, so we
+don't redistribute it, docs/OPEN_QUESTIONS.md item 121). Pass --tags for an offline run against
+a local copy instead.
 """
 import csv, io, json, re, subprocess, sys, argparse, collections, concurrent.futures as cf
 import urllib.request
@@ -91,20 +96,34 @@ def resolve_source_commit(repo=GOOGLE_FONTS_GIT, ref="refs/heads/main"):
     return None
 
 
-def load_tags(path):
-    # `path` is normally data/families.csv, refreshed from google/fonts' tags/all/families.csv
-    # (see main()). Note: google/fonts sets a licence per top-level directory (ofl/, apache/,
-    # ufl/, ...), and tags/ is not one of those -- its licence is unstated. Not a blocker here
-    # (this file is a build-time input, never shipped), but flagged: docs/OPEN_QUESTIONS.md item
-    # 4/20, Madhav's call.
+def parse_tags(text):
+    """Parse google/fonts' tags/all/families.csv text (family, ?, tag, score rows) into
+    family -> {tag: score}. Split out from load_tags() so the parsing itself is unit-testable
+    against a plain string, independent of where that text came from.
+    """
     fam_tag = collections.defaultdict(dict)   # family -> {tag: score}
-    with open(path, newline="") as f:
-        for row in csv.reader(f):
-            if len(row) < 4: continue
-            fam, _, tag, score = row[0], row[1], row[2], row[3]
-            try: fam_tag[fam][tag] = max(fam_tag[fam].get(tag, 0), int(score))
-            except ValueError: pass
+    for row in csv.reader(io.StringIO(text)):
+        if len(row) < 4: continue
+        fam, _, tag, score = row[0], row[1], row[2], row[3]
+        try: fam_tag[fam][tag] = max(fam_tag[fam].get(tag, 0), int(score))
+        except ValueError: pass
     return fam_tag
+
+
+def load_tags(path):
+    # `path` is None (the default, see main()) to fetch tags/all/families.csv fresh from RAW --
+    # the pinned google/fonts commit, set by main() before this is called -- with the same
+    # fetch() helper every other google/fonts read here uses, or a local file path for an
+    # offline run (--tags path/to/families.csv). Note: google/fonts sets a licence per top-level
+    # directory (ofl/, apache/, ufl/, ...), and tags/ is not one of those -- its licence is
+    # unstated. Not a blocker here (this file is a build-time input, never shipped or committed),
+    # but flagged: docs/OPEN_QUESTIONS.md item 121, Madhav's call.
+    if path is None:
+        text = fetch(f"{RAW}tags/all/families.csv").decode("utf-8")
+    else:
+        with open(path, newline="") as f:
+            text = f.read()
+    return parse_tags(text)
 
 
 def dir_name(family):
@@ -297,7 +316,11 @@ def quartiles(vals):
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--top", type=int, default=30)
-    ap.add_argument("--tags", default="families.csv"); ap.add_argument("--out", default="node-economy-latin.json")
+    ap.add_argument(
+        "--tags", default=None,
+        help="local families.csv for an offline run; omit to fetch tags/all/families.csv fresh from the pinned commit",
+    )
+    ap.add_argument("--out", default="node-economy-latin.json")
     ap.add_argument("--commit", default=None, help="pin to this google/fonts commit SHA instead of resolving main")
     a = ap.parse_args()
 
@@ -310,7 +333,7 @@ def main():
             f"{{ofl,apache,ufl}}/<dir>/METADATA.pb + Regular TTF; tags/all/families.csv "
             f"from the same commit), fetched {date.today().isoformat()} by "
             f"data/scripts/build_node_economy_corpus.py. tags/ has no stated licence in "
-            f"google/fonts (docs/OPEN_QUESTIONS.md item 4/20; Madhav's call, not blocking)."
+            f"google/fonts (docs/OPEN_QUESTIONS.md item 121; Madhav's call, not blocking)."
         )
     else:
         # Network to git's smart-HTTP endpoint failed; fall back to the unpinned
@@ -318,7 +341,7 @@ def main():
         source = (
             "google/fonts@main (commit SHA NOT resolved -- git ls-remote failed; "
             f"UNPINNED, not reproducible), fetched {date.today().isoformat()}. tags/ "
-            "has no stated licence in google/fonts (docs/OPEN_QUESTIONS.md item 4/20)."
+            "has no stated licence in google/fonts (docs/OPEN_QUESTIONS.md item 121)."
         )
         print("WARNING: source commit not pinned; pack will say so", file=sys.stderr)
 

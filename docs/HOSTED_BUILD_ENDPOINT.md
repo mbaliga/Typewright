@@ -14,9 +14,12 @@ exists today. Nothing in this document is a promise that a public endpoint is cu
 `CompileBackend` (`compile/src/commonMain/kotlin/dev/aarso/typewright/compile/CompileBackend.kt`)
 turns a Typewright project into font binaries, and has three backends (brief §3): fontmake and
 fontTools through system Python on Linux desktop, through Chaquopy on Android, and -- on the web,
-where neither is available -- fontmake in a container behind this HTTP endpoint. The Ship room
-names it every time it is used (CLAUDE.md law 3): `CompileLocation.HostedEndpoint.description`
-is the exact sentence the UI shows, and it changes depending on whether an endpoint is configured.
+where neither is available -- fontmake in a container behind this HTTP endpoint. Whatever UI
+calls this backend **must** name it every time it is used (CLAUDE.md law 3):
+`CompileLocation.HostedEndpoint.description` is the exact sentence such a UI would show, and it
+changes depending on whether an endpoint is configured -- but this isn't wired yet: no Ship room
+or other caller in `ui` invokes `CompileBackend` at all yet, so nothing currently shows that
+sentence to a user.
 The project is sent **only on an explicit build** -- `HostedEndpointBackend.compile()` is the one
 and only place this module makes a network call, and it runs only when a caller invokes it with a
 `CompileRequest`. `availability()` and object construction never touch the network.

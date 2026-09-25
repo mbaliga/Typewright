@@ -3,6 +3,7 @@
 package dev.aarso.typewright.qa.corpus.style
 
 import dev.aarso.typewright.core.font.sfnt.readSfntFont
+import org.junit.Assume.assumeTrue
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -20,7 +21,8 @@ import kotlin.test.assertTrue
  * `regular_filename`), one file per family named by [CORPUS_TOP1]/[EXEMPLARS]' filenames -- then
  * run `./gradlew :qa:corpus:jvmTest --tests "*StyleDetectorRealFontValidationTest*"`. If that
  * directory is missing (the common case: a fresh checkout, CI, another agent's sandbox), this
- * test prints why and passes trivially rather than failing the build or silently depending on
+ * test reports itself **skipped** (`org.junit.Assume.assumeTrue`, visible as such in the XML
+ * test report) rather than failing the build, passing as if it had run, or silently depending on
  * network access CLAUDE.md law 4 does not promise here.
  *
  * When the fonts are present, this test runs the *actual* production pipeline
@@ -42,13 +44,11 @@ class StyleDetectorRealFontValidationTest {
     @Test
     fun validateAgainstDownloadedFonts() {
         val baseDir = File("build/validation-fonts")
-        if (!baseDir.exists()) {
-            println(
-                "SKIPPED StyleDetectorRealFontValidationTest: ${baseDir.absolutePath} not found. " +
-                    "See this test's KDoc for how to fetch the validation fonts.",
-            )
-            return
-        }
+        assumeTrue(
+            "SKIPPED StyleDetectorRealFontValidationTest: ${baseDir.absolutePath} not found. " +
+                "See this test's KDoc for how to fetch the validation fonts.",
+            baseDir.exists(),
+        )
 
         val rows = mutableListOf<ValidationRow>()
         val errors = mutableListOf<String>()

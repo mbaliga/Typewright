@@ -11,7 +11,8 @@ LICENSES/. docs/LICENSING.md explains the split and the reasons for it.
     Each engine directory carries a LICENSE file that says so.
 
   Template sheets and data packs CC0-1.0 (LICENSES/CC0-1.0.txt)
-    scripts/templates, and the node-economy data packs data/*.json
+    scripts/templates (except the Noto reference glyph layers inside them, OFL-1.1; see
+    scripts/templates/OFL.txt), and the node-economy data packs data/*.json
 
   Bundled fonts                  their own licences, listed in THIRD_PARTY.md
 

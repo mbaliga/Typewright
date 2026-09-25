@@ -22,3 +22,16 @@ node_modules/
 # kotlin-js-store/ is committed on purpose: it holds the npm lock file for the Kotlin/Wasm
 # targets, which pins every JS dependency the web build pulls. Refresh with
 # ./gradlew kotlinUpgradePackageLock when dependencies change.
+
+# google/fonts' tags/all/families.csv, fetched fresh at the pinned commit by the generators
+# below; not committed because google/fonts states no licence for tags/ (docs/OPEN_QUESTIONS.md
+# item 121).
+data/families.csv
+
+# Signing keys and local secrets: never enter the repo.
+*.jks
+*.keystore
+keystore.properties
+*.p12
+.env
+captures/

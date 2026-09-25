@@ -35,8 +35,9 @@ By signing off you certify the DCO below for that commit.
 - Read `CLAUDE.md`. Its laws and conventions apply to people and agents alike.
 - New source files carry the SPDX line for their directory. `python3 tools/check_licences.py
   --fix` adds it; without `--fix` it checks, as CI does.
-- Run `./gradlew spotlessCheck jvmTest` (add `-Ptypewright.android=false` if you have no
-  Android SDK).
+- Run `./gradlew check`. It needs the Android SDK, and, for the browser tests, `CHROME_BIN`
+  pointing at a Chrome or Chromium binary. Without an SDK, `./gradlew -Ptypewright.android=false
+  jvmTest spotlessCheck` is the fallback — it covers the pure modules only.
 - Record any new dependency, with its licence, in `THIRD_PARTY.md`. Nothing GPL or AGPL is
   linked.
 - The name and icon are covered by `TRADEMARKS.md`, not by any code licence.

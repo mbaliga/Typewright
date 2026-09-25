@@ -31,6 +31,7 @@ artifacts, all Apache-2.0 by their POMs except the two test-only ones listed fur
 | JSpecify | 1.0.0 | Apache-2.0 | POM |
 | Guava `listenablefuture` | 1.0 | Apache-2.0 | POM |
 | Skiko (`skiko`, `skiko-awt`, `skiko-awt-runtime-linux-x64`, `skiko-wasm-js`, `skiko-js-wasm-runtime`) | 0.150.1 | Apache-2.0 | POM; file (JetBrains/skiko `LICENSE`). Since P8, `shape-preview` also declares `skiko-awt`/`skiko-awt-runtime-linux-x64` directly (its own `desktopMain`/`desktopTest`, `gradle/libs.versions.toml`'s `skiko` version), pinned to this same 0.150.1 rather than only reached transitively through `ui`'s Compose dependency as before |
+| `org.jetbrains.runtime:jbr-api` | 1.9.0 | Apache-2.0 | POM. Not declared by any module directly; pulled in transitively by Compose Multiplatform's desktop UI artifact (`org.jetbrains.compose.ui:ui-desktop`) onto `app-desktop`'s `runtimeClasspath` only (`./gradlew :app-desktop:dependencies --configuration runtimeClasspath`; a 1.5.0 constraint is raised to 1.9.0) — `app-android` and `app-web` never resolve it |
 | xmlutil core (`io.github.pdvrieze.xmlutil:core`, `core-jvm`, `core-wasm-js`), used by `core-font`'s UFO 3 / glif reader | 1.0.2 | Apache-2.0 | POM. Resolved via `:core-font:dependencies`: the `jvm`/`wasmJs` platform artifacts pull in nothing beyond `kotlin-stdlib` — `core-font` uses xmlutil's raw pull-parser API, not `xmlutil-serialization`, so `kotlinx-serialization-core` 1.11.0 (declared only on xmlutil's common-metadata variant) is never resolved into a classpath and does not collide with Compose's 1.7.3 |
 | kotlinx.serialization JSON (`org.jetbrains.kotlinx:kotlinx-serialization-json`, `-json-jvm`, `-json-wasm-js`; pulls in `kotlinx-serialization-core`, `-core-jvm`, `-core-wasm-js`), used by `qa:corpus`'s node-economy data loader (P1), directly on `jvmMain` only by `qa`'s `FontspectorCliChecker` to parse a `fontspector --json` report as a generic `JsonElement` tree (P1-qa; no `@Serializable` classes of its own, so `qa` does not apply the `kotlin-serialization` compiler plugin), by `learn:scenes`'s `LearnFaceResources` to parse `data/learn-faces/manifest.json` into `@Serializable LearnFaceEntry`/`LearnFaceManifestFile` (P6, Learn UI half), and since P9 by `compile`'s `HostedBuildProtocol` to encode/decode the hosted build endpoint's request/response JSON (`docs/HOSTED_BUILD_ENDPOINT.md`) | 1.11.0 | Apache-2.0 | POM. Resolved via `:qa:corpus:dependencies`, `:qa:dependencies`, `:learn:scenes:dependencies` and `:compile:dependencies` (`jvmRuntimeClasspath` and `wasmJsRuntimeClasspath`): only `kotlinx-serialization-core`/`-core-jvm`/`-core-wasm-js` 1.11.0 beyond `kotlin-stdlib` on both platforms, the same 1.11.0 xmlutil's common-metadata variant already names above, so none of them collide. `ui` depends on `qa`, `learn:scenes` and `compile` directly, all of which reach this artifact, so this reaches the apps' runtime classpath even though no app module names it directly |
 
@@ -93,7 +94,7 @@ carries no licence banners, which is one more reason the web app needs a licence
 
 | Component | Source | Licence | Notes |
 |---|---|---|---|
-| UFO glyph-name-to-file-name algorithm (`core-font`'s `dev.aarso.typewright.core.font.ufo.userNameToFileName`, `handleFileNameClash1/2`) | `fontTools.ufoLib.filenames` (`fontTools` 4.66.0), itself copied from `ufoLib` (`unified-font-object/ufoLib`, commit `8747da7`) | MIT | Ported line-for-line so `core-font`'s UFO writer produces exactly the `.glif` file names a real UFO tool (RoboFont, FontForge) would; copyright 2005-2016 the RoboFab developers (Erik van Blokland, Tal Leming, Just van Rossum), reproduced in the Kotlin file's own KDoc. |
+| UFO glyph-name-to-file-name algorithm (`core-font`'s `dev.aarso.typewright.core.font.ufo.userNameToFileName`, `handleFileNameClash1/2`) | `fontTools.ufoLib.filenames` (`fontTools` 4.66.0), itself copied from `ufoLib` (`unified-font-object/ufoLib`, commit `8747da7`) | MIT (fontTools) and BSD-3-Clause (ufoLib) | Ported line-for-line so `core-font`'s UFO writer produces exactly the `.glif` file names a real UFO tool (RoboFont, FontForge) would; both licences' notices (fontTools' MIT notice, copyright 2017 Just van Rossum, and ufoLib's BSD-3-Clause notice, copyright 2005-2016 the RoboFab developers: Erik van Blokland, Tal Leming, Just van Rossum) are reproduced in full in `GlyphFileNames.kt`'s own header, above its `package` line. |
 
 ## Fetched for Learn lesson content
 
@@ -143,11 +144,58 @@ loadable sfnt fonts (not HTML error pages or truncated downloads) by
 `learn/scenes/src/jvmTest/.../LearnFacesRealFontValidationTest.kt`, which in fact checks
 every one of the seventeen through `core-font`'s own production `readSfntFont`.
 
+## Embedded in the explorer
+
+`ui/typewright-explorer.html` embeds 11 real fonts as base64 `@font-face` rules (licensing pass,
+25 Sep 2026): Hyle Deco, this project's own font, and ten subsets of Google Fonts families
+(20-22 glyphs each), subsetted to the explorer's own sample glyphs. Copyright lines are exactly
+as each font's own name ID 0 states them; the full licence text for all 11 is
+`ui/OFL-explorer-fonts.txt`, pointed to from an HTML comment at the top of the explorer file
+itself. Four of the ten subsets started with a Reserved Font Name, which OFL-1.1 condition 3
+forbids a Modified Version (a subset is one) from keeping — each was renamed inside its own
+`name` table (only that table touched; every other table, and `head` apart from its
+`checksumAdjustment`, verified byte-identical to the original subset).
+
+| CSS alias | Family | Copyright | Licence | Notes |
+|---|---|---|---|---|
+| `HyleDeco` | Hyle Deco | Copyright 2026 The Hyle Deco Project Authors | OFL-1.1 | This project's own font (`fonts/OFL.txt`), not a Google Fonts subset. |
+| `ex-garalde` | EB Garamond | Copyright 2017 The EB Garamond Project Authors | OFL-1.1 | |
+| `ex-transitional` | Libre Baskerville | Copyright 2012 The Libre Baskerville Project Authors | OFL-1.1 | |
+| `ex-didone` | Playfair Display, RFN "Playfair Display" | Copyright 2017 The Playfair Display Project Authors | OFL-1.1 | Renamed inside the font to "Explorer Didone". |
+| `ex-geometric` | Jost | Copyright 2020 The Jost Project Authors | OFL-1.1 | |
+| `ex-grotesque` | Work Sans | Copyright 2019 The Work Sans Project Authors | OFL-1.1 | |
+| `ex-neogrotesque` | Inter | Copyright 2016 The Inter Project Authors | OFL-1.1 | |
+| `ex-humanist` | Source Sans 3, RFN "Source" | © 2023 Adobe | OFL-1.1 | Renamed inside the font to "Explorer Humanist". |
+| `ex-slab` | Zilla Slab | Copyright 2017, The Mozilla Foundation | OFL-1.1 | |
+| `ex-artdeco` | Limelight, RFN "Limelight" | Copyright (c) 2010 by Sorkin Type Co | OFL-1.1 | Renamed inside the font to "Explorer Art Deco". |
+| `ex-blackletter` | UnifrakturMaguntia, RFN "UnifrakturMaguntia" | Copyright (c) 2010 j. 'mach' wust; Copyright (c) 2009 Peter Wiegel | OFL-1.1 | Renamed inside the font to "Explorer Blackletter". |
+
+## The template pack's Noto reference layers
+
+`scripts/templates/hyle-all-templates.zip` (CC0-1.0, `scripts/templates/LICENSE`) is the owner's
+own template pack and is never modified by this repository's tooling; its sha256 is recorded in
+the `*-manifest.json` files beside it. Its non-Latin sheets each carry a `reference_delete_me`
+layer, deleted before export (`HOW_TO_USE.md`), holding a faint reference glyph copied from a
+Noto font — not CC0 like the rest of the sheet:
+
+| Sheets | Source font | Copyright | Licence |
+|---|---|---|---|
+| Hiragana, Katakana | Noto Sans JP | (c) 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source' | OFL-1.1 |
+| Devanagari | Noto Sans Devanagari | Copyright 2022 The Noto Project Authors (`github.com/notofonts/devanagari`) | OFL-1.1 |
+| Naskh | Noto Naskh Arabic | Copyright 2022 The Noto Project Authors (`github.com/notofonts/arabic`) | OFL-1.1 |
+| Nastaliq (12 of 49 sheets) | Noto Nastaliq Urdu | Copyright 2022 The Noto Project Authors (`github.com/notofonts/nastaliq`) | OFL-1.1 |
+
+Latin has no reference layer. Noto Sans JP's copyright verified from its own name ID 0, fetched
+from `google/fonts` (`ofl/notosansjp/NotoSansJP[wght].ttf`, main branch, 25 Sep 2026, not
+committed here); the other three are the same families already in `fonts/` (see below) and
+Noto Nastaliq Urdu's copyright as given by the review that found this gap. Full licence text:
+`scripts/templates/OFL.txt`.
+
 ## Already in the repository before P0
 
 | Component | Licence | Notes |
 |---|---|---|
 | fontTools (used by `data/scripts/build_node_economy_corpus.py` and `data/scripts/build_script_node_economy_corpus.py`) | MIT | Not installed or run by the build. |
 | Playwright (used by `tools/explorer-shots.mjs`) | Apache-2.0 | Resolved from the machine's global install, not a project dependency. |
-| Hyle Deco Regular and Italic in `fonts/` (Copyright 2026 The Hyle Deco Project Authors) | OFL-1.1 | Verified from the fonts' name table (IDs 0 and 13). Test fixtures only. |
-| Noto Sans Devanagari Regular and Noto Naskh Arabic Regular in `fonts/` (Copyright 2022 The Noto Project Authors, `github.com/notofonts/devanagari` and `github.com/notofonts/arabic`) | OFL-1.1 | Verified from the fonts' name table (IDs 0 and 13), same method as Hyle Deco above. Added P8 as `SkikoShaperTest`'s real conjunct/joining fixtures (`shape-preview`, `desktopTest`) — the module `docs/ARCHITECTURE_REVIEW.md` section 4.3 already named these two families by name. Test fixtures only. |
+| Hyle Deco Regular and Italic in `fonts/` (Copyright 2026 The Hyle Deco Project Authors) | OFL-1.1 | Verified from the fonts' name table (IDs 0 and 13); the full licence text is now in `fonts/OFL.txt`. Regular ships inside the app itself: `ui`'s `HyleDecoProjectFontBytes.kt` embeds it in `ui`'s own main source set (Overlay tab's project layer, P6), not only as a test fixture (`core-font`'s `HyleDecoRegularTtfBase64.kt`, `commonTest`). Italic is not currently read by any module. |
+| Noto Sans Devanagari Regular and Noto Naskh Arabic Regular in `fonts/` (Copyright 2022 The Noto Project Authors, `github.com/notofonts/devanagari` and `github.com/notofonts/arabic`) | OFL-1.1 | Verified from the fonts' name table (IDs 0 and 13), same method as Hyle Deco above; the full licence text is now in `fonts/OFL.txt`. Added P8 as `SkikoShaperTest`'s real conjunct/joining fixtures (`shape-preview`, `desktopTest`) — the module `docs/ARCHITECTURE_REVIEW.md` section 4.3 already named these two families by name. Test fixtures only (Devanagari also embedded as a `wasmJsTest` fixture, `shape-preview`'s `EmbeddedNotoSansDevanagariBytes.kt`). |

@@ -20,7 +20,7 @@ Decisions made by Madhav in conversation, recorded so the build does not re-ask 
 | D14 | Shaping in v1 | HarfBuzz via the platform stacks (TextRunShaper, Skiko, browser), not JNI. |
 | D15 | Fixtures | The shipped Hyle Deco TTFs are the regression suite, stated on-curve·off-curve·total (restated 2026-09-24, P0c, written reason: docs/ARCHITECTURE_REVIEW.md section 5 items 13–22): T 1,763·0·1,763 → 8·0·8, o 80·0·80 → 16·16·32, n 44·0·44 → 14·8·22, H 1,252·0·1,252 → 12·0·12. |
 | D16 | Model routing | Opus for the architecture review, the fitter, construction geometry/spiro and the style-detector features; Sonnet for everything else; the chat app for UI iteration on the explorer. |
+| D17 | Licence | FSL-1.1-ALv2 for the app, Apache-2.0 for the engine, CC0-1.0 for template sheets and data packs. Fonts people make with Typewright are theirs. Decided 25 Sep 2026 by Madhav; `docs/LICENSING.md`. |
 
-Still open: licence (handoff §9 recommends AGPL-3 + hosted service + grants), the name,
-the vertical margin/proof axis, default texture, the bundled UI face, the hosted endpoint's
-home.
+Still open: the name, the vertical margin/proof axis, default texture, the bundled UI face, the
+hosted endpoint's home.

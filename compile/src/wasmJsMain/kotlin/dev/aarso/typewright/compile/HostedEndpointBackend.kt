@@ -3,9 +3,11 @@
 package dev.aarso.typewright.compile
 
 /**
- * Web backend: the project is sent to a hosted fontmake endpoint when the user starts a build,
- * and the Ship room names the endpoint each time (brief §3, prompt P9, CLAUDE.md law 3). The
- * wire contract this class speaks is documented in full at docs/HOSTED_BUILD_ENDPOINT.md;
+ * Web backend: the project is sent to a hosted fontmake endpoint when the user starts a build.
+ * Whatever UI calls this **must** name the endpoint to the user every time it is used (brief §3,
+ * prompt P9, CLAUDE.md law 3) -- not wired yet: no Ship room or other caller in `ui` invokes
+ * [CompileBackend] at all yet, so nothing currently shows that name. The wire contract this class
+ * speaks is documented in full at docs/HOSTED_BUILD_ENDPOINT.md;
  * [HostedBuildProtocol] (commonMain) builds the request body and reads the response back, and
  * this class does only the HTTP call itself ([HostedEndpointTransport.kt]'s `postJsonForOutcome`).
  *

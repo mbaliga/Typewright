@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: FSL-1.1-ALv2
+// SPDX-License-Identifier: OFL-1.1
 
 package dev.aarso.typewright.ui.learn
 
@@ -6,8 +6,9 @@ import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 /**
- * The real bytes of `data/learn-faces/unifrakturmaguntia/UnifrakturMaguntia-Book.ttf` (the
- * smallest of the seventeen real faces this task fetched, 88508 bytes), base64-embedded
+ * The real bytes of `data/learn-faces/unifrakturmaguntia/UnifrakturMaguntia-Book.ttf`
+ * (UnifrakturMaguntia Book, Copyright (c) 2010 j. 'mach' wust, Copyright (c) 2009 Peter Wiegel;
+ * the smallest of the seventeen real faces this task fetched, 88508 bytes), base64-embedded
  * directly in this generated test file so [LearnFaceFontsWasmJsBrowserTest] can exercise
  * [dev.aarso.typewright.ui.learn.platformLearnFaceFontFamily] under headless Chrome without also
  * needing a browser-side fetch of `data/learn-faces/` (a separate, still-open problem --
@@ -17,6 +18,7 @@ import kotlin.io.encoding.ExperimentalEncodingApi
  * -- not hand-typed, and never edited by hand; regenerate the same way if the fetched file ever
  * changes. A raw triple-quoted string, not `+`-joined literals: ktlint's `indent` rule leaves raw
  * string content alone, where it insisted on reindenting a many-thousand-line `+` chain.
+ * Licensed OFL-1.1; the licence text is in `data/learn-faces/unifrakturmaguntia/OFL.txt`.
  */
 private const val EMBEDDED_UNIFRAKTUR_MAGUNTIA_BASE64 =
     """

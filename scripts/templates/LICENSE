@@ -2,4 +2,12 @@ The template sheets in this directory (hyle-all-templates.zip) and the manifests
 them (*-manifest.json) are dedicated to the public domain under CC0-1.0. The full text is in
 ../../LICENSES/CC0-1.0.txt. Whatever you draw on a template is yours, with no conditions from us.
 
+Exception: the `reference_delete_me` layer in each Hiragana, Katakana, Devanagari, Naskh and
+Nastaliq sheet holds glyph outlines copied from a Noto font (Noto Sans JP for Hiragana and
+Katakana, Noto Sans Devanagari for Devanagari, Noto Naskh Arabic for Naskh, Noto Nastaliq Urdu
+for Nastaliq), licensed under the SIL Open Font License, Version 1.1, not CC0. Their copyright
+lines and the full licence text are in OFL.txt, beside this file. That layer is there only to
+position your drawing; HOW_TO_USE.md tells you to delete it before export, so what you actually
+draw carries no conditions from us or from Noto.
+
 The generator scripts here (*.py) are engine code, licensed Apache-2.0 as their SPDX lines say.

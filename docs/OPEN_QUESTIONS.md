@@ -3073,3 +3073,23 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
       neither this pass nor P9 itself can make yet.
 
     *Independent verification pass; not a product decision, so no owner tag.*
+
+## P10.1: review of PR #1
+
+121. **google/fonts states no licence for `tags/`** (`tags/all/families.csv`, the style-tag data
+    the corpus generators rank by). google/fonts sets a licence per top-level font directory
+    (`ofl/`, `apache/`, `ufl/`), and `tags/` is not one.
+    P10.1 (25 Sep 2026): the file is no longer committed; the generators fetch it at the pinned
+    commit on each run. What's left is only whether using it at build time needs permission.
+
+    *Madhav; not blocking.*
+
+122. **App code published before the licence split is Apache-2.0 for anyone who copied it.**
+    Every commit on `claude/build-out-feature-6i1vsl` before bb321f5 (P0–P9, the whole app) was
+    pushed to this public repository with the root LICENSE reading Apache-2.0. FSL-1.1-ALv2
+    applies from bb321f5 on; copies taken earlier keep Apache-2.0. `docs/LICENSING.md` §1's
+    "already published under Apache-2.0" reasoning covers the engine, and for these commits it
+    covers the app too, so the FSL protection starts with the code written from bb321f5 on. For
+    the lawyer review LICENSING.md already asks for.
+
+    *Madhav (D1).*
