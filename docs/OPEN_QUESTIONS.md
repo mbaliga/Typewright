@@ -3138,3 +3138,27 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     counts CLAUDE.md's fixtures state). Law 1 favours keeping the source outline.
 
     *build (P11 + P12).*
+
+## P11: projects are real files
+
+126. **Owner decisions in `docs/PROJECT_MODEL.md` §14 (D1–D14 there).** P11 proceeds on each
+    recommended default, and each can be changed later, except where noted:
+    - **D1:** an imported font's glyphs are approved and locked on import (P12).
+    - **D2:** spacing, kerning, unicodes and renaming stay allowed on a locked glyph.
+    - **D3:** saving a reflection confirms a judgment-call Workbook task.
+    - **D4:** navigation state lives in app config, not in the project.
+    - **D5:** undo history is not kept across reopen.
+    - **D6:** no OPFS crash mirror for the web's tab-only projects in V1.
+    - **D7:** P16 may add a versioned `capture/` folder.
+    - **D9:** the desktop folder picker runs `zenity` or `kdialog` as a subprocess, falling back
+      to Swing.
+    - **D10:** a locked glyph edited outside Typewright is unlocked with an "external-edit" diff
+      and never reverted.
+    - **D11:** UFO names drop spaces (`HyleDeco-Regular.ufo`).
+    - **D12:** `build/.gitignore` is written when a project is created.
+    - **D13:** lessons are stored as JSON.
+    - **D14:** a SAF folder whose storage app can't rename is refused.
+    - **D8 is the one that can't be undone:** the scrapbook data model, about 60 lines, moves from
+      `ui` (FSL-1.1-ALv2) to `:project` (Apache-2.0). Code published under Apache stays Apache.
+
+    *Madhav.*

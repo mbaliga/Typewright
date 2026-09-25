@@ -46,6 +46,7 @@ LICENCE_BY_DIR = {
     "scripts/templates": APACHE,
     "shape-preview": APACHE,
     "compile": APACHE,
+    "project": APACHE,  # includes project/storage
     "golden-path": FSL,
     "build-logic": APACHE,
     "tools": APACHE,

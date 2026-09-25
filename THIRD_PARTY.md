@@ -67,6 +67,7 @@ distributions. The apps have no licences screen yet; see `docs/OPEN_QUESTIONS.md
 |---|---|---|---|
 | `kotlin-test`, `kotlin-test-junit` | 2.4.20 | Apache-2.0 | POM |
 | JUnit 4 (`app-android` host tests, via `kotlin-test-junit`) | 4.13.2 | EPL-1.0 | POM |
+| `kotlinx-coroutines-test` (`project`'s common tests: virtual time for autosave) | 1.9.0 | Apache-2.0 | POM; the same version as `kotlinx-coroutines-core` above |
 | Hamcrest core (via JUnit 4) | 1.3 | BSD-3-Clause ("New BSD License") | POM (parent) |
 | Karma and launchers (`app-web` browser test), mocha: part of KGP's npm tooling below | — | MIT | package.json |
 
