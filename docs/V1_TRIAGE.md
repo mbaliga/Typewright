@@ -1,6 +1,6 @@
 # V1 triage of the open questions
 
-Every item in `docs/OPEN_QUESTIONS.md`, 1–124, placed in exactly one category for V1
+Every item in `docs/OPEN_QUESTIONS.md`, 1–125, placed in exactly one category for V1
 (`PROMPTS_V1.md` P10 step 4, 25 Sep 2026). What V1 is: `docs/V1_SCOPE.md`.
 
 - **V1-BLOCKING**: V1's golden path, or a V1 screen, can't ship correctly until it is done.
@@ -12,25 +12,25 @@ Every item in `docs/OPEN_QUESTIONS.md`, 1–124, placed in exactly one category 
 
 Items 1–120 were triaged by six independent readers. Each read PROMPTS_V1 and SCREENS_V1 in
 full and checked every claim against the code, not the item's own text. The lead then merged
-their results and adjusted two of them (items 2 and 119). Items 121–124 were added in P10.
+their results and adjusted two of them (items 2 and 119). Items 121–125 were added in P10.
 File references are to the renamed packages (`com.asoc.typewright`).
 
 ## Counts
 
 | Category | Items |
 |---|---|
-| V1-BLOCKING | 30 |
+| V1-BLOCKING | 31 |
 | MADHAV | 16 |
 | DEFERRED | 40 |
 | RESOLVED | 38 |
-| **Total** | **124** |
+| **Total** | **125** |
 
 ## V1-BLOCKING, by the prompt that closes it
 
 | Prompt | Items |
 |---|---|
-| P11 | 75, 91, 93, and 124 with P12 |
-| P12 | 51, 66, 67, 86, and 124 with P11 |
+| P11 | 75, 91, 93, and 124 and 125 with P12 |
+| P12 | 51, 66, 67, 86, and 124 and 125 with P11 |
 | P13 | 56, 65, 79, 80, 82, 89, 94, 119 |
 | P14 | 8, 18, 92 |
 | P16 | 6, 20, 21, 22 |
@@ -58,42 +58,46 @@ D2 (name clearance, before P18), D5 (the Android compile route, after P14's spik
 
 ## Gaps no V1 prompt names
 
-The triage found these. Each is assigned to the nearest prompt, and that prompt should add
+The triage found these (and the golden-path harness found item 125). Each is assigned to the nearest prompt, and that prompt should add
 it to its own work.
 
 1. **Glyphs carry no Unicode code points** (item 124). `core-geometry`'s `Glyph` has no
    unicodes, and `core-font`'s GlifCodec drops `<unicode>`. An imported font loses its cmap,
    and a compiled font would map no characters. That blocks golden-path steps 1a and 5.
    **P11** (the project model) and **P12** (fill them on import).
-2. **The browser build can't load any bundled data** (items 8, 18, 47, 87, 92, 95). The
+2. **The UFO writer is cubic-only** (item 125). `writeGlif` refuses TrueType's quadratic
+   contours, so a font opened from a TTF can't be saved as a project. P11 and P12 must choose
+   between writing `qcurve` points and elevating to cubic on import; law 1 favours keeping the
+   source outline. **P11 + P12**.
+3. **The browser build can't load any bundled data** (items 8, 18, 47, 87, 92, 95). The
    wasmJs readers in `qa:corpus`, `campaign` and `learn:scenes` use Node's `fs` and fail in a
    browser. So on the web preview, layer-two Check, Economy, the Workbook and the Learn scenes
    are all unavailable, and P19 runs the golden path on that preview. **P14**; P18's static
    web build is the fallback.
-3. **Shaping preview reaches no screen.** `ui` declares dependencies on `:scripts` and
+4. **Shaping preview reaches no screen.** `ui` declares dependencies on `:scripts` and
    `:shape-preview`, but no `ui` or app source imports either. PROMPTS_V1 §1 ("Kana,
    Devanagari and Naskh in Draw/Space with shaping preview") and SCREENS_V1 §4 ("Scripts …
    built today: yes") overstate what is built, and journey J4 is unreachable. **P17**
    (the Space audit).
-4. **Draw's construction tools aren't in the UI either.** SCREENS_V1 §4 lists pen, Hobby
+5. **Draw's construction tools aren't in the UI either.** SCREENS_V1 §4 lists pen, Hobby
    curves, primitives, booleans and transforms as built in the sheet. `ui` imports no
    Booleans, HobbySpline, Transform or Offset code, and primitives are never drawn as ink.
    **P17**.
-5. **The puck's gestures read the wrong coordinate space** (item 119). The composable feeds
+6. **The puck's gestures read the wrong coordinate space** (item 119). The composable feeds
    puck-local positions to a machine tested with canvas-space ones. So grip-drag is dead on
    every platform, and the hold radial's hub centre is probably wrong too. **P13**, before
    the control deck re-pins the puck.
-6. **The fitter's fence targets are not in P16's acceptance** (items 20, 21). SCREENS_V1
+7. **The fitter's fence targets are not in P16's acceptance** (items 20, 21). SCREENS_V1
    S10's "done when" requires T 8·0, o 16·16, n 14·8, H 12·0. P16's acceptance lists only
    golden-path steps 1–2 and 95% cell mapping. Today the fitter gives T 8/16, H 21/42,
    n 23/46, o 37/74. **P16** should add the fence counts.
-7. **The Workbook's Task 4 style is hard-coded** (item 18). `DEFAULT_TASK4_STYLE_KEY =
+8. **The Workbook's Task 4 style is hard-coded** (item 18). `DEFAULT_TASK4_STYLE_KEY =
    "sans-geometric"` should become the class the user declares in S02, which is stored in
    typewright.json. **P12**, where the Workbook gates move onto the open project.
-8. **The Overlay compares the wrong letters** (item 67). S18's "done when" (J3: "your o
+9. **The Overlay compares the wrong letters** (item 67). S18's "done when" (J3: "your o
    against Jost and Work Sans with the redline probe") doesn't match the Overlay, which redlines a fixed H
    against EB Garamond and Libre Baskerville. **P12**.
-9. **The web compile stub's message contradicts D4.** `HostedEndpointBackend` says "Planned:
+10. **The web compile stub's message contradicts D4.** `HostedEndpointBackend` says "Planned:
    upload the project to the hosted endpoint", but D4 says the web V1 has no compile. Also,
    D4's own reason is stale: CLAUDE.md law 3 was amended in bb321f5 to allow an opt-in
    hosted build. **P14** step D.
@@ -229,3 +233,4 @@ and the commit and evidence for RESOLVED.
 | 122 | Pre-split app code is Apache-2.0 for anyone who copied it | MADHAV | D1 | A consequence of the licence history, for the lawyer review LICENSING.md already asks for. |
 | 123 | V1 mockup sources ui/v1-screens/ are not in the repository | MADHAV | D7 | Law 6 makes them the look source for every V1 screen; P11's S01/S02/S06 UI needs them first. |
 | 124 | Glyphs carry no Unicode code points; GlifCodec drops <unicode> | V1-BLOCKING | P11 + P12 | No V1 prompt names it: without unicodes an imported font loses its cmap and a compiled font maps no characters (golden-path steps 1a and 5). |
+| 125 | The UFO writer is cubic-only; a TTF-opened project can't be saved | V1-BLOCKING | P11 + P12 | Found by the golden-path harness in P10: writeGlif refuses quadratic contours (GlifCodec.kt:247), so no imported TrueType font can be written as a project. |

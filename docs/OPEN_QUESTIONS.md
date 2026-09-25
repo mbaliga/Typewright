@@ -3122,3 +3122,16 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     it off the source font).
 
     *build.*
+
+125. **The UFO writer is cubic-only, so a font opened from a TTF can't be saved as a project.**
+    `writeGlif` refuses QUADRATIC contours
+    (`core-font/src/commonMain/kotlin/com/asoc/typewright/core/font/ufo/GlifCodec.kt:247`), and
+    `readSfntFont` yields TrueType's quadratic contours, which the in-memory `UfoProject` holds
+    as they are (for example `ui`'s `hyleDecoReferenceProject()`). The golden-path harness hit
+    it in P10: its step-5 seed is degree-elevated to cubic in test code so that step measures
+    compile, not import. P11's save and P12's import must choose between two fixes: write
+    `qcurve` points (UFO 3 allows them, and the outline stays exactly the user's) or elevate to
+    cubic on import (exact geometry, but the point structure changes, which moves the node
+    counts CLAUDE.md's fixtures state). Law 1 favours keeping the source outline.
+
+    *build (P11 + P12).*
