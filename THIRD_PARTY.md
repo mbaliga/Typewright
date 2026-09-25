@@ -131,7 +131,7 @@ September 2026.
 | Libre Bodoni | Copyright 2012 The Libre Bodoni Project Authors | OFL-1.1 |
 | Poppins | Copyright 2020 The Poppins Project Authors | OFL-1.1 |
 | Libre Franklin | Copyright 2020 The Libre Franklin Project Authors | OFL-1.1 |
-| Roboto Slab | Copyright 2018 The Roboto Slab Project Authors | **Apache-2.0** (`METADATA.pb`'s `license:` field reads `"APACHE2"`, not `"OFL"` — the one family here that is not OFL-licensed; see `docs/OPEN_QUESTIONS.md` P6 item 1) |
+| Roboto Slab | Copyright 2018 The Roboto Slab Project Authors | **Apache-2.0** (`METADATA.pb`'s `license:` field reads `"APACHE2"`, not `"OFL"` — the one family here that is not OFL-licensed; see `docs/OPEN_QUESTIONS.md` item 31) |
 | Cormorant | Copyright 2015 The Cormorant Project Authors | OFL-1.1 |
 | Open Sans | Copyright 2020 The Open Sans Project Authors | OFL-1.1 |
 | Josefin Sans | Copyright 2010 The Josefin Sans Project Authors, RFN "Josefin Sans" | OFL-1.1 |

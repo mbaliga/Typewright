@@ -1,7 +1,9 @@
 # CLAUDE.md — Typewright
 
 Instructions for Claude Code sessions in this repository. Read `TYPEWRIGHT_BUILD_BRIEF.md`
-first, then `UI_SPEC.md`, then the prompt you were given from `PROMPTS_CLAUDE_CODE.md`.
+first, then `UI_SPEC.md`, then the prompt you were given: P0–P9 are in `PROMPTS_CLAUDE_CODE.md`,
+P10–P19 in `PROMPTS_V1.md`. For V1 work also read `docs/V1_SCOPE.md`, `docs/SCREENS_V1.md` and
+`docs/INTERACTION_V1.md`.
 
 ## What this is
 
@@ -27,13 +29,40 @@ Google Fonts-quality fonts and teaches the user what quality means. Targets: And
 5. **Measured, not invented.** Any number the app judges a user by comes from
    `qa/corpus` and is shown as a distribution. If a check has no measurement behind it,
    its UI says "our heuristic".
-6. **The explorer is the UI.** `ui/typewright-explorer.html` defines look and interaction.
-   Reproduce it; do not improvise a component's look. If a screen is missing from the
-   explorer, stop and say so rather than inventing.
+6. **The design is the UI.** For V1 screens, `docs/SCREENS_V1.md`, `docs/INTERACTION_V1.md`
+   and the mockup sources in `ui/v1-screens/` define look and interaction. The explorer,
+   `ui/typewright-explorer.html`, stays the source for what they don't show: the Lens,
+   Overlay and Scrapbook tabs, and the desktop frame. Reproduce them; do not improvise a
+   component's look. If a screen is missing from all of them, stop and say so rather than
+   inventing.
 7. **Plain files.** A project is a directory of UFO 3 and JSON. No proprietary blob. Every
    file we write must open in FontForge, Glyphs or RoboFont.
-8. **Colour is meaning only.** Violet = selected, cyan = snapping to; comparison layers get
-   colour plus a line pattern; never red or green as meaning; severity is a shape and a word.
+8. **Colour is meaning only.** The roles are fixed: violet = selected, cyan = snapping to.
+   Their values are themeable (SCREENS_V1 §3), and every role also has a shape, so colour is
+   never the only signal. Comparison layers get colour plus a line pattern; severity is a
+   shape and a word; never green as meaning. **One red, one use:** red (#D0342C on light
+   grounds, #FF5A4E on dark) is only ever the fill of the control deck's left circle in its
+   Close state, with a white ✕. The ✕ carries the meaning. Nothing else may be red, and
+   themes can't reassign it.
+
+## Canon changes for V1 (SCREENS_V1 §1, 25 Sep 2026)
+
+These replace the brief and UI_SPEC wherever they differ; SCREENS_V1 §1 is the written reason.
+
+- **C1.** Rooms switch through the control deck's section arc (SCREENS_V1 §2). The header
+  carries the page title only. Edge marks are gone; two-finger swipe and ← → stay.
+- **C2.** Round means thumb instrument: the puck, the deck's two circles, the section arc and
+  the toggle arc are round. Everything else stays square, flat and shadowless.
+- **C3.** One red, one use (law 8).
+- **C4.** Construction stays visible. Only the grid and the grain dissolve near the glass;
+  metric lines, guides and construction geometry are drawn at full strength everywhere.
+  Draw's toggle arc has a Construction switch, on by default.
+- **C5.** Meaning-colour roles are fixed and their values are themeable (law 8).
+- **C6.** Economy is a toggle inside Check (Report · Economy), not a separate station.
+- **C7.** The command palette is also the first item of every ⋯ menu, as well as Ctrl/⌘ K.
+
+`docs/INTERACTION_V1.md` replaces UI_SPEC §3's radial dial and the brief's §5.2 and §5.5
+wherever they differ.
 
 ## Conventions
 
@@ -49,8 +78,13 @@ Google Fonts-quality fonts and teaches the user what quality means. Targets: And
   the fence actually compares as separate on-curve and off-curve counts):
   T 1,763·0·1,763 → 8·0·8, o 80·0·80 → 16·16·32, n 44·0·44 → 14·8·22, H 1,252·0·1,252 → 12·0·12,
   T stem foot y=1 → 0. These numbers do not move without a written reason in the commit.
-- Data packs (`qa/corpus`, `learn/scenes`) are JSON/YAML checked in under `data/` with a
-  generator script beside them; never hand-edit generated data.
+  The shipped counts are asserted (`HyleDecoCrossCheckTest`). The fitted column is the target
+  the fitter is measured against: `FitPipelineHyleDecoValidationTest` prints the fitter's
+  output but does not yet meet or assert it.
+- Generated data packs (`data/node-economy-*.json`, which `qa/corpus` syncs, and
+  `data/learn-faces`) are checked in under `data/` with a generator script beside them; never
+  hand-edit generated data. Lesson scenes (`learn/scenes` resources) and the workbook
+  (`campaign` resources) are hand-written YAML.
 - Commit messages: imperative, one line of what and one of why; reference the milestone
   (M0–M6) and the prompt (P0–P8).
 - Every source file carries `SPDX-License-Identifier: FSL-1.1-ALv2` (app modules) or
@@ -60,6 +94,19 @@ Google Fonts-quality fonts and teaches the user what quality means. Targets: And
 - Third-party code: record every dependency with its licence in `THIRD_PARTY.md` as you
   add it. GPL code (Potrace, HT Letterspacer) is not linked; reimplement from published
   descriptions if needed and say so.
+
+## Standing rules for P10–P19 (PROMPTS_V1 §3)
+
+- **Only the lead agent commits.** Sub-agents work in worktrees and hand back diffs.
+- **One PR per prompt, into `main`.**
+- **Every prompt ends by running the golden-path test**: `./gradlew :golden-path:goldenPath`,
+  pasting its summary into the PR. Once a step passes it may not regress: list it in
+  `golden-path/passing-steps.txt`, which CI's `goldenPathRatchet` enforces.
+- **KDoc says what and why, not build history.** Prompt numbers, OQ cross-references and
+  "Task P7:" narratives go in commit messages and `docs/OPEN_QUESTIONS.md`.
+- **"Your font" means the open project.** A fixture is allowed only in tests.
+- **Every screen follows the control deck** (SCREENS_V1 §2). No screen adds its own back
+  button, tab row or title bar.
 
 ## When unsure
 
