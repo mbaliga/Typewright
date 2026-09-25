@@ -165,6 +165,53 @@ class WorkbookProgressTest {
         )
     }
 
+    // -- confirmedTasks (§10.3) --
+
+    @Test
+    fun isTaskConfirmableIsTrueForAJudgmentCallTaskAndForAllInfoChecksOnly() {
+        val tasks = WorkbookLatinContent.load()
+        // Tasks 1/2/7/8/10 have no implemented gate at all -- confirmable regardless of the
+        // (fixture) result passed in, since the rule is "!task.gate.isImplemented OR all INFO".
+        assertTrue(isTaskConfirmable(task(1), notImplementedGate(1)))
+        // Task 3's real gate is always INFO-only by its own documented contract.
+        assertTrue(isTaskConfirmable(task(3), WorkbookGateResult(3, "fixture", listOf(GateCheckResult("o", GateCheckStatus.INFO, "-")))))
+        // Task 4 has a real, implemented gate whose checks are PASS/WARN/FAIL, never INFO.
+        assertFalse(isTaskConfirmable(task(4), passingGate(4)))
+        // Task 11 is implemented but, without a compiled font, reads NOT_IMPLEMENTED -- neither branch.
+        assertFalse(isTaskConfirmable(task(11), notImplementedGate(11)))
+        assertFalse(isTaskConfirmable(task(3), WorkbookGateResult(3, "fixture", emptyList())))
+    }
+
+    @Test
+    fun aConfirmedConfirmableTaskReadsDoneAndUnblocksTheTasksAfterIt() {
+        val tasks = WorkbookLatinContent.load()
+        // Every task reports not-implemented (so none pass a real gate); task 1 is confirmed.
+        val gates = tasks.associate { it.index to notImplementedGate(it.index) }
+
+        val progress = campaignProgress(tasks, gates, confirmedTasks = setOf(1))
+
+        assertEquals(WorkbookTaskState.DONE, progress.single { it.task.index == 1 }.state)
+        assertEquals(WorkbookTaskState.CURRENT, progress.single { it.task.index == 2 }.state)
+    }
+
+    @Test
+    fun confirmingTask11NeverMakesItDoneBecauseItIsNotConfirmable() {
+        val tasks = WorkbookLatinContent.load()
+        val gates = tasks.associate { it.index to notImplementedGate(it.index) }
+
+        val progress = campaignProgress(tasks, gates, confirmedTasks = setOf(11))
+
+        assertTrue(progress.none { it.state == WorkbookTaskState.DONE })
+    }
+
+    @Test
+    fun confirmedTasksDefaultsToEmptySoExistingCallersAreUnaffected() {
+        val tasks = WorkbookLatinContent.load()
+        val gates = tasks.associate { it.index to notImplementedGate(it.index) }
+
+        assertEquals(campaignProgress(tasks, gates), campaignProgress(tasks, gates, confirmedTasks = emptySet()))
+    }
+
     // -- runWorkbookGate dispatch --
 
     private val realTasks = WorkbookLatinContent.load()

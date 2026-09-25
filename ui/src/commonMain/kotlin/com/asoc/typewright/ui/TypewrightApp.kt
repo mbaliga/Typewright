@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,7 +23,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.asoc.typewright.project.ProjectWorkspace
 import com.asoc.typewright.ui.learn.LearnScreen
+import com.asoc.typewright.ui.project.LocalProjectWorkspace
+import com.asoc.typewright.ui.project.LocalZipTransferSupported
+import com.asoc.typewright.ui.project.rememberProjectWorkspace
 import com.asoc.typewright.ui.sheet.TypewrightSheet
 import com.asoc.typewright.ui.tokens.CanvasTextures
 import com.asoc.typewright.ui.tokens.Typography
@@ -83,38 +89,60 @@ import com.asoc.typewright.ui.workbook.rememberWorkbookScreenUiState
  * versa ([TypewrightAppNavState.openWorkbook]/[TypewrightAppNavState.openLearn]) -- both are
  * full-screen, texture-occluding overlays over the same [TypewrightSheet], so showing both at once
  * would mean one silently painting over the other.
+ *
+ * **Task P11 WP5: the project workspace holder.** [workspace] is the app-wide
+ * [ProjectWorkspace] (docs/PROJECT_MODEL.md §13's stopgap wiring), reachable from
+ * [com.asoc.typewright.ui.glass.Header] and [com.asoc.typewright.ui.glass.CommandPalette] (both
+ * inside [TypewrightSheet], which this function does not otherwise touch) through
+ * [LocalProjectWorkspace] rather than a widened parameter list on every glass composable between
+ * here and there. Its own default, [rememberProjectWorkspace], is the in-memory stopgap this
+ * worktree has; app-desktop's and app-web's own `main()` instead build and pass one of their own,
+ * so their own lifecycle hooks (window close, tab visibility) can reach the *same* instance
+ * outside Compose. [supportsZipTransfer] is similarly passed in by app-web only (docs/
+ * PROJECT_MODEL.md §13's palette table: the two `.zip` rows are "web in-memory mode only").
+ * [reopenLast] runs once, here, on every launch -- with no project remembered (every render
+ * before P11 WP5, and Android, which has no reachable entry to reach any other outcome without a
+ * hardware keyboard) it finds nothing and every screen keeps rendering exactly as it did before.
  */
 @Composable
 fun TypewrightApp(
     modifier: Modifier = Modifier,
     navState: TypewrightAppNavState = rememberTypewrightAppNavState(),
+    workspace: ProjectWorkspace = rememberProjectWorkspace(),
+    supportsZipTransfer: Boolean = false,
 ) {
-    Box(modifier = modifier.fillMaxSize()) {
-        TypewrightSheet(modifier = Modifier.fillMaxSize())
-        when {
-            navState.showLearn -> {
-                // Opaque: LearnScreen paints its own texture-coloured background across the
-                // whole box, the same "occluding background" pattern SpaceRoomGlass already
-                // established for a glass element that needs to fully cover what is behind it.
-                LearnScreen(modifier = Modifier.fillMaxSize(), onBack = navState::closeLearn)
-            }
+    LaunchedEffect(workspace) { workspace.reopenLast() }
+    CompositionLocalProvider(
+        LocalProjectWorkspace provides workspace,
+        LocalZipTransferSupported provides supportsZipTransfer,
+    ) {
+        Box(modifier = modifier.fillMaxSize()) {
+            TypewrightSheet(modifier = Modifier.fillMaxSize())
+            when {
+                navState.showLearn -> {
+                    // Opaque: LearnScreen paints its own texture-coloured background across the
+                    // whole box, the same "occluding background" pattern SpaceRoomGlass already
+                    // established for a glass element that needs to fully cover what is behind it.
+                    LearnScreen(modifier = Modifier.fillMaxSize(), onBack = navState::closeLearn)
+                }
 
-            navState.showWorkbook -> {
-                WorkbookScreen(
-                    modifier = Modifier.fillMaxSize(),
-                    onBack = navState::closeWorkbook,
-                    uiState = rememberWorkbookScreenUiState(),
-                )
-            }
+                navState.showWorkbook -> {
+                    WorkbookScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        onBack = navState::closeWorkbook,
+                        uiState = rememberWorkbookScreenUiState(),
+                    )
+                }
 
-            else -> {
-                Column(
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    WorkbookEntryButton(onClick = navState::openWorkbook)
-                    LearnEntryButton(onClick = navState::openLearn)
+                else -> {
+                    Column(
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        WorkbookEntryButton(onClick = navState::openWorkbook)
+                        LearnEntryButton(onClick = navState::openLearn)
+                    }
                 }
             }
         }

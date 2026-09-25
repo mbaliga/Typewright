@@ -168,34 +168,44 @@ data class WorkbookTaskProgress(
 fun WorkbookGateResult.isFullyPassing(): Boolean = checks.isNotEmpty() && checks.all { it.status == GateCheckStatus.PASS }
 
 /**
+ * Whether [task] could ever be confirmed into [WorkbookTaskState.DONE] by the learner's own
+ * judgment rather than a passing gate (docs/PROJECT_MODEL.md §10.3): either [task]'s own gate
+ * spec is not implemented at all ([WorkbookGateSpec.isImplemented] false -- tasks 1, 2, 7, 8, 10,
+ * which can never pass by construction), or every check [gate] (that task's already-run result)
+ * returned is [GateCheckStatus.INFO] (task 3's overshoot-presence gate, always this shape by
+ * [WorkbookGates.task3SetMetrics]'s own documented contract -- never a pass/fail/warn on its own).
+ * Task 11's gate spec *is* implemented, but without a compiled font its own result is a single
+ * [GateCheckStatus.NOT_IMPLEMENTED] check, not INFO, so it never satisfies either branch and is
+ * never confirmable.
+ */
+fun isTaskConfirmable(
+    task: WorkbookTask,
+    gate: WorkbookGateResult,
+): Boolean = !task.gate.isImplemented || (gate.checks.isNotEmpty() && gate.checks.all { it.status == GateCheckStatus.INFO })
+
+/**
  * The twelve tasks' own real completion state (this task's own instruction: "base this on real
  * gate-pass results where the campaign module can compute them, an honest 'todo' everywhere it
  * can't"), computed purely from [gates] (each task's own already-run [WorkbookGateResult], e.g.
- * from [runAllWorkbookGates]) -- this function itself touches no project, corpus or font, so it is
- * trivially testable against hand-built [WorkbookGateResult] fixtures.
+ * from [runAllWorkbookGates]) plus [confirmedTasks] (§10.3: the indices the learner has confirmed,
+ * `typewright.json`'s own `workbook.<script>.confirmed_tasks`) -- this function itself touches no
+ * project, corpus or font, so it is trivially testable against hand-built [WorkbookGateResult]
+ * fixtures.
  *
- * Rule, in [WorkbookTask.index] order: a task whose gate [isFullyPassing] is [WorkbookTaskState.DONE];
- * the *first* task that is not [WorkbookTaskState.DONE] is [WorkbookTaskState.CURRENT]; every task
- * after that is [WorkbookTaskState.TODO] regardless of its own gate (a later task's gate happening
- * to pass on its own, e.g. task 12's pure string generation almost always does, does not let it
- * jump ahead of an earlier, still-open task -- the workbook is twelve tasks *in order*, brief
- * section 9).
- *
- * **A real, honest finding, not a bug in this rule:** a task with no implemented gate at all
- * (1, 2, 7, 8, 10) can *never* read [WorkbookTaskState.DONE] by this logic -- there is no
- * automated signal this function, or anything in `campaign` today, could use to tell "the learner
- * judged this reference font and understood why" apart from "they have not started." On this
- * build's own real Hyle Deco reference project ([gates] built from it), that means task 1 itself
- * is always [WorkbookTaskState.CURRENT] -- not a hardcoded default (this task's own instruction
- * explicitly warns against hardcoding "task 4," the explorer mockup's own worked example), but the
- * real, computed answer this data model gives today. The campaign module has no persisted "the
- * learner manually marked this judgment-call task done" flag anywhere in [WorkbookTask]/
- * [WorkbookGateSpec] -- a real, disclosed gap for whoever next gives the workbook a real
- * completion state to write to (`docs/OPEN_QUESTIONS.md`).
+ * Rule, in [WorkbookTask.index] order: a task whose gate [isFullyPassing], or whose index is in
+ * [confirmedTasks] *and* which [isTaskConfirmable], is [WorkbookTaskState.DONE]; the *first* task
+ * that is not [WorkbookTaskState.DONE] is [WorkbookTaskState.CURRENT]; every task after that is
+ * [WorkbookTaskState.TODO] regardless of its own gate or confirmation (a later task's gate
+ * happening to pass on its own, e.g. task 12's pure string generation almost always does, does not
+ * let it jump ahead of an earlier, still-open task -- the workbook is twelve tasks *in order*,
+ * brief section 9). A confirmed index outside [isTaskConfirmable]'s own rule (task 11, or any task
+ * whose spec/gate shape does not qualify) is simply not honoured -- the caller cannot force a task
+ * DONE that only a real gate pass or a genuine judgment call may reach.
  */
 fun campaignProgress(
     tasks: List<WorkbookTask>,
     gates: Map<Int, WorkbookGateResult>,
+    confirmedTasks: Set<Int> = emptySet(),
 ): List<WorkbookTaskProgress> {
     val ordered = tasks.sortedBy { it.index }
     // Once the first non-DONE task is found, every task after it is TODO regardless of its own
@@ -207,13 +217,14 @@ fun campaignProgress(
         val gate =
             gates[task.index]
                 ?: WorkbookGates.notImplementedGate(task.index, task.gate.summary, "no gate result was computed for this task.")
+        val confirmedAndConfirmable = task.index in confirmedTasks && isTaskConfirmable(task, gate)
         val state =
             when {
                 blocked -> {
                     WorkbookTaskState.TODO
                 }
 
-                gate.isFullyPassing() -> {
+                gate.isFullyPassing() || confirmedAndConfirmable -> {
                     WorkbookTaskState.DONE
                 }
 

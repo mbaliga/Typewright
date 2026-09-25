@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,6 +25,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import com.asoc.typewright.ui.project.LocalProjectWorkspace
+import com.asoc.typewright.ui.project.saveStatusWord
 import com.asoc.typewright.ui.sheet.Room
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.SpacingTokens
@@ -45,13 +48,16 @@ import com.asoc.typewright.ui.tokens.toColor
  * `glyphInfoPlaceholder` and the MAP button's actual map screen are placeholders/no-ops (task
  * P4b's own scope: "Header ... Placeholder content for this task"; the map screen itself is not
  * part of the sheet per `docs/ARCHITECTURE_REVIEW.md` §5 finding 25 and is out of scope -- see
- * this task's `knownGaps`).
+ * this task's `knownGaps`) -- except that [glyphInfoPlaceholder]'s own default is no longer always
+ * the literal placeholder text: P11 WP5 (docs/PROJECT_MODEL.md §13) makes it real once a project
+ * is open ([projectStatusText]), and only falls back to the placeholder when there is none, so no
+ * caller needs to change to get the real status once one exists.
  */
 @Composable
 fun Header(
     room: Room,
     texture: CanvasTexture,
-    glyphInfoPlaceholder: String = "-- pts",
+    glyphInfoPlaceholder: String = projectStatusText(),
     onSwipePrevious: () -> Unit = {},
     onSwipeNext: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -107,5 +113,31 @@ fun Header(
         }
     }
 }
+
+/**
+ * [Header]'s own mono status slot: `"<name> · saved/saving/in this tab only"` for the open
+ * project (docs/PROJECT_MODEL.md §13's palette table), read from [LocalProjectWorkspace] --
+ * [HEADER_NO_PROJECT_PLACEHOLDER] when there is none (no [LocalProjectWorkspace] provided at all,
+ * or one provided with no project open, which is every existing screenshot test and every render
+ * before P11 WP5). Draw and Space still show sample data regardless (P12/P17's own job); only this
+ * one text slot is real today.
+ */
+@Composable
+private fun projectStatusText(): String {
+    val session =
+        LocalProjectWorkspace.current
+            ?.current
+            ?.collectAsState()
+            ?.value ?: return HEADER_NO_PROJECT_PLACEHOLDER
+    val name =
+        session.state
+            .collectAsState()
+            .value.meta.manifest.name
+    val status = session.saveStatus.collectAsState().value
+    return "$name · ${saveStatusWord(status)}"
+}
+
+/** [Header]'s own text before P11 WP5, and still its text with no project open. */
+private const val HEADER_NO_PROJECT_PLACEHOLDER = "-- pts"
 
 private const val HEADER_SWIPE_THRESHOLD_DP = 40.0
