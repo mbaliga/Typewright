@@ -1,0 +1,19 @@
+# golden-path/passing-steps.txt
+#
+# One golden-path step id per line, exactly as GoldenPathTest names it: 1a, 1b, 2, 3, 4, 5, 6, 7,
+# chain-open, chain-scan. `#` starts a comment; blank lines are ignored.
+#
+# The rule (CLAUDE.md's standing rule for P10-P19, PROMPTS_V1.md §3): "Once a step passes, it may
+# not regress." `:golden-path:goldenPathRatchet` enforces it and fails the build when:
+#   - a listed id does not PASS;
+#   - an id PASSES but is not listed here (a silent future regression on it would go unnoticed --
+#     add it in the same PR that made it pass, never separately);
+#   - this file names an id GoldenPathTest does not produce;
+#   - any of 1a-7 has no testcase at all;
+#   - any testcase is SKIPPED (a golden-path step is never @Ignore'd).
+#
+# To add a step: in the PR that makes it pass end to end against its real seed (never against a
+# fixture standing in for the real one), add its id below. Never add an id to make this list
+# longer for its own sake -- goldenPathRatchet exists specifically so that can't happen unnoticed.
+#
+# No step passes yet (P10 step 6): this file intentionally lists none.

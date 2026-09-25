@@ -2056,6 +2056,9 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     the signal to build the real bridge in `core-font` rather than writing a fifth inline
     version.*
 
+    P10: `SfntFont.toUfoProject()` added in core-font for the golden-path seeds; it carries no
+    unicodes yet (item 124).
+
 87. **A real, empirically-verified wasmJs limitation, distinct from item 47's browser/Node split:
     `learn:scenes`' `readSceneResourceText` wasmJs actual cannot be called from a *different
     module's own compiled* `wasmJs { nodejs() }` test bundle, even though both are the identical

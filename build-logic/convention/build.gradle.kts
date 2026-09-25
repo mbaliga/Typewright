@@ -29,5 +29,9 @@ gradlePlugin {
             id = "typewright.kmp.platform"
             implementationClass = "com.asoc.typewright.buildlogic.KmpPlatformConventionPlugin"
         }
+        register("jvm") {
+            id = "typewright.jvm"
+            implementationClass = "com.asoc.typewright.buildlogic.JvmConventionPlugin"
+        }
     }
 }

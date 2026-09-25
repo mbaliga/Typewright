@@ -55,5 +55,9 @@ if (withAndroid) {
         ":app-android",
         ":app-desktop",
         ":app-web",
+        // golden-path is a plain-JVM test harness with no Android target of its own, but it
+        // depends on :compile (a platform module), so it lives in this block, not the pure one
+        // above -- `-Ptypewright.android=false` leaves it out along with :compile.
+        ":golden-path",
     )
 }
