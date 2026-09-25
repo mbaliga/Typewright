@@ -6,10 +6,16 @@ build agent can reproduce it in Compose Multiplatform without guessing. Where a 
 and the explorer's CSS disagree, the explorer's CSS wins for visuals and this document wins
 for behaviour. Never quietly diverge from either; change the explorer first.
 
+V1 canon: docs/SCREENS_V1.md §1 (C1–C7) and docs/INTERACTION_V1.md amend this document; see
+the notes marked "V1 canon" below.
+
 The explorer's screens, by nav chip: Home (specimen) · Capture · Trace · Economy · Draw
 (one sheet: Draw, Space, Learn rooms; the puck) · Space · Learn (Lineages, Overlay, Lens,
 Scrapbook) · Check · Ship · Workbook · Desktop. Open the explorer's Notes for the design
 rationale per screen.
+
+> **V1 canon C6 (SCREENS_V1 §1, 25 Sep 2026):** Economy is a toggle inside Check
+> (Report · Economy), not a separate station or nav chip.
 
 ## 1. Layers
 
@@ -23,6 +29,12 @@ From back to front, on every canvas surface:
 4. **Bloom** — quiet zones: radial gradients from canvas colour (opaque to 38–45%) to
    transparent, positioned under every glass element. Counter-translated so it stays fixed
    to the glass while the sheet moves. Hidden in map mode.
+
+   > **V1 canon C4 (SCREENS_V1 §1, 25 Sep 2026):** Construction stays visible. Only the
+   > grid (layer 2) and the paper grain dissolve under the bloom; metric lines, guides and
+   > construction geometry (layer 3) are drawn at full strength everywhere, including under
+   > the glass, the same as ink (layer 5).
+
 5. **Ink** — glyph outlines, fills, nodes, handles, the loupe, dimension lines, proofs.
 6. **Glass** — header, puck, unfolded tool list, radial, inspector, edge marks, hints.
 
@@ -46,8 +58,17 @@ Meaning colours: violet #5F4BE0 (light canvases) / #8E7BFF (dark, and #B3A6FF on
 blueprint); cyan #0A9D8E / #08FED5; amber #B57A00 / #FFB300 (#FFC247 blueprint); magenta
 #B8248F / #FF5FD2 (#FF7ADB blueprint). Grain: procedural 160 px noise tile, multiply blend.
 
+> **V1 canon C5 (SCREENS_V1 §1, 25 Sep 2026):** These values are the default theme only.
+> The roles (violet = selected, cyan = snap target) are fixed; the values above are
+> themeable per SCREENS_V1 §3, and every role also carries a shape so colour is never the
+> only signal.
+
 Radii: 0 everywhere except the puck (circle) and the phone frame of the explorer (not part
 of the app). Shadows: none. Blur: none.
+
+> **V1 canon C2 (SCREENS_V1 §1, 25 Sep 2026):** Round means thumb instrument. The control
+> deck's two circles, its section arc and its toggle arc are round too, alongside the puck.
+> Everything else stays square, flat and shadowless.
 
 Type:
 - Sentences: system UI sans (Roboto on Android, system on desktop/web), 12.5–13 sp,
@@ -62,10 +83,18 @@ at 16 dp from the bottom plus safe area.
 
 ## 3. Components and states
 
+> **V1 canon:** docs/INTERACTION_V1.md replaces this section wherever they differ
+> (25 Sep 2026).
+
 ### Header (glass)
 Room name as an ink block (mono, uppercase, 11 sp, padding 5×9); glyph info beside it (15 sp
 semibold + mono small). Tap the room name → map. Horizontal swipe on the header (≥ 40 dp)
 → previous/next room. MAP text button top-right becomes an ink block when the map is open.
+
+> **V1 canon C1 (SCREENS_V1 §1, 25 Sep 2026):** The header carries the page title only
+> (plain text, not an ink block) and no MAP button; it does not switch rooms and does not
+> open the map. Rooms switch through the control deck's section arc (SCREENS_V1 §2); the
+> map opens from a long-press on the arc.
 
 ### Puck (glass)
 68 dp circle, ink fill, canvas-coloured icon (26 dp, 1.6 stroke), name below in mono 9.5 sp
@@ -101,11 +130,18 @@ layout.
 ### Edge marks (glass)
 ‹ › at mid-height, 22 sp, ink at 30%; hidden at the ends of the row and in map mode.
 
+> **V1 canon C1 (SCREENS_V1 §1, 25 Sep 2026):** Edge marks are removed. Rooms switch
+> through the control deck's section arc (SCREENS_V1 §2); two-finger swipe and ← → stay.
+
 ### Map
 World scaled to 0.3 and centred; each room outlined with a 2 dp ink 25% outline; room name
 as a 44 sp ink block centred on the room; room contents at 55%; bloom hidden; puck at 25%.
 Tap a room to fly to it (600 ms). Enter/exit: tap room name, MAP, pinch past the specimen,
 or the `M` key.
+
+> **V1 canon C1 (SCREENS_V1 §1, 25 Sep 2026):** Entry is now a long-press on the control
+> deck's section arc, pinch out past the specimen, or `M`; there is no header room name or
+> MAP button to tap. The deck shows only the left Close circle while the map is open.
 
 ### Stage scrubber (Trace)
 Row of stage names (mono-free: sentence case, 12 sp; current as an ink block; passed at
@@ -153,6 +189,10 @@ live word in the user's font; command palette 520 dp wide centred at 70 dp from 
 panels fade into the canvas (linear gradients to transparent), no borders. The puck is
 optional on desktop [CONFIRM]; the tool rail carries the shortcut letters. Keyboard: room
 ← →, map M, tools by letter, nudge arrows/shift, palette Ctrl/⌘ K, undo Ctrl/⌘ Z.
+
+> **V1 canon C7 (SCREENS_V1 §1, 25 Sep 2026):** The command palette is also the first item
+> of every ⋯ menu (the control deck's right circle), so touch users can reach it, as well as
+> Ctrl/⌘ K.
 
 Web (Kotlin/Wasm) renders the same tree; the compile step calls the hosted endpoint and the
 Ship room says so in one line.

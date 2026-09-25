@@ -3095,3 +3095,30 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     the lawyer review LICENSING.md already asks for.
 
     *Madhav (D1).*
+
+## P10: V1 harness
+
+123. **The V1 mockup sources are not in the repository.** `ui/v1-screens/*.dc.html`, named by
+    `PROMPTS_V1.md` and `docs/SCREENS_V1.md` as the mockup sources (one board per screen ID,
+    `Deck.dc.html` the shared control deck) — CLAUDE.md law 6 makes them, together with
+    `docs/SCREENS_V1.md` and `docs/INTERACTION_V1.md`, the look source for every V1 screen. The
+    upload this prompt worked from had the two documents but not the mockups. P11's S01/S02/S06
+    UI, and every later screen, needs them first.
+
+    *Madhav.*
+
+124. **The glyph model has no Unicode code points.** `core-geometry`'s `Glyph` data class
+    (`core-geometry/src/commonMain/kotlin/com/asoc/typewright/core/geometry/Glyph.kt:83-89`)
+    carries a name, advance width, contours, anchors and guidelines — no `unicode` field of any
+    kind. `core-font`'s `GlifCodec` confirms this on both sides of the round trip: its own KDoc
+    states `<unicode>` "is skipped on read (nothing in `Glyph` has anywhere to put them) and
+    never written" (`core-font/src/commonMain/kotlin/com/asoc/typewright/core/font/ufo/GlifCodec.kt:35-36`),
+    and `parseGlif`'s element loop actually does this — a `<unicode>` element falls into the
+    `else -> reader.skipElement()` branch, commented `// unicode, image, lib, note: not modelled,
+    see KDoc` (same file, lines 91-93); `writeGlif` (lines 245-271) never emits a `<unicode>`
+    element either. So importing a font loses its cmap on the way into a project, and a font
+    compiled back out could not map characters to glyphs. No V1 prompt names this gap. It
+    belongs to P11's project model (deciding where a code point lives) and P12's import (reading
+    it off the source font).
+
+    *build.*
