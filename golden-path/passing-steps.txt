@@ -16,4 +16,5 @@
 # fixture standing in for the real one), add its id below. Never add an id to make this list
 # longer for its own sake -- goldenPathRatchet exists specifically so that can't happen unnoticed.
 #
-# No step passes yet (P10 step 6): this file intentionally lists none.
+3
+7

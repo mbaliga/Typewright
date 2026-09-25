@@ -42,6 +42,18 @@ jobs:
       # -Ptypewright.android=false also leaves the Android-bearing projects out of the build.
       - name: JVM tests and ktlint, SDK-free
         run: env -u ANDROID_HOME -u ANDROID_SDK_ROOT ./gradlew -Ptypewright.android=false jvmTest spotlessCheck
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: fontTools install
+        run: pip install -r tools/requirements-ufolib.txt
+      # jvmTest above already ran :project:jvmTest, whose UfoLibValidationSamplesTest wrote these
+      # samples (docs/PROJECT_MODEL.md §11) -- but that test task declares no @OutputDirectory for
+      # them, so a Gradle build-cache hit on it would skip re-running it without restoring them.
+      # validate_ufo.py itself checks the directory is real rather than silently passing on an
+      # empty one, so a stale or absent run fails loudly here instead of passing quietly.
+      - name: ufoLib validation
+        run: python3 tools/validate_ufo.py project/build/ufo-validation
 
   android:
     name: android (assembleDebug, platform-module tests)
@@ -68,6 +80,10 @@ jobs:
       # job with the Android SDK on PATH, so it is the one whole-project ktlint check.
       - name: ktlint, whole project
         run: ./gradlew spotlessCheck
+      # Compiles the androidTest sources only; it never runs them (CLAUDE.md law 4: on-device
+      # behaviour is owner-verified only, via tools/device/p11-save-kill-restore.sh).
+      - name: androidTest sources compile
+        run: ./gradlew :app-android:assembleDebugAndroidTest
       # Uploads run last, after the build above and the tests/lint above it: a step with no
       # `if: always()` never runs once an earlier step in the job has failed, so nothing here
       # uploads a build from a job whose own tests didn't pass.
@@ -137,8 +153,10 @@ jobs:
           cache-provider: basic
       - name: Production browser distribution (Binaryen downloaded from its GitHub releases)
         run: ./gradlew :app-web:wasmJsBrowserDistribution
-      - name: Wasm tests (pure and compile/shape-preview under Node; app-web, shape-preview and ui in headless Chrome)
-        run: ./gradlew wasmJsNodeTest :app-web:wasmJsBrowserTest :shape-preview:wasmJsBrowserTest :ui:wasmJsBrowserTest
+      # :project:storage's FsaProjectStore needs a real browser (File System Access API, OPFS),
+      # so its Wasm tests run in headless Chrome like app-web/shape-preview/ui's, not under Node.
+      - name: Wasm tests (pure and compile/shape-preview under Node; app-web, shape-preview, ui and project:storage in headless Chrome)
+        run: ./gradlew wasmJsNodeTest :app-web:wasmJsBrowserTest :shape-preview:wasmJsBrowserTest :ui:wasmJsBrowserTest :project:storage:wasmJsBrowserTest
       # Runs last, after the Wasm tests above: a step with no `if: always()` never runs once an
       # earlier step in the job has failed, so this never uploads a bundle from a job whose own
       # tests didn't pass.

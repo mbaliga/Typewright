@@ -64,15 +64,13 @@ class GoldenPathTest {
     // --- Step 3: Draw / Space ----------------------------------------------------------------------
 
     /**
-     * Seed: S-ufo ([Seeds.newSUfoDirectory]).
-     *
-     * Real assertions this step must clear (P11 history + P17):
-     * - A point move changes only that point.
-     * - ⚑ The live economy equals `Glyph.count()` without a manual recompute.
-     * - kerning T/o = -40.
-     * - Undo-all leaves the project equal and the UFO byte-identical; redo works.
-     * - The locked glyph is refused, and unlocking gives a diff.
-     * - ⚑ `kerning.plist` on disk holds -40.
+     * Seed: S-ufo ([Seeds.newSUfoDirectory]), opened as a real [com.asoc.typewright.project.ProjectSession]
+     * over a temp [com.asoc.typewright.project.FileSystemProjectStore]. Fully built now (docs/PROJECT_MODEL.md
+     * §12) -- a point move touching only that point, ⚑ live economy tracking `Glyph.count()`, kerning T/o =
+     * -40 flushed to and read back from `kerning.plist`, a locked-glyph refusal and its diff once unlocked,
+     * and undo-all/redo-all byte identity -- see [GoldenPathSteps.step3DrawSpaceEdit] for the arrange/act/assert.
+     * What stays P17's (docs/PROJECT_MODEL.md §12 "What stays P17's"): routing Draw/Space's own tools through
+     * these commands, the tool-level commands, the 200-operation fuzz, and the undo gestures.
      */
     @Test
     fun step3DrawSpaceEdit() = GoldenPathSteps.step3DrawSpaceEdit()
@@ -121,13 +119,11 @@ class GoldenPathTest {
     // --- Step 7: Close and reopen ----------------------------------------------------------------
 
     /**
-     * Seed: S-ufo ([Seeds.newSUfoDirectory]) opened as session A, closed, reopened as session B.
-     *
-     * Real assertions this step must clear (P11):
-     * - B.project equals A.project; locks, diffs, typewright.json, scrapbook and lessons are equal.
-     * - ⚑ `readUfoProject` over the files on disk equals A.project.
-     * - No `*.tmp` files.
-     * - ⚑ Saving with no changes leaves the files byte-identical.
+     * Seed: S-ufo ([Seeds.newSUfoDirectory]) opened as session A, closed, reopened as session B. Fully built
+     * now (docs/PROJECT_MODEL.md §12) -- B's state equals A's (locks, diffs, `typewright.json`, scrapbook and
+     * lessons included), ⚑ the UFO read back from disk equals A's own, no `*.tmp`/`*.new` files are left
+     * behind, ⚑ saving with no changes writes nothing, and re-encoding from scratch (`rewriteAll()`) is
+     * byte-identical -- see [GoldenPathSteps.step7CloseAndReopen] for the arrange/act/assert.
      */
     @Test
     fun step7CloseAndReopen() = GoldenPathSteps.step7CloseAndReopen()
