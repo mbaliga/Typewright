@@ -26,9 +26,22 @@ kotlin {
                 api(project(":project"))
             }
         }
+        commonTest {
+            dependencies {
+                implementation(libs.kotlinx.coroutines.test)
+            }
+        }
         androidMain {
             dependencies {
+                // AndroidFolderPicker's ActivityResultRegistry/ActivityResultContracts come from
+                // this artifact's own androidx.activity:activity base (already resolved by it);
+                // no Compose dependency of this module's own code on it.
                 implementation(libs.androidx.activity.compose)
+            }
+        }
+        androidHostTest {
+            dependencies {
+                implementation(libs.kotlin.test.junit)
             }
         }
         wasmJsMain {

@@ -111,7 +111,11 @@ fun TypewrightApp(
     workspace: ProjectWorkspace = rememberProjectWorkspace(),
     supportsZipTransfer: Boolean = false,
 ) {
-    LaunchedEffect(workspace) { workspace.reopenLast() }
+    // Guarded: a caller that already holds a live session across this composable's own recreate
+    // (MainActivity's process-scoped workspace, on an Activity recreate) must not have it silently
+    // replaced by whatever ProjectWorkspace.open() would reopen from disk, which would drop the
+    // in-memory session and its undo history. Only a workspace with nothing open yet reopens.
+    LaunchedEffect(workspace) { if (workspace.current.value == null) workspace.reopenLast() }
     CompositionLocalProvider(
         LocalProjectWorkspace provides workspace,
         LocalZipTransferSupported provides supportsZipTransfer,
