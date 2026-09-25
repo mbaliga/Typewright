@@ -11,7 +11,7 @@ exists today. Nothing in this document is a promise that a public endpoint is cu
 
 ## Why this endpoint exists
 
-`CompileBackend` (`compile/src/commonMain/kotlin/dev/aarso/typewright/compile/CompileBackend.kt`)
+`CompileBackend` (`compile/src/commonMain/kotlin/com/asoc/typewright/compile/CompileBackend.kt`)
 turns a Typewright project into font binaries, and has three backends (brief §3): fontmake and
 fontTools through system Python on Linux desktop, through Chaquopy on Android, and -- on the web,
 where neither is available -- fontmake in a container behind this HTTP endpoint. Whatever UI
@@ -152,11 +152,11 @@ promise must take, not evidence that it has been kept.
 
 ## Tested
 
-- `compile/src/commonTest/kotlin/dev/aarso/typewright/compile/HostedBuildProtocolTest.kt` --
+- `compile/src/commonTest/kotlin/com/asoc/typewright/compile/HostedBuildProtocolTest.kt` --
   `HostedBuildProtocol`'s request encoding and response/outcome decoding, as pure Kotlin. Runs on
   desktop/JVM, Android host tests, and `wasmJsNodeTest`: the exact JSON shapes on this page,
   proven on every target this module builds for, including where `fetch()` itself cannot run.
-- `compile/src/wasmJsTest/kotlin/dev/aarso/typewright/compile/HostedEndpointBackendRealHttpTest.kt`
+- `compile/src/wasmJsTest/kotlin/com/asoc/typewright/compile/HostedEndpointBackendRealHttpTest.kt`
   -- `HostedEndpointBackend.compile()` against a real local HTTP server (Node's own `http` module,
   `MockHttpServer.kt`), run by `:compile:wasmJsNodeTest`. This is a real `fetch()` POST over a
   real loopback socket to a real server process, not a Kotlin fake standing in for the network:

@@ -9,6 +9,9 @@ in the 22–23 September design sessions, the UI that was designed live in
 Status markers: [CANON] decided · [CONFIRM] needs Madhav · [SCAFFOLD] placeholder content
 that ships marked as such until replaced.
 
+V1 canon: docs/SCREENS_V1.md §1 (C1–C7) and docs/INTERACTION_V1.md amend this document; see
+the notes marked "V1 canon" below.
+
 Read order for a build agent: this file → `UI_SPEC.md` → `docs/KNOWLEDGE.md` →
 `docs/RESEARCH_font_quality.md` → the relevant prompt in `PROMPTS_CLAUDE_CODE.md`.
 Open `ui/typewright-explorer.html` in a browser before touching any UI code.
@@ -54,7 +57,8 @@ layout per handoff §10, with these amendments:
 
 - `compile` is defined behind a `CompileBackend` interface from day one. v1 backend:
   fontmake + fontTools in a Python runtime (Chaquopy on Android, system Python on Linux;
-  Chaquopy is free of charge for all use since v14 [CONFIRM current licence text]). Web v1:
+  Chaquopy is MIT-licensed (corrected 25 Sep 2026, P10: MIT since 12.0.1, July 2022;
+  PROMPTS_V1 D5)). Web v1:
   a hosted build endpoint; the UI says so. Planned v2 backend: **fontc** (Rust, Apache-2.0)
   as a native library, which is what makes iOS possible and web offline. Do not let any
   caller depend on Python being present.
@@ -90,6 +94,11 @@ Room switching: horizontal swipe on the header block, a two-finger horizontal sw
 anywhere, the edge marks, keyboard ← →, and the map. A one-finger horizontal drag on the
 canvas never switches rooms: that gesture belongs to the letter.
 
+> **V1 canon C1 (SCREENS_V1 §1, 25 Sep 2026):** Rooms switch through the control deck's
+> section arc (SCREENS_V1 §2), not header swipe, edge marks or tapping the header to reach
+> the map. The header carries the page title only; edge marks are removed. Two-finger swipe
+> and keyboard ← → stay.
+
 ### 4.2 Zoom is depth
 
 Pinch out from a glyph → the word proof → the specimen (the project's home) → the map of
@@ -119,6 +128,9 @@ attribution audit on import. Everything else is a room, a margin, a proof, or an
 value.
 
 ## 5. Interaction [CANON]
+
+> **V1 canon:** docs/INTERACTION_V1.md replaces this section wherever they differ
+> (25 Sep 2026).
 
 ### 5.1 The tool puck
 
@@ -152,12 +164,23 @@ palm rejection on. Mouse and keyboard: modifiers constrain and snap, arrows nudg
 shift 10, numeric entry for every value, `=` expressions (`=xheight`, `=o.rsb+4`), command
 palette on Ctrl/⌘ K.
 
+> **V1 canon C7 (SCREENS_V1 §1, 25 Sep 2026):** The command palette is also the first item
+> of every ⋯ menu (the control deck's right circle), so touch users can reach it, as well as
+> Ctrl/⌘ K.
+
 ### 5.3 The bloom
 
 Between the grid and the ink there is a quiet layer: soft paper-coloured zones under every
 piece of glass (header, puck, inspector, edge marks, radial). Grid lines, metric lines and
-paper grain dissolve as they approach the glass; letters and nodes never fade. This is what
-lets the glass exist without a single box or rule. Implementation: a layer in the sheet's
+paper grain dissolve as they approach the glass; letters and nodes never fade.
+
+> **V1 canon C4 (SCREENS_V1 §1, 25 Sep 2026):** Construction stays visible. Only the grid
+> and the grain dissolve near the glass; metric lines, guides and construction geometry
+> (circles, offsets, skeletons, tangents, Hobby control polygons) draw at full strength
+> everywhere, including under the glass. Draw's toggle arc has a Construction switch, on by
+> default.
+
+This is what lets the glass exist without a single box or rule. Implementation: a layer in the sheet's
 coordinate space counter-translated so it stays fixed to the glass; radial gradients from
 canvas colour to transparent; z-order grid < bloom < ink < glass.
 
@@ -166,8 +189,20 @@ canvas colour to transparent; z-order grid < bloom < ink < glass.
 Selected: ink block, paper text. Unselected: plain ink text. This applies to tools, rooms,
 inspector fields (the field being edited or snapped), stages, style chips, lesson eras,
 and the outlier counts on the specimen. Meaning colours remain for live geometry only:
-violet = selected node or contour, cyan = the thing you are snapping to. Never red or green
-as meaning. Severity is a shape and a word (● fail · ◐ warn · ✓ pass · ○ info · dotted
+violet = selected node or contour, cyan = the thing you are snapping to.
+
+> **V1 canon C5 (SCREENS_V1 §1, 25 Sep 2026):** The roles are fixed (violet = selected,
+> cyan = snap target) but the values are themeable (SCREENS_V1 §3). Every role also has a
+> shape, so colour is never the only signal.
+
+Never red or green
+as meaning.
+
+> **V1 canon C3 (SCREENS_V1 §1, 25 Sep 2026):** One red, one use. Red (#D0342C on light
+> grounds, #FF5A4E on dark) is only ever the fill of the control deck's left circle in its
+> Close state, with a white ✕. Nothing else may be red, and themes can't reassign it.
+
+Severity is a shape and a word (● fail · ◐ warn · ✓ pass · ○ info · dotted
 circle = not started).
 
 ### 5.5 Gestures, summarised
@@ -185,10 +220,18 @@ circle = not started).
 | nudge | inspector ±1 / ±10 | same | arrows, shift-arrows |
 | undo | two-finger tap | barrel double-click | Ctrl/⌘ Z |
 
+> **V1 canon C1 (SCREENS_V1 §1, 25 Sep 2026):** the "switch room" and "map" rows above are
+> superseded — rooms (sections) switch through the control deck's section arc; the map opens
+> from a long-press on the arc, not a header tap. Two-finger swipe and ← → stay as shown.
+
 ## 6. Visual language [CANON]
 
 Minimal and brutalist: hard edges, one weight of paper, ink blocks, no shadows, no blur, no
 translucency, no rounded corners except the puck. Separation by whitespace and by the bloom.
+
+> **V1 canon C2 (SCREENS_V1 §1, 25 Sep 2026):** Round means thumb instrument. The puck, the
+> control deck's two circles, its section arc and its toggle arc are round. Everything else
+> stays square, flat and shadowless.
 
 - **Type**: one neutral sans for sentences (system UI stack; bundle Inter (OFL) for
   cross-platform identity [CONFIRM]); a monospace for labels, numbers and chips at 9.5–11 sp,
@@ -198,7 +241,13 @@ translucency, no rounded corners except the puck. Separation by whitespace and b
   white ink, fine grid), black (AMOLED), white, and user import. Chrome follows the texture:
   light chrome on light canvases, dark on dark. Default: paper [CONFIRM].
 - **Meaning colours** with a light-ground and a dark-ground value each: violet #5F4BE0 /
-  #8E7BFF, cyan #0A9D8E / #08FED5. Comparison layers add amber #B57A00 / #FFB300 and
+  #8E7BFF, cyan #0A9D8E / #08FED5.
+
+  > **V1 canon C5 (SCREENS_V1 §1, 25 Sep 2026):** The roles are fixed and the values are
+  > themeable (SCREENS_V1 §3); every role also has a shape, so colour is never the only
+  > signal.
+
+  Comparison layers add amber #B57A00 / #FFB300 and
   magenta #B8248F / #FF5FD2, always paired with a line pattern (solid, dashed, dotted,
   dash-dot). Provenance of cloud versus device follows the constellation rule.
 - **Motion**: room pan 600 ms, cubic-bezier(.2,.8,.2,1); puck pin 350 ms; count collapse
@@ -439,7 +488,9 @@ with artifacts: UI iteration; the explorer is republished there and copied into 
 4. Three stages by default versus eight (§7).
 5. Default texture (§6).
 6. Inter as the bundled UI face.
-7. Chaquopy licence text; Google Fonts Knowledge text licence.
+7. Chaquopy licence text: **closed 25 Sep 2026 (P10):** Chaquopy is MIT since 12.0.1; the
+   open risk is native wheels on Android, which is D5 after P14's spike. Google Fonts
+   Knowledge text licence remains open.
 8. Whether `ARTICLE.en_us.html` or `DESCRIPTION.en_us.html` is canonical for submissions in
    2026 (handoff research).
 9. The Domestika material for Craft and the workbook.

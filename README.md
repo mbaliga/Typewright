@@ -66,6 +66,7 @@ build-tools it needs if the SDK licences are accepted.
 | Web, production | `./gradlew :app-web:wasmJsBrowserDistribution` | `app-web/build/dist/wasmJs/productionExecutable/`; serve it with `python3 -m http.server -d app-web/build/dist/wasmJs/productionExecutable 8080` |
 | Web, development server | `./gradlew :app-web:wasmJsBrowserDevelopmentRun` | not run at P0 |
 | Wasm tests under Node | `./gradlew wasmJsNodeTest` | the pure modules, `compile` and `shape-preview` |
+| Golden path | `./gradlew :golden-path:goldenPath` | prints the pass count (`golden-path/README.md`); never fails on step results — `:golden-path:goldenPathRatchet` is the one that can fail the build |
 
 Notes:
 
@@ -108,6 +109,7 @@ Notes:
 | `app-android/` | `:app-android` | Android | application shell |
 | `app-desktop/` | `:app-desktop` | desktop JVM | application shell, Linux packaging |
 | `app-web/` | `:app-web` | Wasm (browser) | application shell and `index.html` |
+| `golden-path/` | `:golden-path` | desktop JVM | `GoldenPathTest`, the release acceptance harness (`golden-path/README.md`); depends on `:compile`, so it needs the Android SDK to configure like the rest of this second group |
 
 The first ten are **pure** (CLAUDE.md law 2): no Android target and no Android SDK on their
 classpath, so an `android.*` import cannot compile there. Android code reaches them through
@@ -116,9 +118,9 @@ their JVM variant (`app-android` resolves `core-geometry`'s `jvmRuntimeElements`
 Conventions:
 
 - Kotlin packages and Android namespaces come from the Gradle path (the convention plugins
-  derive the namespaces; packages follow by hand): `dev.aarso.typewright.` plus
-  the path with `:` and `-` turned into `.` (`:qa:corpus` is `dev.aarso.typewright.qa.corpus`,
-  `:shape-preview` is `dev.aarso.typewright.shape.preview`). The group is provisional.
+  derive the namespaces; packages follow by hand): `com.asoc.typewright.` plus
+  the path with `:` and `-` turned into `.` (`:qa:corpus` is `com.asoc.typewright.qa.corpus`,
+  `:shape-preview` is `com.asoc.typewright.shape.preview`). The group is provisional.
 - A new pure module needs only `plugins { id("typewright.kmp.pure") }`; a module with
   platform actuals uses `typewright.kmp.platform`. Both live in `build-logic/`. Pure modules
   name their JVM target `jvm`; platform modules name it `desktop`, because their JVM
@@ -128,19 +130,30 @@ Conventions:
 
 ## CI
 
-`.github/workflows/ci.yml`, three jobs on every push to `main` and every pull request; a
-newer run cancels the one it supersedes, and no job uploads artifacts.
+`.github/workflows/ci.yml`, four jobs on every push to `main` and every pull request; a
+newer run cancels the one it supersedes.
 
 - `core`: JDK 21, `jvmTest` and ktlint for the pure modules with the runner's Android SDK
   unset.
 - `android`: `:app-android:assembleDebug`, the platform modules' desktop and Android
   host tests including the screenshot harness, and a whole-project `spotlessCheck` (the only
   job with the Android SDK on PATH, so the only one that lints the Android-bearing modules too).
+- `golden-path`: `:golden-path:goldenPath` (prints the pass count; never fails the job) and
+  `:golden-path:goldenPathRatchet` (fails the job on a regression — see `golden-path/README.md`),
+  then appends the summary to the job's own step summary regardless of the ratchet's result.
 - `web`: the production Wasm distribution, the Wasm tests under Node, and `app-web`'s,
   `shape-preview`'s and `ui`'s tests in headless Chrome.
 
 `gradle/actions/setup-gradle` runs with `cache-provider: basic`, its MIT-licensed cache,
 rather than the default proprietary one.
+
+**Artifacts (P10.7).** Pull requests upload nothing. Every push to `main` additionally
+uploads three artifacts, 7-day retention, so the owner can sideload and verify on-device
+behaviour himself (CLAUDE.md law 4: this build environment has no phone or emulator) — the
+`android` job's debug APK and a tarball of `:app-desktop:createDistributable`'s own Linux
+package, and the `web` job's production Wasm bundle. Every upload step is
+`continue-on-error: true`: the owner's account is at its GitHub Actions storage limit, so an
+upload failure must never fail the build.
 
 ## The build pack
 

@@ -13,7 +13,7 @@ plugins {
     id("typewright.lint")
 }
 
-group = "dev.aarso.typewright"
+group = "com.asoc"
 
 kotlin {
     wasmJs {

@@ -27,16 +27,16 @@ The workbook engine: tasks as data with why, demonstration, task, gate and refle
 |---|---|---|
 | 1 Choose your reference | not implemented | -- (a judgment call, no automated check) |
 | 2 Read it | not implemented | -- (a judgment call, no automated check) |
-| 3 Set metrics | overshoot presence | `dev.aarso.typewright.qa.checkOvershootPresence` |
-| 4 Control characters | node economy | `dev.aarso.typewright.qa.checkNodeEconomy` |
-| 5 Derive the family | geometric sanity | `dev.aarso.typewright.qa` (`GeometricChecks.kt`, six checks run together) |
-| 6 The hard letters | geometric sanity | `dev.aarso.typewright.qa` (`GeometricChecks.kt`, six checks run together) |
+| 3 Set metrics | overshoot presence | `com.asoc.typewright.qa.checkOvershootPresence` |
+| 4 Control characters | node economy | `com.asoc.typewright.qa.checkNodeEconomy` |
+| 5 Derive the family | geometric sanity | `com.asoc.typewright.qa` (`GeometricChecks.kt`, six checks run together) |
+| 6 The hard letters | geometric sanity | `com.asoc.typewright.qa` (`GeometricChecks.kt`, six checks run together) |
 | 7 Spacing | not implemented | -- (M7 names it; no qa function built yet) |
 | 8 Kerning | not implemented | -- (M7 names it; no qa function built yet) |
-| 9 Diacritics and anchors | anchor presence | `dev.aarso.typewright.qa.checkAnchorsPresent` |
+| 9 Diacritics and anchors | anchor presence | `com.asoc.typewright.qa.checkAnchorsPresent` |
 | 10 Extend a script (optional) | not implemented | -- (no script-specific check exists yet) |
-| 11 Test | layer one | `dev.aarso.typewright.qa.LayerOneChecker` (`platformLayerOneChecker`) |
-| 12 Ship | repo scaffold sanity | `dev.aarso.typewright.qa.ship` (`generateOflText`/`generateDescriptionHtml`/`generateMetadataPbText`) |
+| 11 Test | layer one | `com.asoc.typewright.qa.LayerOneChecker` (`platformLayerOneChecker`) |
+| 12 Ship | repo scaffold sanity | `com.asoc.typewright.qa.ship` (`generateOflText`/`generateDescriptionHtml`/`generateMetadataPbText`) |
 
 Tasks 1, 2, 7, 8 and 10 have no implemented `qa` function to wire to as of this task (7 and 8 are
 named but unbuilt in `docs/TYPEWRIGHT_HANDOFF.md` "M7. Quality gate and Google Fonts pipeline"; 1,

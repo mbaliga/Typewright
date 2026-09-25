@@ -10,7 +10,7 @@ plugins {
     id("typewright.lint")
 }
 
-group = "dev.aarso.typewright"
+group = "com.asoc"
 
 java {
     val java = JavaVersion.toVersion(libs.versions.jvm.target.get())
@@ -32,7 +32,7 @@ dependencies {
 
 compose.desktop {
     application {
-        mainClass = "dev.aarso.typewright.app.desktop.MainKt"
+        mainClass = "com.asoc.typewright.app.desktop.MainKt"
         nativeDistributions {
             // Linux is the v1 desktop; Windows and macOS formats join later on the same target.
             targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.AppImage)

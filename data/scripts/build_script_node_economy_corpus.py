@@ -10,7 +10,7 @@ rule:
 
 1.  Glyph set. Latin's GLYPHS is a hand-typed ASCII string. Here it is extracted, at run
     time, from this build's own already-committed, already-reviewed glyph inventories --
-    scripts/src/commonMain/kotlin/dev/aarso/typewright/scripts/devanagari/
+    scripts/src/commonMain/kotlin/com/asoc/typewright/scripts/devanagari/
     DevanagariGlyphInventory.kt (66 glyphs: independent vowels, anusvara, the 33 standard
     consonants, the 10 dependent vowel signs/matras, visarga, the 10 digits) and .../kana/
     HiraganaGlyphs.kt + KatakanaGlyphs.kt (55 + 57 glyphs: the 46 base gojuon syllables plus
@@ -102,7 +102,7 @@ CATEGORY_SLUGS = [
 
 REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 SCRIPTS_MODULE = os.path.join(
-    REPO_ROOT, "scripts", "src", "commonMain", "kotlin", "dev", "aarso", "typewright", "scripts"
+    REPO_ROOT, "scripts", "src", "commonMain", "kotlin", "com", "asoc", "typewright", "scripts"
 )
 
 

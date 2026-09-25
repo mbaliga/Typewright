@@ -94,7 +94,7 @@ carries no licence banners, which is one more reason the web app needs a licence
 
 | Component | Source | Licence | Notes |
 |---|---|---|---|
-| UFO glyph-name-to-file-name algorithm (`core-font`'s `dev.aarso.typewright.core.font.ufo.userNameToFileName`, `handleFileNameClash1/2`) | `fontTools.ufoLib.filenames` (`fontTools` 4.66.0), itself copied from `ufoLib` (`unified-font-object/ufoLib`, commit `8747da7`) | MIT (fontTools) and BSD-3-Clause (ufoLib) | Ported line-for-line so `core-font`'s UFO writer produces exactly the `.glif` file names a real UFO tool (RoboFont, FontForge) would; both licences' notices (fontTools' MIT notice, copyright 2017 Just van Rossum, and ufoLib's BSD-3-Clause notice, copyright 2005-2016 the RoboFab developers: Erik van Blokland, Tal Leming, Just van Rossum) are reproduced in full in `GlyphFileNames.kt`'s own header, above its `package` line. |
+| UFO glyph-name-to-file-name algorithm (`core-font`'s `com.asoc.typewright.core.font.ufo.userNameToFileName`, `handleFileNameClash1/2`) | `fontTools.ufoLib.filenames` (`fontTools` 4.66.0), itself copied from `ufoLib` (`unified-font-object/ufoLib`, commit `8747da7`) | MIT (fontTools) and BSD-3-Clause (ufoLib) | Ported line-for-line so `core-font`'s UFO writer produces exactly the `.glif` file names a real UFO tool (RoboFont, FontForge) would; both licences' notices (fontTools' MIT notice, copyright 2017 Just van Rossum, and ufoLib's BSD-3-Clause notice, copyright 2005-2016 the RoboFab developers: Erik van Blokland, Tal Leming, Just van Rossum) are reproduced in full in `GlyphFileNames.kt`'s own header, above its `package` line. |
 
 ## Fetched for Learn lesson content
 
@@ -131,7 +131,7 @@ September 2026.
 | Libre Bodoni | Copyright 2012 The Libre Bodoni Project Authors | OFL-1.1 |
 | Poppins | Copyright 2020 The Poppins Project Authors | OFL-1.1 |
 | Libre Franklin | Copyright 2020 The Libre Franklin Project Authors | OFL-1.1 |
-| Roboto Slab | Copyright 2018 The Roboto Slab Project Authors | **Apache-2.0** (`METADATA.pb`'s `license:` field reads `"APACHE2"`, not `"OFL"` — the one family here that is not OFL-licensed; see `docs/OPEN_QUESTIONS.md` P6 item 1) |
+| Roboto Slab | Copyright 2018 The Roboto Slab Project Authors | **Apache-2.0** (`METADATA.pb`'s `license:` field reads `"APACHE2"`, not `"OFL"` — the one family here that is not OFL-licensed; see `docs/OPEN_QUESTIONS.md` item 31) |
 | Cormorant | Copyright 2015 The Cormorant Project Authors | OFL-1.1 |
 | Open Sans | Copyright 2020 The Open Sans Project Authors | OFL-1.1 |
 | Josefin Sans | Copyright 2010 The Josefin Sans Project Authors, RFN "Josefin Sans" | OFL-1.1 |
