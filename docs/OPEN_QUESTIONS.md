@@ -3218,38 +3218,46 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     output, and it was false.
 
     A third, independent pass (review round 2's fix-up) ran `git fsck --unreachable` for real,
-    from a worktree sharing this clone's object store. It lists 87 unreachable objects, three
-    of them loose blobs: `141e3aeff2` (6,812 bytes compressed) and its two test files,
-    `0b288365` and `95790eab`. `git cat-file -p 141e3aeff2` prints the actual removed draft —
+    from a worktree sharing this clone's object store. It found three loose blobs holding the
+    draft: `141e3aeff2` (6,812 bytes compressed) and its two test files, `0b288365` and
+    `95790eab`. `git cat-file -p 141e3aeff2` printed the actual removed draft —
     `object UnifiedDiff { ... private fun shiftBoundaries(lines, changed, other) ... }` built
     on `compareMatchable`, the same boundary-sliding structure this item already names as GNU
     diffutils' `shift_boundaries`/`analyze.c` — materially different from the shipped
     `UnifiedDiff.kt`, which uses `MyersDiff(...).solve(...)` and `slidePureRunsDown`. None of
-    the three is reachable from any ref, any worktree's reflog, or any of this clone's three
+    the three was reachable from any ref, any worktree's reflog, or any of this clone's
     worktrees' indexes (`git rev-list --objects --all`, and each worktree's index read via
-    `GIT_INDEX_FILE`, checked directly); they are timestamped 2026-09-25 06:44:50 UTC, hours
-    before this pass, so they are a genuine leftover, most likely a `git add` of the draft that
-    was later discarded without ever being committed, which is why no reflog entry protects it.
-    Re-scanning all 87 objects' content, not just these three, for the same GPL terms turns up
-    five more hits, all false positives on inspection: four are earlier whole-file revisions of
-    this document, matching its own unrelated libspiro/AGPL passage elsewhere in the file, and
-    one is core-font's `UfoProject.kt`, matching `kerningPlist` as a case-insensitive substring
-    of "GPL".
+    `GIT_INDEX_FILE`, checked directly); all three were timestamped 2026-09-25 06:44:50 UTC,
+    hours before this pass, so they were a genuine leftover, most likely a `git add` of the
+    draft that was later discarded without ever being committed, which is why no reflog entry
+    protected it.
 
-    So the draft is not gone in the sense CLAUDE.md's "reimplement... and say so" needs: it is
-    unreferenced but still recoverable from this clone's object store, one `git cat-file -p`
-    away. `git prune --dry-run --expire=now` lists exactly these 87 already-unreachable objects
-    and nothing else, so a plain `git prune --expire=now` (no reflog expiry needed; these blobs
-    were never reflog-reachable to begin with) would remove them without touching any ref,
-    reflog or in-progress work in any of this clone's worktrees. That prune was not run in this
-    pass: deleting objects from the shared `.git` store is an irreversible local action this
-    environment's permission layer refuses to an executor, and working around that refusal is
-    out of bounds here. Whoever has standing permission for destructive git commands — the
-    lead, or Madhav, outside a sandboxed executor — should run it from any worktree of this
-    clone, then confirm with `git fsck --unreachable | grep -c '^unreachable blob'` dropping by
-    exactly 3 and `git cat-file -e 141e3aeff2...` failing, before this item reads clean. Until
-    then this entry's own corroboration is unverified in the one way that matters, and closing
-    it is further than ever from an executor's call to make.
+    A scan of every unreachable object's content for the same GPL terms, restricted to loose
+    objects timestamped at or before that same 06:44:50 batch (a scan without that limit drifts:
+    a shared object store in active use grows new unreachable objects — ordinary `git stash` and
+    history-rewrite debris — every hour, and two such objects had already appeared by the next
+    check minutes later), found four more hits, all false positives on inspection: three are
+    earlier whole-file revisions of this document, matching its own unrelated libspiro/AGPL
+    passage elsewhere in the file, and one is core-font's `UfoProject.kt`, matching
+    `kerningPlist` as a case-insensitive substring of "GPL". (An earlier draft of this paragraph
+    miscounted this as "five... four are earlier revisions"; the number above is the one that
+    reproduces under the time-bounded method, and is not expected to match a re-run beyond that
+    same batch, for the reason just given.)
 
-    *lead, then Madhav as sole licensor — and only after the prune above is confirmed run and
-    re-verified.*
+    **Pruned.** `git prune --dry-run --expire=now` listed exactly the objects `git fsck
+    --unreachable` had already found and nothing referenced by any ref, reflog or worktree
+    index, so the lead ran `git prune --expire=now` from the main checkout on 25 Sep 2026, which
+    shares its object store with every worktree of this clone. `git fsck --unreachable` then
+    found zero unreachable blobs, and `git cat-file -e` failed on all three of `141e3aeff2`,
+    `0b288365` and `95790eab`. The draft is gone from every copy of this repository the lead has
+    write access to.
+
+    What is settled: the shipped `UnifiedDiff.kt` is Myers' published algorithm, correctly
+    attributed, with an originally-named placement rule, and the GPL-resembling draft that
+    preceded it never reached any commit and no longer exists anywhere in this clone's object
+    store. What only Madhav can settle, as sole licensor: whether that is enough diligence to
+    close this item, given that a draft can still exist in another clone (this branch's earlier
+    pushes to `origin`, before the draft was ever written, never carried it — `git log -p` on
+    every pushed commit confirms `UnifiedDiff.kt` first appears already in its shipped form).
+
+    *Madhav, as sole licensor.*
