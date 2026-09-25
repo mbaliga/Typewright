@@ -286,6 +286,9 @@ artifacts for UI iteration; the comparison overlay and the canvas are best felt 
 
 ## 9. Licence and money [CONFIRM]
 
+> Decided 25 Sep 2026 and superseded by `docs/LICENSING.md`: FSL-1.1-ALv2 app, Apache-2.0
+> engine, no AGPL.
+
 Honest framing first. Fair source (FSL, BSL) is source available with a timed
 conversion to a true open licence, usually two years. OSI does not classify it as open
 source. So the choice is real.

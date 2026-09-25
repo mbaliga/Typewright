@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+
 """Build the node-economy reference corpus for Typewright.
 
 For each style class in the Google Fonts taxonomy, take the top-N families by

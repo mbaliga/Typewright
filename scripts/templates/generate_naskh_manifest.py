@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+
 """Generate scripts/templates/naskh-manifest.json from the real, already-populated
 scripts/templates/hyle-all-templates.zip -- CLAUDE.md's own "Data packs ... checked in under
 data/ with a generator script beside them; never hand-edit generated data" convention, the same

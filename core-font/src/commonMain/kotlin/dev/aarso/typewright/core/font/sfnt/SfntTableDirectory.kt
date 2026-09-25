@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package dev.aarso.typewright.core.font.sfnt
 
 /** One entry of an sfnt table directory: where a table's bytes live in the font file. */

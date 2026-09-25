@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package dev.aarso.typewright.buildlogic
 
 import com.diffplug.gradle.spotless.SpotlessExtension

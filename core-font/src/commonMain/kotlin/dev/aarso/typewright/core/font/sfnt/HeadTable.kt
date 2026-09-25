@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package dev.aarso.typewright.core.font.sfnt
 
 /** Whether `loca` stores its offsets as `uint16` halved (`SHORT`) or `uint32` as-is (`LONG`). */

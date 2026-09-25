@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: FSL-1.1-ALv2
+
 package dev.aarso.typewright.ui.workbook
 
 import dev.aarso.typewright.campaign.DEFAULT_TASK4_STYLE_KEY

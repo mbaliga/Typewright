@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 @file:OptIn(ExperimentalWasmJsInterop::class)
 
 package dev.aarso.typewright.compile

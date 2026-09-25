@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: FSL-1.1-ALv2
+
 package dev.aarso.typewright.campaign
 
 /** Anchors [readCampaignResourceText]'s classloader lookup to this module's own class. */

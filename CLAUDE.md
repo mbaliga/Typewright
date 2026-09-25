@@ -17,10 +17,10 @@ Google Fonts-quality fonts and teaches the user what quality means. Targets: And
    `engine-trace`, `engine-construct`, `qa`) lives in modules with zero Android SDK
    imports, so it is testable off-device and CI stays SDK-free. `android.*` imports are
    banned there.
-3. **No telemetry, no analytics, no phoning home, ever.** No backend of ours. The only
-   network calls are the ones the user asks for: fetching a Google Fonts family for
-   comparison, pushing to their GitHub, and the hosted build endpoint on web (which the UI
-   names every time it is used).
+3. **No telemetry, no analytics, no phoning home, ever.** The only network calls are the
+   ones the user asks for: fetching a Google Fonts family for comparison, pushing to their
+   GitHub, and, on the web only, an opt-in hosted build that the UI names every time it's
+   used and that keeps nothing.
 4. **Environment honesty.** This container has no phone and no emulator. On-device
    behaviour is owner-verified only; never claim it works. Features that need the device
    are stubbed, not faked, and the stub says so in the UI.
@@ -53,8 +53,10 @@ Google Fonts-quality fonts and teaches the user what quality means. Targets: And
   generator script beside them; never hand-edit generated data.
 - Commit messages: imperative, one line of what and one of why; reference the milestone
   (M0–M6) and the prompt (P0–P8).
-- No LICENSE file and no SPDX headers until the licence is decided (brief §15). Do not add
-  one on your own.
+- Every source file carries `SPDX-License-Identifier: FSL-1.1-ALv2` (app modules) or
+  `Apache-2.0` (engine modules). An Apache module may never depend on an FSL module; CI
+  checks this (`tools/check_licences.py`, which also holds the directory-to-licence map).
+  The split and its reasons are in `docs/LICENSING.md`.
 - Third-party code: record every dependency with its licence in `THIRD_PARTY.md` as you
   add it. GPL code (Potrace, HT Letterspacer) is not linked; reimplement from published
   descriptions if needed and say so.

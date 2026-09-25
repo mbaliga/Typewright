@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package dev.aarso.typewright.engine.trace
 
 /** [despeckle]'s default: a foreground component smaller than 6 pixels is noise, not a drawn mark, at the raster resolutions this module's own tests use. */

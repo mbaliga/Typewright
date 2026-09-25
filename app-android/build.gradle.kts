@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: FSL-1.1-ALv2
+
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {

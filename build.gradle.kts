@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 plugins {
     // Every plugin the modules use, loaded once here so all modules share one classloader.
     alias(libs.plugins.kotlin.multiplatform) apply false

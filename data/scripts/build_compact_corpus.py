@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+
 """Derive the compact node-economy pack from the full one.
 
 No generator for `data/node-economy-latin.compact.json` existed before this

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package dev.aarso.typewright.core.font.sfnt
 
 /** One glyph's horizontal metrics: its advance width and left side bearing, both in font units. */

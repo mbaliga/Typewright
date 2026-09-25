@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package dev.aarso.typewright.engine.trace
 
 /** [fillHoles]'s default: an enclosed background pocket smaller than 6 pixels is filled -- symmetric with [DEFAULT_DESPECKLE_MIN_AREA]. */

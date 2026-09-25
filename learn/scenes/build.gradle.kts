@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: FSL-1.1-ALv2
+
 plugins {
     id("typewright.kmp.pure")
     alias(libs.plugins.kotlin.serialization)

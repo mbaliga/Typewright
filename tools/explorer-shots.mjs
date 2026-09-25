@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Renders every screen of ui/typewright-explorer.html to PNG, so a build agent without a
 // touch device can compare its Compose output against the source of truth.
 // Usage: node tools/explorer-shots.mjs [outDir]   (defaults to build/explorer-shots)

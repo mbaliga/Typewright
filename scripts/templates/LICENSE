@@ -1,0 +1,5 @@
+The template sheets in this directory (hyle-all-templates.zip) and the manifests generated from
+them (*-manifest.json) are dedicated to the public domain under CC0-1.0. The full text is in
+../../LICENSES/CC0-1.0.txt. Whatever you draw on a template is yours, with no conditions from us.
+
+The generator scripts here (*.py) are engine code, licensed Apache-2.0 as their SPDX lines say.

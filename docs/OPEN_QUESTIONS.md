@@ -6,7 +6,11 @@ says what was done in the meantime, and names who decides. Answered entries move
 
 ## P0: scaffold
 
-1. **LICENSE file versus brief §15.** The repository root has an Apache-2.0 `LICENSE`, added
+1. **RESOLVED (P10, 25 Sep 2026): the licence is decided, see `docs/LICENSING.md`.** The root
+   `LICENSE` is now FSL-1.1-ALv2 for the app, the Apache-2.0 text moved to
+   `LICENSES/Apache-2.0.txt` for the engine, and every source file carries an SPDX line checked
+   by `tools/check_licences.py`. Gradle's wrapper scripts keep their own Apache-2.0 notice.
+   Original entry: **LICENSE file versus brief §15.** The repository root has an Apache-2.0 `LICENSE`, added
    when the GitHub repository was created. Brief §15 and CLAUDE.md say there is no LICENSE
    until the licence is decided (the handoff §9 recommends AGPL-3). It is left untouched:
    deleting it is not the build's call, and neither is keeping it. Separately, the generated

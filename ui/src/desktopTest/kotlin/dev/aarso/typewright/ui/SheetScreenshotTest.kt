@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: FSL-1.1-ALv2
+
 package dev.aarso.typewright.ui
 
 import androidx.compose.ui.graphics.Color

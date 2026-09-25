@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: FSL-1.1-ALv2
+
 package dev.aarso.typewright.app.android
 
 import dev.aarso.typewright.core.geometry.CoreGeometryModule

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package dev.aarso.typewright.core.font.sfnt
 
 /** A tiny big-endian byte builder, the write-side mirror of [ByteCursor], used only to build synthetic sfnt fixtures in tests. */

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+
 """Fetch the real OFL/Apache webfonts the Learn strand's scenes need, from the
 google/fonts GitHub repository, at build time -- CLAUDE.md law 3: "The only
 network calls are the ones the user asks for: fetching a Google Fonts family

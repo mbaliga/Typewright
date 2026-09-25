@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: FSL-1.1-ALv2
+
 package dev.aarso.typewright.learn.scenes
 
 import dev.aarso.typewright.learn.scenes.yaml.LESSONS_SCAFFOLD_WORKED_EXAMPLE_YAML

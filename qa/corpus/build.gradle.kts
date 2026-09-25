@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 plugins {
     id("typewright.kmp.pure")
     alias(libs.plugins.kotlin.serialization)

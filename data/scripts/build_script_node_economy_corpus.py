@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+
 """Build the node-economy reference corpus for Typewright's non-Latin scripts.
 
 Sibling to build_node_economy_corpus.py (Latin): same counting rule, same source

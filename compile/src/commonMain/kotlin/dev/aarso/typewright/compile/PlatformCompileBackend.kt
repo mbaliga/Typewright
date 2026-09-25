@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package dev.aarso.typewright.compile
 
 /** The v1 backend for the platform this code runs on. */

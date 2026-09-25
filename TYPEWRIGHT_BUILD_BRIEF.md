@@ -431,8 +431,9 @@ with artifacts: UI iteration; the explorer is republished there and copied into 
 
 ## 15. Open items [CONFIRM]
 
-1. Licence: handoff §9 recommends AGPL-3 with a hosted build service as the paid product
-   and grants pursued early. Undecided; no LICENSE file until decided.
+1. Licence: **decided 25 Sep 2026** (`docs/LICENSING.md`). FSL-1.1-ALv2 for the app,
+   Apache-2.0 for the engine, CC0-1.0 for template sheets and data packs; fonts made with
+   Typewright belong to their makers. This replaces handoff §9's AGPL-3 recommendation.
 2. Name clearance for Typewright.
 3. Margin and proof as the vertical axis (§4.3).
 4. Three stages by default versus eight (§7).

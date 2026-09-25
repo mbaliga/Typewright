@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package dev.aarso.typewright.core.font.ufo
 
 import dev.aarso.typewright.core.geometry.Anchor

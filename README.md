@@ -16,6 +16,21 @@ about on-device behaviour is claimed.
 Read `CLAUDE.md` (the laws) before changing anything, then `TYPEWRIGHT_BUILD_BRIEF.md` and
 `UI_SPEC.md`. Open questions live in `docs/OPEN_QUESTIONS.md`, licences in `THIRD_PARTY.md`.
 
+## Licence
+
+Typewright is licensed in parts (`docs/LICENSING.md`):
+
+- **The app** (`ui`, `learn`, `campaign`, the three app shells, the Workbook and lesson text) is
+  fair source under **FSL-1.1-ALv2** (`LICENSE`). Each release becomes Apache-2.0 two years
+  after it's published.
+- **The engine** (`core-*`, `engine-*`, `qa`, `scripts`, `shape-preview`, `compile`,
+  `build-logic`, `tools`, `data/scripts`) is **Apache-2.0** (`LICENSES/Apache-2.0.txt`).
+- **Template sheets and data packs** are **CC0-1.0**.
+- **Fonts you make with Typewright are yours.**
+
+Contributions come in under Apache-2.0 with a DCO sign-off (`CONTRIBUTING.md`). The name and
+icon are covered by `TRADEMARKS.md`.
+
 ## Toolchain
 
 Latest stable releases on 22 September 2026, checked against repository metadata and proven

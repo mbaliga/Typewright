@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package dev.aarso.typewright.qa.corpus
 
 /** Anchors [readCorpusResourceText]'s classloader lookup to this module's own class. */

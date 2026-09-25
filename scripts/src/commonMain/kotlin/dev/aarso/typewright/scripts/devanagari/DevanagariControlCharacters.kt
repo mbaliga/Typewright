@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package dev.aarso.typewright.scripts.devanagari
 
 import dev.aarso.typewright.scripts.ControlCharacter
