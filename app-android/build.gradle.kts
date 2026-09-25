@@ -9,11 +9,11 @@ plugins {
 }
 
 android {
-    namespace = "dev.aarso.typewright.app.android"
+    namespace = "com.asoc.typewright.app.android"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "dev.aarso.typewright"
+        applicationId = "com.asoc.typewright"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1

@@ -13,7 +13,7 @@ plugins {
 }
 
 kotlin {
-    // P4a's sheet camera, room layout and puck gesture machine (dev.aarso.typewright.ui.sheet /
+    // P4a's sheet camera, room layout and puck gesture machine (com.asoc.typewright.ui.sheet /
     // .puck / .tokens) are plain Kotlin with zero Compose dependency, and expose core-geometry's
     // Vec2 in their own public API, so unlike every other project dependency below, core-geometry
     // is `api`, not `implementation` (matching how engine-construct and core-font already depend

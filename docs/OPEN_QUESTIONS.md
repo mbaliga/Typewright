@@ -19,8 +19,10 @@ says what was done in the meantime, and names who decides. Answered entries move
    Typewright's, and Apache-2.0 requires it to stay, so it is kept despite the "no SPDX
    headers" convention. *Madhav.*
 
-2. **Maven group and package `dev.aarso.typewright` are provisional.** They follow the
-   constellation's group. Renaming later touches every package line and the Android
+2. **RESOLVED (P10, 25 Sep 2026): the application id is `com.asoc.typewright`, the Kotlin
+   packages are `com.asoc.typewright.*` and the Maven group is `com.asoc`** (PROMPTS_V1 D3).
+   Original entry: **Maven group and package `dev.aarso.typewright` are provisional.** They
+   follow the constellation's group. Renaming later touches every package line and the Android
    application id (`dev.aarso.typewright`), so it is cheaper before P1 than after. *Madhav.*
 
 3. **The explorer does not render standalone.** `ui/typewright-explorer.html` relies on its
@@ -176,7 +178,7 @@ says what was done in the meantime, and names who decides. Answered entries move
     *Data point for P1b and the `qa` checks task; not a product decision, so no owner tag.*
 
 19. **P1b's style detector is built, and honestly does not classify most sans sub-styles
-    correctly yet (P1b).** `dev.aarso.typewright.qa.corpus.style` (in `qa:corpus`) adds a feature
+    correctly yet (P1b).** `com.asoc.typewright.qa.corpus.style` (in `qa:corpus`) adds a feature
     extractor (contrast ratio, stress angle, serif presence/bracket, a/g storeys, terminal style,
     aperture openness, o roundness as a superellipse exponent, x-height/cap-height ratio, width
     class — brief 8.4's nine) and a hand-written, explainable scorer (`rankStyleClasses`) over the
@@ -345,7 +347,7 @@ says what was done in the meantime, and names who decides. Answered entries move
 
 22. **Two real limitations measured directly while building `engine-trace`'s pure "Clean"/"Contour"
     chain (P3-core), both documented honestly in the code rather than tuned around.**
-    `dev.aarso.typewright.engine.trace` adds a raster type (`GrayscaleRaster`/`BinaryRaster`, a
+    `com.asoc.typewright.engine.trace` adds a raster type (`GrayscaleRaster`/`BinaryRaster`, a
     plain `IntArray`/`BooleanArray` wrapper, no platform bitmap type), `adaptiveThreshold`
     (integral-image local-mean threshold), `despeckle`/`fillHoles` (a general connected-component
     labeler, `labelComponents`, written here, 4- and 8-connectivity used per the standard
@@ -1101,7 +1103,7 @@ says what was done in the meantime, and names who decides. Answered entries move
    task, per open question 8's own precedent.*
 
    **Partially resolved by the P6 UI task's Lineages font-rendering half** (`ui/src/commonMain/
-   kotlin/dev/aarso/typewright/ui/learn/LearnFaceFonts.kt`): the `Sync`-into-resources option was
+   kotlin/com/asoc/typewright/ui/learn/LearnFaceFonts.kt`): the `Sync`-into-resources option was
    taken, in `learn:scenes` (`LearnFaceResources.kt`, following `SceneResources.kt`'s own
    convention) rather than `ui`, with a jvm-classpath actual and a wasmJs actual that reads via
    Node's `fs` — real and tested (`LearnFaceResourcesJvmTest`, `LearnFaceResourcesWasmJsTest`),
@@ -1398,7 +1400,7 @@ The four Craft before/after scenes P6's own content-authoring prompt names expli
    *Whoever wires a Lineages/Craft scene that actually requests a non-default weight or style
    from one of these faces — check the rendered result, not just that it compiles.*
 
-## P6: Anatomy Lens data API (`ui/src/commonMain/kotlin/dev/aarso/typewright/ui/learn/AnatomyLensData.kt`)
+## P6: Anatomy Lens data API (`ui/src/commonMain/kotlin/com/asoc/typewright/ui/learn/AnatomyLensData.kt`)
 
 50. **`qa:corpus`'s style package (P1b) had zero consumers anywhere outside `:qa:corpus` and was
     entirely `internal`, which is a Kotlin *module* boundary, not a file one — `:ui` could not
@@ -1516,14 +1518,14 @@ The four Craft before/after scenes P6's own content-authoring prompt names expli
     the one function to call per term; `AnatomyLensValue`'s sealed variants are what there is to
     format and draw, following `ui/typewright-explorer.html`'s own `#ln-lens` look (the `.lens` SVG
     diagram with leader lines, the `.defs` definition list below it) per law 6.*
-    **Update:** `LearnScreen` (`ui/src/commonMain/kotlin/dev/aarso/typewright/ui/learn/
+    **Update:** `LearnScreen` (`ui/src/commonMain/kotlin/com/asoc/typewright/ui/learn/
     LearnScreen.kt`) now composes all four already-built tabs — including `LensTab` — behind a
     real `#s-learn`-matching header and `#lnTabs` tab row, and `TypewrightApp` now has a real,
     minimal, always-visible entry point to it. See items 79–84 below for the full account
     (header/tabs shell, the entry-point design and its reasoning, a real bug found and fixed, and
     what this task did and did not test).
 
-## P6: Learn UI — Lineages tab composable (`ui/src/commonMain/kotlin/dev/aarso/typewright/ui/learn/LineagesTab.kt`)
+## P6: Learn UI — Lineages tab composable (`ui/src/commonMain/kotlin/com/asoc/typewright/ui/learn/LineagesTab.kt`)
 
 The real, self-contained `LineagesTab(texture: CanvasTexture, modifier: Modifier = Modifier)`
 composable: the eras strip, crossfade stage, stress dial, scrub bar, caption and identify-it
@@ -1724,7 +1726,7 @@ succeed.
     *Whoever next tunes this tab's own layout: a smaller word-field font size on narrow widths, or
     a shorter default word, would remove the mid-word wrap without hiding any letters.*
 
-## P6: Learn UI — Anatomy Lens tab composable (`ui/src/commonMain/kotlin/dev/aarso/typewright/ui/learn/LensTab.kt`, `LensScene.kt`, `LensRenderPlan.kt`)
+## P6: Learn UI — Anatomy Lens tab composable (`ui/src/commonMain/kotlin/com/asoc/typewright/ui/learn/LensTab.kt`, `LensScene.kt`, `LensRenderPlan.kt`)
 
 69. **RESOLVED (P6, Anatomy Lens tab) — `GeometryInterop.kt`'s `Glyph.toComposePath` rendered a
     real closed counter as solid ink, not a hole, under Compose's own default `PathFillType`.**
@@ -1807,7 +1809,7 @@ succeed.
     than fixing, since the dot and label together already cover the two ends a reader's eye and
     finger would naturally reach for.*
 
-## P6: Learn UI — Scrapbook tab composable (`ui/src/commonMain/kotlin/dev/aarso/typewright/ui/learn/ScrapbookTab.kt`)
+## P6: Learn UI — Scrapbook tab composable (`ui/src/commonMain/kotlin/com/asoc/typewright/ui/learn/ScrapbookTab.kt`)
 
 The real, self-contained `ScrapbookTab(texture: CanvasTexture, modifier: Modifier = Modifier)`
 composable (`ui/typewright-explorer.html`'s `#ln-scrap`): a real `ScrapbookManifest`/`ScrapbookPin`
@@ -1821,7 +1823,7 @@ block, caption row, `.pinmark`). `ui/build.gradle.kts` gained the `kotlin.serial
 `kotlinx-serialization-json` for this (the same dependency `qa/corpus`'s and `learn/scenes`'s own
 `build.gradle.kts` files already carry). `./gradlew :ui:spotlessCheck :ui:desktopTest`: desktopTest
 242 tests, 0 failures; spotlessCheck fails only on one pre-existing, unrelated file this task never
-touched (`src/desktopTest/kotlin/dev/aarso/typewright/ui/GeometryInteropPathTest.kt`, a real
+touched (`src/desktopTest/kotlin/com/asoc/typewright/ui/GeometryInteropPathTest.kt`, a real
 dangling-top-level-KDoc ktlint violation, untracked in git at the time this task ran — apparently a
 concurrent sibling agent's in-progress file — confirmed unrelated by running `spotlessCheck` before
 touching anything: `:ui:spotlessKotlin` itself reports `UP-TO-DATE`/clean for every file this task
@@ -1911,10 +1913,10 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     *No action needed — noted for the record so a future reader of `SampleScrapbook.kt`'s own ids
     does not mistake the specific spellings for meaningful data.*
 
-## P6: Learn UI — LearnScreen shell and its entry point (`ui/src/commonMain/kotlin/dev/aarso/typewright/ui/learn/LearnScreen.kt`, `LearnScreenState.kt`, `ui/src/commonMain/kotlin/dev/aarso/typewright/ui/TypewrightApp.kt`)
+## P6: Learn UI — LearnScreen shell and its entry point (`ui/src/commonMain/kotlin/com/asoc/typewright/ui/learn/LearnScreen.kt`, `LearnScreenState.kt`, `ui/src/commonMain/kotlin/com/asoc/typewright/ui/TypewrightApp.kt`)
 
 79. **`LearnScreen`'s own header bar is a purpose-built composable (`LearnHeaderBar`), not
-    `dev.aarso.typewright.ui.glass.Header`.** [Header] is UI_SPEC §3's *one-sheet* header — a
+    `com.asoc.typewright.ui.glass.Header`.** [Header] is UI_SPEC §3's *one-sheet* header — a
     room-name ink block plus a MAP toggle, built around horizontal-swipe room navigation
     (`onSwipePrevious`/`onSwipeNext`) that has no equivalent meaning on `#s-learn`'s own bar (back
     button, title block, commands button — a different shape). Bending `#s-learn`'s bar through
@@ -2017,7 +2019,7 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     off-canvas. Fixed with a `BringIntoViewRequester` per tab button (`LearnTabButton`,
     `LearnScreen.kt`), the standard Compose mechanism for this exact problem, triggered from a
     `LaunchedEffect(selected)`. Could not be confirmed by this codebase's own screenshot harness:
-    `ScreenshotHarness.capture` (`ui/src/desktopTest/kotlin/dev/aarso/typewright/ui/ScreenshotHarness.kt`)
+    `ScreenshotHarness.capture` (`ui/src/desktopTest/kotlin/com/asoc/typewright/ui/ScreenshotHarness.kt`)
     calls `ImageComposeScene(...).use { it.render() }` exactly once, and this was confirmed
     empirically (a throwaway probe pumping 90 synthetic `render(t)` frames, 1.44s of simulated
     time, through a raw `ImageComposeScene`) that a `LaunchedEffect`'s coroutine never gets
@@ -2182,7 +2184,7 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     writing this task), where `process` is undefined. `loadWorkbookCampaignSnapshot` therefore
     `runCatching`s the whole load and returns an honest `WorkbookCampaignSnapshot.Unavailable`
     instead of crashing — the identical "not available on this target" convention
-    `dev.aarso.typewright.ui.learn.loadDefaultOverlayLayers` already established for a *different*
+    `com.asoc.typewright.ui.learn.loadDefaultOverlayLayers` already established for a *different*
     real gap on this exact same target (missing Learn-face bytes) — and `WorkbookScreen`/
     `WorkbookEntryButton` both render an honest fallback for it (`WorkbookUnavailableBody`;
     `nextTaskLabel`'s own plain `"Workbook"` word), screenshot-tested
@@ -2202,7 +2204,7 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
 
 93. **Three more deliberate, disclosed calls made building this screen, none of them shown by the
     explorer's own single worked example (task 4) and none of them guessed at silently.**
-    - **The Reflection section's text entry is real and reuses `dev.aarso.typewright.ui.learn.
+    - **The Reflection section's text entry is real and reuses `com.asoc.typewright.ui.learn.
       ScrapbookPin`/`ScrapbookPinKind.NOTE`/`stablePinRotationDegrees` — the real scrapbook data
       model and its real stable-rotation function — but appends to `WorkbookScreen`'s own
       `remember`ed list, not `ScrapbookTab`'s.** There is no current-project flow or shared
@@ -2294,9 +2296,9 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     there needed changing -- logged here instead per this task's own "when unsure ... put open
     questions in docs/OPEN_QUESTIONS.md" instruction, since a future template-pack maintainer should
     know this is real and confirmed, not a transcription slip. Handled honestly rather than
-    silently: `dev.aarso.typewright.scripts.devanagari.DevanagariGlyphInventory` lists 66 distinct
+    silently: `com.asoc.typewright.scripts.devanagari.DevanagariGlyphInventory` lists 66 distinct
     `GlyphSpec`s (one per real Unicode name the folder covers -- never two for the same glyph), while
-    `dev.aarso.typewright.scripts.devanagari.DevanagariTemplateSheet` lists all 68 real
+    `com.asoc.typewright.scripts.devanagari.DevanagariTemplateSheet` lists all 68 real
     `TemplateSheetEntry`s, with both duplicate files pointed at the one glyph they actually draw
     (`a-deva` twice, `anusvara-deva` twice). Reproducible: `python3
     data/scripts/build_devanagari_template_manifest.py` regenerates the checked-in
@@ -2310,7 +2312,7 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
 
 97. **`:scripts:compileKotlinJvm`, `:scripts:compileKotlinWasmJs` and `:scripts:spotlessKotlinCheck`
     are all currently failing on the real, shared working tree -- entirely because of a concurrent
-    sibling script agent's own `scripts/src/commonMain/kotlin/dev/aarso/typewright/scripts/kana/*`
+    sibling script agent's own `scripts/src/commonMain/kotlin/com/asoc/typewright/scripts/kana/*`
     files, not because of anything added by this Devanagari task.** The real compiler error, run
     fresh via the exact commands this task was given (`:scripts:spotlessCheck :scripts:jvmTest
     :scripts:wasmJsNodeTest`, env `ANDROID_HOME=/opt/android-sdk

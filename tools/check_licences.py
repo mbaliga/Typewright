@@ -58,18 +58,18 @@ ROOT_BUILD_FILES = {"settings.gradle.kts": APACHE, "build.gradle.kts": APACHE}
 # from another project). It overrides LICENCE_BY_DIR, so licence_for() checks it first.
 LICENCE_BY_FILE = {
     # Hyle Deco Regular, base64-embedded as core-font's own commonTest cross-check fixture.
-    "core-font/src/commonTest/kotlin/dev/aarso/typewright/core/font/sfnt/HyleDecoRegularTtfBase64.kt": OFL,
+    "core-font/src/commonTest/kotlin/com/asoc/typewright/core/font/sfnt/HyleDecoRegularTtfBase64.kt": OFL,
     # Hyle Deco Regular, base64-embedded and shipped in the app itself (Overlay tab project layer).
-    "ui/src/commonMain/kotlin/dev/aarso/typewright/ui/learn/HyleDecoProjectFontBytes.kt": OFL,
+    "ui/src/commonMain/kotlin/com/asoc/typewright/ui/learn/HyleDecoProjectFontBytes.kt": OFL,
     # Hyle Deco Regular, base64-embedded wasmJsTest fixture for the browser shaping preview.
-    "shape-preview/src/wasmJsTest/kotlin/dev/aarso/typewright/shape/preview/EmbeddedTestFontBytes.kt": OFL,
+    "shape-preview/src/wasmJsTest/kotlin/com/asoc/typewright/shape/preview/EmbeddedTestFontBytes.kt": OFL,
     # Noto Sans Devanagari Regular, base64-embedded wasmJsTest fixture (real conjunct shaping).
-    "shape-preview/src/wasmJsTest/kotlin/dev/aarso/typewright/shape/preview/EmbeddedNotoSansDevanagariBytes.kt": OFL,
+    "shape-preview/src/wasmJsTest/kotlin/com/asoc/typewright/shape/preview/EmbeddedNotoSansDevanagariBytes.kt": OFL,
     # UnifrakturMaguntia Book, base64-embedded wasmJsTest fixture (Learn face font resolution).
-    "ui/src/wasmJsTest/kotlin/dev/aarso/typewright/ui/learn/EmbeddedTestFontBytes.kt": OFL,
+    "ui/src/wasmJsTest/kotlin/com/asoc/typewright/ui/learn/EmbeddedTestFontBytes.kt": OFL,
     # Line-for-line port of fontTools.ufoLib.filenames (MIT) and ufoLib (BSD-3-Clause); both
     # notices are reproduced in full in the file's own header, above its package line.
-    "core-font/src/commonMain/kotlin/dev/aarso/typewright/core/font/ufo/GlyphFileNames.kt": UFO_PORT,
+    "core-font/src/commonMain/kotlin/com/asoc/typewright/core/font/ufo/GlyphFileNames.kt": UFO_PORT,
 }
 
 COMMENT_BY_SUFFIX = {".kt": "//", ".kts": "//", ".mjs": "//", ".js": "//", ".py": "#", ".sh": "#"}

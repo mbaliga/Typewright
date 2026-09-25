@@ -17,7 +17,7 @@ The quality gate: Typewright's own checks (node economy, extrema, overshoot, anc
   file's own KDoc, per law 5.
 - `checkAnchorsPresent` (`AnchorPresenceCheck.kt`): a best-effort, allow-list-based check over the
   52 base Latin letters -- see "Deferred checks" below for why it stops there.
-- `dev.aarso.typewright.qa.ship` (`ShipPipeline.kt`): pure string generators for `OFL.txt`,
+- `com.asoc.typewright.qa.ship` (`ShipPipeline.kt`): pure string generators for `OFL.txt`,
   `DESCRIPTION.en_us.html` and a `METADATA.pb`-shaped scaffold (not `upstream.yaml`, which
   `gftools` now treats as legacy -- docs/ARCHITECTURE_REVIEW.md section 5 item 52). No file I/O, no
   compile step, no Fontspector requirement.

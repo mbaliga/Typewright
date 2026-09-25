@@ -2,7 +2,7 @@
 #
 # The twelve-task Latin workbook (docs/TYPEWRIGHT_HANDOFF.md "M5. Campaign, the workbook",
 # [SCAFFOLD, awaiting the Domestika lessons]; TYPEWRIGHT_BUILD_BRIEF.md 4.3, 9). Parsed by
-# WorkbookYamlParser.kt (dev.aarso.typewright.campaign.parseWorkbookTasks) into WorkbookTask,
+# WorkbookYamlParser.kt (com.asoc.typewright.campaign.parseWorkbookTasks) into WorkbookTask,
 # using learn:scenes' own hand-rolled YAML parser, per this file's own module KDoc.
 #
 # Every "why"/"task" paragraph below quotes or closely paraphrases real material from M5's own
@@ -116,7 +116,7 @@
     is a real miss.
   gate:
     summary: "overshoot presence on round glyphs (o e c s O C S G)"
-    qaFunction: "dev.aarso.typewright.qa.checkOvershootPresence"
+    qaFunction: "com.asoc.typewright.qa.checkOvershootPresence"
     glyphs: [o, e, c, s, O, C, S, G]
   reflection: >
     What overshoot amount did you set, and for which glyphs did the app say "flat top and
@@ -151,7 +151,7 @@
   controlString: "nnonnonon"
   gate:
     summary: "node economy against the geometric box"
-    qaFunction: "dev.aarso.typewright.qa.checkNodeEconomy"
+    qaFunction: "com.asoc.typewright.qa.checkNodeEconomy"
     glyphs: [n, o, H, O]
   reflection: >
     What relationship between round and straight did you choose, and why?
@@ -181,7 +181,7 @@
     where these get reintroduced if you are not careful.
   gate:
     summary: "geometric sanity on the derived family"
-    qaFunction: "dev.aarso.typewright.qa (checkAlignmentMiss, checkCollinearSegments, checkJaggyTurns, checkShortSegments, checkSemiVertical, checkExtremaOnCurve -- GeometricChecks.kt, run together)"
+    qaFunction: "com.asoc.typewright.qa (checkAlignmentMiss, checkCollinearSegments, checkJaggyTurns, checkShortSegments, checkSemiVertical, checkExtremaOnCurve -- GeometricChecks.kt, run together)"
     glyphs: [b, d, p, q, h, m, u, E, F, L, T, C, G, Q]
   reflection: >
     For one derived letter, what did you copy straight across and what did you adjust by eye --
@@ -212,7 +212,7 @@
     resisted the n/o/H/O pattern.
   gate:
     summary: "geometric sanity on the hard letters"
-    qaFunction: "dev.aarso.typewright.qa (checkAlignmentMiss, checkCollinearSegments, checkJaggyTurns, checkShortSegments, checkSemiVertical, checkExtremaOnCurve -- GeometricChecks.kt, run together)"
+    qaFunction: "com.asoc.typewright.qa (checkAlignmentMiss, checkCollinearSegments, checkJaggyTurns, checkShortSegments, checkSemiVertical, checkExtremaOnCurve -- GeometricChecks.kt, run together)"
     glyphs: [a, e, g, s, v, w, x, y, k, zero, one, two, three, four, five, six, seven, eight, nine]
   reflection: >
     Which of these was hardest, and what did you change to fix it?
@@ -308,7 +308,7 @@
     height. Watch a composite rebuild itself the moment you move the anchor.
   gate:
     summary: "anchors present on the base Latin letters (A-Z, a-z)"
-    qaFunction: "dev.aarso.typewright.qa.checkAnchorsPresent"
+    qaFunction: "com.asoc.typewright.qa.checkAnchorsPresent"
   reflection: >
     Which base letters were missing an anchor, and what did placing one change about the
     composites built from it?
@@ -368,7 +368,7 @@
     implementation for -- this gate's own per-check results say so rather than hiding the gap.
   gate:
     summary: "layer one (Fontbakery/Fontspector bridge)"
-    qaFunction: "dev.aarso.typewright.qa.LayerOneChecker (platformLayerOneChecker)"
+    qaFunction: "com.asoc.typewright.qa.LayerOneChecker (platformLayerOneChecker)"
   reflection: >
     What did the gate flag, and what does it not measure that your own eye still has to catch?
 
@@ -395,7 +395,7 @@
     requirements.txt); then push or hand off. Blocked while Check has fails (brief section 12).
   gate:
     summary: "repository scaffold generation (OFL.txt, DESCRIPTION.en_us.html, METADATA.pb)"
-    qaFunction: "dev.aarso.typewright.qa.ship (gfCopyrightLine, generateOflText, generateDescriptionHtml, generateMetadataPbText)"
+    qaFunction: "com.asoc.typewright.qa.ship (gfCopyrightLine, generateOflText, generateDescriptionHtml, generateMetadataPbText)"
   reflection: >
     What is this font's name, and is it clear of Google Fonts' naming rules (no camelCase,
     abbreviations, hyphens, under 32 characters for family plus style)?

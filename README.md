@@ -116,9 +116,9 @@ their JVM variant (`app-android` resolves `core-geometry`'s `jvmRuntimeElements`
 Conventions:
 
 - Kotlin packages and Android namespaces come from the Gradle path (the convention plugins
-  derive the namespaces; packages follow by hand): `dev.aarso.typewright.` plus
-  the path with `:` and `-` turned into `.` (`:qa:corpus` is `dev.aarso.typewright.qa.corpus`,
-  `:shape-preview` is `dev.aarso.typewright.shape.preview`). The group is provisional.
+  derive the namespaces; packages follow by hand): `com.asoc.typewright.` plus
+  the path with `:` and `-` turned into `.` (`:qa:corpus` is `com.asoc.typewright.qa.corpus`,
+  `:shape-preview` is `com.asoc.typewright.shape.preview`). The group is provisional.
 - A new pure module needs only `plugins { id("typewright.kmp.pure") }`; a module with
   platform actuals uses `typewright.kmp.platform`. Both live in `build-logic/`. Pure modules
   name their JVM target `jvm`; platform modules name it `desktop`, because their JVM

@@ -52,7 +52,7 @@ DEFAULT_OUT = HERE / "kana-manifest.json"
 
 EXPECTED_COUNTS = {"Hiragana": 55, "Katakana": 57}
 
-# Mirrors dev.aarso.typewright.scripts.kana.deriveKanaGlyphName exactly (Kotlin is the
+# Mirrors com.asoc.typewright.scripts.kana.deriveKanaGlyphName exactly (Kotlin is the
 # source of truth for the running app; this copy exists only so the checked-in manifest
 # can carry the same glyphName for humans reading the JSON, and is cross-checked against
 # the Kotlin function's own unit tests by hand, not by running Kotlin from this script).

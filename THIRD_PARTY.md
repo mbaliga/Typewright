@@ -94,7 +94,7 @@ carries no licence banners, which is one more reason the web app needs a licence
 
 | Component | Source | Licence | Notes |
 |---|---|---|---|
-| UFO glyph-name-to-file-name algorithm (`core-font`'s `dev.aarso.typewright.core.font.ufo.userNameToFileName`, `handleFileNameClash1/2`) | `fontTools.ufoLib.filenames` (`fontTools` 4.66.0), itself copied from `ufoLib` (`unified-font-object/ufoLib`, commit `8747da7`) | MIT (fontTools) and BSD-3-Clause (ufoLib) | Ported line-for-line so `core-font`'s UFO writer produces exactly the `.glif` file names a real UFO tool (RoboFont, FontForge) would; both licences' notices (fontTools' MIT notice, copyright 2017 Just van Rossum, and ufoLib's BSD-3-Clause notice, copyright 2005-2016 the RoboFab developers: Erik van Blokland, Tal Leming, Just van Rossum) are reproduced in full in `GlyphFileNames.kt`'s own header, above its `package` line. |
+| UFO glyph-name-to-file-name algorithm (`core-font`'s `com.asoc.typewright.core.font.ufo.userNameToFileName`, `handleFileNameClash1/2`) | `fontTools.ufoLib.filenames` (`fontTools` 4.66.0), itself copied from `ufoLib` (`unified-font-object/ufoLib`, commit `8747da7`) | MIT (fontTools) and BSD-3-Clause (ufoLib) | Ported line-for-line so `core-font`'s UFO writer produces exactly the `.glif` file names a real UFO tool (RoboFont, FontForge) would; both licences' notices (fontTools' MIT notice, copyright 2017 Just van Rossum, and ufoLib's BSD-3-Clause notice, copyright 2005-2016 the RoboFab developers: Erik van Blokland, Tal Leming, Just van Rossum) are reproduced in full in `GlyphFileNames.kt`'s own header, above its `package` line. |
 
 ## Fetched for Learn lesson content
 
