@@ -68,7 +68,7 @@ private fun readPlistValue(reader: XmlReader): PlistValue =
         }
 
         "real" -> {
-            PlistValue.PReal(reader.readSimpleElement().trim().toDouble())
+            PlistValue.PReal(parseReal(reader.readSimpleElement()))
         }
 
         "true" -> {
@@ -81,8 +81,21 @@ private fun readPlistValue(reader: XmlReader): PlistValue =
             PlistValue.PBoolean(false)
         }
 
-        "data", "date" -> {
-            throw IllegalArgumentException("plist <${reader.localName}> values are not supported by core-font")
+        "data" -> {
+            val text = reader.readSimpleElement()
+            PlistValue.PData(
+                canonicalBase64OrNull(text)
+                    ?: throw IllegalArgumentException("plist <data> must hold Base64 text, found \"${text.trim()}\""),
+            )
+        }
+
+        "date" -> {
+            val text = reader.readSimpleElement().trim()
+            try {
+                PlistValue.PDate(text)
+            } catch (e: IllegalArgumentException) {
+                throw IllegalArgumentException("plist <date> must be an ISO 8601 date such as 2026-09-25T12:00:00Z, found \"$text\"", e)
+            }
         }
 
         else -> {
@@ -196,18 +209,33 @@ private fun writePlistValue(
         is PlistValue.PBoolean -> {
             out.append(indent).append(if (value.value) "<true/>" else "<false/>")
         }
+
+        is PlistValue.PData -> {
+            out
+                .append(indent)
+                .append("<data>")
+                .append(value.base64)
+                .append("</data>")
+        }
+
+        is PlistValue.PDate -> {
+            out
+                .append(indent)
+                .append("<date>")
+                .append(value.text)
+                .append("</date>")
+        }
     }
 }
 
 /**
- * Formats a real number as Kotlin's own [Double.toString] would (`-12.5`, `0.0`, or, for a
- * magnitude no font metric ever reaches, exponent notation like `1.0E10`). Both this reader's
- * `.toDouble()` and `plistlib`'s `float()` parse exponent notation without trouble, so there is no
- * need to expand it by hand here.
+ * Formats a plist `<real>` as fontTools does, the same on every platform (see [formatReal]). A plist
+ * has no spelling for NaN or an infinity, so those are refused rather than written as something no
+ * reader parses.
  */
 private fun formatPlistReal(value: Double): String {
     if (value.isNaN() || value.isInfinite()) {
         throw IllegalArgumentException("plist <real> cannot represent NaN or an infinite value")
     }
-    return value.toString()
+    return formatReal(value)
 }
