@@ -1,0 +1,25 @@
+# scenes/lineages/04-didone.yaml
+# docs/LESSONS_SCAFFOLD.md section 2, era 4 of 10.
+id: lineages.didone
+strand: lineages
+title: Didone
+era: "c. 1790"
+scaffold: true
+duration: 40
+faces:
+  - key: transitional
+    family: Libre Baskerville
+  - key: didone
+    family: Playfair Display
+stage:
+  sample: "ago"
+  align: xheight
+  from: transitional
+  to: didone
+  stress: [12, 0]
+caption:
+  tool: "the pointed pen, then the compass"
+  text: >
+    Bodoni and Didot. Vertical stress, hairline serifs, maximum contrast. Type stops
+    imitating the hand.
+  tags: [vertical stress, hairline serifs, ball terminals]

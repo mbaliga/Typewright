@@ -1,0 +1,30 @@
+# scenes/lineages/02-garalde.yaml
+# docs/LESSONS_SCAFFOLD.md section 2, era 2 of 10.
+#
+# stress: omitted here too, not just for era 1. The table gives Garalde its own stress (30 deg),
+# but stage.stress describes the dial's motion from the *from* face's angle to the *to* face's
+# — and the from face here (Blackletter) has no stress angle at all ("none" in the table), so
+# there is nothing honest to crossfade the dial's start position from yet. The dial's first real
+# motion is era 3's own scene (03-transitional.yaml), crossfading from this era's 30 deg.
+id: lineages.garalde
+strand: lineages
+title: Garalde
+era: "c. 1530"
+scaffold: true
+duration: 40
+faces:
+  - key: blackletter
+    family: UnifrakturMaguntia
+  - key: garalde
+    family: EB Garamond
+stage:
+  sample: "ago"
+  align: xheight
+  from: blackletter
+  to: garalde
+caption:
+  tool: "a broad nib, cut into steel punches"
+  text: >
+    Garamond. The pen angle is still in the letter: oblique stress, a small x-height,
+    bracketed serifs.
+  tags: [oblique stress, two-storey a and g, bracketed serifs]

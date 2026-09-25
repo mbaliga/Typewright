@@ -1,0 +1,46 @@
+# scenes/lineages/03-transitional.yaml
+# docs/LESSONS_SCAFFOLD.md section 1's own CANON worked example (byte-verified against the
+# source file by learn/scenes's YamlParserTest), reproduced here as this strand's real era-3
+# scene file, plus `scaffold: true` (see Scene.kt's KDoc on that field). This is also section
+# 2's era 3 row: year, tool, stress, note and tags below match that table exactly.
+#
+# Note (docs/OPEN_QUESTIONS.md items 35-36): this scene's own inline exercise names "Libre
+# Baskerville" as the face to identify -- the exact face this same scene just put on stage as
+# `stage.to`. StrandSequencer.plan correctly excludes it from the eligible list for that
+# reason; kept here verbatim because it is section 1's own CANON text, not something this task
+# is free to edit away.
+id: lineages.transitional
+strand: lineages            # lineages | anatomy | craft | scripts | reading
+title: Transitional
+era: "1757"
+scaffold: true
+duration: 40                # seconds at the default pace; scrubbing ignores it
+faces:                      # OFL/Apache faces from the corpus, by family name
+  - key: garalde
+    family: EB Garamond
+  - key: transitional
+    family: Libre Baskerville
+stage:
+  sample: "ago"             # the letters on stage
+  align: xheight             # xheight | capheight | baseline
+  from: garalde              # crossfade endpoints
+  to: transitional
+  stress: [30, 12]          # degrees from vertical at from/to; null = no stress axis
+caption:
+  tool: "the engraver's burin on copper"
+  text: >
+    Baskerville. Sharper, higher contrast, the stress standing up.
+    Printing catches up with engraving.
+  tags: [near-vertical stress, higher contrast, finer serifs]
+callouts:                   # optional labels on the stage, resolved on the 'to' face
+  - glyph: a
+    part: terminal
+    label: "finer, but still bracketed"
+exercise:                   # optional; identify-it
+  word: Hamburgefonstiv
+  face: Libre Baskerville   # must not appear earlier in the strand
+  options: [Garalde, Transitional, Didone]
+  answer: Transitional
+  giveaway: >
+    stress almost vertical, but the serifs are still bracketed and the contrast
+    is moderate. Baskerville, 1757.

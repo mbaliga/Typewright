@@ -1,0 +1,401 @@
+# campaign/src/commonMain/resources/campaign/workbook-latin.yaml
+#
+# The twelve-task Latin workbook (docs/TYPEWRIGHT_HANDOFF.md "M5. Campaign, the workbook",
+# [SCAFFOLD, awaiting the Domestika lessons]; TYPEWRIGHT_BUILD_BRIEF.md 4.3, 9). Parsed by
+# WorkbookYamlParser.kt (dev.aarso.typewright.campaign.parseWorkbookTasks) into WorkbookTask,
+# using learn:scenes' own hand-rolled YAML parser, per this file's own module KDoc.
+#
+# Every "why"/"task" paragraph below quotes or closely paraphrases real material from M5's own
+# numbered list and docs/RESEARCH_font_quality.md; every "demonstration" is either a real,
+# already-authored learn:scenes Scene (task 1, task 9) or real measured numbers -- this project's
+# own (Hyle Deco) where already established elsewhere in this codebase, or real published figures
+# from docs/RESEARCH_font_quality.md where no Hyle Deco measurement exists for that step. Every
+# "gate" names a real, already-implemented qa function, or says honestly that none exists yet
+# (never a fabricated pass/fail) -- see WorkbookGates.kt for the Kotlin functions that actually
+# run the implemented ones against a real project.
+- index: 1
+  title: "Choose your reference"
+  scaffold: true
+  why: >
+    Handoff M5 states this task plainly: "A font you admire. Understand why. Scrapbook it." Brief
+    section 8.4 ties the same choice to the workbook's very first declared fact -- the app's style
+    detector works in three layers, "the user declares the intent in the project brief (Task 1:
+    serif or sans, text or display, and the closest class)", the app then infers a class from
+    measurable features and shows its evidence, and the user confirms.
+
+    Understanding *why* a reference reads as itself is the harder half of this task, and it is
+    also the whole method's own starting point: docs/RESEARCH_font_quality.md's synthesis names
+    it first, "brief (serif or sans, text or display, what is distinctive) -> sketch or pen study
+    -> control set n o (+ H O), drawn large and spaced together -> ...". Naming what is
+    distinctive before drawing a single letter is what keeps the other eleven tasks pointed at a
+    real target instead of a vague one.
+  demonstration:
+    kind: scene
+    sceneId: "lineages.transitional"
+  task: >
+    Pick one font you admire and can name concretely why -- its era, the tool that made its
+    shapes, what is distinctive about it (stress angle, contrast, terminal style, aperture). The
+    Lineages strand's own scrubber, this demonstration, crossfades two real OFL faces era by era
+    with the stress dial turning and the caption naming the tool that made the shape ("the
+    engraver's burin on copper", for Transitional, 1757) -- read a few eras the same way before
+    settling on your own reference. Then scrapbook it: a photo, a specimen, or a note on why.
+  gate:
+    summary: "no automated check yet"
+    notImplementedReason: >
+      Choosing a reference font and understanding why it reads as itself is a judgment call; qa
+      has no automated check implemented for it yet -- visual/manual only.
+  reflection: >
+    Write down, in your own words, what makes your reference itself -- its era, its tool, one or
+    two measurable features (stress angle, contrast, aperture) -- and save it to the scrapbook.
+
+- index: 2
+  title: "Read it"
+  scaffold: true
+  why: >
+    Handoff M5: "Anatomy lens and comparison overlay on your reference against two neighbours.
+    Write three sentences on what makes it itself." Brief section 9 names the instrument this
+    task hands the learner: "the comparison overlay (layers with colour + line pattern, aligned
+    at cap height or x-height, redline mode, stroke probe), the anatomy lens".
+
+    The vocabulary the lens teaches is a real term-to-glyph graph, not loose talk: ear, link and
+    loop belong to the two-storey g only; spur to G and e; apex to A M N x and vertex to V W v w;
+    tail to Q R j y J; stem, bowl, counter, terminal, crossbar, arm, leg, shoulder, spine, tittle
+    and swash follow their own quoted definitions; stress is "the direction of thickening in a
+    curved stroke" and contrast "the disparity between thick and thin strokes"
+    (docs/RESEARCH_font_quality.md, "Anatomy, critique and sequence").
+  demonstration:
+    kind: stats
+    label: "overlay probe, Hyle Deco vs. two neighbours"
+    stats:
+      - "layers: Hyle Deco (project, yours) -- Roboto (device) -- Libre Baskerville (Google Fonts)"
+      - "probe: stem 44 -- bar 44 -- contrast 1.00, aligned at cap height"
+      - "each layer carries a colour and a line pattern, never colour alone (law 8)"
+  task: >
+    Tap through your reference with the anatomy lens: it labels stem, bowl, counter, aperture,
+    terminal, spur, ear and crossbar on your own letter, one tap away from a definition. Then
+    open the comparison overlay against two neighbouring faces, aligned at cap height, redline
+    on, and read the stroke probe (stem, bar, contrast) on all three. Write three sentences on
+    what makes your reference itself -- not generic terms, the measurable ones the probe just
+    gave you.
+  gate:
+    summary: "no automated check yet"
+    notImplementedReason: >
+      Writing three sentences on what makes a reference itself is a judgment call; qa has no
+      automated check for critique prose.
+  reflection: >
+    Your three sentences, plus which one measurable feature (stem, bar, contrast, aperture,
+    stress) made the biggest difference in the overlay -- saved to the scrapbook.
+
+- index: 3
+  title: "Set metrics"
+  scaffold: true
+  why: >
+    Handoff M5: "Cap height, x height, ascender, descender, stem, overshoot. Each explained,
+    effect shown live on a test word." Overshoot is the one of these that most often fails
+    silently: published guidance clusters at 1-3 percent of x-height/cap-height, FontLab states a
+    typical range of 6-20 units at 1000 UPM, and fontbakery's own alignment-miss threshold, 2
+    units, marks the difference between "sits exactly on the line" and "genuine overshoot"
+    (docs/RESEARCH_font_quality.md, "Outlines").
+
+    Overshoot only applies to a glyph whose curve genuinely passes the line. Brief section 7 is
+    explicit: "A flat-topped round glyph gets no overshoot and the app says so ('flat top and
+    bottom: overshoot does not apply'). Overshoot is a property of curvature at the line, not of
+    the letter."
+  demonstration:
+    kind: stats
+    label: "Hyle Deco metrics"
+    stats:
+      - "baseline 0 -- x-height 500 (TYPEWRIGHT_BUILD_BRIEF.md section 7's own fixture metric line)"
+      - "stem 44 units, the font's most important single number (the anatomy lens' own words)"
+      - "o: overshoot 0, flat top and bottom by design -- a rounded rectangle, not an ellipse (section 8.5); the app says so rather than flagging a false miss"
+  task: >
+    Set cap height, x height, ascender and descender, then the stem width and an overshoot
+    amount for round glyphs, with the effect shown live on a test word. Check each round glyph
+    (o e c s O C S G) for a false "no overshoot" flag: a flat-topped round shape (Hyle Deco's own
+    o) is exempt by design, and only a genuinely curved extremum sitting exactly on a metric line
+    is a real miss.
+  gate:
+    summary: "overshoot presence on round glyphs (o e c s O C S G)"
+    qaFunction: "dev.aarso.typewright.qa.checkOvershootPresence"
+    glyphs: [o, e, c, s, O, C, S, G]
+  reflection: >
+    What overshoot amount did you set, and for which glyphs did the app say "flat top and
+    bottom: overshoot does not apply" instead of flagging a miss?
+
+- index: 4
+  title: "Control characters"
+  scaffold: true
+  why: >
+    Handoff M5: "n o H O first. They set proportion, stroke, contrast, and the round versus
+    straight relationship for everything after. Gate: node economy and consistency pass before
+    continuing." docs/RESEARCH_font_quality.md's sequencing section calls this the strongest
+    consensus in its whole corpus: Design With FontForge begins with o (bowl weight, counter,
+    overshoot, sidebearings) and n (stem weight, stem-to-curve relationship), refines and spaces
+    them together, and warns that "rapid expansion before this is done will mean that the whole
+    project will become harder to manage."
+
+    Node economy is the numeric half of this gate (brief section 8): a sans-serif T drawn by a
+    professional runs 8 on-curve points against a traced T's 1,763 -- "the product's thesis"
+    (brief section 7) -- and an o's honest construction (rounded rectangle versus ellipse) decides
+    which target even applies (brief section 8.5).
+  demonstration:
+    kind: stats
+    label: "noHO"
+    stats:
+      - "stem 44 -- counter 292"
+      - "overshoot 0 (flat tops)"
+      - "round : straight = 1 : 1"
+  task: >
+    Draw or trace n, o, H and O. Space n and o together. Look at the picket fence: nnonnonon.
+    Does the middle letter feel centred?
+  controlString: "nnonnonon"
+  gate:
+    summary: "node economy against the geometric box"
+    qaFunction: "dev.aarso.typewright.qa.checkNodeEconomy"
+    glyphs: [n, o, H, O]
+  reflection: >
+    What relationship between round and straight did you choose, and why?
+
+- index: 5
+  title: "Derive the family"
+  scaffold: true
+  why: >
+    Handoff M5: "b d p q from o and the stem. h m u from n. E F L T from H. C G Q from O. The app
+    shows the derivation; the user copies then adjusts." This is the second half of
+    docs/RESEARCH_font_quality.md's own strongest consensus: Design With FontForge "derives h m u
+    from n and b d p q from o", and warns that rapid expansion before the control letters are
+    settled makes the whole project harder to manage.
+  demonstration:
+    kind: stats
+    label: "what a derivation copies forward"
+    stats:
+      - "stem 44 (from H) feeds h m u's own stems"
+      - "o's own construction, a rounded rectangle, r about 118 outer / 74 inner (brief section 7), feeds b d p q's own bowls"
+      - "'rapid expansion before this is done will mean that the whole project will become harder to manage' (Design With FontForge, docs/RESEARCH_font_quality.md)"
+  task: >
+    Copy o's bowl into b d p q, n's stem-to-arch into h m u, H's stems and crossbar into E F L
+    T, O's bowl into C G Q -- the app shows the derivation, you copy then adjust. Every copied
+    contour still has to satisfy the same outline-quality rules a fresh drawing does: extrema on
+    curve, no collinear or jaggy turns, nothing semi-vertical by accident
+    (docs/RESEARCH_font_quality.md, "Outlines") -- adjusting a derived letter by eye is exactly
+    where these get reintroduced if you are not careful.
+  gate:
+    summary: "geometric sanity on the derived family"
+    qaFunction: "dev.aarso.typewright.qa (checkAlignmentMiss, checkCollinearSegments, checkJaggyTurns, checkShortSegments, checkSemiVertical, checkExtremaOnCurve -- GeometricChecks.kt, run together)"
+    glyphs: [b, d, p, q, h, m, u, E, F, L, T, C, G, Q]
+  reflection: >
+    For one derived letter, what did you copy straight across and what did you adjust by eye --
+    and why?
+
+- index: 6
+  title: "The hard letters"
+  scaffold: true
+  why: >
+    Handoff M5: "a e g s, the diagonals v w x y k, the numerals. Each with a short lesson on why
+    it is hard." Each of these carries a part with no equivalent in n or o: the anatomy lens'
+    own vocabulary names e's eye (its closed counter), g's ear/link/loop (or a single-storey
+    choice instead), s's double curve, and the diagonals' own apex (A M N x) or vertex (V W v w)
+    (docs/RESEARCH_font_quality.md, "Anatomy, critique and sequence").
+  demonstration:
+    kind: stats
+    label: "on-curve range across 13 open fonts (docs/RESEARCH_font_quality.md)"
+    stats:
+      - "S: 12-28 on-curve"
+      - "g: 17-35 on-curve"
+      - "e: 11-21 on-curve"
+      - "measured 2026-09-22 over DejaVu Sans, Poppins, Work Sans, Outfit, JetBrains Mono, IBM Plex Serif, Lora, Libre Baskerville, Crimson Pro, TeX Gyre Heros/Termes/Pagella, Latin Modern -- not Hyle Deco, and not a standard, an empirical baseline"
+  task: >
+    a e g s each carry a part with no equivalent in n or o (e's eye, g's ear/link/loop-or-
+    single-storey choice, s's double curve, a's bowl-plus-stem); the diagonals v w x y k set
+    their own apex/vertex angles instead of inheriting a round or straight skeleton; the
+    numerals set their own x-height-relative proportions. Draw each with a short note on why it
+    resisted the n/o/H/O pattern.
+  gate:
+    summary: "geometric sanity on the hard letters"
+    qaFunction: "dev.aarso.typewright.qa (checkAlignmentMiss, checkCollinearSegments, checkJaggyTurns, checkShortSegments, checkSemiVertical, checkExtremaOnCurve -- GeometricChecks.kt, run together)"
+    glyphs: [a, e, g, s, v, w, x, y, k, zero, one, two, three, four, five, six, seven, eight, nine]
+  reflection: >
+    Which of these was hardest, and what did you change to fix it?
+
+- index: 7
+  title: "Spacing"
+  scaffold: true
+  why: >
+    Handoff M5: "Sidebearings with optical spacing assist, then control strings: nnonnonon,
+    HHOHOHOH." docs/RESEARCH_font_quality.md's "Spacing before kerning" section calls this the
+    clearest sequence consensus in the whole field: space n and o and H and O first, then derive
+    every other letter by class -- straight-sided letters take the n/H value, round letters the
+    o/O value, diagonals the minimum, and a handful (a f g s t z; S) are set by eye.
+  demonstration:
+    kind: stats
+    label: "Hyle Deco 'n'"
+    stats:
+      - "LSB 46 -- RSB 51"
+      - "o's sidebearings about 1/3 of its own counter width, n's about 1.5x o's (Glyphs' own starting points, docs/RESEARCH_font_quality.md)"
+      - "HT Letterspacer samples the outline every 5 units by default"
+  task: >
+    Space n and o first, then derive every other letter by class: straight-sided letters take
+    the n/H value, round letters take the o/O value, diagonals the minimum, and a handful (a f g
+    s t z; S) are set by eye (docs/RESEARCH_font_quality.md, "Spacing before kerning"). Read the
+    result as control strings: nnonnonon, HHOHOHOH -- "counterspace equals letterspace"; judge
+    three letters at a time, does the middle one feel optically centred? Paul Barnes' fuller
+    permutations (nnononoo nnanoaoo nnbnoboo...; HHOHOHOO HHAHOAOO...) and Hannes Famira's
+    stepped-size method (10, 12, 14, 16 pt, then real text, then kerning permutations) are the
+    same idea carried further once n and o are right.
+  controlString: "nnonnonon"
+  gate:
+    summary: "no automated check yet"
+    notImplementedReason: >
+      Spacing sanity against control strings has no implemented qa function yet
+      (docs/TYPEWRIGHT_HANDOFF.md "M7. Quality gate and Google Fonts pipeline" names it; not
+      built) -- visual/manual only.
+  reflection: >
+    Read nnonnonon and HHOHOHOH. Does the middle letter feel centred? What did you change?
+
+- index: 8
+  title: "Kerning"
+  scaffold: true
+  why: >
+    Handoff M5: "The essential pairs, overlay showing before and after." Kerning volume is the
+    clearest place docs/RESEARCH_font_quality.md corrects a beginner's intuition: a data-driven
+    study of 2,700 Google Fonts against roughly a gigabyte of Wikipedia text in 24 languages found
+    that about 1,000 pairs cover every context that occurs at least once per page, and John
+    Hudson notes that most Latin kerning involves diagonals and overhangs (T V W Y A L f r,
+    quotes, punctuation) -- straight-straight or round-round pairs rarely need any
+    ("Spacing before kerning").
+  demonstration:
+    kind: stats
+    label: "Hyle Deco kern preview"
+    stats:
+      - "To -- AV -- Ty (the Space room's own before/after pairs)"
+      - "about 1,000 pairs cover every context occurring at least once per page (2,700-font Google Fonts study, docs/RESEARCH_font_quality.md)"
+      - "kerning is most needed on diagonals and overhangs: T V W Y A L f r, quotes, punctuation (John Hudson, same source)"
+  task: >
+    Kern only the pairs spacing could not fix -- mostly diagonals and overhangs (T V W Y A L f
+    r, quotes, punctuation). More than roughly 1,000-2,000 pairs on a Latin text face is itself a
+    sign the spacing is wrong, not a sign of thoroughness (docs/RESEARCH_font_quality.md,
+    "Spacing before kerning"). Overlay the kerned and unkerned pair side by side, before and
+    after.
+  gate:
+    summary: "no automated check yet"
+    notImplementedReason: >
+      Kerning pair count/value sanity has no implemented qa function yet
+      (docs/TYPEWRIGHT_HANDOFF.md "M7. Quality gate and Google Fonts pipeline" names it; not
+      built) -- visual/manual only.
+  reflection: >
+    Which pair needed kerning, how much, and did the value stay smaller than the letters' own
+    sidebearings?
+
+- index: 9
+  title: "Diacritics and anchors"
+  scaffold: true
+  why: >
+    Handoff M5: "Draw the marks once, place anchors, watch every composite build itself."
+    docs/RESEARCH_font_quality.md's "Diacritics" section states the mechanism as one non-
+    negotiable rule: base glyphs carry top/bottom/ogonek anchors, marks carry the matching
+    underscore-prefixed _top/_bottom/_ogonek, and the editor uses the pair to build precomposed
+    composites automatically and to generate the GPOS mark/mkmk features. Positioning by bounding
+    box instead produces none of this -- no live composites, no stacking, no case logic -- and is
+    exactly what a Google Fonts reviewer flags on sight (docs/KNOWLEDGE.md C1).
+  demonstration:
+    kind: scene
+    sceneId: "craft.c1-baked-composites"
+  task: >
+    Draw each mark once with zero advance width, then place a named anchor on the base
+    (commonly "top") and the matching underscore-prefixed anchor on the mark ("_top") -- the
+    editor uses the pair to build every composite automatically and to generate the GPOS
+    mark/mkmk features. Capitals need their own, wider/shorter/flatter .case marks placed on cap
+    height. Watch a composite rebuild itself the moment you move the anchor.
+  gate:
+    summary: "anchors present on the base Latin letters (A-Z, a-z)"
+    qaFunction: "dev.aarso.typewright.qa.checkAnchorsPresent"
+  reflection: >
+    Which base letters were missing an anchor, and what did placing one change about the
+    composites built from it?
+
+- index: 10
+  title: "Extend a script (optional)"
+  scaffold: true
+  why: >
+    Handoff M5: "Devanagari or kana on the same principles with the script's own control
+    characters and metric system." This step is explicitly optional in M5's own numbered list.
+    docs/RESEARCH_font_quality.md's "Multi-script" section is equally explicit that the
+    harmonisation ratio to Latin is a designer's own choice, not a formula: "there is not and
+    cannot be a prescriptive model" for Devanagari, and no percentage is published for how much
+    smaller a kana letter face should be drawn than its kanji companion.
+  demonstration:
+    kind: stats
+    label: "script metric systems (docs/RESEARCH_font_quality.md)"
+    stats:
+      - "Devanagari has seven named vertical levels; only the headline and the baseline are fixed, and there is no x-height"
+      - "kana sit in a virtual body (a square em box) with a smaller letter face; Apoc JP fit kana in a 980-unit box against a 1000-unit Latin em"
+  task: >
+    Optional. Extend to Devanagari or kana on the same n/o-first principle, with that script's
+    own control characters and metric system -- there is no x-height in Devanagari and no
+    baseline in kana's virtual-body model, so the harmonisation ratio to Latin is a designer's
+    own choice, not a formula (docs/RESEARCH_font_quality.md, "Multi-script").
+  gate:
+    summary: "no automated check yet"
+    notImplementedReason: >
+      No script-specific control-character or metric check exists yet; this task is optional
+      (handoff M5 item 10) -- visual/manual only.
+  reflection: >
+    If you extended a script, what control characters did you draw first, and what did you have
+    to decide that Latin never asked of you?
+
+- index: 11
+  title: "Test"
+  scaffold: true
+  why: >
+    Handoff M5: "Paragraph proofs, waterfall, the quality gate, Fontbakery." Brief section 12 is
+    explicit about what this actually covers: "Layer one: Fontbakery or Fontspector, googlefonts
+    profile, results translated to plain language with the rationale. Layer two: Typewright's own
+    checks ... The report ends with 'What these checks do not measure.'"
+    docs/RESEARCH_font_quality.md's own coverage table agrees from the other direction: these
+    tools verify tables, metadata, vertical-metrics arithmetic and six outline heuristics, and
+    Google itself says type-design standards go "out of the scope" of automation and are reviewed
+    by eye.
+  demonstration:
+    kind: stats
+    label: "Hyle Deco Regular -- Fontbakery googlefonts + Typewright"
+    stats:
+      - "4 fail -- 4 warn -- 141 pass (run locally, the Check room's own real summary)"
+      - "'A green report means will not break, not is good. Your eye, on a rendered proof, is the final gate.' (the Check room's own closing note)"
+  task: >
+    Run paragraph proofs and a tracking waterfall, then the full quality gate: layer one
+    (Fontbakery/Fontspector's googlefonts profile) plus Typewright's own layer two. Read every
+    result honestly, including which checks this build does not yet have a real, wired
+    implementation for -- this gate's own per-check results say so rather than hiding the gap.
+  gate:
+    summary: "layer one (Fontbakery/Fontspector bridge)"
+    qaFunction: "dev.aarso.typewright.qa.LayerOneChecker (platformLayerOneChecker)"
+  reflection: >
+    What did the gate flag, and what does it not measure that your own eye still has to catch?
+
+- index: 12
+  title: "Ship"
+  scaffold: true
+  why: >
+    Handoff M5: "Name, OFL licence, repo structure, DESCRIPTION, upstream.yaml, submission issue
+    text. Push or hand off." docs/RESEARCH_font_quality.md's "Provenance" section gives the exact
+    pattern Google Fonts requires for the copyright line -- "Copyright { year } The { family }
+    Project Authors ({ git_url })" -- and documents the deterministic cluster of packaging
+    failures first-time submitters hit: vertical-metrics mismatches, missing licence strings,
+    a copyright notice that does not match the pattern, METADATA.pb fields out of order.
+  demonstration:
+    kind: stats
+    label: "Hyle Deco repo scaffold"
+    stats:
+      - "Copyright 2026 The Hyle Deco Project Authors (https://github.com/mbaliga/hyle-deco)"
+      - "'Copyright { year } The { family } Project Authors ({ git_url })' -- Google Fonts' own required pattern (docs/RESEARCH_font_quality.md, Provenance)"
+  task: >
+    Name the font, generate OFL.txt (the copyright line plus the licence body verbatim), a
+    DESCRIPTION.en_us.html placeholder, and a METADATA.pb scaffold; lay out the repository
+    (AUTHORS.txt, CONTRIBUTORS.txt, fonts/ttf/, sources/ with the UFO and a build config,
+    requirements.txt); then push or hand off. Blocked while Check has fails (brief section 12).
+  gate:
+    summary: "repository scaffold generation (OFL.txt, DESCRIPTION.en_us.html, METADATA.pb)"
+    qaFunction: "dev.aarso.typewright.qa.ship (gfCopyrightLine, generateOflText, generateDescriptionHtml, generateMetadataPbText)"
+  reflection: >
+    What is this font's name, and is it clear of Google Fonts' naming rules (no camelCase,
+    abbreviations, hyphens, under 32 characters for family plus style)?

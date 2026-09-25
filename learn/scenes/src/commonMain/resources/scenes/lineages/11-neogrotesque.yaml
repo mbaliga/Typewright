@@ -1,0 +1,26 @@
+# scenes/lineages/11-neogrotesque.yaml
+# docs/LESSONS_SCAFFOLD.md section 2, era 10 of 10, the strand's closing scene (see
+# 08-artdeco.yaml's note on file numbering).
+id: lineages.neogrotesque
+strand: lineages
+title: Neo-grotesque
+era: "1957"
+scaffold: true
+duration: 40
+faces:
+  - key: humanist
+    family: Source Sans 3
+  - key: neogrotesque
+    family: Inter
+stage:
+  sample: "ago"
+  align: xheight
+  from: humanist
+  to: neogrotesque
+  stress: [10, 0]
+caption:
+  tool: "the phototypesetter"
+  text: >
+    Helvetica, Univers. The grotesque tidied into neutrality: horizontal terminals,
+    even colour, closed apertures.
+  tags: [horizontal terminals, even colour, closed apertures]

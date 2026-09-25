@@ -1,0 +1,94 @@
+# Pinned toolchain for Typewright. Versions were chosen as the latest stable, mutually
+# compatible releases on 22 Sept 2026 and proven by building; see README.md "Toolchain".
+[versions]
+kotlin = "2.4.20"
+compose-multiplatform = "1.12.1"
+agp = "9.4.1"
+spotless = "8.10.2"
+ktlint = "1.8.0"
+androidx-activity = "1.13.0"
+
+# Android levels. compileSdk 37: Compose 1.12.1's androidx artifacts require it (AAR metadata).
+# targetSdk 36: Google Play's current target-API requirement. minSdk 31: shape-preview's
+# Android stack is TextRunShaper, which is API 31.
+android-compileSdk = "37"
+android-targetSdk = "36"
+android-minSdk = "31"
+
+# Bytecode level for every JVM and Android compilation.
+jvm-target = "17"
+
+# shape-preview's desktop shaper (P8): org.jetbrains.skia.shaper.Shaper, Skia's SkShaper over
+# HarfBuzz. 0.150.1 is the exact version Compose Multiplatform 1.12.1 already resolves
+# elsewhere in this build (docs/ARCHITECTURE_REVIEW.md section 4.3, THIRD_PARTY.md), pinned
+# here explicitly because shape-preview has no Compose dependency of its own to pull it in
+# transitively (its README: "No Compose here").
+skiko = "0.150.1"
+
+# core-font's UFO/glif XML reader (docs/ARCHITECTURE_REVIEW.md section 3 `:core-font`, section 7
+# "What P1 and P2 need first" item 4). Pulls kotlinx-serialization-core 1.11.0 transitively; this
+# module is pure (no Compose dependency), so that does not collide with Compose's 1.7.3.
+xmlutil = "1.0.2"
+
+# qa:corpus's node-economy data loader (docs/ARCHITECTURE_REVIEW.md section 3 `:qa:corpus`
+# "Pick": "kotlinx-serialization-json 1.11.0 (Apache-2.0; wasmJs since 1.6.1)"). Matches the
+# kotlinx-serialization-core version xmlutil already pulls transitively (comment above), so both
+# modules resolve to one version. The compiler plugin (`kotlin-serialization` below) is versioned
+# in lockstep with Kotlin itself, not with this library.
+kotlinx-serialization = "1.11.0"
+
+# shape-preview's wasmJs visual preview (P9, BrowserFontFaceVisualPreview): both are already
+# resolved into app-web's wasmJsRuntimeClasspath transitively through Compose Multiplatform
+# (THIRD_PARTY.md's "Shipped inside the apps" table lists kotlinx.coroutines 1.9.0 and
+# kotlinx-browser 0.5.0 by name already), and are pinned here to those exact same versions and
+# declared directly for the same reason `skiko` above already is: shape-preview has no Compose
+# dependency of its own to pull them in. kotlinx-browser gives typed `org.w3c.dom` Canvas/Document
+# bindings for wasmJs (no `FontFace`/CSS Font Loading types -- those are hand-bound in
+# BrowserFontFaceVisualPreview.kt itself, see its own KDoc); kotlinx-coroutines-core gives
+# `Promise<T>.await()`, the one genuinely-async step (`FontFace.load()`).
+kotlinx-coroutines = "1.9.0"
+kotlinx-browser = "0.5.0"
+
+[libraries]
+# Gradle plugins, on the build-logic classpath.
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+compose-compiler-gradle-plugin = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
+compose-gradle-plugin = { module = "org.jetbrains.compose:compose-gradle-plugin", version.ref = "compose-multiplatform" }
+android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
+spotless-gradle-plugin = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
+
+# Compose Multiplatform. Explicit coordinates: the plugin's `compose.*` accessors are deprecated.
+compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
+compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
+compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
+
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
+
+# XML for core-font's UFO 3 / glif reader (Apache-2.0; see THIRD_PARTY.md).
+xmlutil-core = { module = "io.github.pdvrieze.xmlutil:core", version.ref = "xmlutil" }
+
+# JSON for qa:corpus's node-economy data packs (Apache-2.0; see THIRD_PARTY.md).
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+
+# shape-preview's desktop shaper (P8; Apache-2.0; see THIRD_PARTY.md). skiko-awt is the JVM API
+# jar; skiko-awt-runtime-linux-x64 is the native library, needed only to actually run (Linux is
+# the only desktop OS this build targets — app-desktop/build.gradle.kts).
+skiko-awt = { module = "org.jetbrains.skiko:skiko-awt", version.ref = "skiko" }
+skiko-awt-runtime-linux-x64 = { module = "org.jetbrains.skiko:skiko-awt-runtime-linux-x64", version.ref = "skiko" }
+
+# shape-preview's wasmJs visual preview (P9; Apache-2.0; see THIRD_PARTY.md, both already listed
+# there as transitively shipped).
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-browser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version.ref = "kotlinx-browser" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

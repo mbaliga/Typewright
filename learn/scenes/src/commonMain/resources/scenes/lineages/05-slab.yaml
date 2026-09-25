@@ -1,0 +1,24 @@
+# scenes/lineages/05-slab.yaml
+# docs/LESSONS_SCAFFOLD.md section 2, era 5 of 10.
+id: lineages.slab
+strand: lineages
+title: Slab
+era: "1815"
+scaffold: true
+duration: 40
+faces:
+  - key: didone
+    family: Playfair Display
+  - key: slab
+    family: Zilla Slab
+stage:
+  sample: "ago"
+  align: xheight
+  from: didone
+  to: slab
+  stress: [0, 0]
+caption:
+  tool: "wood type for the poster wall"
+  text: >
+    The Egyptian. Serifs as thick as stems, made to shout from across a street.
+  tags: [square serifs, low contrast, even colour]

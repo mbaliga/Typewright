@@ -1,0 +1,25 @@
+# scenes/lineages/01-blackletter.yaml
+# docs/LESSONS_SCAFFOLD.md section 2, era 1 of 10. The strand's opening scene: no earlier
+# era to crossfade from, so `stage.from`/`to` both name this era's own face and there is no
+# stress dial yet (the table's own stress column reads "none" for Blackletter).
+id: lineages.blackletter
+strand: lineages
+title: Blackletter
+era: "c. 1450"
+scaffold: true          # docs/LESSONS_SCAFFOLD.md: ships as such until Madhav's material replaces it
+duration: 40             # seconds at the default pace; scrubbing ignores it (matches the CANON worked example)
+faces:
+  - key: blackletter
+    family: UnifrakturMaguntia
+stage:
+  sample: "ago"          # section 2's own header: "Sample on stage: 'ago'."
+  align: xheight
+  from: blackletter
+  to: blackletter
+  # no stress: entry — the table's own stress column reads "none" for this era.
+caption:
+  tool: "a broad nib held steep; then Gutenberg's metal"
+  text: >
+    The first printed letters imitate the scribe: dense, vertical, compressed, every
+    stroke a pen stroke.
+  tags: [broad-nib strokes, no round shapes, tight texture]
