@@ -34,6 +34,18 @@ class StoreysTest {
     }
 
     @Test
+    fun aTwoStoreyAWithAnOpenApertureIsDoubleStorey() {
+        assertEquals(Storeys.DOUBLE, storeysFromA(twoStoreyAGlyph()))
+    }
+
+    @Test
+    fun aHeavyOneStoreyAIsStillSingleStorey() {
+        // Its counter covers only 64% of the height, which the counter-height rule alone read as
+        // two-storey; the one thin run of ink above the counter says otherwise.
+        assertEquals(Storeys.SINGLE, storeysFromA(oneStoreyHeavyAGlyph()))
+    }
+
+    @Test
     fun aWithOnlyOneContourIsUnknown() {
         val a =
             com.asoc.typewright.core.geometry

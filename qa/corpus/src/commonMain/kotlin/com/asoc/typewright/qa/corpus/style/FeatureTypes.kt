@@ -19,8 +19,12 @@ internal data class StyleGlyphSet(
     companion object
 }
 
-/** The nine characters [StyleGlyphSet.fromSfntFont] looks up (brief 8.4's own glyph list). */
-internal const val STYLE_DETECTOR_GLYPHS = "onageHTcs"
+/**
+ * The characters [StyleGlyphSet.fromSfntFont] looks up: brief 8.4's own list (o n a g e H T c s)
+ * plus `x`, whose ink height is the x-height that [extractFeatures] needs for the x-height ratio
+ * and for scaling aperture. Without `x` both features came back null on every real font.
+ */
+internal const val STYLE_DETECTOR_GLYPHS = "onageHTcsx"
 
 /**
  * Builds a [StyleGlyphSet] from [font]'s `cmap`, looking up [STYLE_DETECTOR_GLYPHS] by Unicode
@@ -79,8 +83,8 @@ data class SerifMetrics(
  *
  * - [contrastRatio]: thickest/thinnest stroke width sampled around `o`'s ring (>= 1.0; 1.0 is
  *   perfectly monoline).
- * - [stressAngleDegrees]: the angle, from vertical, of the diameter through `o` where the ring is
- *   thickest -- `0` is vertical stress, folded into `(-90, 90]`. `null` when `o` is missing or the
+ * - [stressAngleDegrees]: the angle, from vertical, of `o`'s stress axis, the line through its
+ *   thinnest parts -- `0` is vertical stress, folded into `(-90, 90]`. `null` when `o` is missing or the
  *   stroke probe found no usable width anywhere (a degenerate outline).
  * - [hasSerif] / [bracketScore]: from `T`'s stem foot (see [SerifMetrics]).
  * - [storeys]: `a`/`g`'s single- versus double-storey construction (see [combineStoreys]).
@@ -92,6 +96,9 @@ data class SerifMetrics(
  * - [xHeightToCapHeightRatio]: `x`'s ink height divided by `H`'s ink height.
  * - [widthClass]: the mean advance width of every glyph present in the set, divided by the font's
  *   units-per-em -- a proportion measure, not an absolute width.
+ * - [aStoreys], [gStoreys]: the two letters' own answers before [combineStoreys] merges them. They
+ *   are independent design choices (a neo-grotesque pairs a two-storey `a` with a one-storey `g`),
+ *   so the Brief and the style atlas keep them apart.
  */
 internal data class FeatureVector(
     val contrastRatio: Double?,
@@ -104,4 +111,6 @@ internal data class FeatureVector(
     val oRoundnessExponent: Double?,
     val xHeightToCapHeightRatio: Double?,
     val widthClass: Double?,
+    val aStoreys: Storeys = Storeys.UNKNOWN,
+    val gStoreys: Storeys = Storeys.UNKNOWN,
 )

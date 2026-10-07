@@ -151,14 +151,49 @@ enum class Use {
     companion object
 }
 
-/** S02 step 2's Workbook Task 1, done up front. */
+/** S02 step 2's Workbook Task 1, done up front; [ethos] is what the Brief section's questions found out. */
 data class Brief(
     val source: BriefSource,
     val model: ContrastModel? = null,
     val use: Use? = null,
     val styleClass: StyleClass = StyleClass(declared = null, confirmed = null),
     val note: String? = null,
+    val ethos: Ethos? = null,
 )
+
+/**
+ * The visual language the person is aiming for, as the Brief section records it: only what they
+ * chose, never a number. Every range the app later holds their letters to is derived from these
+ * choices and the style atlas at the time it is shown (CLAUDE.md law 5), so a regenerated atlas
+ * moves the ranges without rewriting anyone's project.
+ *
+ * - [genre]: a style atlas genre key (`display-artdeco`), or null.
+ * - [uses]: what the font is for, by use id (`watch-face`), most important first.
+ * - [useOptions]: answers to a use's own questions, `"<use>.<question>"` to an option id.
+ * - [feelings]: Google Fonts feeling keys (`calm`), at most three.
+ * - [references]: families the person admires, by name.
+ * - [levels]: the person's own answers, dimension id (`contrast`) to level id (`even`).
+ * - [signatures]: dimensions the person marked as deliberate departures from the genre.
+ * - [answered]: every question id answered or skipped, in order, so the questions can resume.
+ * - [wordmark]: the letters of a logo or wordmark, when that is the use.
+ */
+data class Ethos(
+    val genre: String? = null,
+    val uses: List<String> = emptyList(),
+    val useOptions: Map<String, String> = emptyMap(),
+    val feelings: List<String> = emptyList(),
+    val references: List<String> = emptyList(),
+    val levels: Map<String, String> = emptyMap(),
+    val signatures: List<String> = emptyList(),
+    val answered: List<String> = emptyList(),
+    val wordmark: String? = null,
+) {
+    /** True when nothing has been chosen yet. */
+    val isEmpty: Boolean
+        get() =
+            genre == null && uses.isEmpty() && useOptions.isEmpty() && feelings.isEmpty() && references.isEmpty() &&
+                levels.isEmpty() && signatures.isEmpty() && answered.isEmpty() && wordmark == null
+}
 
 /** `qa:corpus`'s style class key, [declared] from S02's chips and [confirmed] once the user agrees (brief §11). */
 data class StyleClass(

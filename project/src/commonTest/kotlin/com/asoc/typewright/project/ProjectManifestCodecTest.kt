@@ -4,6 +4,7 @@ package com.asoc.typewright.project
 
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -126,5 +127,66 @@ class ProjectManifestCodecTest {
         val text = ProjectManifestCodec.encode(Fixtures.projectState(), emptyMap())
         assertTrue(text.endsWith("}\n"))
         assertTrue(text.lines().any { it.startsWith("  \"name\"") })
+    }
+
+    @Test
+    fun theBriefEthosRoundTrips() {
+        val ethos =
+            Ethos(
+                genre = "display-artdeco",
+                uses = listOf("watch-face"),
+                useOptions = mapOf("watch-face.aod" to "yes", "watch-face.date" to "digits"),
+                feelings = listOf("futuristic", "calm"),
+                references = listOf("Michroma", "Poiret One"),
+                levels = mapOf("contrast" to "even", "width" to "narrow"),
+                signatures = listOf("aForm"),
+                answered = listOf("door.style", "contrast", "width"),
+                wordmark = null,
+            )
+        val base = Fixtures.projectState()
+        val state =
+            base.copy(
+                meta =
+                    base.meta.copy(
+                        manifest =
+                            base.meta.manifest.copy(
+                                brief =
+                                    base.meta.manifest.brief
+                                        .copy(ethos = ethos),
+                            ),
+                    ),
+            )
+        val decoded = ProjectManifestCodec.decode(ProjectManifestCodec.encode(state, emptyMap()))
+        assertEquals(ethos, decoded.manifest.brief.ethos)
+        assertEquals(state.meta.manifest, decoded.manifest)
+    }
+
+    @Test
+    fun aBriefWithNoEthosWritesNoEthosKey() {
+        // A project that never visited the Brief section keeps the JSON it had before the ethos existed.
+        val text = ProjectManifestCodec.encode(Fixtures.projectState(), emptyMap())
+        assertTrue("\"ethos\"" !in text)
+        assertEquals(
+            null,
+            ProjectManifestCodec
+                .decode(text)
+                .manifest.brief.ethos,
+        )
+    }
+
+    @Test
+    fun anEthosWithMissingFieldsReadsThemAsEmpty() {
+        val text = ProjectManifestCodec.encode(Fixtures.projectState(), emptyMap())
+        val original = ProjectJson.json.parseToJsonElement(text) as JsonObject
+        val brief = original["brief"] as JsonObject
+        val sparse = JsonObject(brief + ("ethos" to buildJsonObject { put("genre", "slab") }))
+        val decoded =
+            ProjectManifestCodec.decode(
+                ProjectJson.json.encodeToString(
+                    JsonObject.serializer(),
+                    JsonObject(original + ("brief" to sparse)),
+                ),
+            )
+        assertEquals(Ethos(genre = "slab"), decoded.manifest.brief.ethos)
     }
 }
