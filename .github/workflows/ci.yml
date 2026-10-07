@@ -175,12 +175,12 @@ jobs:
       - name: DIAG failures
         if: failure()
         run: |
-          grep -nE "^e: |What went wrong|Execution failed|FAILED$|Exception|AssertionError|Test.*FAILED" gradle.log | grep -v "SKIPPED" | head -14 | cut -c1-400 | while IFS= read -r l; do echo "::error::${l//%/%25}"; done
+          grep -vE "SKIPPED|UP-TO-DATE|NO-SOURCE|FROM-CACHE|^$" gradle.log | tail -45 | cut -c1-300 | while IFS= read -r l; do echo "::error::${l//%/%25}"; done
       - name: DIAG failures
         if: failure()
         run: |
-          grep -nE "^e: |What went wrong|Execution failed|FAILED$|Exception|AssertionError|Test.*FAILED" gradle.log | grep -v "SKIPPED" | head -14 | cut -c1-400 | while IFS= read -r l; do echo "::error::${l//%/%25}"; done
+          grep -vE "SKIPPED|UP-TO-DATE|NO-SOURCE|FROM-CACHE|^$" gradle.log | tail -45 | cut -c1-300 | while IFS= read -r l; do echo "::error::${l//%/%25}"; done
       - name: DIAG failures
         if: failure()
         run: |
-          grep -nE "^e: |What went wrong|Execution failed|FAILED$|Exception|AssertionError|Test.*FAILED" gradle.log | grep -v "SKIPPED" | head -14 | cut -c1-400 | while IFS= read -r l; do echo "::error::${l//%/%25}"; done
+          grep -vE "SKIPPED|UP-TO-DATE|NO-SOURCE|FROM-CACHE|^$" gradle.log | tail -45 | cut -c1-300 | while IFS= read -r l; do echo "::error::${l//%/%25}"; done
