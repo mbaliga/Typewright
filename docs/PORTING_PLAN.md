@@ -400,3 +400,60 @@ shaper sources, `project/.../{ProjectStore,SwapProtocolStore}.kt`, `project/stor
 assets; `jpackage --help`.
 
 Program: `Personal-Tracker/PORTING_PROGRAM.md` §0 to §3, §4.1 to §4.6, the Typewright row of §5, §6, §7, §8, §9.
+
+## Owner rulings and the proposed line (added 2026-10-07)
+
+Status: PLAN. Nothing here is built, run on a device, signed or submitted. The program-level plan is Personal-Tracker `PORTING_PROGRAM.md` ([PR #10](https://github.com/mbaliga/Personal-Tracker/pull/10)), which holds the owner's rulings and section 5A, the proposed port / no-port line. The cells, estimates and open questions above are this repo's original plan and are unedited. Where the owner has since answered a question, the answer is below. Section 5A is a proposal; the owner has not yet confirmed it.
+
+### Where Typewright sits in the proposed line (program section 5A.3, a proposal)
+
+| Target       | Verdict | Weeks and flags |
+| ------------ | ------- | --------------- |
+| Ubuntu Touch | port    | 8w g r          |
+| Linux        | port    | 2w              |
+| iOS/iPadOS   | port    | 12w g           |
+| macOS        | port    | 3w g            |
+| Windows      | port    | 3w g            |
+
+Key: `follows` means it ports only as far as the products that depend on it; `exists` means the program reads it as already running there, unverified (finish, verify and sign); flags: `g` gated on a prerequisite, `r` re-estimate or floor, `o` its own program, `s` scope note. The program's P4, P8, P12 and P13 gate whole columns or repos and are not flagged per cell. A port verdict counts the deliverable in the line; where this repo's plan calls a deliverable a reframe (program rule R12) it keeps that label. Tests cited in the reason: (a) the owner said it is needed there; (b) its job is really done on that OS by real users; (c) that OS is where it is sold or its audience is; it has no reason to exist if (x) its surface is absent or untouchable, (y) the capability is forbidden or impossible, or (z) the only form is a thin wrapper or a different product nobody asked for. P-numbers and OQ-numbers refer to the program plan (Personal-Tracker `PORTING_PROGRAM.md`, sections 5A.5 and 8).
+
+Reason: The owner named Linux and Ubuntu Touch and said "installed apps will always have more to offer" than a web version. Linux is a port, not "exists", because storage and the compile backend are still stubs. UT is the JVM-in-click shape (its own UT-5, 6 to 10 weeks, whose first step is the S-UT2 spike, program P11), not the 4-week wasm click, which is the excluded substitute. iOS, macOS and Windows wait for V1 to finish.
+
+### Owner rulings that apply here
+
+- **OQ-17 and OQ-38 (2026-10-06 and 2026-10-07):** Typewright is not in the PT:D-Q lockstep list and has no composite consumers. It keeps Kotlin 2.4.20, Compose Multiplatform 1.12.1 and AGP 9.4.1 (its F5 row says Option B would be a downgrade). The program plan assumes its iOS target keeps that pin; the owner was not asked.
+- **Ubuntu Touch device:** the owner owns one and says it is a OnePlus 6; research reads it as 20.04-only while the program plan targets 24.04. On 2026-10-07 the owner chose "OnePlus 6 pre-spike now, decide later" (OQ-37): a labelled "S-UT1 (focal)" headless-JVM pre-spike, no 24.04 flashing, a 24.04 device decision afterwards. Every Ubuntu Touch device gate stays NDV until then. The headless pre-spike does not exercise Typewright's Compose shape (S-UT2).
+- **OQ-31 Mac (2026-10-06 and 2026-10-07):** "Buy a Mac", and on 2026-10-07 an Apple-silicon Mac mini, not yet bought; no Apple device gate is called checkable before then.
+- **Apple (OQ-2, 2026-10-06):** "Whatever let's me sell apps on the app store": the paid Developer Program and the App Store are the target channel. TestFlight is not used until the exception to I-1 (OQ-32, drafted as PROPOSED-1, not approved) is approved.
+- **OQ-20 CI (2026-10-06):** "Linux-only CI when private (Recommended)": this repo is public, so the ruling does not limit its macOS and Windows lanes; going private would stop them. Actions artifact storage is still exhausted (program rule R6).
+- **OQ-5 hardware (2026-10-06):** the owner's answer changes which of their other machines can serve as device gates, so a gate this plan names on specific hardware may be moved or dropped. Which machine carries which device gate is not decided (OQ-33).
+- **Typewright statement (2026-10-06, free text):** "yes, I need Typewright for linux and Ubuntu touch as well. A web version exists too, but that's not all- as installed apps will always have more to offer." The program plan reads this as Linux and Ubuntu Touch being ports and the web version not standing in for them; this plan's own Ubuntu Touch cell above (a Kotlin/Wasm preview click) is the kind of substitute the Ubuntu Touch scope ruling (2026-10-06, "Native only, no substitutes") excludes, and the statement answers that ruling's open coverage question for Typewright: it is covered. Distribution on OpenStore against FSL-1.1-ALv2 is open (OQ-35).
+- **Directives (2026-10-06):** "Draft amendments for approval": program directives I-1 to I-12 and rules R1 to R12 are unchanged; PROPOSED-1 to PROPOSED-4 in Personal-Tracker `DECISIONS.md` are drafts awaiting the owner.
+
+### Prerequisites and open questions that touch this repo (program sections 5A.5 and 8)
+
+Prerequisites (program-level; not costed here):
+
+- program P4: A device that can run the 24.04 Ubuntu Touch the program plan targets (the owner's OnePlus 6 is read as 20.04-only)
+- program P6: Typewright V1 finished, V1_SCOPE section 4 amended (OQ-10) and the fontc native backend (TW:D5)
+- program P8: An Apple-silicon Mac (OQ-31: a Mac mini chosen on 2026-10-07, not yet bought)
+- program P9: OpenStore manual review takes open-source applications only, and whether reviewers count FSL-1.1-ALv2 as open source is unknown (OQ-35); whether Flathub, the App Store, the Mac App Store and the Microsoft Store accept FSL-1.1-ALv2 is also unrecorded (OQ-4)
+- program P11: S-UT2: a Compose Desktop (Skiko linux-arm64) window under XMir with the unconfined template on a 24.04 device (Typewright's own UT-5 spike: not run, high failure risk)
+
+Owner questions in the program register that concern this repo (status as of 2026-10-07):
+
+- OQ-2 (ruled): Apple Developer Program and the delivery route
+- OQ-4 (open): Channels and store compatibility
+- OQ-5 (ruled): Hardware stance
+- OQ-10 (open): Typewright: when porting may start (V1_SCOPE section 4, TW:D5)
+- OQ-17 (ruled): Toolchain pins: the pin is ruled; the "Also" approvals (converting shared modules to kotlin("multiplatform"), asom's no-KMP rule staying asom-local) are unanswered
+- OQ-20 (ruled): CI minutes, storage and repo visibility
+- OQ-31 (ruled): CI for App Store builds; which Mac
+- OQ-32 (open): Exception to I-1 for TestFlight and App Store crash reports
+- OQ-33 (open): Hardware details still open
+- OQ-34 (ruled): Web-view hosts, raised by the Typewright statement above; the ruling extends ports to Bocal and Runout and changes no Typewright cell
+- OQ-35 (open): Typewright on Ubuntu Touch: distribution and licence
+- OQ-37 (answered in part): A second Ubuntu Touch device
+- OQ-38 (ruled): iOS toolchain pin
+
+When the owner confirms or changes the line, this repo's original cells above stay as the engineering detail; only the verdicts and re-costs in program section 5A change.
