@@ -74,7 +74,12 @@ jobs:
       - name: Debug APK
         run: ./gradlew :app-android:assembleDebug
       - name: Platform-module tests (desktop JVM, Android host, screenshot harness)
-        run: ./gradlew :compile:desktopTest :compile:testAndroidHostTest :shape-preview:desktopTest :shape-preview:testAndroidHostTest :ui:desktopTest :ui:testAndroidHostTest :app-android:testDebugUnitTest :app-desktop:test
+        run: ./gradlew :compile:desktopTest :compile:testAndroidHostTest :shape-preview:desktopTest :shape-preview:testAndroidHostTest :ui:desktopTest :ui:testAndroidHostTest :app-android:testDebugUnitTest :app-desktop:test 2>&1 | tee gradle.log
+
+      - name: DIAG failures
+        if: failure()
+        run: |
+          grep -E "^e: |FAILED|What went wrong|AssertionError|Exception|expected|Execution failed" -A3 gradle.log | head -80 | sed 's/$/%0A/' | tr -d '\n' | head -c 3500 | while read -r l; do echo "::error::$l"; done
       # The core job's spotlessCheck runs with -Ptypewright.android=false, so it never lints the
       # Android-bearing modules (app-android, and every module's androidMain). This is the only
       # job with the Android SDK on PATH, so it is the one whole-project ktlint check.
@@ -152,7 +157,12 @@ jobs:
           # The MIT-licensed cache; the default "enhanced" cache is a proprietary component.
           cache-provider: basic
       - name: Production browser distribution (Binaryen downloaded from its GitHub releases)
-        run: ./gradlew :app-web:wasmJsBrowserDistribution
+        run: ./gradlew :app-web:wasmJsBrowserDistribution 2>&1 | tee gradle.log
+
+      - name: DIAG failures
+        if: failure()
+        run: |
+          grep -E "^e: |FAILED|What went wrong|AssertionError|Exception|expected|Execution failed" -A3 gradle.log | head -80 | sed 's/$/%0A/' | tr -d '\n' | head -c 3500 | while read -r l; do echo "::error::$l"; done
       # :project:storage's FsaProjectStore needs a real browser (File System Access API, OPFS),
       # so its Wasm tests run in headless Chrome like app-web/shape-preview/ui's, not under Node.
       - name: Wasm tests (pure and compile/shape-preview under Node; app-web, shape-preview, ui and project:storage in headless Chrome)
