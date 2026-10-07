@@ -40,5 +40,7 @@ internal fun extractFeatures(glyphSet: StyleGlyphSet): FeatureVector {
         oRoundnessExponent = o?.let { superellipseExponent(it) },
         xHeightToCapHeightRatio = xHeightToCapHeightRatio(x, capH),
         widthClass = widthClass(g.values, glyphSet.unitsPerEm),
+        aStoreys = storeysA,
+        gStoreys = storeysG,
     )
 }

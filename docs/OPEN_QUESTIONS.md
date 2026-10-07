@@ -3261,3 +3261,25 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     every pushed commit confirms `UnifiedDiff.kt` first appears already in its shipped form).
 
     *Madhav, as sole licensor.*
+
+131. **The Brief cannot read the style atlas in the browser (Brief).** `loadStyleAtlas()` reads a
+    classpath or Node file resource, as the node-economy loader does, and fails in a browser. The
+    Brief screen catches that and says so; questions work, measured ranges and the guide's drift
+    don't. Needs the same decision as item 8/18 (how web loads data packs). Owner: Madhav.
+
+132. **Style detector fixes found while building the atlas (Brief).** Storeys, contrast stress and
+    two geometry helpers gave wrong answers on real faces; they are fixed with tests. The atlas
+    was generated after the fixes. Any older stored style measurement should be re-run.
+
+133. **Learn faces: default instance (Brief).** Some variable learn faces are shown at their file's
+    default instance, not the weight the lesson names. Not changed here; worth a pass.
+
+134. **Cue-face licensing (Brief).** The cue faces are Modified Versions under OFL-1.1 (subset,
+    instanced, renamed). Their copyright lines and licence texts are in THIRD_PARTY.md and
+    data/brief-cues/. A licence review of the renaming should be done by Madhav before release.
+
+135. **Genre reading accuracy (Brief).** Left-one-out genre reading is 52% top-1 and 83% top-3 among
+    the ten corpus classes, 40% and 69% across all 23. The app shows the neighbours with the
+    verdict. More measured faces per class is the fix; the floors in `ReadingAccuracyTest` are
+    the guard.
+

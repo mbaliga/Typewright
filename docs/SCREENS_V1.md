@@ -118,6 +118,7 @@ explains itself on tap.
 | Ship | Google Fonts · Own licence |
 | Learn | Lineages · Overlay · Lens · Scrapbook |
 | Workbook | This task · All tasks |
+| Brief | Ask · Brief · Guide |
 | Settings, About, Font info | (empty) |
 | Theme editor | Light · Dark preview |
 
@@ -197,6 +198,7 @@ and the deck.
 | App | Settings, theme and custom theme, haptics, reduced motion, input hints | S21 S22 | no |
 | App | About, licences, notices, privacy statement, support link | S23 | no |
 | App | Map of sections, command palette | S24, palette | partly |
+| Brief | Find the ethos by pictures, measured targets, tensions, drift, plan | S25 S26 S27 | partly (the web build has no atlas yet) |
 
 ---
 
@@ -496,6 +498,30 @@ defaults from §2.
 - **Entry:** long-press the section arc; pinch out past the specimen; M.
 - **Content:** UI_SPEC's map, with the sections as 44 sp ink blocks. Tap one to fly there.
   The deck shows only the left **Close**.
+
+### S25 Brief: Ask
+- **Deck:** Brief; left ‹ (Back goes to the previous question, then the doors, then Home);
+  toggles **Ask · Brief · Guide**; right ⋯.
+- **Content:** six doors, each a cue-face specimen with a one-line caption (Style, Use,
+  References, Feeling, Mirror, Blank). Choosing one opens its questions, one at a time. Each answer is a
+  card: the cue-face specimen (a real typeface that measures as that answer), the answer's word
+  and a short phrase. The chosen card gets a 2 dp violet border and the word CHOSEN. Skip and
+  "I'm not sure" sit under the cards; neither is a failure.
+- **Done when:** a brief can be built by pictures alone, and the sentence at the top of the Brief
+  toggle changes with every answer.
+
+### S26 Brief: the Brief
+- **Content:** the sentence (set large, in the cue face of the genre), the targets table (feature ·
+  target · origin; "our heuristic" where no measurement stands behind it), the tensions list (each
+  with its source kind and a "Keep as signature" toggle), and the faces already in the atlas that fit.
+- **Done when:** every number shown can be traced to the style atlas or is labelled a heuristic.
+
+### S27 Brief: Guide
+- **Content:** items grouped by kind (Next · Requirement · Tension · Drift · Craft · Learn), then the
+  drawing plan with its letters set in the cue face. With no letters drawn: "Draw some letters
+  and the guide will measure them". Drift items say what the brief asks, what the drawing
+  measures, and what to move.
+- **Done when:** a drifting letter produces advice naming the feature and the letters to change.
 
 ---
 

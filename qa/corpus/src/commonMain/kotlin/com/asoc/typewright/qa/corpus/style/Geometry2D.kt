@@ -292,27 +292,92 @@ internal fun narrowestThroat(
     minCyclicSeparationFraction: Double = 0.22,
     insideTest: ((Vec2) -> Boolean)? = null,
 ): ThroatResult? {
-    val pts = sampleContourPoints(contour, perSegment)
+    // A traced or polygonised outline can have hundreds of segments; sampling each one 8 times
+    // would make the pair search below quadratic in thousands of points. Past MAX_THROAT_SAMPLES
+    // the per-segment count drops so the total stays bounded (one point per segment at least).
+    val segmentCount = contour.segments().size
+    val samplesPerSegment =
+        if (segmentCount * perSegment <= MAX_THROAT_SAMPLES) perSegment else max(1, MAX_THROAT_SAMPLES / max(1, segmentCount))
+    val pts = sampleContourPoints(contour, samplesPerSegment)
     val n = pts.size
     if (n < 8) return null
     val minSep = (n * minCyclicSeparationFraction).toInt().coerceAtLeast(2)
-    var best = Double.POSITIVE_INFINITY
-    var bestI = -1
-    var bestJ = -1
+    // Every far-enough pair, nearest first (a stable sort keeps the original (i, j) order among
+    // ties). The first pair whose connecting segment stays out of the ink is the answer: the same
+    // pair the exhaustive search finds, but the expensive ink test runs only on pairs that could
+    // still win.
+    val candidates = ArrayList<ThroatCandidate>()
     for (i in 0 until n) {
         for (j in i + 1 until n) {
             val forward = j - i
-            val cyclic = min(forward, n - forward)
-            if (cyclic < minSep) continue
-            val d = (pts[i] - pts[j]).length()
-            if (d >= best) continue
-            if (insideTest != null && connectingSegmentCrossesInk(pts[i], pts[j], insideTest)) continue
-            best = d
-            bestI = i
-            bestJ = j
+            if (min(forward, n - forward) < minSep) continue
+            candidates += ThroatCandidate((pts[i] - pts[j]).length(), i, j)
         }
     }
-    return if (bestI < 0) null else ThroatResult(best, pts[bestI], pts[bestJ])
+    candidates.sortBy { it.distance }
+    val winner =
+        candidates.firstOrNull { c ->
+            insideTest == null || !connectingSegmentCrossesInk(pts[c.i], pts[c.j], insideTest)
+        } ?: return null
+    return ThroatResult(winner.distance, pts[winner.i], pts[winner.j])
+}
+
+private class ThroatCandidate(
+    val distance: Double,
+    val i: Int,
+    val j: Int,
+)
+
+/** The most contour samples [narrowestThroat] pairs up; above it, fewer samples per segment. */
+private const val MAX_THROAT_SAMPLES = 480
+
+/**
+ * [glyph]'s outline flattened once into straight edges, for the many point-in-ink tests
+ * [narrowestThroat] makes on one glyph. Curves are split into [stepsPerCurve] chords, far finer
+ * than any aperture this is used to measure. The test is the even-odd ray cast [Glyph.isInkAt]
+ * makes, against chords instead of resampled curves.
+ */
+internal class FlattenedInk(
+    glyph: Glyph,
+    stepsPerCurve: Int = 32,
+) {
+    private val edges: DoubleArray
+
+    init {
+        val list = ArrayList<Double>()
+        for (contour in glyph.contours) {
+            for (segment in contour.segments()) {
+                val steps = if (segment is CurveSegment.Line) 1 else stepsPerCurve
+                var previous = segment.pointAt(0.0)
+                for (k in 1..steps) {
+                    val next = segment.pointAt(k.toDouble() / steps)
+                    list += previous.x
+                    list += previous.y
+                    list += next.x
+                    list += next.y
+                    previous = next
+                }
+            }
+        }
+        edges = list.toDoubleArray()
+    }
+
+    fun contains(point: Vec2): Boolean {
+        var inside = false
+        var e = 0
+        while (e < edges.size) {
+            val x0 = edges[e]
+            val y0 = edges[e + 1]
+            val x1 = edges[e + 2]
+            val y1 = edges[e + 3]
+            if ((y0 > point.y) != (y1 > point.y)) {
+                val x = x0 + (point.y - y0) * (x1 - x0) / (y1 - y0)
+                if (x > point.x) inside = !inside
+            }
+            e += 4
+        }
+        return inside
+    }
 }
 
 /**
@@ -334,10 +399,13 @@ private fun connectingSegmentCrossesInk(
 
 private val MIDPOINT_CHECK_FRACTIONS = listOf(0.2, 0.35, 0.5, 0.65, 0.8)
 
-/** [narrowestThroat] on [glyph]'s [contour], using [Glyph.isInkAt] as the midpoint-outside-ink filter -- the version [apertureOpenness] and [terminalStyle] actually call. */
+/** [narrowestThroat] on [glyph]'s [contour], using [glyph]'s own ink (flattened once, [FlattenedInk]) as the outside-ink filter -- the version [apertureOpenness] and [terminalStyle] actually call. */
 internal fun narrowestThroat(
     glyph: Glyph,
     contour: Contour,
     perSegment: Int = 8,
     minCyclicSeparationFraction: Double = 0.22,
-): ThroatResult? = narrowestThroat(contour, perSegment, minCyclicSeparationFraction, insideTest = glyph::isInkAt)
+): ThroatResult? {
+    val ink = FlattenedInk(glyph)
+    return narrowestThroat(contour, perSegment, minCyclicSeparationFraction, insideTest = ink::contains)
+}

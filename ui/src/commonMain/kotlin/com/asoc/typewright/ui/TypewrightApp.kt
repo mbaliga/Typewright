@@ -24,6 +24,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.asoc.typewright.project.ProjectWorkspace
+import com.asoc.typewright.ui.brief.BriefScreen
+import com.asoc.typewright.ui.brief.rememberBriefScreenUiState
 import com.asoc.typewright.ui.learn.LearnScreen
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.project.LocalZipTransferSupported
@@ -130,6 +132,10 @@ fun TypewrightApp(
                     LearnScreen(modifier = Modifier.fillMaxSize(), onBack = navState::closeLearn)
                 }
 
+                navState.showBrief -> {
+                    BriefScreen(modifier = Modifier.fillMaxSize(), onBack = navState::closeBrief, state = rememberBriefScreenUiState())
+                }
+
                 navState.showWorkbook -> {
                     WorkbookScreen(
                         modifier = Modifier.fillMaxSize(),
@@ -145,6 +151,7 @@ fun TypewrightApp(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         WorkbookEntryButton(onClick = navState::openWorkbook)
+                        BriefEntryButton(onClick = navState::openBrief)
                         LearnEntryButton(onClick = navState::openLearn)
                     }
                 }
@@ -166,16 +173,20 @@ fun TypewrightApp(
 class TypewrightAppNavState(
     initialShowLearn: Boolean = false,
     initialShowWorkbook: Boolean = false,
+    initialShowBrief: Boolean = false,
 ) {
     var showLearn: Boolean by mutableStateOf(initialShowLearn)
         internal set
     var showWorkbook: Boolean by mutableStateOf(initialShowWorkbook)
+        internal set
+    var showBrief: Boolean by mutableStateOf(initialShowBrief)
         internal set
 
     /** What [LearnEntryButton]'s own `onClick` calls. Closes [showWorkbook] -- the two screens are mutually exclusive full-screen overlays. */
     fun openLearn() {
         showLearn = true
         showWorkbook = false
+        showBrief = false
     }
 
     /** What [LearnScreen]'s own back button, via `onBack`, calls. */
@@ -187,11 +198,24 @@ class TypewrightAppNavState(
     fun openWorkbook() {
         showWorkbook = true
         showLearn = false
+        showBrief = false
     }
 
     /** What [com.asoc.typewright.ui.workbook.WorkbookScreen]'s own back button, via `onBack`, calls. */
     fun closeWorkbook() {
         showWorkbook = false
+    }
+
+    /** What [BriefEntryButton]'s own `onClick` calls. Closes the other two screens: all three are full-screen overlays. */
+    fun openBrief() {
+        showBrief = true
+        showLearn = false
+        showWorkbook = false
+    }
+
+    /** What [BriefScreen]'s own back button, via `onBack`, calls. */
+    fun closeBrief() {
+        showBrief = false
     }
 }
 
@@ -200,7 +224,8 @@ class TypewrightAppNavState(
 fun rememberTypewrightAppNavState(
     initialShowLearn: Boolean = false,
     initialShowWorkbook: Boolean = false,
-): TypewrightAppNavState = remember { TypewrightAppNavState(initialShowLearn, initialShowWorkbook) }
+    initialShowBrief: Boolean = false,
+): TypewrightAppNavState = remember { TypewrightAppNavState(initialShowLearn, initialShowWorkbook, initialShowBrief) }
 
 /** The small, always-visible, real affordance that opens [LearnScreen] -- see [TypewrightApp]'s own KDoc for why it exists and why this corner. */
 @Composable
@@ -217,6 +242,24 @@ private fun LearnEntryButton(
                 .padding(horizontal = 12.dp, vertical = 9.dp),
     ) {
         BasicText(text = "Learn", style = Typography.mono(sizeSp = 11.0).copy(color = texture.canvas.toColor()))
+    }
+}
+
+/** The small, always-visible affordance that opens [BriefScreen], stacked with the other two in the same corner. */
+@Composable
+private fun BriefEntryButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val texture = CanvasTextures.DEFAULT
+    Box(
+        modifier =
+            modifier
+                .background(texture.ink.toColor())
+                .clickable(onClick = onClick)
+                .padding(horizontal = 12.dp, vertical = 9.dp),
+    ) {
+        BasicText(text = "Brief", style = Typography.mono(sizeSp = 11.0).copy(color = texture.canvas.toColor()))
     }
 }
 
