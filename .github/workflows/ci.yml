@@ -79,7 +79,8 @@ jobs:
       - name: DIAG failures
         if: failure()
         run: |
-          { grep -A12 "What went wrong" gradle.log; grep -E "FAILED|AssertionError|^e: " gradle.log | grep -v SKIPPED | head -20; } | cut -c1-300 | sed 's/%/%25/g' | awk '{printf "%s%%0A",$0}' | { read -r m; echo "::error::$m"; }
+          { grep -A12 "What went wrong" gradle.log; grep -E "FAILED|AssertionError|^e: " gradle.log | grep -v SKIPPED | head -20; } | cut -c1-300 | sed 's/%/%25/g' | awk '{printf "%s%%0A",$0}' > diag.txt || true
+          echo "::error::$(cat diag.txt)"
       # The core job's spotlessCheck runs with -Ptypewright.android=false, so it never lints the
       # Android-bearing modules (app-android, and every module's androidMain). This is the only
       # job with the Android SDK on PATH, so it is the one whole-project ktlint check.
@@ -157,8 +158,7 @@ jobs:
           # The MIT-licensed cache; the default "enhanced" cache is a proprietary component.
           cache-provider: basic
       - name: Production browser distribution (Binaryen downloaded from its GitHub releases)
-        run: ./gradlew :app-web:wasmJsBrowserDistribution 2>&1 | tee gradle.log
-        shell: bash
+        run: ./gradlew :app-web:wasmJsBrowserDistribution
       # :project:storage's FsaProjectStore needs a real browser (File System Access API, OPFS),
       # so its Wasm tests run in headless Chrome like app-web/shape-preview/ui's, not under Node.
       - name: Wasm tests (pure and compile/shape-preview under Node; app-web, shape-preview, ui and project:storage in headless Chrome)
@@ -167,7 +167,8 @@ jobs:
       - name: DIAG failures
         if: failure()
         run: |
-          { grep -A12 "What went wrong" gradle.log; grep -E "FAILED|AssertionError|^e: " gradle.log | grep -v SKIPPED | head -20; } | cut -c1-300 | sed 's/%/%25/g' | awk '{printf "%s%%0A",$0}' | { read -r m; echo "::error::$m"; }
+          { grep -A12 "What went wrong" gradle.log; grep -E "FAILED|AssertionError|^e: " gradle.log | grep -v SKIPPED | head -20; } | cut -c1-300 | sed 's/%/%25/g' | awk '{printf "%s%%0A",$0}' > diag.txt || true
+          echo "::error::$(cat diag.txt)"
       # Runs last, after the Wasm tests above: a step with no `if: always()` never runs once an
       # earlier step in the job has failed, so this never uploads a bundle from a job whose own
       # tests didn't pass.
@@ -179,7 +180,3 @@ jobs:
           name: app-web-production
           path: app-web/build/dist/wasmJs/productionExecutable/
           retention-days: 7
-      - name: DIAG failures
-        if: failure()
-        run: |
-          grep -vE "SKIPPED|UP-TO-DATE|NO-SOURCE|FROM-CACHE|^$" gradle.log | tail -45 | cut -c1-300 | while IFS= read -r l; do echo "::error::${l//%/%25}"; done
