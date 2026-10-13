@@ -149,6 +149,40 @@ loadable sfnt fonts (not HTML error pages or truncated downloads) by
 `learn/scenes/src/jvmTest/.../LearnFacesRealFontValidationTest.kt`, which in fact checks
 every one of the seventeen through `core-font`'s own production `readSfntFont`.
 
+## Embedded for the Brief's visual cues
+
+The Brief shows each answer in a real typeface (docs/BRIEF.md). `data/scripts/build_brief_cues.py`
+subsets 20 families fetched from `google/fonts` (the commit pinned in
+`data/brief-cues/manifest.json`) to Basic Latin, instances variable fonts at the weight shown, and
+renames each "Typewright Cue <Key>", a Modified Version under the SIL Open Font License 1.1
+that keeps any Reserved Font Name off it. The bytes ship as base64 in
+`ui/.../ui/brief/BriefCueFontData.kt` (classified OFL-1.1 in `tools/check_licences.py`);
+each family's licence text is in `data/brief-cues/<family>-OFL.txt`. The generator
+uses `fontTools`/`skia-pathops` as build tooling only, never shipped.
+
+| Family | Copyright | Licence |
+|---|---|---|
+| Poppins | Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins) | OFL-1.1 |
+| Jost | Copyright 2020 The Jost Project Authors (https://github.com/indestructible-type/Jost) | OFL-1.1 |
+| Work Sans | Copyright 2019 The Work Sans Project Authors (https://github.com/weiweihuanghuang/Work-Sans) | OFL-1.1 |
+| Inter | Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter) | OFL-1.1 |
+| Open Sans | Copyright 2020 The Open Sans Project Authors (https://github.com/googlefonts/opensans) | OFL-1.1 |
+| EB Garamond | Copyright 2017 The EB Garamond Project Authors (https://github.com/octaviopardo/EBGaramond12) | OFL-1.1 |
+| Libre Baskerville | Copyright 2012 The Libre Baskerville Project Authors (https://github.com/impallari/Libre-Baskerville) | OFL-1.1 |
+| Libre Bodoni | Copyright 2012 The Libre Bodoni Project Authors (https://github.com/googlefonts/Libre-Bodoni/) | OFL-1.1 |
+| Zilla Slab | Copyright 2017, The Mozilla Foundation | OFL-1.1 |
+| Limelight | Copyright (c) 2010 by Sorkin Type Co with Reserved Font Name Limelight. This Font Software is licensed under the SIL Open Font License, Version 1.1. T | OFL-1.1 |
+| Poiret One | Copyright 2011 The Poiret One Project Authors (https://github.com/alexeiva/poiretone) | OFL-1.1 |
+| Michroma | Copyright 2011 The Michroma Project Authors (https://github.com/googlefonts/Michroma-font) | OFL-1.1 |
+| Orbitron | Copyright 2018 The Orbitron Project Authors (https://github.com/theleagueof/orbitron), with Reserved Font Name: "Orbitron". | OFL-1.1 |
+| League Gothic | Copyright 2020 The League Gothic Project Authors (https://github.com/theleagueof/league-gothic) | OFL-1.1 |
+| Varela Round | Copyright 2023 The Varela Round Project Authors (https://github.com/alefalefalef/Varela-Round-Hebrew/), with Reserved Font Names 'Varela' and 'Varela  | OFL-1.1 |
+| Voltaire | Copyright 2011 The Voltaire Project Authors (https://github.com/SorkinType/Voltaire) | OFL-1.1 |
+| Dancing Script | Copyright 2016 The Dancing Script Project Authors (https://github.com/googlefonts/DancingScript), with Reserved Font Name "Dancing Script". | OFL-1.1 |
+| UnifrakturMaguntia | Copyright (c) 2010 j. 'mach' wust with Reserved Font Name UnifrakturMaguntia. Copyright (c) 2009 Peter Wiegel. This Font Software is licensed under th | OFL-1.1 |
+| Abril Fatface | Copyright (c) 2011, Copyright (c) 2011, TypeTogether (www.type-together.com), with Reserved Font Names "Abril" and "Abril Fatface" | OFL-1.1 |
+| Space Mono | Copyright 2016 The Space Mono Project Authors (https://github.com/googlefonts/spacemono) | OFL-1.1 |
+
 ## Embedded in the explorer
 
 `ui/typewright-explorer.html` embeds 11 real fonts as base64 `@font-face` rules (licensing pass,

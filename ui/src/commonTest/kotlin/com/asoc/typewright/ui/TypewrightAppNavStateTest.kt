@@ -92,4 +92,26 @@ class TypewrightAppNavStateTest {
         state.closeWorkbook()
         assertTrue(state.showLearn, "closing the workbook (never open) must not close Learn")
     }
+
+    @Test
+    fun openBriefClosesTheOtherTwoAndTheyCloseIt() {
+        val state = TypewrightAppNavState(initialShowLearn = true)
+        state.openBrief()
+        assertTrue(state.showBrief)
+        assertFalse(state.showLearn, "opening the brief must close Learn -- all three are full-screen overlays")
+
+        state.openWorkbook()
+        assertFalse(state.showBrief, "opening the workbook must close the brief")
+        state.openBrief()
+        assertFalse(state.showWorkbook, "opening the brief must close the workbook")
+
+        state.closeBrief()
+        assertFalse(state.showBrief)
+    }
+
+    @Test
+    fun canStartOnTheBrief() {
+        assertTrue(TypewrightAppNavState(initialShowBrief = true).showBrief)
+        assertFalse(TypewrightAppNavState().showBrief)
+    }
 }

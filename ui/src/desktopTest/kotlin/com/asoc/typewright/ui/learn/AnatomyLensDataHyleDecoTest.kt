@@ -93,7 +93,9 @@ class AnatomyLensDataHyleDecoTest {
         assertEquals(direct, value.value)
         assertEquals(direct, assertDegrees(anatomyLensEntry(AnatomyTerm.STRESS, glyphSet)))
         assertFalse(entry.isHeuristic)
-        assertEquals(52.5, direct, 1e-9)
+        // The stress axis is perpendicular to the thickest diameter (ContrastStress.kt), so a diameter
+        // at 52.5 degrees from vertical gives an axis at -37.5.
+        assertEquals(-37.5, direct, 1e-9)
     }
 
     // ---- roundness (Roundness.kt, on 'o') ----

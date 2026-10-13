@@ -139,6 +139,29 @@ internal object ProjectManifestCodec {
             put("confirmed", brief.styleClass.confirmed)
         }
         put("note", brief.note)
+        // Written only once the Brief section has recorded something, so a project made before
+        // the ethos existed (or never visited it) keeps byte-identical JSON.
+        brief.ethos?.let { ethos -> putJsonObject("ethos") { writeEthos(ethos) } }
+    }
+
+    private fun JsonObjectBuilder.writeEthos(ethos: Ethos) {
+        put("genre", ethos.genre)
+        putJsonArray("uses") { ethos.uses.forEach { add(it) } }
+        putJsonObject("use_options") {
+            ethos.useOptions.entries
+                .sortedBy { it.key }
+                .forEach { (k, v) -> put(k, v) }
+        }
+        putJsonArray("feelings") { ethos.feelings.forEach { add(it) } }
+        putJsonArray("references") { ethos.references.forEach { add(it) } }
+        putJsonObject("levels") {
+            ethos.levels.entries
+                .sortedBy { it.key }
+                .forEach { (k, v) -> put(k, v) }
+        }
+        putJsonArray("signatures") { ethos.signatures.forEach { add(it) } }
+        putJsonArray("answered") { ethos.answered.forEach { add(it) } }
+        put("wordmark", ethos.wordmark)
     }
 
     private fun readBrief(obj: JsonObject): Brief {
@@ -151,6 +174,28 @@ internal object ProjectManifestCodec {
             use = intent.stringOrNull("use")?.let(Use::fromJson),
             styleClass = StyleClass(declared = styleClass.stringOrNull("declared"), confirmed = styleClass.stringOrNull("confirmed")),
             note = obj.stringOrNull("note"),
+            ethos = (obj["ethos"] as? JsonObject)?.let { readEthos(it) },
+        )
+    }
+
+    /** Lenient by design: a missing list or map reads as empty, so an ethos written by an older or newer build still opens. */
+    private fun readEthos(obj: JsonObject): Ethos {
+        val what = "brief.ethos"
+
+        fun strings(key: String): List<String> = (obj[key] as? JsonArray)?.map { it.asString("$what.$key") }.orEmpty()
+
+        fun stringMap(key: String): Map<String, String> =
+            (obj[key] as? JsonObject)?.entries?.associate { (k, v) -> k to v.asString("$what.$key.$k") }.orEmpty()
+        return Ethos(
+            genre = obj.stringOrNull("genre"),
+            uses = strings("uses"),
+            useOptions = stringMap("use_options"),
+            feelings = strings("feelings"),
+            references = strings("references"),
+            levels = stringMap("levels"),
+            signatures = strings("signatures"),
+            answered = strings("answered"),
+            wordmark = obj.stringOrNull("wordmark"),
         )
     }
 

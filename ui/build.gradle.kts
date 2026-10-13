@@ -42,6 +42,7 @@ kotlin {
                 implementation(project(":qa"))
                 implementation(project(":learn:scenes"))
                 implementation(project(":campaign"))
+                implementation(project(":brief"))
                 implementation(project(":scripts"))
                 implementation(project(":compile"))
                 // P11 WP5: the scrapbook model and ProjectSession/ProjectWorkspace (docs/PROJECT_MODEL.md

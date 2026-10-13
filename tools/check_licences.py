@@ -30,6 +30,7 @@ UFO_PORT = "Apache-2.0 AND MIT AND BSD-3-Clause"
 LICENCE_BY_DIR = {
     "ui": FSL,
     "learn": FSL,  # includes learn/scenes
+    "brief": FSL,
     "campaign": FSL,
     "app-android": FSL,
     "app-desktop": FSL,
@@ -63,6 +64,8 @@ LICENCE_BY_FILE = {
     "core-font/src/commonTest/kotlin/com/asoc/typewright/core/font/sfnt/HyleDecoRegularTtfBase64.kt": OFL,
     # Hyle Deco Regular, base64-embedded and shipped in the app itself (Overlay tab project layer).
     "ui/src/commonMain/kotlin/com/asoc/typewright/ui/learn/HyleDecoProjectFontBytes.kt": OFL,
+    # The Brief's cue faces, subset and renamed Modified Versions of OFL families (THIRD_PARTY.md).
+    "ui/src/commonMain/kotlin/com/asoc/typewright/ui/brief/BriefCueFontData.kt": OFL,
     # Hyle Deco Regular, base64-embedded wasmJsTest fixture for the browser shaping preview.
     "shape-preview/src/wasmJsTest/kotlin/com/asoc/typewright/shape/preview/EmbeddedTestFontBytes.kt": OFL,
     # Noto Sans Devanagari Regular, base64-embedded wasmJsTest fixture (real conjunct shaping).

@@ -1,0 +1,485 @@
+<title>Typewright Brief</title>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!--
+  The Brief's design prototype (S25–S27). build.py fills the placeholders: the cue faces, the style
+  atlas, the example letters, and the real engine compiled to JavaScript. This file is the look and
+  the interaction; every word and number on the page comes from the engine.
+-->
+<style>
+/*@CUE_FONTS@*/
+
+/* One phone column on paper; space is made by type and whitespace, selection is an ink block, and
+   only the deck at the foot is round (SCREENS_V1 §2, C2). */
+:root {
+  --canvas: #EFE9DC;
+  --ink: #17150F;
+  --fg: #1B1915;
+  --muted: #6F6A5E;
+  --line: rgba(23, 21, 15, .20);
+  --band: rgba(23, 21, 15, .045);
+  --on-ink: #EFE9DC;
+  --on-ink-muted: rgba(239, 233, 220, .72);
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --canvas: #000000; --ink: #F3F3F0; --fg: #ECECEA; --muted: #8E8E89;
+    --line: rgba(255, 255, 255, .22); --band: rgba(255, 255, 255, .06);
+    --on-ink: #000000; --on-ink-muted: rgba(0, 0, 0, .66); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --canvas: #000000; --ink: #F3F3F0; --fg: #ECECEA; --muted: #8E8E89;
+  --line: rgba(255, 255, 255, .22); --band: rgba(255, 255, 255, .06);
+  --on-ink: #000000; --on-ink-muted: rgba(0, 0, 0, .66); color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { background: var(--canvas); }
+body { margin: 0; color: var(--fg); font: 15px/1.45 var(--sans); padding-inline: 16px; -webkit-tap-highlight-color: transparent; }
+.app { max-width: 440px; margin: 0 auto; padding-block: 18px 210px; }
+
+/* Header: the page title and a mono line, nothing else (SCREENS_V1 §2.5). */
+header { padding-block: 4px 18px; }
+header h1 { font-size: 15px; font-weight: 600; margin: 0; letter-spacing: .01em; }
+.mono, header p, .label, .btn, .note-mono {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-variant-numeric: tabular-nums;
+}
+header p { margin: 3px 0 0; color: var(--muted); }
+
+.label { color: var(--muted); margin: 34px 0 10px; }
+.label:first-child { margin-top: 6px; }
+.prompt { font-size: 21px; line-height: 1.22; font-weight: 600; margin: 10px 0 6px; text-wrap: balance; }
+.why { color: var(--muted); font-size: 13.5px; margin: 0 0 18px; max-width: 34em; }
+.small { color: var(--muted); font-size: 13px; margin: 8px 0; }
+.note-mono { color: var(--muted); margin: 10px 0; }
+p { margin: 0 0 10px; }
+
+/* Choices: rows of type. The chosen one is an ink block with paper text. */
+.choices { display: grid; gap: 2px; margin: 0 -12px; }
+.choice {
+  display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: center; column-gap: 14px;
+  width: 100%; text-align: left; font: inherit; color: inherit; background: none; border: 0;
+  padding: 12px; cursor: pointer;
+}
+.choice.plain { grid-template-columns: minmax(0, 1fr); }
+.choice .sp { font-size: 38px; line-height: 1; white-space: nowrap; overflow: hidden; }
+.choice .t { font-weight: 600; font-size: 15px; }
+.choice .d { color: var(--muted); font-size: 13px; margin-top: 1px; }
+.choice .x { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; color: var(--muted); margin-top: 4px; text-transform: uppercase; }
+.choice[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
+.choice[aria-pressed="true"] .d, .choice[aria-pressed="true"] .x { color: var(--on-ink-muted); }
+.choice:focus-visible, .btn:focus-visible, .seg button:focus-visible, .circle:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* Buttons: square, flat. Primary is an ink block. */
+.row { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+.btn { min-height: 44px; padding: 12px 15px; border: 1px solid var(--ink); background: none; color: var(--fg); cursor: pointer; }
+.btn.primary { background: var(--ink); color: var(--on-ink); }
+.btn.quiet { border-color: transparent; padding-inline: 4px; text-decoration: underline; text-underline-offset: 4px; color: var(--muted); }
+
+/* Text fields: an underline, not a box. */
+.field { width: 100%; font: 17px/1.3 var(--sans); color: var(--fg); background: none; border: 0; border-bottom: 1px solid var(--ink); padding: 10px 0; border-radius: 0; }
+.field::placeholder { color: var(--muted); }
+.field:focus { outline: none; border-bottom-width: 2px; }
+
+/* The brief's own words, in the genre's face. */
+.sentence { font-size: 25px; line-height: 1.24; margin: 8px 0 10px; text-wrap: balance; }
+.glyphs { font-size: 40px; line-height: 1.15; letter-spacing: .14em; margin: 6px 0 8px; word-break: break-word; }
+.glyphs.big { font-size: 72px; letter-spacing: .1em; }
+
+/* A tension: a rule on the left, so it reads as one thing to decide. */
+.tension { border-left: 2px solid var(--ink); padding: 2px 0 2px 14px; margin: 18px 0; }
+.tension .t { font-weight: 600; }
+.tension .b { margin: 4px 0; }
+.src { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; color: var(--muted); }
+
+/* Targets: feature, then what the brief asks and where it came from. */
+.targets { display: grid; gap: 14px; }
+.target { display: grid; grid-template-columns: 9.5em minmax(0, 1fr); column-gap: 12px; }
+.target .f { font-weight: 600; }
+.target .v { font-variant-numeric: tabular-nums; }
+.target .o { color: var(--muted); font-size: 13px; }
+
+.item { margin: 16px 0 22px; }
+.item .t { font-weight: 600; }
+.face { display: grid; grid-template-columns: 76px minmax(0, 1fr); column-gap: 14px; align-items: center; margin: 12px 0; }
+.face .sp { font-size: 34px; line-height: 1; }
+.face .d { color: var(--muted); font-size: 13px; }
+
+/* The control deck (SCREENS_V1 §2): two concentric arcs and two circles, the only round things. */
+.deck { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(100vw, 560px); height: calc(150px + env(safe-area-inset-bottom, 0px)); pointer-events: none; overflow: hidden; }
+.bloom { position: fixed; left: 0; right: 0; bottom: 0; height: calc(190px + env(safe-area-inset-bottom, 0px)); pointer-events: none;
+  background: linear-gradient(to top, var(--canvas) 0%, var(--canvas) 58%, transparent 100%); }
+.deck svg { position: absolute; inset: 0 0 env(safe-area-inset-bottom, 0px) 0; width: 100%; height: 150px; overflow: visible; }
+.deck .arc-band { fill: none; stroke: var(--band); stroke-width: 44; }
+.deck .arc-line { fill: none; stroke: var(--line); stroke-width: 1; }
+.sec { position: absolute; left: 0; top: 0; pointer-events: auto; transform-origin: center; white-space: nowrap;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--fg);
+  background: none; border: 0; padding: 5px 9px; cursor: pointer; }
+.sec.here { background: var(--ink); color: var(--on-ink); }
+.circle { position: absolute; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; border: 1.5px solid var(--ink);
+  background: var(--canvas); color: var(--fg); font-size: 22px; line-height: 1; pointer-events: auto; cursor: pointer; display: grid; place-items: center; }
+.seg { position: absolute; left: 0; top: 0; pointer-events: auto; display: flex; transform-origin: center; }
+.seg button { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; background: none; border: 0;
+  color: var(--fg); padding: 9px 11px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
+
+/* The ⋯ menu rises from its circle; a toast says what only the app does. */
+.menu { position: fixed; right: max(16px, calc(50vw - 264px)); bottom: calc(118px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 2px; z-index: 5; min-width: 230px; }
+.menu button { text-align: left; font: 15px/1.3 var(--sans); padding: 13px 14px; border: 0; background: var(--ink); color: var(--on-ink); cursor: pointer; }
+.menu button .k { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--on-ink-muted); margin-top: 2px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(170px + env(safe-area-inset-bottom, 0px)); max-width: min(92vw, 420px);
+  background: var(--ink); color: var(--on-ink); padding: 11px 14px; font-size: 14px; z-index: 6; }
+@media (prefers-reduced-motion: no-preference) {
+  .app.fresh > * { animation: rise .24s ease-out both; }
+  @keyframes rise { from { opacity: .35; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+}
+</style>
+
+<div class="app" id="app"><header><h1>Brief</h1><p>Loading 613 measured faces</p></header></div>
+<div class="bloom"></div>
+<nav class="deck" id="deck" aria-label="Sections and page toggles"></nav>
+<div class="menu" id="menu" hidden></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<!--@ATLAS@-->
+<!--@EXAMPLE_FONT@-->
+<!--@ENGINE@-->
+<script>
+(() => {
+  const engine = window.briefPrototype.com.asoc.typewright.brief.prototype;
+  const app = document.getElementById("app");
+  const deck = document.getElementById("deck");
+  const menu = document.getElementById("menu");
+  const toast = document.getElementById("toast");
+  const SECTIONS = ["Home", "Brief", "Capture", "Trace", "Draw", "Space", "Check", "Ship", "Learn", "Workbook"];
+  let view = null;
+  let confirming = false;
+
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const a = (o) => esc(JSON.stringify(o));
+  const face = (key) => key ? `font-family:'cue-${key}',var(--sans)` : "";
+  const genreFace = () => face(view.genreFace);
+
+  function say(text) {
+    toast.textContent = text;
+    toast.hidden = false;
+    clearTimeout(say.t);
+    say.t = setTimeout(() => (toast.hidden = true), 2600);
+  }
+
+  // ---- pieces --------------------------------------------------------------------------------
+  const btn = (label, action, kind = "") => `<button class="btn ${kind}" data-a="${a(action)}">${esc(label)}</button>`;
+  const specimen = (c) => {
+    if (!c) return "";
+    const size = c.text.length <= 2 ? 38 : c.text.length <= 4 ? 26 : 19;
+    return `<span class="sp" style="${face(c.face)};font-size:${size}px${c.tabular ? ";font-variant-numeric:tabular-nums" : ""}">${esc(c.text)}</span>`;
+  };
+  // keepColumn: hold the specimen column even when a face has no specimen, so names line up in a mixed list.
+  const choice = (o, action, keepColumn = false) => {
+    const sp = o.cue ? specimen(o.cue) : keepColumn ? `<span class="sp"></span>` : "";
+    return `<button class="choice ${sp ? "" : "plain"}" aria-pressed="${!!o.chosen}" data-a="${a(action)}">${sp}<span>` +
+      `<div class="t">${esc(o.title)}</div>${o.detail ? `<div class="d">${esc(o.detail)}</div>` : ""}${o.extra ? `<div class="x">${esc(o.extra)}</div>` : ""}</span></button>`;
+  };
+  const tension = (t) => {
+    const acts = [];
+    if (t.signature) acts.push(btn(t.kept ? "Signature kept" : "Keep as signature", { type: "signature", dim: t.signature }, t.kept ? "primary" : ""));
+    if (t.dimension) acts.push(btn(t.answered ? "Change answer" : "Answer it", { type: "askAbout", dim: t.dimension }));
+    return `<div class="tension"><div class="t">${esc(t.title)}</div><p class="b">${esc(t.body)}</p>` +
+      `${t.source ? `<div class="src">${esc(t.source)}</div>` : ""}${acts.length ? `<div class="row">${acts.join("")}</div>` : ""}</div>`;
+  };
+  const header = (title, sub) => `<header><h1>${esc(title)}</h1><p>${esc(sub)}</p></header>`;
+
+  // ---- Ask -----------------------------------------------------------------------------------
+  function askPage(ask) {
+    if (ask.mode === "doors") return doors(ask);
+    const h = ask.header;
+    const top = h.focused
+      ? header("Brief", "Changing one answer · the others stay")
+      : header("Brief", `${h.door} · ${h.progress}`);
+    if (ask.mode === "wrap") return top + wrap(ask.wrap);
+    return top + step(ask.step) + stepButtons(ask);
+  }
+
+  function doors(ask) {
+    let html = header("Brief", "Six ways in") +
+      `<div class="prompt">Where would you like to start?</div>` +
+      `<p class="why">Start from what you already know. Every door ends at the same brief; they differ in what is asked first.</p>`;
+    if (ask.carryOver) {
+      html += `<p class="small">Your answers so far carry over: a door skips what is already answered.</p>`;
+      html += confirming
+        ? `<p class="small">Clear every answer in this brief?</p><div class="row">${btn("Clear answers", { type: "startOver" }, "primary")}${btn("Keep them", { type: "_keep" })}</div>`
+        : `<div class="row">${btn("Start over", { type: "_confirm" }, "quiet")}</div>`;
+    }
+    html += `<div class="choices" style="margin-top:22px">` +
+      ask.doors.map((d) => choice({ title: d.label, detail: d.caption, cue: d.cue }, { type: "door", id: d.id })).join("") + `</div>`;
+    return html;
+  }
+
+  function step(s) {
+    let html = `${s.section ? `<div class="label">${esc(s.section)}</div>` : ""}<div class="prompt">${esc(s.prompt)}</div><p class="why">${esc(s.why)}</p>`;
+    switch (s.kind) {
+      case "genre":
+        html += s.groups.map((g) => `<div class="label">${esc(g.label)}</div><div class="choices">` +
+          g.options.map((o) => choice(o, { type: "genre", key: o.key })).join("") + `</div>`).join("");
+        break;
+      case "uses":
+        html += `<div class="choices">${s.options.map((o) => choice(o, { type: "use", key: o.key })).join("")}</div>`;
+        break;
+      case "useOption":
+        html += `<div class="choices">${s.options.map((o) => choice(o, { type: "useOption", use: s.use, question: s.question, key: o.key })).join("")}</div>`;
+        break;
+      case "feelings":
+        html += `<div class="label">${esc(s.count)}</div><div class="choices">${s.options.map((o) => choice(o, { type: "feeling", key: o.key })).join("")}</div>`;
+        break;
+      case "dimension":
+        html += `<div class="choices">${s.options.map((o) => choice(o, { type: "level", dim: s.dim, key: o.key })).join("")}</div>`;
+        break;
+      case "wordmark":
+        html += `<input class="field" id="wordmark" value="${esc(s.value)}" placeholder="The name, as it will be set" autocomplete="off">` +
+          `<div class="row">${btn("Set wordmark", { type: "_wordmark" }, "primary")}</div>`;
+        break;
+      case "references":
+        html += `<div class="label">${esc(s.count)}</div>`;
+        if (s.chosen.length) html += `<div class="choices">${s.chosen.map((o) => choice(o, { type: "reference", key: o.key }, true)).join("")}</div>`;
+        html += `<div style="margin-top:18px"><input class="field" id="search" value="${esc(s.query)}" placeholder="${esc(s.placeholder)}" autocomplete="off" spellcheck="false"></div>` +
+          `<div class="label">${esc(s.label)}</div><div class="choices">${s.options.map((o) => choice(o, { type: "reference", key: o.key }, true)).join("")}</div>`;
+        break;
+      case "mirror":
+        if (s.nothingDrawn) {
+          html += `<p>Draw some letters and the guide will measure them.</p>` +
+            `<div class="label">Still to draw for a surer reading</div><div class="glyphs">${esc(s.toDraw)}</div>` +
+            `<p class="small">Draw them, then come back: this question waits. Or skip it and answer by eye.</p>` +
+            `<div class="row">${btn("Start drawing", { type: "startDrawing" }, "primary")}${btn("Try the example letters", { type: "example", on: true })}</div>`;
+        } else {
+          html += `<p class="small">Measuring Hyle Deco, this project's test font, as if you had drawn it.</p>`;
+          html += `<div class="label">Reads as</div>` + s.reading.map((r) => `<p>${esc(r)}</p>`).join("");
+          if (s.levels.length) {
+            html += `<div class="label">What each measures as</div>` +
+              s.levels.map((o) => `<div class="face">${specimen(o.cue)}<div><div class="t" style="font-weight:600">${esc(o.title)}</div><div class="d">${esc(o.detail)}</div></div></div>`).join("") +
+              `<div class="row">${btn("Use these answers", { type: "adopt" }, "primary")}</div>`;
+          }
+        }
+        break;
+    }
+    return html;
+  }
+
+  function stepButtons(ask) {
+    const b = ask.buttons;
+    const first = [];
+    if (b.back) first.push(btn("Back", { type: "back" }));
+    if (b.done) first.push(btn("Done", { type: "confirm" }, "primary"));
+    const second = [];
+    if (b.keep) second.push(btn("Keep my answer", { type: "skip" }));
+    if (b.notSure) second.push(btn("I'm not sure", { type: "skip" }));
+    if (b.skip) second.push(btn("Skip", { type: "skip" }, "quiet"));
+    if (ask.header.focused) return `<div class="row" style="margin-top:26px">${btn("Back", { type: "leaveFocus" })}${second.join("")}</div>`;
+    return `<div style="margin-top:26px">${first.length ? `<div class="row">${first.join("")}</div>` : ""}<div class="row">${second.join("")}</div></div>`;
+  }
+
+  function wrap(w) {
+    let html = `<div class="label">Your brief</div><div class="sentence" style="${genreFace()}">${esc(w.sentence)}</div><div class="note-mono">${esc(w.summary)}</div>`;
+    if (w.drawFirst) {
+      html += `<div class="label">${esc(w.drawLabel)}</div><div class="glyphs" style="${genreFace()}">${esc(w.drawFirst.glyphs)}</div>` +
+        `<div class="item" style="margin-top:0"><div class="t">${esc(w.drawFirst.title)}</div><p>${esc(w.drawFirst.why)}</p></div>`;
+    }
+    html += `<div class="row">${btn("See your guide", { type: "tab", id: "guide" }, "primary")}${btn("Read the brief", { type: "tab", id: "brief" })}</div>`;
+    if (w.toSettle.length) {
+      html += `<div class="label">To settle, now or later</div>` + w.toSettle.map(tension).join("");
+      if (w.moreInBrief > 0) html += `<p class="small">${w.moreInBrief} more in the Brief.</p>`;
+    }
+    html += `<div class="row" style="margin-top:26px">${w.more > 0 ? btn(`Ask ${w.more} more`, { type: "askMore" }) : ""}${btn("Try another door", { type: "door", id: null }, "quiet")}</div>`;
+    return html;
+  }
+
+  // ---- Brief ---------------------------------------------------------------------------------
+  function briefPage(b) {
+    let html = header("Brief", "What your answers add up to") + `<div class="sentence" style="${genreFace()}">${esc(b.sentence)}</div>`;
+    if (b.empty) html += `<p class="small">Answer a few questions in Ask and the brief fills in here.</p><div class="row">${btn("Choose a door", { type: "tab", id: "ask" }, "primary")}</div>`;
+    html += `<div class="note-mono">${esc(b.note)}</div>`;
+    html += `<div class="label">Targets</div>`;
+    html += b.targets.length
+      ? `<div class="targets">${b.targets.map((t) => `<div class="target"><div class="f">${esc(t.feature)}</div><div><div class="v">${esc(t.target)}</div>` +
+        `<div class="o">${esc(t.origin)}${t.evidence ? ` · ${esc(t.evidence)}` : ""}</div></div></div>`).join("")}</div>`
+      : `<p class="small">No targets yet: nothing has been chosen that a letter can be measured against.</p>`;
+    html += `<div class="label">Tensions</div>` + (b.tensions.length ? b.tensions.map(tension).join("") : `<p class="small">None found: nothing you chose pulls against anything else.</p>`);
+    html += `<div class="label">Faces that already fit</div>` + (b.faces.length
+      ? b.faces.map((f) => `<div class="face"><span class="sp" style="${face(f.cue && f.cue.face)}">${f.cue ? "Aa" : ""}</span><div><div class="t" style="font-weight:600">${esc(f.family)}</div>` +
+        `<div class="d">${esc(f.detail)}</div>${f.misses ? `<div class="src">${esc(f.misses)}</div>` : ""}</div></div>`).join("")
+      : `<p class="small">None yet: they appear once the brief has targets.</p>`);
+    if (!b.empty) html += `<div class="label">Next</div><p class="small">The guide turns this brief into what to draw, in what order, and why.</p><div class="row">${btn("See your guide", { type: "tab", id: "guide" }, "primary")}</div>`;
+    return html;
+  }
+
+  // ---- Guide ---------------------------------------------------------------------------------
+  function guidePage(g) {
+    let html = header("Brief", "What to draw, and why");
+    if (g.noDrawing) {
+      html += `<p>Draw some letters and the guide will measure them.</p>`;
+    } else if (view.exampleOn) {
+      html += `<p class="small">Measuring Hyle Deco, this project's test font, as if you had drawn it.</p><div class="row">${btn("Clear the example letters", { type: "example", on: false }, "quiet")}</div>`;
+    }
+    for (const group of g.groups) {
+      html += `<div class="label">${esc(group.word)}</div>`;
+      for (const it of group.items) {
+        if (it.tension) { html += tension(it.tension); continue; }
+        html += `<div class="item"><div class="t">${esc(it.title)}</div>` +
+          (it.glyphs ? `<div class="glyphs" style="${genreFace()}">${esc(it.glyphs)}</div>` : "") +
+          `<p>${esc(it.body)}</p>` + (it.check ? `<div class="note-mono">${esc(it.check)}</div>` : "") +
+          (it.source ? `<div class="src">${esc(it.source)}</div>` : "");
+        if (it.action === "draw") html += `<div class="row">${btn("Start drawing", { type: "startDrawing" }, "primary")}</div>`;
+        if (it.action === "change") html += `<div class="row">${btn("Or change the brief", { type: "askAbout", dim: it.dim })}</div>`;
+        if (it.action === "learn") html += `<div class="row">${btn("Open Learn", { type: "_learn" })}</div>`;
+        html += `</div>`;
+      }
+    }
+    if (!g.groups.length) html += `<p class="small">Nothing to advise yet: choose a style or a use in Ask.</p><div class="row">${btn("Choose a door", { type: "tab", id: "ask" })}</div>`;
+    html += `<div class="label">Drawing plan</div>`;
+    html += g.plan.map((p) => `<div class="item"><div class="t">${esc(p.title)}</div>` +
+      (p.glyphs ? `<div class="glyphs" style="${genreFace()};font-size:30px">${esc(p.glyphs)}</div>` : "") +
+      `<div class="note-mono" style="margin:4px 0">${esc(p.status)}</div><p>${esc(p.why)}</p><div class="src">${esc(p.source)}</div></div>`).join("");
+    html += `<p class="small" style="margin-top:28px">Draw opens on the sheet. Come back any time: the guide measures your letters as you draw.</p>` +
+      `<div class="row">${btn("Start drawing", { type: "startDrawing" }, "primary")}</div>`;
+    return html;
+  }
+
+  // ---- the hand-off to Draw ------------------------------------------------------------------
+  function handoffPage(h) {
+    return header("Draw", "The sheet") +
+      `<div class="label">Draw opens with</div><div class="glyphs big" style="${genreFace()}">${esc(h.glyphs || "n o H O")}</div>` +
+      (h.title ? `<p><b>${esc(h.title)}</b></p>` : "") +
+      `<p class="why">In the app, the Brief closes onto the sheet's Draw room, and the guide stays one tap away. This prototype has no drawing canvas, so it stops here.</p>` +
+      `<p class="small">To see the loop close, let Hyle Deco, this project's test font, stand in for letters you drew: the guide then measures them against your brief.</p>` +
+      `<div class="row">${btn("Use the example letters", { type: "_exampleToGuide" }, "primary")}${btn("Back to the guide", { type: "tab", id: "guide" })}</div>`;
+  }
+
+  // ---- the deck ------------------------------------------------------------------------------
+  function drawDeck() {
+    const W = deck.clientWidth || Math.min(window.innerWidth, 560);
+    const H = 150;
+    const R = 1.35 * W;
+    const cx = W / 2;
+    const ys = H - 34;
+    const cy = ys + R;
+    const R2 = R + 58;
+    const at = (r, th) => [cx + r * Math.sin(th), cy - r * Math.cos(th)];
+    const span = Math.asin(Math.min(1, (W / 2) / R));
+    const arc = (r) => { const [x0, y0] = at(r, -span * 1.02); const [x1, y1] = at(r, span * 1.02); return `M${x0},${y0} A${r},${r} 0 0 1 ${x1},${y1}`; };
+    const cxL = 42, cxR = W - 42;
+    const yOn = (x) => cy - Math.sqrt(R2 * R2 - (x - cx) * (x - cx));
+    const here = view && view.handoff ? "Draw" : "Brief";
+    const c = SECTIONS.indexOf(here);
+    const step = (W / 4.7) / R;
+    let html = `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><path class="arc-band" d="${arc(R)}"/><path class="arc-band" d="${arc(R2)}"/><path class="arc-line" d="${arc(R + 22)}"/></svg>`;
+    SECTIONS.forEach((name, i) => {
+      const d = i - c;
+      if (Math.abs(d) > 3) return;
+      const th = d * step;
+      const [x, y] = at(R, th);
+      const op = [1, 1, .7, .4][Math.abs(d)];
+      html += `<button class="sec ${d === 0 ? "here" : ""}" style="opacity:${op};transform:translate(${x}px,${y}px) translate(-50%,-50%) rotate(${th}rad)" data-a="${a({ type: "_section", name })}">${name}</button>`;
+    });
+    const [tx, ty] = at(R2, 0);
+    if (view && view.handoff) {
+      // Draw's own toggles (SCREENS_V1 §2.4): Outline · Fill ‖ Construction, Construction on by default.
+      const draw = [["Outline", true], ["Fill", false], null, ["Construction", true]];
+      html += `<div class="seg" style="transform:translate(${tx}px,${ty}px) translate(-50%,-50%)">` +
+        draw.map((d) => d ? `<button aria-pressed="${d[1]}" data-a="${a({ type: "_drawToggle" })}">${d[0]}</button>` : `<span style="width:10px"></span>`).join("") + `</div>`;
+    } else {
+      const tabs = [["ask", "Ask"], ["brief", "Brief"], ["guide", "Guide"]];
+      html += `<div class="seg" style="transform:translate(${tx}px,${ty}px) translate(-50%,-50%)">` +
+        tabs.map(([id, label]) => `<button aria-pressed="${view && view.tab === id}" data-a="${a({ type: "tab", id })}">${label}</button>`).join("") + `</div>`;
+    }
+    html += `<button class="circle" aria-label="Back" style="left:${cxL}px;top:${yOn(cxL)}px" data-a="${a({ type: "_back" })}">‹</button>`;
+    html += `<button class="circle" aria-label="Page menu" style="left:${cxR}px;top:${yOn(cxR)}px" data-a="${a({ type: "_menu" })}">⋯</button>`;
+    deck.innerHTML = html;
+  }
+
+  function openMenu() {
+    const items = [
+      ["Command…", "In the app: Ctrl or ⌘ K", "_command"],
+      [view.exampleOn ? "Clear the example letters" : "Use the example letters", "Hyle Deco stands in for your drawing", "_toggleExample"],
+      ["Start over", "Clear every answer", "_startOverMenu"],
+      ["About this prototype", "What runs here", "_about"],
+    ];
+    menu.innerHTML = items.map(([t, k, type]) => `<button data-a="${a({ type })}">${esc(t)}<span class="k">${esc(k)}</span></button>`).join("");
+    menu.hidden = false;
+  }
+
+  // ---- render and act ------------------------------------------------------------------------
+  function render(scrollTop) {
+    let html;
+    if (view.handoff) html = handoffPage(view.handoff);
+    else if (view.tab === "brief") html = briefPage(view.brief);
+    else if (view.tab === "guide") html = guidePage(view.guide);
+    else html = askPage(view.ask);
+    const active = document.activeElement && document.activeElement.id;
+    app.innerHTML = html;
+    app.classList.toggle("fresh", !!scrollTop);
+    drawDeck();
+    if (active === "search") {
+      const s = document.getElementById("search");
+      s.focus();
+      s.setSelectionRange(s.value.length, s.value.length);
+    }
+    if (scrollTop) window.scrollTo(0, 0);
+  }
+
+  const where = (v) => v.handoff ? "handoff" : v.tab + ":" + (v.ask.mode === "step" ? v.ask.step.id : v.ask.mode);
+
+  function send(action) {
+    const before = where(view);
+    view = JSON.parse(engine.act(JSON.stringify(action)));
+    render(where(view) !== before);
+  }
+
+  function local(action) {
+    switch (action.type) {
+      case "_confirm": confirming = true; render(false); return;
+      case "_keep": confirming = false; render(false); return;
+      case "_wordmark": send({ type: "wordmark", text: document.getElementById("wordmark").value }); return;
+      case "_exampleToGuide": send({ type: "example", on: true }); send({ type: "tab", id: "guide" }); return;
+      case "_learn": say("In the app this opens Learn, on the lineages lesson."); return;
+      case "_drawToggle": say("Draw's toggles work in the app; this prototype has no canvas."); return;
+      case "_command": say("The command palette is the first item of every ⋯ menu in the app."); return;
+      case "_toggleExample": send({ type: "example", on: !view.exampleOn }); say(view.exampleOn ? "Measuring Hyle Deco as your letters." : "Example letters cleared."); return;
+      case "_startOverMenu": confirming = true; send({ type: "tab", id: "ask" }); send({ type: "door", id: null }); return;
+      case "_about": say("The real Brief engine, compiled to JavaScript, with the real style atlas. Nothing leaves this page."); return;
+      case "_section": if (action.name !== "Brief") say(`${action.name} is another section of the app; this prototype is the Brief.`); return;
+      case "_menu": if (menu.hidden) openMenu(); else menu.hidden = true; return;
+      case "_back": {
+        const before = JSON.stringify(view);
+        send({ type: "back" });
+        if (JSON.stringify(view) === before) say("Back goes to Home in the app.");
+        return;
+      }
+    }
+    if (action.type === "startOver") confirming = false;
+    send(action);
+  }
+
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-a]");
+    if (!menu.hidden && !e.target.closest("#menu")) menu.hidden = true;
+    if (!el) return;
+    if (el.closest("#menu")) menu.hidden = true;
+    local(JSON.parse(el.getAttribute("data-a")));
+  });
+  document.addEventListener("input", (e) => {
+    if (e.target.id === "search") send({ type: "query", text: e.target.value });
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.target.id === "wordmark" && e.key === "Enter") local({ type: "_wordmark" });
+    if (e.key === "Escape" && !e.target.closest("input")) local({ type: "_back" });
+  });
+  window.addEventListener("resize", () => view && drawDeck());
+
+  const atlas = document.getElementById("atlas").textContent;
+  const example = document.getElementById("example-font").textContent.trim();
+  view = JSON.parse(engine.start(atlas, example));
+  render(false);
+})();
+</script>

@@ -17,8 +17,12 @@ import kotlin.math.sin
  * sides the diameter passes through -- exact for a true ellipse, and a reasonable approximation
  * for any letterform whose stroke wall is close to perpendicular to the radius there (every `o`
  * this package has been checked against). "Angle 0" is a *vertical* probe line, which crosses the
- * ring near 12 and 6 o'clock -- matching brief 8.4's "0 = vertical stress" exactly, since vertical
- * stress means the letter is thickest at top and bottom.
+ * ring near 12 and 6 o'clock.
+ *
+ * The stress axis is the line through the thinnest parts of the bowl, perpendicular to the
+ * thickest diameter. A didone `o` is hairline at top and bottom and heavy at the sides: its
+ * thickest diameter is horizontal and its stress is vertical (0). A broad-nib garalde `o` is
+ * thinnest near 11 and 5 o'clock: its axis leans about 15-30 degrees from vertical.
  */
 internal data class StrokeProbeSample(
     val angleDegreesFromVertical: Double,
@@ -63,13 +67,17 @@ fun contrastRatio(o: Glyph): Double? {
 }
 
 /**
- * The angle, from vertical, of [oStrokeProfile]'s thickest diameter, folded into `(-90, 90]` (a
- * diameter at `angle` and at `angle - 180` are the same line, so this is just a change of
- * representative). `null` if the profile is empty. Public: see [contrastRatio]'s KDoc for why.
+ * The stress axis: its angle from vertical, folded into `(-90, 90]` (0 = vertical stress, as in a
+ * didone; +-90 = horizontal). It is perpendicular to [oStrokeProfile]'s thickest diameter (see
+ * this file's top KDoc). A line at `angle` and at `angle - 180` is the same line, so the fold is
+ * only a change of representative. Meaningless for a monoline `o`, whose thickest diameter is
+ * noise: read it together with [contrastRatio]. `null` if the profile is empty. Public: see
+ * [contrastRatio]'s KDoc for why.
  */
 fun stressAngleDegrees(o: Glyph): Double? {
     val thickest = oStrokeProfile(o).maxByOrNull { it.width } ?: return null
-    var a = thickest.angleDegreesFromVertical
+    var a = thickest.angleDegreesFromVertical - 90.0
+    if (a <= -90.0) a += 180.0
     if (a > 90.0) a -= 180.0
     return a
 }
