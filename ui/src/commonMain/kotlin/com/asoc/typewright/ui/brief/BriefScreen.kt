@@ -21,12 +21,17 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
@@ -35,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.asoc.typewright.brief.AskPosition
 import com.asoc.typewright.brief.Cue
 import com.asoc.typewright.brief.Dimension
 import com.asoc.typewright.brief.Door
@@ -62,7 +68,6 @@ import com.asoc.typewright.brief.searchFaces
 import com.asoc.typewright.brief.why
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.CanvasTextures
-import com.asoc.typewright.ui.tokens.MeaningColors
 import com.asoc.typewright.ui.tokens.Typography
 import com.asoc.typewright.ui.tokens.toColor
 
@@ -81,8 +86,8 @@ import com.asoc.typewright.ui.tokens.toColor
  * - **Guide** lists what to do next, grouped by the kind of advice, then the drawing plan, and
  *   ends in [onStartDrawing]: the brief always leads to drawing.
  *
- * Selection is violet plus the word "chosen"; the chosen tab is an ink block, like the Learn
- * screen's. There is no red anywhere here. Where the style atlas cannot load, or no project is
+ * A chosen answer, like the chosen tab, is an ink block with paper text; options are rows of type
+ * with no box around them. There is no red anywhere here. Where the style atlas cannot load, or no project is
  * open, the screen says so in words. [onOpenLearn], when given, opens the lesson a guide item
  * points to.
  */
@@ -173,8 +178,7 @@ private fun BriefTabsRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(start = 18.dp, end = 18.dp, top = 2.dp, bottom = 10.dp)
-                .border(1.dp, texture.line.toColor()),
+                .padding(start = 18.dp, end = 18.dp, top = 2.dp, bottom = 10.dp),
     ) {
         for (tab in BriefScreenTab.ORDERED) {
             val isSelected = tab == selected
@@ -251,7 +255,7 @@ private fun ActionButton(
     Box(
         modifier =
             Modifier
-                .let { if (filled) it.background(ink) else it.border(1.dp, texture.line.toColor()) }
+                .let { if (filled) it.background(ink) else it.border(1.dp, ink) }
                 .clickable(onClick = onClick)
                 .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
@@ -259,7 +263,14 @@ private fun ActionButton(
     }
 }
 
-/** A choice. Chosen is violet and the word "chosen" (colour is never the only signal). */
+/** True inside an ink block, where text is set in the canvas colour. */
+private val LocalOnInk = staticCompositionLocalOf { false }
+
+/**
+ * A choice: a row of type with whitespace around it, no box. The chosen one is an ink block with
+ * paper text, the same selection as the deck's toggles (SCREENS_V1 §3: an ink block for UI
+ * selection, never the accent).
+ */
 @Composable
 private fun OptionCard(
     texture: CanvasTexture,
@@ -267,18 +278,16 @@ private fun OptionCard(
     onClick: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val violet = MeaningColors.VIOLET.forTexture(texture.id).toColor()
     Column(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .border(if (selected) 2.dp else 1.dp, if (selected) violet else texture.line.toColor())
+                .let { if (selected) it.background(texture.ink.toColor()) else it }
                 .clickable(onClick = onClick)
                 .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        content()
-        if (selected) BasicText(text = "CHOSEN", style = monoStyle(violet, sizeSp = 9.0))
+        CompositionLocalProvider(LocalOnInk provides selected) { content() }
     }
 }
 
@@ -311,8 +320,9 @@ private fun SpecimenRow(
     texture: CanvasTexture,
     extra: String? = null,
 ) {
-    val fg = texture.fg.toColor()
-    val muted = texture.muted.toColor()
+    val onInk = LocalOnInk.current
+    val fg = if (onInk) texture.canvas.toColor() else texture.fg.toColor()
+    val muted = if (onInk) texture.canvas.toColor().copy(alpha = ON_INK_MUTED_ALPHA) else texture.muted.toColor()
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
         if (cue != null) {
             Box(modifier = Modifier.width(84.dp)) { Specimen(cue = cue, sizeSp = 26.0, color = fg) }
@@ -324,6 +334,22 @@ private fun SpecimenRow(
         }
     }
 }
+
+/** How strongly muted text shows on an ink block. */
+private const val ON_INK_MUTED_ALPHA = 0.72f
+
+/** A rule down the left edge: a tension reads as one thing to decide, without a box around it. */
+private fun Modifier.leftRule(color: Color): Modifier =
+    drawBehind { drawRect(color = color, size = Size(LEFT_RULE_WIDTH.dp.toPx(), size.height)) }
+
+/** A text field's underline, in place of a box. */
+private fun Modifier.underline(color: Color): Modifier =
+    drawBehind {
+        val stroke = 1.dp.toPx()
+        drawRect(color = color, topLeft = Offset(0f, size.height - stroke), size = Size(size.width, stroke))
+    }
+
+private const val LEFT_RULE_WIDTH = 2
 
 private fun sourceLine(source: Source): String = "${source.kind.label} · ${source.citation}"
 
@@ -363,7 +389,7 @@ private fun TensionCard(
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()
     Column(
-        modifier = Modifier.fillMaxWidth().border(1.dp, texture.line.toColor()).padding(12.dp),
+        modifier = Modifier.fillMaxWidth().leftRule(texture.ink.toColor()).padding(start = 14.dp, top = 2.dp, bottom = 2.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         BasicText(text = title, style = bodyStyle(fg, sizeSp = 13.0, weight = FontWeight.SemiBold))
@@ -465,7 +491,7 @@ private fun AskTab(
             ActionButton(label = "Doors", texture = texture, onClick = { state.chooseDoor(null) })
             Column(modifier = Modifier.weight(1f)) {
                 BasicText(text = state.door?.label.orEmpty(), style = bodyStyle(fg, sizeSp = 13.0, weight = FontWeight.SemiBold))
-                BasicText(text = "${position.answered} of ${position.total} asked", style = monoStyle(muted))
+                BasicText(text = progressWords(position), style = monoStyle(muted))
             }
         }
     }
@@ -508,17 +534,20 @@ private fun WrapUpView(
     SectionLabel(text = "Your brief", texture = texture)
     BriefSentence(state = state, texture = texture)
     BasicText(text = wrapUpSummary(wrap), style = monoStyle(muted))
-    if (wrap.toSettle.isNotEmpty()) {
-        Rule(texture)
-        SectionLabel(text = "To settle", texture = texture)
-        for (tension in wrap.toSettle.take(MAX_WRAP_UP_TENSIONS)) TensionCard(tension = tension, state = state, texture = texture)
-        val more = wrap.toSettle.size - MAX_WRAP_UP_TENSIONS
-        if (more > 0) BasicText(text = "$more more in the Brief", style = bodyStyle(muted, sizeSp = 11.5))
-    }
     val first = wrap.drawFirst
     if (first != null) {
         Rule(texture)
-        SectionLabel(text = "Draw first", texture = texture)
+        SectionLabel(
+            text =
+                if (state.drawing.font.glyphs
+                        .isEmpty()
+                ) {
+                    "Draw first"
+                } else {
+                    "Draw next"
+                },
+            texture = texture,
+        )
         BasicText(
             text = first.glyphs.joinToString(" "),
             style = TextStyle(fontFamily = briefFamily(state), fontSize = 34.sp, lineHeight = 42.sp, color = fg),
@@ -526,16 +555,27 @@ private fun WrapUpView(
         BasicText(text = first.title, style = bodyStyle(fg, sizeSp = 13.0, weight = FontWeight.SemiBold))
         BasicText(text = first.why, style = bodyStyle(fg, sizeSp = 12.0))
     }
-    Rule(texture)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         ActionButton(label = "See your guide", texture = texture, onClick = { state.selectTab(BriefScreenTab.GUIDE) }, filled = true)
         ActionButton(label = "Read the brief", texture = texture, onClick = { state.selectTab(BriefScreenTab.BRIEF) })
     }
+    if (wrap.toSettle.isNotEmpty()) {
+        Rule(texture)
+        SectionLabel(text = "To settle, now or later", texture = texture)
+        for (tension in wrap.toSettle.take(MAX_WRAP_UP_TENSIONS)) TensionCard(tension = tension, state = state, texture = texture)
+        val more = wrap.toSettle.size - MAX_WRAP_UP_TENSIONS
+        if (more > 0) BasicText(text = "$more more in the Brief", style = bodyStyle(muted, sizeSp = 11.5))
+    }
+    Rule(texture)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (wrap.moreQuestions > 0) ActionButton(label = "Ask ${wrap.moreQuestions} more", texture = texture, onClick = state::askMore)
         ActionButton(label = "Try another door", texture = texture, onClick = { state.chooseDoor(null) })
     }
 }
+
+/** Where the person is, in words: the questions adapt to the answers, so a running total would mislead. */
+private fun progressWords(position: AskPosition): String =
+    if (position.step == null) "${position.total} asked" else "question ${position.answered + 1}"
 
 /** At most this many tensions in the wrap-up; the rest wait in the Brief. */
 private const val MAX_WRAP_UP_TENSIONS = 3
@@ -690,7 +730,7 @@ private fun WordmarkView(
     var draft by remember { mutableStateOf(state.ethos.wordmark.orEmpty()) }
     val fg = texture.fg.toColor()
     StepPrompt(step = step, texture = texture)
-    Box(modifier = Modifier.fillMaxWidth().border(1.dp, texture.line.toColor()).padding(12.dp)) {
+    Box(modifier = Modifier.fillMaxWidth().underline(texture.ink.toColor()).padding(vertical = 10.dp)) {
         BasicTextField(
             value = draft,
             onValueChange = { draft = it },
@@ -794,7 +834,7 @@ private fun SearchField(
 ) {
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()
-    Box(modifier = Modifier.fillMaxWidth().border(1.dp, texture.line.toColor()).padding(12.dp)) {
+    Box(modifier = Modifier.fillMaxWidth().underline(texture.ink.toColor()).padding(vertical = 10.dp)) {
         BasicTextField(
             value = value,
             onValueChange = onValueChange,

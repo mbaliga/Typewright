@@ -17,6 +17,26 @@ quality gate: the gate asks "is this font well made?", the Brief asks "is it the
 4. **Guide the drawing.** What to draw first and why, requirements the chosen use imposes, and,
    once letters exist, which of them have drifted from the brief and how to bring them back.
 
+## The flow, end to end
+
+1. **A door.** The person starts from what they know (below). Every door asks one question at a
+   time, each answered by looking at real typefaces; "I'm not sure" and Skip always move on.
+2. **The wrap-up.** When a door's questions are through, the Brief never just stops: it sets the
+   brief in one sentence, names the letters to draw first and why, and leads to the guide. The
+   tensions it found sit under that, to settle now or later, each with "Keep as signature" or
+   "Change answer". "Ask N more" adds the dimensions the door left out; "Try another door" keeps
+   every answer and asks what that door asks first.
+3. **The Brief and the Guide.** The Brief is the record (targets, tensions, faces that fit) and ends
+   by pointing at the guide. The guide is what to do, most pressing first, and ends in "Start
+   drawing".
+4. **Drawing, and back.** Start drawing closes the Brief onto Draw. The Brief keeps its answers,
+   door and tab while closed (with no project open they live only in this session, and the screen
+   says so), so coming back lands on the guide, now measuring the letters drawn: drift items say
+   what to move, or offer to change the brief instead.
+
+A tension or a drift item can reopen one question on its own ("Changing one answer"), whatever the
+door; answering it, or keeping the answer, returns to where the person was.
+
 ## Doors: six ways in
 
 The person chooses where to start; every door ends in the same record.
@@ -93,6 +113,15 @@ and month capitals if a date is wanted, a wordmark's own letters first. Letters 
 - It never phones home. The atlas is a file in the app; nothing about a brief leaves the device.
 - Browser builds cannot read the atlas yet (see docs/OPEN_QUESTIONS.md); there the questions
   work and the measured ranges don't, and the screen says so.
+
+## The prototype
+
+`ui/v1-screens/brief/` is the design source for the Brief's screens (CLAUDE.md law 6): one page that
+runs this engine, compiled to JavaScript with `kotlinc-js`, over the real style atlas and the real
+cue faces. `build.py` builds it into `build/brief-prototype.html`; the page holds no logic of its
+own beyond drawing the engine's JSON view and sending actions back. Hyle Deco, this repository's
+test font, can stand in for drawn letters, so the whole loop (ask, brief, guide, draw, measure)
+can be tried end to end. The prototype keeps answers in the page only.
 
 ## Where the code is
 

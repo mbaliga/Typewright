@@ -3283,3 +3283,12 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     verdict. More measured faces per class is the fix; the floors in `ReadingAccuracyTest` are
     the guard.
 
+136. **Start drawing opens the sheet, not a glyph (Brief).** The Brief's Start drawing closes onto the
+    sheet, which opens on Draw; it cannot yet open the plan's first glyph, because the sheet has no
+    way to be told which glyph to show, and a sheet left on Space reopens on Space. Learn likewise
+    opens on its own first tab, not the scene a guide item names. Both need a small navigation API.
+
+137. **"Brief" names both the section and a toggle (Brief).** The section is Brief and its middle
+    toggle is also Brief (Ask · Brief · Guide). It reads fine in use, but the toggle could become
+    "Summary" if the repetition confuses. Madhav to decide.
+

@@ -501,27 +501,48 @@ defaults from §2.
 
 ### S25 Brief: Ask
 - **Deck:** Brief; left ‹ (Back goes to the previous question, then the doors, then Home);
-  toggles **Ask · Brief · Guide**; right ⋯.
+  toggles **Ask · Brief · Guide**; right ⋯ (Command… · Use the example letters, prototype only ·
+  Start over).
 - **Content:** six doors, each a cue-face specimen with a one-line caption (Style, Use,
-  References, Feeling, Mirror, Blank). Choosing one opens its questions, one at a time. Each answer is a
-  card: the cue-face specimen (a real typeface that measures as that answer), the answer's word
-  and a short phrase. The chosen card gets a 2 dp violet border and the word CHOSEN. Skip and
-  "I'm not sure" sit under the cards; neither is a failure.
-- **Done when:** a brief can be built by pictures alone, and the sentence at the top of the Brief
-  toggle changes with every answer.
+  References, Feeling, Mirror, Blank). Choosing one opens its questions, one at a time, with the
+  header's mono line saying the door and "question N" (the questions adapt to the answers, so no
+  running total). Each answer is a row of type, no box: the cue-face specimen (a real typeface that
+  measures as that answer), the answer's word and a short phrase, and under it how many of the
+  genre's measured faces give it. The chosen answer is an ink block with paper text (§3: ink block
+  for UI selection, never the accent). Skip and "I'm not sure" sit under the answers; neither is a
+  failure. The References door opens on well-known faces set in their own typeface, with a search
+  over every measured face. The Mirror door with nothing drawn offers **Start drawing**.
+- **The wrap-up** (the end of every door, never a dead end): the brief in one sentence in the
+  genre's face; "N targets · N things to settle"; **Draw first** (or **Draw next**, once letters
+  exist) with the letters large and why; **See your guide** (ink block) and **Read the brief**;
+  then up to three tensions "to settle, now or later", each with **Keep as signature** and
+  **Change answer**; then **Ask N more** (the dimensions the door left out) and **Try another door**
+  (answers carry over).
+- **Revisiting one answer** (from a tension or a drift item): the header says "Changing one answer ·
+  the others stay"; Back or **Keep my answer** returns without a change.
+- **Done when:** a brief can be built by pictures alone, every door reaches the wrap-up, and the
+  sentence changes with every answer. `FlowCompletenessTest` and the prototype's walk check both.
 
 ### S26 Brief: the Brief
-- **Content:** the sentence (set large, in the cue face of the genre), the targets table (feature ·
-  target · origin; "our heuristic" where no measurement stands behind it), the tensions list (each
-  with its source kind and a "Keep as signature" toggle), and the faces already in the atlas that fit.
+- **Content:** the sentence (set large, in the cue face of the genre), the targets (feature ·
+  target · origin; "our heuristic" where no measurement stands behind it), the tensions (a rule on
+  the left, no box; each with its source kind and **Keep as signature** / **Change answer**), the
+  faces already in the atlas that fit, and **Next: See your guide**.
 - **Done when:** every number shown can be traced to the style atlas or is labelled a heuristic.
 
 ### S27 Brief: Guide
 - **Content:** items grouped by kind (Next · Requirement · Tension · Drift · Craft · Learn), then the
   drawing plan with its letters set in the cue face. With no letters drawn: "Draw some letters
   and the guide will measure them". Drift items say what the brief asks, what the drawing
-  measures, and what to move.
-- **Done when:** a drifting letter produces advice naming the feature and the letters to change.
+  measures, and what to move, with **Or change the brief**. The Next item and the end of the page
+  carry **Start drawing**, which closes the Brief onto the sheet's Draw room; the Brief keeps its
+  answers, door and tab, so coming back lands where the person left, with the guide measuring what
+  they drew.
+- **Done when:** a drifting letter produces advice naming the feature and the letters to change,
+  and the page always ends in Start drawing.
+
+The prototype for S25–S27 is `ui/v1-screens/brief/`: the real engine compiled to JavaScript
+behind one page (`python3 ui/v1-screens/brief/build.py`).
 
 ---
 
