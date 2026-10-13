@@ -11,8 +11,10 @@ import com.asoc.typewright.project.Ethos
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class BriefScreenStateTest {
@@ -138,5 +140,72 @@ class BriefScreenStateTest {
     fun noProjectFontIsAnEmptyDrawing() {
         assertEquals(Drawing.EMPTY, briefDrawingOf(null))
         assertEquals(Drawing.EMPTY, BriefScreenUiState().drawing)
+    }
+
+    private fun BriefScreenUiState.skipToTheEnd() {
+        repeat(60) {
+            val step = askPosition()?.step ?: return
+            skip(step)
+        }
+        error("the questions never ended")
+    }
+
+    @Test
+    fun aDoorEndsInAWrapUpThatLeadsOn() {
+        val state = BriefScreenUiState(initialDoor = Door.USE)
+        state.toggleUse("watch-face")
+        state.skipToTheEnd()
+        val wrap = assertNotNull(state.wrapUp())
+        assertEquals(listOf('0', '1'), assertNotNull(wrap.drawFirst).glyphs)
+        assertTrue(wrap.moreQuestions > 0)
+
+        state.askMore()
+        assertIs<Step.AskDimension>(state.askPosition()?.step)
+        state.skipToTheEnd()
+        assertEquals(0, state.wrapUp()?.moreQuestions)
+    }
+
+    @Test
+    fun aTensionIsSettledByAskingItsQuestionAgain() {
+        val state = BriefScreenUiState(initialTab = BriefScreenTab.BRIEF)
+        state.askAbout(Dimension.ROUNDNESS)
+        assertEquals(BriefScreenTab.ASK, state.tab)
+        val position = assertNotNull(state.askPosition())
+        assertTrue(position.focused)
+        assertEquals(Dimension.ROUNDNESS, assertIs<Step.AskDimension>(position.step).dimension)
+
+        state.answerLevel(Dimension.ROUNDNESS, Level.ROUND_SQUARE)
+        assertNull(state.focus)
+        assertNull(state.askPosition(), "with no door chosen, the doors show again")
+    }
+
+    @Test
+    fun backAtTheFirstQuestionReturnsToTheDoors() {
+        val state = BriefScreenUiState(initialDoor = Door.FEELING)
+        state.goBack()
+        assertNull(state.door)
+    }
+
+    @Test
+    fun startingOverClearsEveryAnswer() {
+        val state = BriefScreenUiState(initialDoor = Door.STYLE)
+        state.chooseGenre("sans-geometric")
+        state.startOver()
+        assertTrue(state.ethos.isEmpty)
+        assertNull(state.door)
+        assertEquals(BriefScreenTab.ASK, state.tab)
+    }
+
+    @Test
+    fun aBriefWithAnswersOpensOnTheGuide() {
+        assertEquals(BriefScreenTab.GUIDE, BriefScreenUiState(initialEthos = Ethos(genre = "sans-geometric")).tab)
+    }
+
+    @Test
+    fun theKeeperHandsBackTheSameStateWhileTheProjectIsTheSame() {
+        val keeper = BriefStateKeeper()
+        val first = keeper.stateFor(null) { BriefScreenUiState() }
+        first.chooseGenre("sans-geometric")
+        assertSame(first, keeper.stateFor(null) { BriefScreenUiState() })
     }
 }

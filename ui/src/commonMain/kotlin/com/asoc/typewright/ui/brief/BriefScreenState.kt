@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.asoc.typewright.brief.AskPosition
 import com.asoc.typewright.brief.BriefModel
 import com.asoc.typewright.brief.Dimension
 import com.asoc.typewright.brief.Door
@@ -18,8 +19,10 @@ import com.asoc.typewright.brief.Level
 import com.asoc.typewright.brief.Step
 import com.asoc.typewright.brief.UseCase
 import com.asoc.typewright.brief.UseQuestion
+import com.asoc.typewright.brief.WrapUp
 import com.asoc.typewright.brief.answering
-import com.asoc.typewright.brief.questionsFor
+import com.asoc.typewright.brief.previousStepId
+import com.asoc.typewright.brief.questionFor
 import com.asoc.typewright.brief.reopening
 import com.asoc.typewright.brief.resolveBrief
 import com.asoc.typewright.brief.skipping
@@ -40,6 +43,8 @@ import com.asoc.typewright.project.ProjectSession
 import com.asoc.typewright.qa.corpus.StyleAtlas
 import com.asoc.typewright.qa.corpus.loadStyleAtlas
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
+import com.asoc.typewright.brief.askPosition as positionIn
+import com.asoc.typewright.brief.wrapUp as wrapUpOf
 
 /** The Brief screen's three tabs, left to right: the questions, what they add up to, and what to do about it. */
 enum class BriefScreenTab(
@@ -76,16 +81,6 @@ const val BRIEF_ATLAS_UNAVAILABLE_NOTE: String =
 const val BRIEF_NO_DRAWING_NOTE: String = "Draw some letters and the guide will measure them"
 
 /**
- * Where the person is in a door's questions: the [step] still open (null when all are through),
- * and how many of the [total] have an answer or a skip.
- */
-data class AskPosition(
-    val step: Step?,
-    val answered: Int,
-    val total: Int,
-)
-
-/**
  * The Brief screen's state: the person's [ethos], what it resolves to ([model]), their own
  * letters ([drawing]), and which tab and door are showing. A plain class over Compose state, so a
  * test builds one and drives it with the same actions the screen's buttons call.
@@ -94,12 +89,15 @@ data class AskPosition(
  * [persist]. With no [persist] there is no open project: the answers stay in memory and
  * [saveNote] says so. [atlas] is null where the style atlas cannot load; the questions still work,
  * the measured ranges are absent.
+ *
+ * A brief that already has answers opens on the Guide, the page a person comes back to while
+ * drawing; an empty one opens on the doors.
  */
 class BriefScreenUiState(
     initialEthos: Ethos = Ethos(),
     val atlas: StyleAtlas? = null,
     initialDrawing: Drawing = Drawing.EMPTY,
-    initialTab: BriefScreenTab = BriefScreenTab.ASK,
+    initialTab: BriefScreenTab = if (initialEthos.isEmpty) BriefScreenTab.ASK else BriefScreenTab.GUIDE,
     initialDoor: Door? = null,
     private val persist: ((Ethos) -> Boolean)? = null,
 ) {
@@ -121,6 +119,14 @@ class BriefScreenUiState(
     var drawing: Drawing by mutableStateOf(initialDrawing)
         private set
 
+    /** True once the person asked for more questions than the door's own. */
+    var refining: Boolean by mutableStateOf(false)
+        private set
+
+    /** A dimension the person chose to revisit (a tension to settle), asked before anything else; null otherwise. */
+    var focus: Dimension? by mutableStateOf(null)
+        private set
+
     /** Whether the last change reached a project, in words. */
     var saveNote: String by mutableStateOf(if (persist == null) BRIEF_NOT_SAVED_NOTE else BRIEF_SAVED_NOTE)
         private set
@@ -133,9 +139,11 @@ class BriefScreenUiState(
         this.tab = tab
     }
 
-    /** Goes in by [door]; null goes back to choosing one. */
+    /** Goes in by [door]; null goes back to choosing one. The answers stay: another door skips what is already answered. */
     fun chooseDoor(door: Door?) {
         this.door = door
+        refining = false
+        focus = null
     }
 
     /** Replaces the letters the guide measures. */
@@ -143,12 +151,44 @@ class BriefScreenUiState(
         if (drawing != this.drawing) this.drawing = drawing
     }
 
-    /** The first open question of the chosen door, and how far through it the person is; null while no door is chosen. */
+    /**
+     * The question to show and how far through the person is: the [focus] dimension first, then the
+     * chosen door's first open question; null while no door is chosen and nothing is in focus.
+     */
     fun askPosition(): AskPosition? {
-        val chosen = door ?: return null
-        val steps = questionsFor(chosen, model, drawing)
-        val done = ethos.answered.toSet()
-        return AskPosition(steps.firstOrNull { it.id !in done }, steps.count { it.id in done }, steps.size)
+        val revisit = focus
+        val chosen = door ?: return revisit?.let { AskPosition(questionFor(it, model), 0, 0, focused = true) }
+        return positionIn(chosen, model, drawing, refining, revisit)
+    }
+
+    /** What the chosen door's questions add up to once they are through; null while no door is chosen. */
+    fun wrapUp(): WrapUp? = door?.let { wrapUpOf(it, model, drawing) }
+
+    /** Asks the questions the door left out, after its own. */
+    fun askMore() {
+        refining = true
+        focus = null
+        tab = BriefScreenTab.ASK
+    }
+
+    /** Asks about [dimension] now, whatever the door: to settle a tension or change one answer. */
+    fun askAbout(dimension: Dimension) {
+        focus = dimension
+        tab = BriefScreenTab.ASK
+    }
+
+    /** Leaves a revisited question without changing its answer. */
+    fun leaveFocus() {
+        focus = null
+    }
+
+    /** Clears every answer and goes back to the doors. */
+    fun startOver() {
+        door = null
+        refining = false
+        focus = null
+        tab = BriefScreenTab.ASK
+        commit(Ethos())
     }
 
     /** Sets the genre (null clears it). */
@@ -170,11 +210,14 @@ class BriefScreenUiState(
     /** Adds or removes a reference face; a fourth is refused. */
     fun toggleReference(family: String) = commit(ethos.withReferenceToggled(family))
 
-    /** Answers [dimension] with [level], or clears it. */
+    /** Answers [dimension] with [level], or clears it. Answering a revisited question ends the visit. */
     fun answerLevel(
         dimension: Dimension,
         level: Level?,
-    ) = commit(ethos.withLevel(dimension, level))
+    ) {
+        if (focus == dimension) focus = null
+        commit(ethos.withLevel(dimension, level))
+    }
 
     /** Adopts what the person's own letters measure, keeping any answer already given. */
     fun adoptMeasured(measured: Map<Dimension, Level>) = commit(ethos.withMeasuredLevels(measured))
@@ -188,15 +231,24 @@ class BriefScreenUiState(
     /** Moves on from [step] with what is chosen so far (for the multiple-choice steps, which have no single answer). */
     fun confirm(step: Step) = commit(ethos.answering(step.id))
 
-    /** Moves on from [step] without answering it ("I'm not sure"). */
-    fun skip(step: Step) = commit(ethos.skipping(step.id))
+    /** Moves on from [step] without answering it ("I'm not sure"); on a revisited question, keeps the answer it had. */
+    fun skip(step: Step) {
+        if (step is Step.AskDimension && step.dimension == focus) focus = null
+        commit(ethos.skipping(step.id))
+    }
 
-    /** Reopens the last question the chosen door has had an answer or a skip for, so it is asked again; the answers stay. */
+    /**
+     * Goes back one question: out of a revisited question first; otherwise the last question with an
+     * answer or a skip is asked again (the answers stay); at the first question, back to the doors.
+     */
     fun goBack() {
+        if (focus != null) {
+            focus = null
+            return
+        }
         val chosen = door ?: return
-        val done = ethos.answered.toSet()
-        val last = questionsFor(chosen, model, drawing).lastOrNull { it.id in done } ?: return
-        commit(ethos.reopening(last.id))
+        val last = previousStepId(chosen, model, drawing, refining)
+        if (last == null) chooseDoor(null) else commit(ethos.reopening(last))
     }
 
     private fun commit(next: Ethos) {
@@ -244,12 +296,52 @@ fun loadBriefAtlas(): StyleAtlas? = runCatching { loadStyleAtlas() }.getOrNull()
 fun rememberBriefAtlas(): StyleAtlas? = remember { loadBriefAtlas() }
 
 /**
- * Remembers a [BriefScreenUiState] for the open project (re-made when the project changes): its
- * answers are read from the project's brief and written back with every change. With no project
- * open the answers stay in memory. The letters follow the project's font as it is drawn.
+ * Keeps the Brief's state while its screen is closed, so the answers, the door and the tab survive
+ * a trip to Draw and back; with no project open the answers live only here. One per app: opening
+ * another project starts a new state from that project's brief. The style atlas loads on first use.
+ */
+class BriefStateKeeper {
+    private var atlasLoaded = false
+    private var loadedAtlas: StyleAtlas? = null
+    private var owner: ProjectSession? = null
+    private var kept: BriefScreenUiState? = null
+
+    /** The style atlas, loaded the first time it is asked for; null where it cannot load. */
+    val atlas: StyleAtlas?
+        get() {
+            if (!atlasLoaded) {
+                loadedAtlas = loadBriefAtlas()
+                atlasLoaded = true
+            }
+            return loadedAtlas
+        }
+
+    /** The state kept for [session], or a new one from [make] when there is none or the project changed. */
+    fun stateFor(
+        session: ProjectSession?,
+        make: () -> BriefScreenUiState,
+    ): BriefScreenUiState {
+        val current = kept
+        if (current != null && owner === session) return current
+        return make().also {
+            kept = it
+            owner = session
+        }
+    }
+}
+
+/** Remembers one [BriefStateKeeper] for the composition's lifetime. */
+@Composable
+fun rememberBriefStateKeeper(): BriefStateKeeper = remember { BriefStateKeeper() }
+
+/**
+ * The [BriefScreenUiState] for the open project, kept by [keeper] across closing and reopening the
+ * screen: its answers are read from the project's brief and written back with every change. With
+ * no project open the answers stay in memory. The letters follow the project's font while the
+ * screen is open; measuring them reads every style letter, so it does not run while it is closed.
  */
 @Composable
-fun rememberBriefScreenUiState(atlas: StyleAtlas? = rememberBriefAtlas()): BriefScreenUiState {
+fun rememberBriefScreenUiState(keeper: BriefStateKeeper = rememberBriefStateKeeper()): BriefScreenUiState {
     val session: ProjectSession? =
         LocalProjectWorkspace.current
             ?.current
@@ -258,20 +350,22 @@ fun rememberBriefScreenUiState(atlas: StyleAtlas? = rememberBriefAtlas()): Brief
     val projectState = session?.state?.collectAsState()?.value
     val drawing = remember(projectState?.font) { briefDrawingOf(projectState?.font) }
     val state =
-        remember(session, atlas) {
-            BriefScreenUiState(
-                initialEthos =
-                    session
-                        ?.state
-                        ?.value
-                        ?.meta
-                        ?.manifest
-                        ?.brief
-                        ?.ethos ?: Ethos(),
-                atlas = atlas,
-                initialDrawing = drawing,
-                persist = session?.let { live -> { ethos: Ethos -> saveEthos(live, ethos) } },
-            )
+        remember(keeper, session) {
+            keeper.stateFor(session) {
+                BriefScreenUiState(
+                    initialEthos =
+                        session
+                            ?.state
+                            ?.value
+                            ?.meta
+                            ?.manifest
+                            ?.brief
+                            ?.ethos ?: Ethos(),
+                    atlas = keeper.atlas,
+                    initialDrawing = drawing,
+                    persist = session?.let { live -> { ethos: Ethos -> saveEthos(live, ethos) } },
+                )
+            }
         }
     SideEffect { state.updateDrawing(drawing) }
     return state

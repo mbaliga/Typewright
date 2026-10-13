@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.asoc.typewright.project.ProjectWorkspace
 import com.asoc.typewright.ui.brief.BriefScreen
 import com.asoc.typewright.ui.brief.rememberBriefScreenUiState
+import com.asoc.typewright.ui.brief.rememberBriefStateKeeper
 import com.asoc.typewright.ui.learn.LearnScreen
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.project.LocalZipTransferSupported
@@ -118,6 +119,8 @@ fun TypewrightApp(
     // replaced by whatever ProjectWorkspace.open() would reopen from disk, which would drop the
     // in-memory session and its undo history. Only a workspace with nothing open yet reopens.
     LaunchedEffect(workspace) { if (workspace.current.value == null) workspace.reopenLast() }
+    // Out here, not inside the Brief branch, so its answers, door and tab survive a trip to Draw and back.
+    val briefKeeper = rememberBriefStateKeeper()
     CompositionLocalProvider(
         LocalProjectWorkspace provides workspace,
         LocalZipTransferSupported provides supportsZipTransfer,
@@ -133,7 +136,14 @@ fun TypewrightApp(
                 }
 
                 navState.showBrief -> {
-                    BriefScreen(modifier = Modifier.fillMaxSize(), onBack = navState::closeBrief, state = rememberBriefScreenUiState())
+                    // Start drawing closes the Brief onto the sheet, which opens on Draw.
+                    BriefScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        onBack = navState::closeBrief,
+                        state = rememberBriefScreenUiState(briefKeeper),
+                        onStartDrawing = navState::closeBrief,
+                        onOpenLearn = navState::openLearn,
+                    )
                 }
 
                 navState.showWorkbook -> {

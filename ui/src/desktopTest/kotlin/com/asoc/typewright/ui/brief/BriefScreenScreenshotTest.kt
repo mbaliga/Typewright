@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.toPixelMap
 import com.asoc.typewright.brief.Dimension
 import com.asoc.typewright.brief.Door
 import com.asoc.typewright.brief.Level
+import com.asoc.typewright.brief.Step
 import com.asoc.typewright.project.Ethos
 import com.asoc.typewright.qa.corpus.loadStyleAtlas
 import com.asoc.typewright.ui.ScreenshotHarness
@@ -15,6 +16,7 @@ import com.asoc.typewright.ui.tokens.toColor
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -53,6 +55,30 @@ class BriefScreenScreenshotTest {
         assertNotNull(state.askPosition()?.step)
         val shot =
             ScreenshotHarness.capture(name = "brief-screen-ask-question", width = 420, height = 860, density = 2f) {
+                BriefScreen(texture = CanvasTextures.PAPER, state = state)
+            }
+        assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
+    }
+
+    @Test
+    fun rendersTheWrapUpAtTheEndOfADoor() {
+        val state = stateOn(BriefScreenTab.ASK, door = Door.STYLE)
+        repeat(60) { state.askPosition()?.step?.let(state::skip) }
+        assertNull(state.askPosition()?.step)
+        assertNotNull(state.wrapUp()?.drawFirst)
+        val shot =
+            ScreenshotHarness.capture(name = "brief-screen-wrap-up", width = 420, height = 1400, density = 2f) {
+                BriefScreen(texture = CanvasTextures.PAPER, state = state)
+            }
+        assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
+    }
+
+    @Test
+    fun rendersWellKnownFacesWhenTheReferencesDoorOpensOnAnEmptyBrief() {
+        val state = BriefScreenUiState(atlas = loadStyleAtlas(), initialDoor = Door.REFERENCES)
+        assertTrue((state.askPosition()?.step as? Step.PickReferences)?.starters.orEmpty().isNotEmpty())
+        val shot =
+            ScreenshotHarness.capture(name = "brief-screen-references", width = 420, height = 1400, density = 2f) {
                 BriefScreen(texture = CanvasTextures.PAPER, state = state)
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")

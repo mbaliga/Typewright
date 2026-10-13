@@ -265,3 +265,17 @@ fun describeFace(
         }
     return joinWords(phrases)
 }
+
+/**
+ * Well-known faces to start a reference search from: the families of the Brief's own cue faces
+ * that the atlas has measured, in cue order. The app can set each in its own typeface, so a
+ * person who can't name a font can still point at one.
+ */
+fun startingReferences(atlas: StyleAtlas): List<String> =
+    CueFace.entries
+        .map { it.family }
+        .filter { it in atlas.pack.faces }
+        .distinct()
+
+/** The cue face that is [family] itself, so a name can be set in its own typeface; null for a face the app does not carry. */
+fun cueFaceOf(family: String): CueFace? = CueFace.entries.firstOrNull { it.family == family }

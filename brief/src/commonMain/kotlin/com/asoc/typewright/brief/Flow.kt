@@ -91,9 +91,14 @@ sealed interface Step {
         override val id: String get() = STEP_FEELINGS
     }
 
-    /** Name up to three admired faces; [suggestions] are measured faces that fit the brief so far. */
+    /**
+     * Name up to three admired faces. [suggestions] are measured faces that fit the brief so far;
+     * [starters] are well-known faces to begin from when nothing fits yet (an empty brief), each
+     * one the app can set in its own typeface.
+     */
     data class PickReferences(
         val suggestions: List<FaceMatch>,
+        val starters: List<String> = emptyList(),
     ) : Step {
         override val id: String get() = STEP_REFERENCES
     }
@@ -129,7 +134,7 @@ sealed interface Step {
 }
 
 /** The order the blank door asks in: what is seen first, first. */
-private val TEACHING_ORDER =
+internal val TEACHING_ORDER =
     listOf(
         Dimension.SERIFS,
         Dimension.CONTRAST,
@@ -198,7 +203,7 @@ fun questionsFor(
         }
 
         Door.REFERENCES -> {
-            steps += Step.PickReferences(facesLike(model))
+            steps += Step.PickReferences(facesLike(model), atlas?.let { startingReferences(it) }.orEmpty())
             addUses()
             val disagreements = model.referenceSpread.keys.mapNotNull { f -> Dimension.entries.firstOrNull { f in it.features } }
             addDimensions(disagreements + useDimensions + genreDimensions.take(MAX_GENRE_QUESTIONS))
@@ -247,14 +252,14 @@ fun nextStep(
 ): Step? = questionsFor(door, model, drawing).firstOrNull { it.id !in model.ethos.answered }
 
 /** Stress only means something on a stroke with real contrast: ask about it only then. */
-private fun stressMatters(model: BriefModel): Boolean {
+internal fun stressMatters(model: BriefModel): Boolean {
     val answer = model.answer(Dimension.CONTRAST)
     if (answer != null) return answer == Level.CONTRAST_STRONG || answer == Level.CONTRAST_EXTREME
     val range = model.targets[Feature.CONTRAST]?.range ?: return false
     return range.endInclusive >= STRESS_MIN_CONTRAST
 }
 
-private fun askDimension(
+internal fun askDimension(
     dimension: Dimension,
     model: BriefModel,
 ): Step.AskDimension {
