@@ -17,6 +17,9 @@ environment, so on-device behaviour is verified by the owner only and never clai
 Read `CLAUDE.md` (the laws) before changing anything, then `TYPEWRIGHT_BUILD_BRIEF.md` and
 `UI_SPEC.md`. Open questions live in `docs/OPEN_QUESTIONS.md`, licences in `THIRD_PARTY.md`.
 
+Porting beyond V1's three targets (Ubuntu Touch, iOS, macOS, Windows) is planned, not built:
+`docs/PORTING_PLAN.md`.
+
 ## Licence
 
 Typewright is licensed in parts (`docs/LICENSING.md`):
@@ -177,6 +180,7 @@ docs/
   DECISIONS.md                 the decision register from the design sessions
   OPEN_QUESTIONS.md            questions raised during the build, by prompt
   HOSTED_BUILD_ENDPOINT.md     the web compile backend's wire contract and zero-retention policy (not deployed yet)
+  PORTING_PLAN.md              the multi-platform porting plan: Ubuntu Touch, iOS, macOS, Windows (a plan; nothing built)
   hyle-outline-explainer.html  the explainer that started this
 data/
   node-economy-latin.json      per-style, per-glyph distributions + per-family counts (10 classes)
