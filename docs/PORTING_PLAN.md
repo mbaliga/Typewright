@@ -457,3 +457,39 @@ Owner questions in the program register that concern this repo (status as of 202
 - OQ-38 (ruled): iOS toolchain pin
 
 When the owner confirms or changes the line, this repo's original cells above stay as the engineering detail; only the verdicts and re-costs in program section 5A change.
+
+## Update 2026-10-14: the market lens, iPadOS and the owner's latest answers
+
+Status: PLAN. Nothing here is built, run on a device, signed or submitted. This update follows the section "Owner rulings and the proposed line (added 2026-10-07)" above and the program plan's section 5A.12 (Personal-Tracker `PORTING_PROGRAM.md`, [PR #10](https://github.com/mbaliga/Personal-Tracker/pull/10)), which governs where the two differ. It records the owner's market lens and answers of 2026-10-13 and 2026-10-14; the proposed line is still a proposal. Two tests were added to the program's section 5A.1: (d) a real gap, or we are better or cheaper ("better" only where it has been measured; free alone is no gap when free tools exist); (w) mature free alternatives abound and the app adds nothing.
+
+### Where Typewright sits now (program section 5A.12, a proposal)
+
+| Target       | Verdict, weeks and flags |
+| ------------ | ------------------------ |
+| Ubuntu Touch | port 8w g r              |
+| Linux        | port 2w                  |
+| iPhone       | no-port                  |
+| iPad         | port 12w g (early)       |
+| macOS        | port 3w g                |
+| Windows      | port 3w g                |
+
+The Apple column is now split: iPhone and iPad are judged apart. Where an app ports to both, the weeks are counted once on the lead cell and the other reads follows. The wave (early or later) is for the iPad, and for the iPhone where it leads.
+
+### What changed for this repo
+
+- iPad is now its own column: **port, early wave, about 12 weeks, iPad first** (the earlier section had one iOS cell, port 12w). iPhone is no-port.
+- macOS and Windows stay ports at 3 weeks each: the owner chose both as desktop riders. iPad, macOS and Windows work starts once V1's golden path passes (all 7 steps; 2 of 7 pass today). That is the owner's answer on OQ-10; V1_SCOPE section 4 already lists them as not in V1.
+- Market research (October 2026, partly unverified): on Mac, Typewright is cheaper than Glyphs 4 (EUR 319, student EUR 159), Glyphs Mini (EUR 49; a search snippet says it cannot open UFO), RoboFont (EUR 400, on a price page last edited in 2021) and FontCreator 16 (USD 49 or 199), but not cheaper than free FontForge or BirdFont (free for OFL fonts), and 'better' is unmeasured. The honest claim is a free beginner on-ramp whose UFO 3 files open in Glyphs and RoboFont, which only a Mac can check (law 4). Linux is not empty (FontForge, BirdFont, Fontra and Glyphr Studio are free and maintained); the case there is the guided path to a submittable font, which only this repo's own competitor analysis asserts. Ubuntu Touch is a real gap: a search for 'font' on OpenStore on 2026-10-13 found no font tool. On iPad no professional editor was found (Glyphs is Mac-only); the casual tier is crowded (iFontMaker USD 7.99; Fontself for iPad, about USD 19.99 plus an in-app unlock, price unconfirmed) and none was found that writes UFO or checks Google Fonts quality, though absence could not be proven.
+- iPad specifics: Apple Pencil Pro and the Apple Pencil (USB-C) work with the M4 iPad Pro (the generation of the owner's Pencil is not stated, OQ-33; an M4 iPad Pro takes only those two). An iPad has no haptic motor, so the planned haptic ticks do nothing there. The compile and QA paths shell out to processes (fontspector, fontc) and iOS apps cannot spawn processes, so the iPad build needs the native compile backend (TW:D5), after V1. App Review 2.5.2 bars downloading code that changes features.
+
+### Owner answers that apply here
+
+- **TestFlight (PT:D-Z, approved 2026-10-14):** "Approve PROPOSED-1 as drafted". Directive I-1 now carries an exception for crash reports that Apple collects on TestFlight and the App Store. The app does not transmit those reports and adds no crash-reporting or analytics SDK of its own, and its README, store listing and about/privacy page must name the exception. This supersedes any statement in the earlier section that TestFlight is not used until the exception is approved. Any repo-local no-telemetry rule here is a restatement that PT:D-Z does not amend; recording the exception there is for the owner.
+- **Mac mini timing (OQ-31, 2026-10-14):** "Use hosted macOS runners on public repos first, buy later". This repo is public, so hosted macOS runners are free for it; simulator builds, unit tests and unsigned archives are possible there when this repo's own sequencing allows. Typewright's Apple work does not start until V1's golden path passes (OQ-10). The Mac mini stays chosen and not bought. Signing and a TestFlight upload need the Apple Developer Program, which the owner has not yet joined (owner action).
+- **Apple ids and signing:** Apple bundle ids use `com.asoc.<appname>` (OQ-25, in part; a NAMES.md row first, R11). Signing material is to live in GitHub environment secrets behind a required-approval gate (OQ-3, Apple half). The owner will enrol in the Apple Developer Program ("Not yet, I'll enrol"); until then every Apple build is a simulator or unsigned hosted build.
+- **Apple devices:** the owner has an iPad Pro M4, an Apple Pencil and an iPhone 12 mini; the Mac mini is not yet bought, and nothing is device-verified.
+- **Ubuntu Touch device (OQ-37, 2026-10-14):** "Wait for the OnePlus 6 on a newer image". No second device is bought; the research reads the OnePlus 6 as 20.04-only (the installed image is not stated, OQ-33), so it only takes the S-UT1 (focal) pre-spike, and every Ubuntu Touch device gate stays NDV until it runs 24.04.
+- **Skin contract (OQ-39, 2026-10-14):** proposed conformance level for this app: Level 1, the first consumer (decision D7); the P13 theme module and editor are specified but not built, and adopting a Hyle-hosted format needs a written amendment to SCREENS_V1 section 3. The owner chose Tier 1 (palette) everywhere first and every app declaring its own level; the assistant chose JSON, not XML, after the owner asked for a check; the draft spec is Personal-Tracker `porting/skin-contract/SPEC-DRAFT.md`. This is a proposal, not decided for this app.
+- **Ubuntu Touch licence (OQ-35):** "Ask OpenStore's reviewers first". No licence change. The question is drafted in Personal-Tracker `porting/outbound/openstore-fsl-question.md` for the owner to post; the assistant cannot post it.
+
+When the owner confirms or changes the line, this repo's original cells above stay as the engineering detail; only the verdicts and re-costs in program section 5A.12 change.
