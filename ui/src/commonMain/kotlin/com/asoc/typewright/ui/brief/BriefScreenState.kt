@@ -26,6 +26,7 @@ import com.asoc.typewright.brief.questionFor
 import com.asoc.typewright.brief.reopening
 import com.asoc.typewright.brief.resolveBrief
 import com.asoc.typewright.brief.skipping
+import com.asoc.typewright.brief.withEthos
 import com.asoc.typewright.brief.withFeelingToggled
 import com.asoc.typewright.brief.withGenre
 import com.asoc.typewright.brief.withLevel
@@ -377,5 +378,5 @@ private fun saveEthos(
     ethos: Ethos,
 ): Boolean {
     val brief = session.state.value.meta.manifest.brief
-    return session.update(MetaChange.SetBrief(brief.copy(ethos = ethos))) !is EditResult.Refused
+    return session.update(MetaChange.SetBrief(brief.withEthos(ethos))) !is EditResult.Refused
 }

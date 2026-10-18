@@ -31,7 +31,14 @@ class ProjectManifestCodecTest {
         val manifest =
             Fixtures
                 .manifest(workbook = mapOf("latn" to WorkbookRecord(setOf(1, 2, 3))))
-                .copy(comparisonFonts = listOf(ComparisonFont("Jost", ComparisonSource.BUNDLED, slug = "jost", path = null)))
+                .copy(
+                    comparisonFonts = listOf(ComparisonFont("Jost", ComparisonSource.BUNDLED, slug = "jost", path = null)),
+                    // Set explicitly (matching the fixture's own styleClass.declared) so this
+                    // test's own round-trip assertion isn't about the brief migration a declared
+                    // class with no ethos at all would otherwise exercise on decode -- that is
+                    // aDeclaredStyleClassWithNoEthosMigratesToAStartingEthos's own job below.
+                    brief = Fixtures.manifest().brief.copy(ethos = Ethos(genre = "sans-geometric")),
+                )
         return Fixtures.projectState(font, manifest)
     }
 
@@ -166,6 +173,25 @@ class ProjectManifestCodecTest {
         // A project that never visited the Brief section keeps the JSON it had before the ethos existed.
         val text = ProjectManifestCodec.encode(Fixtures.projectState(), emptyMap())
         assertTrue("\"ethos\"" !in text)
+    }
+
+    @Test
+    fun aDeclaredStyleClassWithNoEthosMigratesToAStartingEthos() {
+        // Fixtures.manifest()'s own brief declares "sans-geometric" under the old S02 flow and has
+        // never visited the new Brief (TestFixtures.kt) -- exactly the project WP1's migration is for.
+        val text = ProjectManifestCodec.encode(Fixtures.projectState(), emptyMap())
+        assertEquals(
+            Ethos(genre = "sans-geometric"),
+            ProjectManifestCodec
+                .decode(text)
+                .manifest.brief.ethos,
+        )
+    }
+
+    @Test
+    fun aBriefWithNeitherADeclaredClassNorAnEthosDecodesNull() {
+        val manifest = Fixtures.manifest().copy(brief = Brief(source = BriefSource.BLANK))
+        val text = ProjectManifestCodec.encode(Fixtures.projectState(manifest = manifest), emptyMap())
         assertEquals(
             null,
             ProjectManifestCodec

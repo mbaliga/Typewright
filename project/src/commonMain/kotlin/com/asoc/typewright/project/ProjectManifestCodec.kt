@@ -168,13 +168,19 @@ internal object ProjectManifestCodec {
         val what = "brief"
         val intent = obj.jsonObj("intent", what)
         val styleClass = obj.jsonObj("style_class", what)
+        val declared = styleClass.stringOrNull("declared")
         return Brief(
             source = BriefSource.fromJson(obj.string("source", what)),
             model = intent.stringOrNull("model")?.let(ContrastModel::fromJson),
             use = intent.stringOrNull("use")?.let(Use::fromJson),
-            styleClass = StyleClass(declared = styleClass.stringOrNull("declared"), confirmed = styleClass.stringOrNull("confirmed")),
+            styleClass = StyleClass(declared = declared, confirmed = styleClass.stringOrNull("confirmed")),
             note = obj.stringOrNull("note"),
-            ethos = (obj["ethos"] as? JsonObject)?.let { readEthos(it) },
+            // Migration (docs/HANDOFF_BRIEF_FOLD.md "one record, one reader"): a project declared
+            // under the old S02 flow but never opened in the Brief gets that declared class as a
+            // starting ethos, rather than an empty one, the next time it is. A project with
+            // neither an ethos nor a declared class (never touched either flow) still decodes as
+            // null, byte-for-byte as before this migration existed.
+            ethos = (obj["ethos"] as? JsonObject)?.let { readEthos(it) } ?: declared?.let { Ethos(genre = it) },
         )
     }
 
