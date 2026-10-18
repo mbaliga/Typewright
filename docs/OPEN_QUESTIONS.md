@@ -3292,3 +3292,12 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     toggle is also Brief (Ask · Brief · Guide). It reads fine in use, but the toggle could become
     "Summary" if the repetition confuses. Madhav to decide.
 
+138. **S02 step 3's metrics are not prefilled from the class median (Brief).** PROMPTS_V1's S02 step
+    3 asks for x-height, cap, ascender and descender prefilled from the chosen class's median; the
+    style atlas (`StyleAtlas`/`AtlasFace`) carries no absolute cap height, ascender or descender at
+    all, only `xHeight` as a ratio to cap height (`qa:corpus`'s `Proportions.kt`), so there is no
+    measured number to prefill those three with (law 5: never invented). Skipped rather than
+    guessed, per the handoff's own escape hatch. A real fix needs either the atlas generator to
+    record absolute metrics per face (`data/scripts/fetch_style_atlas_fonts.py`) or a different
+    source for them. Owner: Madhav.
+

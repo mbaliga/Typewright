@@ -92,10 +92,16 @@ def style_atlas_shim() -> str:
 
 
 def ethos_shim() -> str:
+    """project/Model.kt's declared-brief types without the rest of the project model: BriefSource,
+    ContrastModel, Use, Brief and StyleClass (Ethos's own siblings, one contiguous block in
+    Model.kt) alongside Ethos itself. brief/BriefEdits.kt's Brief.withEthos/withConfirmedStyleClass
+    need all of them to compile here, even though the prototype itself only ever touches Ethos
+    directly -- dead code elimination (-Xir-dce) drops the unused ones from the built page."""
     text = (ROOT / "project/src/commonMain/kotlin/com/asoc/typewright/project/Model.kt").read_text(encoding="utf-8")
-    start = text.index("data class Ethos(")
-    end = text.index("\n}\n", start) + 3
-    return "package com.asoc.typewright.project\n\n" + text[start:end]
+    start = text.index("enum class BriefSource")
+    start = text.rfind("/**", 0, start)
+    end = text.index("\ndata class WorkbookRecord(")
+    return "package com.asoc.typewright.project\n\n" + text[start:end].rstrip() + "\n"
 
 
 def compile_engine(home: Path) -> str:

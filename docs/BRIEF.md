@@ -58,6 +58,33 @@ chosen to keep) and the ids of steps answered or skipped. It stores choices only
 are derived from the atlas each time they are shown, so a regenerated atlas never leaves a stale
 number in a project.
 
+## One record
+
+Before the Brief, S02's declared brief (TYPEWRIGHT_BUILD_BRIEF.md 8.4's "declare, infer,
+confirm") asked the same thing in its own three fields: `model` (serif/sans), `use`
+(text/display) and `styleClass.declared`, set directly from S02's chips. With the Brief in
+place, those fields are no longer a second copy the person could set independently of their
+answers here (decision D18): `Brief.withEthos` (`brief`) re-derives all three from `ethos` on
+every write, and every write goes through it (`BriefScreenUiState.persist`).
+
+- `model` comes from the serifs answer when one is given (no serifs -> sans, any serif style ->
+  serif), else the chosen genre's own group (sans or serif group -> that model, any other group
+  -> null — a display, script or mono genre answers neither chip).
+- `use` comes from the first (most important) use chosen: `body-text` -> text; `headline`,
+  `signage`, `wordmark` or `watch-face` -> display; any other use, or none, -> null.
+- `styleClass.declared` is the chosen genre when it is one of the ten node-economy classes, else
+  null — a genre outside that set has no Economy box to declare.
+
+`styleClass.confirmed` is different: it is never derived, only set by a person's own tap on
+"This is it" under a reading (in the Mirror door, or on the Brief tab once letters exist), through
+`Brief.withConfirmedStyleClass`. The style is never confirmed silently (TYPEWRIGHT_BUILD_BRIEF.md
+8.4's third layer, "the user confirms").
+
+A project declared under the old S02 flow, with `styleClass.declared` set and no ethos at all,
+opens with `Ethos(genre = declared)` as a starting point (`ProjectManifestCodec`'s own
+migration) rather than an empty brief; a project that never touched either flow still decodes
+with no ethos, byte-for-byte as before this migration existed.
+
 ## Dimensions and answers
 
 Each dimension (contrast, stress, serifs, bracketing, apertures, a- and g-storeys, terminals,

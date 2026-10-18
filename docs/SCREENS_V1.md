@@ -275,16 +275,18 @@ defaults from §2.
   empty; right **→** on steps 1–2, **✓** on step 3.
 - **Content:**
   1. *Source:* Draw on paper · Open a font · Start blank.
-  2. *Brief:* name; scripts (Latin, plus Kana · Devanagari · Naskh marked Preview); intent
-     (serif / sans · text / display); the closest class as chips with their corpus n
-     ("geometric sans · n 30"); an optional one-line note.
+  2. *Brief:* name; scripts (Latin, plus Kana · Devanagari · Naskh marked Preview); then the
+     Brief's own Style and Use doors (S25), which answer the old intent/class chips directly
+     (docs/HANDOFF_BRIEF_FOLD.md, decision D18: one record, one reader) -- no separate intent
+     or class picker here.
   3. *Metrics:* UPM 1000; x-height, cap, ascender and descender prefilled from the class
-     median, each editable and each showing that median; the folder location.
+     median, each editable and each showing that median (not yet built: the atlas carries no
+     absolute metric to prefill from, OPEN_QUESTIONS 138); the folder location.
 - **States:** a name clash; a folder that isn't writable.
 - **Data:** writes `<name>/` with `<name>-Regular.ufo`, `typewright.json` (the declared
   style) and empty `scrapbook/`, `lessons/` and `comparisons/` folders.
 - **Done when:** the UFO passes ufoLib validation and the project opens on Capture (paper),
-  S03 (a font) or Draw (blank).
+  S03 (a font) or the Brief's doors (blank).
 
 ### S03 Import audit (modal ink block)
 - **Purpose:** the licence and attribution check on import (§4.5 of the brief). One of
