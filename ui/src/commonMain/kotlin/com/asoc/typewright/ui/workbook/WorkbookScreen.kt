@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.asoc.typewright.brief.Door
 import com.asoc.typewright.campaign.Demonstration
 import com.asoc.typewright.campaign.WorkbookTask
 import com.asoc.typewright.campaign.WorkbookTaskProgress
@@ -46,6 +47,7 @@ import com.asoc.typewright.project.scrapbook.ScrapbookPin
 import com.asoc.typewright.project.scrapbook.ScrapbookPinKind
 import com.asoc.typewright.project.scrapbook.stablePinRotationDegrees
 import com.asoc.typewright.qa.NodeEconomyReport
+import com.asoc.typewright.ui.brief.LocalOpenBrief
 import com.asoc.typewright.ui.learn.hyleDecoFontFamily
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.tokens.CanvasTexture
@@ -446,7 +448,32 @@ private fun WorkbookTaskSection(
                 modifier = Modifier.padding(top = 8.dp),
             )
         }
+        if (task.index == 1) PickInTheBriefAction(texture = texture)
     }
+}
+
+/**
+ * Task 1's own action (WP5 "Task 1 meets the References door"): opens the Brief straight onto
+ * the References door, rather than the doors generally, since that is the one this task is about
+ * ("a font you admire"). Hidden where nothing provided [LocalOpenBrief] (every existing
+ * screenshot test, which never does).
+ */
+@Composable
+private fun PickInTheBriefAction(
+    texture: CanvasTexture,
+    modifier: Modifier = Modifier,
+) {
+    val openBrief = LocalOpenBrief.current ?: return
+    BasicText(
+        text = "Pick in the Brief ›",
+        style =
+            Typography
+                .mono(
+                    sizeSp = 10.5,
+                    weight = FontWeight.SemiBold,
+                ).copy(color = MeaningColors.VIOLET.forTexture(texture.id).toColor()),
+        modifier = modifier.padding(top = 8.dp).clickable { openBrief(Door.REFERENCES) },
+    )
 }
 
 /**

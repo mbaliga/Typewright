@@ -2,17 +2,26 @@
 
 package com.asoc.typewright.ui.brief
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import com.asoc.typewright.brief.Dimension
 import com.asoc.typewright.brief.Door
 import com.asoc.typewright.brief.Level
 import com.asoc.typewright.brief.Step
+import com.asoc.typewright.brief.startingReferences
 import com.asoc.typewright.project.Ethos
 import com.asoc.typewright.qa.corpus.loadStyleAtlas
 import com.asoc.typewright.ui.ScreenshotHarness
+import com.asoc.typewright.ui.project.InMemoryProjectFolderPicker
+import com.asoc.typewright.ui.project.LocalProjectWorkspace
+import com.asoc.typewright.ui.project.createProjectWorkspace
+import com.asoc.typewright.ui.project.createUntitledProject
 import com.asoc.typewright.ui.tokens.CanvasTextures
 import com.asoc.typewright.ui.tokens.toColor
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertNotNull
@@ -80,6 +89,22 @@ class BriefScreenScreenshotTest {
         val shot =
             ScreenshotHarness.capture(name = "brief-screen-references", width = 420, height = 1400, density = 2f) {
                 BriefScreen(texture = CanvasTextures.PAPER, state = state)
+            }
+        assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
+    }
+
+    @Test
+    fun addToScrapbookRendersUnderAChosenReferenceWithAProjectOpen() {
+        val workspace = createProjectWorkspace(CoroutineScope(Dispatchers.Default))
+        runBlocking { createUntitledProject(workspace, InMemoryProjectFolderPicker(workspace)) }
+        val atlas = loadStyleAtlas()
+        val family = startingReferences(atlas).first()
+        val state = BriefScreenUiState(initialEthos = Ethos(references = listOf(family)), atlas = atlas, initialDoor = Door.REFERENCES)
+        val shot =
+            ScreenshotHarness.capture(name = "brief-screen-add-to-scrapbook", width = 420, height = 1400, density = 2f) {
+                CompositionLocalProvider(LocalProjectWorkspace provides workspace) {
+                    BriefScreen(texture = CanvasTextures.PAPER, state = state)
+                }
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
     }

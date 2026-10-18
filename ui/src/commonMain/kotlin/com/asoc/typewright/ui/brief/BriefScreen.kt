@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,6 +71,11 @@ import com.asoc.typewright.brief.prompt
 import com.asoc.typewright.brief.readAs
 import com.asoc.typewright.brief.searchFaces
 import com.asoc.typewright.brief.why
+import com.asoc.typewright.project.MetaChange
+import com.asoc.typewright.project.scrapbook.ScrapbookPin
+import com.asoc.typewright.project.scrapbook.ScrapbookPinKind
+import com.asoc.typewright.project.scrapbook.stablePinRotationDegrees
+import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.CanvasTextures
 import com.asoc.typewright.ui.tokens.Typography
@@ -845,10 +851,69 @@ private fun ReferenceCard(
                 .orEmpty()
         }
     val cue = cueFaceOf(family)?.let { Cue(it, "Aa") }
-    OptionCard(texture = texture, selected = family in state.ethos.references, onClick = { state.toggleReference(family) }) {
+    val chosen = family in state.ethos.references
+    OptionCard(texture = texture, selected = chosen, onClick = { state.toggleReference(family) }) {
         SpecimenRow(cue = cue, title = family, detail = detail, texture = texture)
+        if (chosen) AddReferenceToScrapbookAction(family = family, detail = detail, texture = texture)
     }
 }
+
+/**
+ * "Add to scrapbook" under a chosen reference (WP5 "Task 1 meets the References door"): one tap
+ * pins a note naming the face and its own [describeFace] line, through the same
+ * [MetaChange.AddPin] path [com.asoc.typewright.ui.learn.ScrapbookTab]'s "+ note" uses. Nothing
+ * with no project open: a pin needs somewhere real to live, so this reads [LocalProjectWorkspace]
+ * directly rather than going through [BriefScreenUiState], which only ever persists the ethos.
+ */
+@Composable
+private fun AddReferenceToScrapbookAction(
+    family: String,
+    detail: String,
+    texture: CanvasTexture,
+) {
+    val session =
+        LocalProjectWorkspace.current
+            ?.current
+            ?.collectAsState()
+            ?.value ?: return
+    var added by remember(family, session) { mutableStateOf(false) }
+    // Always on ink: this action only ever renders under a chosen reference, which OptionCard
+    // already shows as an ink block with paper text (CLAUDE.md law 8).
+    val colour = texture.canvas.toColor().copy(alpha = ON_INK_MUTED_ALPHA)
+    BasicText(
+        text = if (added) "Added to scrapbook" else "Add to scrapbook",
+        style = monoStyle(colour, sizeSp = 9.5),
+        modifier =
+            Modifier.padding(top = 4.dp).clickable(enabled = !added) {
+                val id =
+                    session.state.value.meta.scrapbook
+                        .nextPinId()
+                session.update(
+                    MetaChange.AddPin(
+                        referenceScrapbookPin(family = family, detail = detail, id = id),
+                        image = null,
+                        imageExtension = null,
+                    ),
+                )
+                added = true
+            },
+    )
+}
+
+/** The pin [AddReferenceToScrapbookAction] writes: a note naming [family] and its own [describeFace] line ([detail]), or just its name when there is none (no atlas, or nothing measured). */
+internal fun referenceScrapbookPin(
+    family: String,
+    detail: String,
+    id: String,
+): ScrapbookPin =
+    ScrapbookPin(
+        id = id,
+        kind = ScrapbookPinKind.NOTE,
+        captionTitle = family,
+        captionSource = "reference",
+        noteText = if (detail.isEmpty()) family else "$family: $detail",
+        rotationDegrees = stablePinRotationDegrees(id),
+    )
 
 /** A flat, square text field with a muted placeholder. */
 @Composable
