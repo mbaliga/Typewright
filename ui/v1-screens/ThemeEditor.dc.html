@@ -1,0 +1,86 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Theme editor</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; background: #EFE9DC; }
+.m { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+.gh { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #6F6A5E; margin-top: 10px; }
+.role { display: flex; align-items: center; gap: 12px; min-height: 30px; font-size: 13.5px; }
+.sw { width: 22px; height: 22px; flex-shrink: 0; }
+.hex { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.06em; color: #6F6A5E; margin-left: auto; }
+.shape { width: 26px; display: flex; justify-content: center; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #EFE9DC; color: #17150F; font-family: 'IBM Plex Sans', system-ui, sans-serif">
+
+<div style="position: absolute; left: 22px; top: 52px; right: 22px; display: flex; flex-direction: column; gap: 3px">
+<div style="font-size: 15px; font-weight: 600">Night amber</div>
+<div class="m" style="color: #6F6A5E; font-size: 9.5px">Custom · duplicated from Black · unsaved</div>
+</div>
+
+<div style="position: absolute; left: 0; top: 96px; width: 390px; height: 200px; background: #000000; overflow: hidden">
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 200px; background-image: linear-gradient(rgba(255,255,255,0.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.09) 1px, transparent 1px); background-size: 28px 28px"></div>
+<svg width="390" height="200" viewBox="0 0 390 200" style="position: absolute; left: 0; top: 0" aria-label="Preview of the theme on the letter o">
+<line x1="0" y1="34" x2="390" y2="34" stroke="rgba(255,255,255,0.35)"></line>
+<line x1="0" y1="166" x2="390" y2="166" stroke="rgba(255,255,255,0.35)"></line>
+<g fill="none" stroke="rgba(243,243,240,0.7)" stroke-dasharray="1.5 3"><circle cx="118" cy="65" r="31"></circle><circle cx="80" cy="135" r="31"></circle><line x1="98.8" y1="20" x2="98.8" y2="182"></line></g>
+<path fill-rule="evenodd" d="M 80 166 L 118 166 C 135.2 166 149.2 152 149.2 134.8 L 149.2 65.2 C 149.2 48 135.2 34 118 34 L 80 34 C 62.8 34 48.8 48 48.8 65.2 L 48.8 134.8 C 48.8 152 62.8 166 80 166 Z M 80 154.4 L 118 154.4 C 128.8 154.4 137.6 145.6 137.6 134.8 L 137.6 65.2 C 137.6 54.4 128.8 45.6 118 45.6 L 80 45.6 C 69.2 45.6 60.4 54.4 60.4 65.2 L 60.4 134.8 C 60.4 145.6 69.2 154.4 80 154.4 Z" fill="rgba(243,243,240,0.08)" stroke="#F3F3F0" stroke-width="1.3"></path>
+<g fill="#000" stroke="#F3F3F0" stroke-width="1.3"><circle cx="80" cy="166" r="3"></circle><circle cx="118" cy="166" r="3"></circle><circle cx="48.8" cy="65.2" r="3"></circle><circle cx="80" cy="34" r="3"></circle></g>
+<g fill="#000" stroke="#8E8E89" stroke-width="1"><circle cx="135.2" cy="166" r="2.3"></circle><circle cx="62.8" cy="34" r="2.3"></circle></g>
+<line x1="149.2" y1="65.2" x2="149.2" y2="48" stroke="#FFB300" stroke-width="1.2"></line>
+<circle cx="149.2" cy="65.2" r="6.5" fill="none" stroke="#FFB300" stroke-width="1.2"></circle>
+<circle cx="149.2" cy="65.2" r="3.8" fill="#FFB300"></circle>
+<g stroke="#08FED5" stroke-width="1.4"><line x1="106" y1="34" x2="130" y2="34"></line><line x1="118" y1="22" x2="118" y2="46"></line></g>
+<g style="font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 0.8px">
+<text x="200" y="52" fill="#8E8E89">o</text>
+<line x1="214" y1="49" x2="330" y2="49" stroke="rgba(243,243,240,0.45)"></line>
+<rect x="238" y="44" width="10" height="10" fill="rgba(243,243,240,0.2)"></rect>
+<line x1="242" y1="44" x2="242" y2="54" stroke="#F3F3F0" stroke-width="1.5"></line>
+<circle cx="226" cy="49" r="4.3" fill="#FFB300" stroke="#000" stroke-width="2"></circle>
+<text x="200" y="92" fill="#F3F3F0">● NODE ECONOMY</text>
+<text x="200" y="106" fill="#8E8E89">38 of 52 letters</text>
+<text x="200" y="124" fill="#FFB300">SEE EVERY GLYPH ›</text>
+<text x="200" y="160" fill="#8E8E89">SNAP</text><line x1="228" y1="157" x2="248" y2="157" stroke="#08FED5" stroke-width="1.4"></line>
+<text x="256" y="160" fill="#8E8E89">LAYER 1</text><line x1="298" y1="157" x2="330" y2="157" stroke="#FF8A00" stroke-width="1.4"></line>
+</g>
+</svg>
+</div>
+
+<div style="position: absolute; left: 22px; right: 22px; top: 304px; display: flex; flex-direction: column; height: 364px; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 85%, transparent 100%); mask-image: linear-gradient(to bottom, #000 85%, transparent 100%)">
+<div class="gh">Accent · selection, actions, your point</div>
+<div class="role"><div class="sw" style="background: #FFB300"></div><span>Accent</span><span class="hex">#FFB300</span><span class="shape"><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="5.5" fill="none" stroke="#17150F"></circle></svg></span></div>
+<div style="display: flex; gap: 8px; font-size: 12px; line-height: 1.4; padding: 2px 0 6px 34px"><span>◐</span><span>Too close to comparison layer 1 (ΔE 12) to tell apart. Save waits until they differ. <a href="#" style="color: #5F4BE0; font-weight: 600; text-decoration: none">Move layer 1 to #FF8A00 ›</a></span></div>
+<div class="gh">Nodes</div>
+<div class="role"><div class="sw" style="background: #F3F3F0; outline: 1px solid rgba(23,21,15,0.2)"></div><span>On-curve</span><span class="hex">#F3F3F0</span><span class="shape"><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="4" fill="none" stroke="#17150F" stroke-width="1.4"></circle></svg></span></div>
+<div class="role"><div class="sw" style="background: #8E8E89"></div><span>Off-curve handle</span><span class="hex">#8E8E89</span><span class="shape"><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="2.8" fill="none" stroke="#17150F"></circle></svg></span></div>
+<div class="role"><div class="sw" style="background: #08FED5"></div><span>Snap target</span><span class="hex">#08FED5</span><span class="shape"><svg width="14" height="14" aria-hidden="true"><path d="M 1 7 H 13 M 7 1 V 13" stroke="#17150F" stroke-width="1.3"></path></svg></span></div>
+<div class="gh">Lines</div>
+<div class="role"><div class="sw" style="background: #F3F3F0; opacity: 0.7"></div><span>Construction</span><span class="hex">#F3F3F0 · 70%</span><span class="shape"><svg width="22" height="6" aria-hidden="true"><path d="M 0 3 H 22" stroke="#17150F" stroke-dasharray="1.5 3"></path></svg></span></div>
+<div class="role"><div class="sw" style="background: #F3F3F0; opacity: 0.35"></div><span>Metric lines</span><span class="hex">#F3F3F0 · 35%</span><span class="shape"><svg width="22" height="6" aria-hidden="true"><path d="M 0 3 H 22" stroke="#17150F"></path></svg></span></div>
+<div class="role"><div class="sw" style="background: #F3F3F0; opacity: 0.09"></div><span>Grid</span><span class="hex">9%</span><span class="shape"></span></div>
+</div>
+
+<div style="position: absolute; left: 0; top: 672px; width: 390px; height: 172px">
+<dc-import name="Deck" section="Home" left="close" right="check" right-dim="true" toggles="Light|Dark*" dim-sections="true" hint-size="390px,172px"></dc-import>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

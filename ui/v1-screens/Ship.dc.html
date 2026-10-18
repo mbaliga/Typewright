@@ -1,0 +1,63 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; background: #EFE9DC; }
+.m { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+.it { display: flex; gap: 12px; align-items: baseline; }
+.sh { font-size: 12px; width: 12px; flex-shrink: 0; }
+.ds { font-size: 13px; line-height: 1.45; }
+.sub { font-size: 12px; line-height: 1.4; color: #6F6A5E; }
+.tree { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; line-height: 1.75; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #EFE9DC; color: #17150F; font-family: 'IBM Plex Sans', system-ui, sans-serif">
+<svg width="390" height="844" style="position: absolute; left: 0; top: 0; opacity: 0.55; mix-blend-mode: multiply; pointer-events: none" aria-hidden="true"><filter id="gr"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"></feTurbulence><feColorMatrix values="0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.22 0 0 0 0.26 0"></feColorMatrix></filter><rect width="390" height="844" filter="url(#gr)"></rect></svg>
+
+<div style="position: absolute; left: 22px; top: 52px; right: 22px; display: flex; flex-direction: column; gap: 3px">
+<div style="font-size: 15px; font-weight: 600">Ship · Hyle Deco</div>
+<div class="m" style="color: #6F6A5E; font-size: 9.5px">A Google Fonts repository, written to a folder</div>
+</div>
+
+<div style="position: absolute; left: 22px; right: 22px; top: 110px; display: flex; flex-direction: column; gap: 15px">
+
+<div class="it"><span class="sh">●</span><div style="display: flex; flex-direction: column; gap: 2px"><span class="ds">Check has 4 fails</span><a href="Check.dc.html" class="sub" style="color: #5F4BE0; font-weight: 600; text-decoration: none">Fix them in Check ›</a></div></div>
+<div class="it"><span class="sh">✓</span><div style="display: flex; flex-direction: column; gap: 2px"><span class="ds">Names are unique</span><span class="sub">Hyle Deco · Regular · HyleDeco-Regular</span></div></div>
+<div class="it"><span class="sh">✓</span><div style="display: flex; flex-direction: column; gap: 2px"><span class="ds">OFL.txt with your copyright line</span><span class="sub">Copyright 2026 The Hyle Deco Project Authors</span></div></div>
+<div class="it"><span class="sh">◐</span><div style="display: flex; flex-direction: column; gap: 2px"><span class="ds">Designer is not set</span><span class="sub">METADATA needs one · Font info ›</span></div></div>
+<div class="it"><span class="sh">○</span><div style="display: flex; flex-direction: column; gap: 2px"><span class="ds">DESCRIPTION.en_us.html</span><span class="sub">A draft from your brief, ready to edit</span></div></div>
+<div class="it"><span class="sh">○</span><div style="display: flex; flex-direction: column; gap: 2px"><span class="ds">Compiled on this device</span><span class="sub">fontmake runs here when you build · nothing is sent</span></div></div>
+
+<div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px">
+<div class="m" style="font-size: 9px; color: #6F6A5E">Writes to · ~/Fonts/hyle-deco-gf</div>
+<div class="tree">fonts/ttf/HyleDeco-Regular.ttf<br>sources/HyleDeco-Regular.ufo<br>OFL.txt · AUTHORS.txt<br>DESCRIPTION.en_us.html<br>METADATA.pb · upstream.yaml</div>
+</div>
+
+<div style="font-size: 12.5px; line-height: 1.45; background: #17150F; color: #EFE9DC; padding: 10px 12px">Build is blocked while Check has fails. 4 to go.</div>
+
+</div>
+
+<div style="position: absolute; left: 0; top: 672px; width: 390px; height: 172px">
+<dc-import name="Deck" section="Ship" left="back" right="build" right-dim="true" toggles="Google Fonts*|Own licence" hint-size="390px,172px"></dc-import>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

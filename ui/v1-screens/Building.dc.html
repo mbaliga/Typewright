@@ -1,0 +1,61 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship, building</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+@font-face { font-family: "Hyle Deco"; src: url(/_blob/87ef2c1f7693e8b7acd70e03d6088e45) format("truetype"); }
+body { margin: 0; background: #EFE9DC; }
+.m { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+.hy { font-family: "Hyle Deco", serif; }
+.st { display: flex; gap: 12px; align-items: baseline; }
+.sh { font-size: 13px; width: 13px; flex-shrink: 0; }
+.ds { font-size: 13.5px; }
+.t { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #6F6A5E; margin-left: auto; font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #EFE9DC; color: #17150F; font-family: 'IBM Plex Sans', system-ui, sans-serif">
+<svg width="390" height="844" style="position: absolute; left: 0; top: 0; opacity: 0.55; mix-blend-mode: multiply; pointer-events: none" aria-hidden="true"><filter id="gr"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"></feTurbulence><feColorMatrix values="0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.22 0 0 0 0.26 0"></feColorMatrix></filter><rect width="390" height="844" filter="url(#gr)"></rect></svg>
+
+<div style="position: absolute; left: 22px; top: 52px; right: 22px; display: flex; flex-direction: column; gap: 3px">
+<div style="font-size: 15px; font-weight: 600">Building Hyle Deco</div>
+<div class="m" style="color: #6F6A5E; font-size: 9.5px">On this device · nothing leaves it</div>
+</div>
+
+<div class="hy" style="position: absolute; left: 22px; top: 120px; font-size: 54px; line-height: 1; opacity: 0.9">Hamburg</div>
+
+<div style="position: absolute; left: 22px; right: 22px; top: 210px; display: flex; flex-direction: column; gap: 16px">
+<div class="st"><span class="sh">✓</span><span class="ds">Write the UFO from the project</span><span class="t">0.4 s</span></div>
+<div class="st"><span class="sh">✓</span><span class="ds">fontmake · UFO to TTF</span><span class="t">6.2 s</span></div>
+<div class="st"><span class="sh">◐</span><span class="ds" style="font-weight: 600">Check the compiled binary</span><span class="t">running</span></div>
+<div class="st" style="opacity: 0.45"><span class="sh">○</span><span class="ds">Write the repository folder</span><span class="t"></span></div>
+</div>
+
+<div style="position: absolute; left: 22px; right: 22px; top: 390px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; height: 3px; width: 346px; background: rgba(23,21,15,0.14)"><div style="width: 230px; background: #17150F"></div></div>
+<div class="m" style="font-size: 9.5px; display: flex; justify-content: space-between"><span>Elapsed 00:08</span><span style="color: #6F6A5E">Cancel leaves the project untouched</span></div>
+<a href="#" style="font-size: 12.5px; font-weight: 600; color: #5F4BE0; text-decoration: none; margin-top: 6px">Show fontmake output ›</a>
+</div>
+
+<div style="position: absolute; left: 0; top: 672px; width: 390px; height: 172px">
+<dc-import name="Deck" section="Ship" left="close" right="none" toggles="" hint-size="390px,172px"></dc-import>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

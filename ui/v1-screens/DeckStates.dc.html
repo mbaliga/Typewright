@@ -1,0 +1,63 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Control deck states</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; background: #EFE9DC; }
+.cap { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #17150F; }
+.sub { font-size: 12px; color: #6F6A5E; line-height: 1.4; }
+.cell { display: flex; flex-direction: column; gap: 8px; }
+.slot { width: 390px; height: 172px; position: relative; }
+</style>
+</helmet>
+<div style="width: 880px; height: 844px; box-sizing: border-box; padding: 36px 34px; background: #EFE9DC; color: #17150F; font-family: 'IBM Plex Sans', system-ui, sans-serif; display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="font-size: 17px; font-weight: 600">The control deck</div>
+<div class="sub">Section arc below; left circle, toggle arc, right circle above. One component; the camera and map states are on their own boards.</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px; row-gap: 24px">
+
+<div class="cell">
+<div class="slot"><dc-import name="Deck" section="Draw" left="back" right="menu" toggles="Outline*|Fill||Construction*" hint-size="390px,172px"></dc-import></div>
+<div class="cap">Back · ⋯ · two toggle groups</div>
+<div class="sub">The default. ⋯ opens the page menu; Command… comes first.</div>
+</div>
+
+<div class="cell">
+<div class="slot"><dc-import name="Deck" section="Trace" left="close" right="check" toggles="" hint-size="390px,172px"></dc-import></div>
+<div class="cap">Close · primary action</div>
+<div class="sub">Red ✕ leaves without committing. The filled circle is the one thing this page is for.</div>
+</div>
+
+<div class="cell">
+<div class="slot"><dc-import name="Deck" section="Ship" left="back" right="build" right-dim="true" toggles="Google Fonts*|Own licence" hint-size="390px,172px"></dc-import></div>
+<div class="cap">Primary, blocked</div>
+<div class="sub">Stays visible at 35%; a tap explains what blocks it.</div>
+</div>
+
+<div class="cell" style="background: #17417C; padding-bottom: 8px">
+<div class="slot"><dc-import name="Deck" section="Space" left="back" right="menu" theme="blueprint" toggles="Spacing*|Kerning" hint-size="390px,172px"></dc-import></div>
+<div class="cap" style="color: #FFFFFF; padding-left: 10px">Blueprint theme</div>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":880,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

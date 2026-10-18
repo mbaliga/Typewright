@@ -91,9 +91,10 @@ compiled-binary re-check inside step 6) depends on D5's outcome.
 
 ## 6. Decisions still owed
 
-From `PROMPTS_V1.md` §2. D1 and D3 are decided. D7's documents are delivered, but its mockup
-sources, `ui/v1-screens/`, are not in the repository yet (`docs/OPEN_QUESTIONS.md` item 123),
-and P11's UI needs them first. The triage adds D10–D14 (`docs/V1_TRIAGE.md`).
+From `PROMPTS_V1.md` §2. D1 and D3 are decided. D7's documents are delivered, and its mockup
+sources, `ui/v1-screens/`, are in the repository (`docs/OPEN_QUESTIONS.md` item 123, resolved
+19 Oct 2026); the Brief's S25–S27 still need boards (item 139). The triage adds D10–D14
+(`docs/V1_TRIAGE.md`).
 
 
 - **D2 — Name clearance for "Typewright"** (needed by P18): start the TM-A search now; the

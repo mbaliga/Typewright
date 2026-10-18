@@ -1,0 +1,79 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Templates</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+@font-face { font-family: "Hyle Deco"; src: url(/_blob/87ef2c1f7693e8b7acd70e03d6088e45) format("truetype"); }
+body { margin: 0; background: #EFE9DC; }
+.m { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+.hy { font-family: "Hyle Deco", serif; }
+.chip { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 8px; border: 0; background: transparent; color: #17150F; }
+.on { background: #17150F; color: #EFE9DC; }
+.sheet { width: 58px; height: 82px; position: relative; background-color: #FBF8F1; background-image: linear-gradient(rgba(23,21,15,0.14) 1px, transparent 1px), linear-gradient(90deg, rgba(23,21,15,0.14) 1px, transparent 1px); background-size: 12.5px 12.5px; background-position: 4px 4px; }
+.fd { position: absolute; width: 5px; height: 5px; background: #17150F; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #EFE9DC; color: #17150F; font-family: 'IBM Plex Sans', system-ui, sans-serif">
+<svg width="390" height="844" style="position: absolute; left: 0; top: 0; opacity: 0.55; mix-blend-mode: multiply; pointer-events: none" aria-hidden="true"><filter id="gr"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"></feTurbulence><feColorMatrix values="0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.22 0 0 0 0.26 0"></feColorMatrix></filter><rect width="390" height="844" filter="url(#gr)"></rect></svg>
+
+<div style="position: absolute; left: 22px; top: 56px; right: 22px; display: flex; flex-direction: column; gap: 3px">
+<div style="font-size: 15px; font-weight: 600">Templates</div>
+<div class="m" style="color: #6F6A5E; font-size: 9.5px">Latin · 120 glyphs · metric guides drawn in</div>
+</div>
+
+<div style="position: absolute; left: 22px; top: 118px; right: 22px; display: flex; flex-direction: column; gap: 26px">
+
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 3px">
+<div style="font-size: 14px; font-weight: 600">Print sheets · for pen and paper</div>
+<div style="font-size: 12.5px; color: #6F6A5E; line-height: 1.45">24 cells a sheet. The four corner marks let the camera square the page.</div>
+</div>
+<div style="display: flex; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 5px"><div class="sheet"><div class="fd" style="left: 2px; top: 2px"></div><div class="fd" style="right: 2px; top: 2px"></div><div class="fd" style="left: 2px; bottom: 2px"></div><div class="fd" style="right: 2px; bottom: 2px"></div><div class="hy" style="position: absolute; left: 7px; top: 8px; font-size: 9px; letter-spacing: 3px; line-height: 12.5px; width: 50px; opacity: 0.35">ABCDEFGHIJKLMNOPQRSTUVWX</div></div><span class="m" style="font-size: 9px">1 · A–X</span></div>
+<div style="display: flex; flex-direction: column; gap: 5px"><div class="sheet"><div class="fd" style="left: 2px; top: 2px"></div><div class="fd" style="right: 2px; top: 2px"></div><div class="fd" style="left: 2px; bottom: 2px"></div><div class="fd" style="right: 2px; bottom: 2px"></div><div class="hy" style="position: absolute; left: 7px; top: 8px; font-size: 9px; letter-spacing: 3px; line-height: 12.5px; width: 50px; opacity: 0.35">YZabcdefghijklmnopqrstuv</div></div><span class="m" style="font-size: 9px">2 · Y–v</span></div>
+<div style="display: flex; flex-direction: column; gap: 5px"><div class="sheet"><div class="fd" style="left: 2px; top: 2px"></div><div class="fd" style="right: 2px; top: 2px"></div><div class="fd" style="left: 2px; bottom: 2px"></div><div class="fd" style="right: 2px; bottom: 2px"></div><div class="hy" style="position: absolute; left: 7px; top: 8px; font-size: 9px; letter-spacing: 3px; line-height: 12.5px; width: 50px; opacity: 0.35">wxyz0123456789.,:;!?</div></div><span class="m" style="font-size: 9px">3 · w–?</span></div>
+<div style="display: flex; flex-direction: column; gap: 5px"><div class="sheet"></div><span class="m" style="font-size: 9px">4 · marks</span></div>
+<div style="display: flex; flex-direction: column; gap: 5px"><div class="sheet"></div><span class="m" style="font-size: 9px">5 · symbols</span></div>
+</div>
+<div style="display: flex; gap: 18px">
+<div style="display: flex; gap: 2px"><button class="chip on">A4</button><button class="chip">Letter</button></div>
+<div style="display: flex; gap: 2px"><button class="chip on">Guides light</button><button class="chip">No guides</button></div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 14px; font-weight: 600">SVG templates · for Illustrator, Figma or Inkscape</div>
+<div style="font-size: 12.5px; color: #6F6A5E; line-height: 1.45; max-width: 330px">One file per glyph, with the metric guides and a faint reference glyph. Draw filled shapes, delete the reference, then bring them back through Capture › + › File. Vector drawings skip straight to the Fit stage.</div>
+<a href="#" style="font-size: 13px; font-weight: 600; color: #5F4BE0; text-decoration: none">Export the SVG pack ›</a>
+</div>
+
+<div style="display: flex; gap: 10px; align-items: baseline">
+<span style="font-size: 13px">○</span>
+<span style="font-size: 12.5px; line-height: 1.45; color: #6F6A5E">Templates are CC0. What you draw on them is yours.</span>
+</div>
+
+</div>
+
+<div style="position: absolute; left: 0; top: 672px; width: 390px; height: 172px">
+<dc-import name="Deck" section="Capture" left="back" right="download" toggles="Latin*|Kana|Devanagari|Naskh" hint-size="390px,172px"></dc-import>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

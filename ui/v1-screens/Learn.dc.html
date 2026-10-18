@@ -1,0 +1,76 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Learn, lineages</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=EB+Garamond:wght@400&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; background: #EFE9DC; }
+.m { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+.era { display: flex; flex-direction: column; gap: 1px; font-size: 13px; }
+.yr { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; color: #6F6A5E; }
+.tag { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #5F4BE0; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #EFE9DC; color: #17150F; font-family: 'IBM Plex Sans', system-ui, sans-serif">
+<svg width="390" height="844" style="position: absolute; left: 0; top: 0; opacity: 0.55; mix-blend-mode: multiply; pointer-events: none" aria-hidden="true"><filter id="gr"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"></feTurbulence><feColorMatrix values="0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.22 0 0 0 0.26 0"></feColorMatrix></filter><rect width="390" height="844" filter="url(#gr)"></rect></svg>
+
+<div style="position: absolute; left: 22px; top: 52px; right: 22px; display: flex; flex-direction: column; gap: 3px">
+<div style="font-size: 15px; font-weight: 600">Lineages</div>
+<div class="m" style="color: #6F6A5E; font-size: 9.5px">Ten eras · ten real faces · one scrubber</div>
+</div>
+
+<div style="position: absolute; left: 22px; top: 106px; width: 420px; display: flex; gap: 22px; -webkit-mask-image: linear-gradient(to right, #000 70%, transparent 88%); mask-image: linear-gradient(to right, #000 70%, transparent 88%)">
+<div class="era" style="opacity: 0.5"><span>Blackletter</span><span class="yr">1450</span></div>
+<div class="era" style="opacity: 0.8"><span>Humanist</span><span class="yr">1470</span></div>
+<div class="era" style="background: #17150F; color: #EFE9DC; padding: 2px 6px; margin-top: -2px"><span style="font-weight: 600">Garalde</span><span class="yr" style="color: rgba(239,233,220,0.7)">1530</span></div>
+<div class="era" style="opacity: 0.8"><span>Transitional</span><span class="yr">1757</span></div>
+<div class="era" style="opacity: 0.5"><span>Didone</span><span class="yr">1784</span></div>
+</div>
+
+<div style="position: absolute; left: 22px; top: 172px; width: 346px; height: 210px; display: flex; align-items: center; justify-content: center">
+<span style="font-family: 'EB Garamond', Georgia, serif; font-size: 150px; line-height: 1">ago</span>
+</div>
+
+<svg width="64" height="78" viewBox="0 0 64 78" style="position: absolute; left: 304px; top: 168px" aria-label="Stress dial: 30 degrees">
+<circle cx="32" cy="32" r="28" fill="none" stroke="rgba(23,21,15,0.25)"></circle>
+<line x1="32" y1="32" x2="46" y2="7.8" stroke="#5F4BE0" stroke-width="2"></line>
+<line x1="32" y1="32" x2="18" y2="56.2" stroke="#5F4BE0" stroke-width="2"></line>
+<circle cx="32" cy="32" r="2.5" fill="#5F4BE0"></circle>
+<text x="32" y="75" text-anchor="middle" style="font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; letter-spacing: 1px" fill="#6F6A5E">STRESS 30°</text>
+</svg>
+
+<div style="position: absolute; left: 22px; right: 22px; top: 400px; height: 14px">
+<div style="position: absolute; left: 0; right: 0; top: 6px; height: 2px; background: rgba(23,21,15,0.18)"></div>
+<div style="position: absolute; left: 78px; top: 0; width: 14px; height: 14px; border-radius: 7px; background: #5F4BE0"></div>
+</div>
+
+<div style="position: absolute; left: 22px; right: 22px; top: 438px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; gap: 10px; align-items: baseline"><span style="font-size: 15px; font-weight: 600">Garalde</span><span class="yr">EB Garamond · OFL</span></div>
+<div style="font-size: 13px; line-height: 1.5; max-width: 340px">The romans of Aldus and Garamond. The broad nib's slanted stress survives, but the letters are now cut in steel, not written.</div>
+<div style="display: flex; gap: 12px; flex-wrap: wrap"><span class="tag">Diagonal stress</span><span class="tag">Bracketed serifs</span><span class="tag">Moderate contrast</span></div>
+<div style="font-size: 12px; color: #6F6A5E">Made with a broad-nib pen, then a punch.</div>
+<a href="#" style="font-size: 12.5px; font-weight: 600; color: #5F4BE0; text-decoration: none; margin-top: 8px">Name the era of a face you haven't seen ›</a>
+</div>
+
+<div style="position: absolute; left: 0; top: 672px; width: 390px; height: 172px">
+<dc-import name="Deck" section="Learn" left="back" right="menu" toggles="Lineages*|Overlay|Lens|Scrapbook" hint-size="390px,172px"></dc-import>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

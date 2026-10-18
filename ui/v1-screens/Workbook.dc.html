@@ -1,0 +1,69 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Workbook</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+@font-face { font-family: "Hyle Deco"; src: url(/_blob/87ef2c1f7693e8b7acd70e03d6088e45) format("truetype"); }
+body { margin: 0; background: #EFE9DC; }
+.m { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+.hy { font-family: "Hyle Deco", serif; }
+.sec { display: flex; flex-direction: column; gap: 5px; }
+.hd { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #6F6A5E; }
+.tx { font-size: 13px; line-height: 1.48; }
+.gt { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #EFE9DC; color: #17150F; font-family: 'IBM Plex Sans', system-ui, sans-serif">
+<svg width="390" height="844" style="position: absolute; left: 0; top: 0; opacity: 0.55; mix-blend-mode: multiply; pointer-events: none" aria-hidden="true"><filter id="gr"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"></feTurbulence><feColorMatrix values="0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.22 0 0 0 0.26 0"></feColorMatrix></filter><rect width="390" height="844" filter="url(#gr)"></rect></svg>
+
+<div style="position: absolute; left: 22px; top: 52px; right: 22px; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; gap: 10px; align-items: center"><span style="font-size: 15px; font-weight: 600">Task 4 · Control characters</span><span class="m" style="font-size: 8.5px; background: #17150F; color: #EFE9DC; padding: 2px 6px">early</span></div>
+<div class="m" style="color: #6F6A5E; font-size: 9.5px">4 of 12 · lessons being written</div>
+</div>
+
+<div style="position: absolute; left: 22px; right: 22px; top: 112px; display: flex; flex-direction: column; gap: 18px">
+<div class="sec"><span class="hd">Why</span><span class="tx">n, o, H and O are the letters every other letter is spaced and judged against. If they are heavy, the whole font is.</span></div>
+<div class="sec"><span class="hd">Task</span><span class="tx">Bring all four inside their boxes. Refit them, or redraw with fewer points.</span></div>
+
+<div class="sec"><span class="hd">Gate · against 30 geometric sans</span>
+<div style="display: flex; justify-content: space-between; padding: 8px 6px 0">
+<div class="gt"><span class="hy" style="font-size: 48px; line-height: 1">n</span><span class="m" style="font-size: 9px; letter-spacing: 0.04em; background: #17150F; color: #EFE9DC; padding: 1px 5px">44 ●</span><span class="m" style="font-size: 8.5px; letter-spacing: 0.04em; color: #6F6A5E">box 17–22</span></div>
+<div class="gt"><span class="hy" style="font-size: 48px; line-height: 1">o</span><span class="m" style="font-size: 9px; letter-spacing: 0.04em; background: #17150F; color: #EFE9DC; padding: 1px 5px">80 ●</span><span class="m" style="font-size: 8.5px; letter-spacing: 0.04em; color: #6F6A5E">box 23–24</span></div>
+<div class="gt"><span class="hy" style="font-size: 48px; line-height: 1">H</span><span class="m" style="font-size: 9px; letter-spacing: 0.04em; background: #17150F; color: #EFE9DC; padding: 1px 5px">1,252 ●</span><span class="m" style="font-size: 8.5px; letter-spacing: 0.04em; color: #6F6A5E">box 12–18</span></div>
+<div class="gt"><span class="hy" style="font-size: 48px; line-height: 1">O</span><span class="m" style="font-size: 9px; letter-spacing: 0.04em; background: #17150F; color: #EFE9DC; padding: 1px 5px">83 ●</span><span class="m" style="font-size: 8.5px; letter-spacing: 0.04em; color: #6F6A5E">box 24–29</span></div>
+</div>
+</div>
+
+<div style="display: flex; gap: 18px">
+<a href="Trace.dc.html" style="font-size: 12.5px; font-weight: 600; color: #5F4BE0; text-decoration: none">Trace again with Fit ›</a>
+<a href="Learn.dc.html" style="font-size: 12.5px; font-weight: 600; color: #5F4BE0; text-decoration: none">Compare in Overlay ›</a>
+</div>
+
+<div class="sec"><label for="refl" class="hd">Reflection · saved to lessons/</label>
+<textarea id="refl" rows="3" placeholder="What made the o heavy?" style="font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; line-height: 1.45; border: 0; border-bottom: 1px solid rgba(23,21,15,0.35); background: transparent; color: #17150F; resize: none; padding: 4px 0; outline: none"></textarea>
+</div>
+</div>
+
+<div style="position: absolute; left: 0; top: 672px; width: 390px; height: 172px">
+<dc-import name="Deck" section="Workbook" left="back" right="menu" toggles="This task*|All tasks" hint-size="390px,172px"></dc-import>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

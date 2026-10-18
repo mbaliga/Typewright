@@ -44,7 +44,7 @@ File references are to the renamed packages (`com.asoc.typewright`).
 |---|---|---|---|
 | D1 | Licence: the lawyer's read. Item 122 adds that app code pushed before bb321f5 is Apache-2.0 for anyone who copied it. | 122 | before v1.0.0 |
 | D4 | Web V1 compile | 10 | before P14 |
-| D7 | Screen designs: the four SCREENS_V1 §8 points; the Scrapbook's tilt; **the `ui/v1-screens/` mockup sources, which are not in the repository** | 77, 123 | **before P11's UI** |
+| D7 | Screen designs: the four SCREENS_V1 §8 points; the Scrapbook's tilt. (The `ui/v1-screens/` mockup sources are now in the repository, item 123; S25-S27 still need boards, item 139.) | 77, 139 | before P13 |
 | D8 | The bundled UI face (IBM Plex Sans and Mono recommended) | 9 | before P13 |
 | D9 | minSdk 31 | 4 | before P18 |
 | **D10** (new) | Does law 3 cover build tooling? Setting `kotlin.internal.collectFUSMetrics=false` in gradle.properties stops the Kotlin Gradle plugin writing local build statistics. | 15 | any time; not blocking |
@@ -231,6 +231,6 @@ and the commit and evidence for RESOLVED.
 | 120 | P9 verification pass; web frame-count inconsistency flagged, unfixed | DEFERRED |  | The verification itself is done (af371a8). The one open thread is that WEB_PERFORMANCE.md's original table (lines 98-104) still pairs 510-520 frames with '4 real seconds', flagged at :176 but not reconciled. That is doc polish V1 doesn't need. |
 | 121 | google/fonts states no licence for tags/ | MADHAV | D14 | families.csv is no longer committed (3673df1); whether using it at build time needs permission is the owner's call. |
 | 122 | Pre-split app code is Apache-2.0 for anyone who copied it | MADHAV | D1 | A consequence of the licence history, for the lawyer review LICENSING.md already asks for. |
-| 123 | V1 mockup sources ui/v1-screens/ are not in the repository | MADHAV | D7 | Law 6 makes them the look source for every V1 screen; P11's S01/S02/S06 UI needs them first. |
+| 123 | V1 mockup sources ui/v1-screens/ are not in the repository | DONE | D7 | Checked in unchanged on 19 Oct 2026 (ui/v1-screens/README.md). The Brief's S25-S27 are not on the canvas: item 139. |
 | 124 | Glyphs carry no Unicode code points; GlifCodec drops <unicode> | V1-BLOCKING | P11 + P12 | No V1 prompt names it: without unicodes an imported font loses its cmap and a compiled font maps no characters (golden-path steps 1a and 5). |
 | 125 | The UFO writer is cubic-only; a TTF-opened project can't be saved | V1-BLOCKING | P11 + P12 | Found by the golden-path harness in P10: writeGlif refuses quadratic contours (GlifCodec.kt:247), so no imported TrueType font can be written as a project. |

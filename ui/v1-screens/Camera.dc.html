@@ -1,0 +1,57 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Camera</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+@font-face { font-family: "Hyle Deco"; src: url(/_blob/87ef2c1f7693e8b7acd70e03d6088e45) format("truetype"); }
+body { margin: 0; background: #000; }
+.m { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+.hy { font-family: "Hyle Deco", serif; }
+.lock { position: absolute; width: 22px; height: 22px; background: #F3F3F0; }
+.lock::after { content: ""; position: absolute; left: 6px; top: 6px; width: 10px; height: 10px; background: #17150F; }
+.open { position: absolute; width: 20px; height: 20px; border: 1.5px solid #F3F3F0; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #000; color: #F3F3F0; font-family: 'IBM Plex Sans', system-ui, sans-serif">
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; background: radial-gradient(ellipse at 50% 42%, #4A463E 0%, #26241F 55%, #0B0B0A 100%)"></div>
+
+<div style="position: absolute; left: 48px; top: 150px; width: 294px; height: 410px; transform: perspective(900px) rotateX(16deg) rotateZ(-5deg); background-color: #E4DED0; background-image: linear-gradient(rgba(23,21,15,0.16) 1px, transparent 1px), linear-gradient(90deg, rgba(23,21,15,0.16) 1px, transparent 1px); background-size: 66px 64px; background-position: 15px 14px">
+<div class="hy" style="position: absolute; left: 15px; top: 14px; width: 264px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 64px; align-items: center; justify-items: center; font-size: 36px; color: #1E1C17; opacity: 0.9">
+<span>w</span><span>x</span><span>y</span><span>z</span><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>.</span><span>,</span><span>:</span><span>;</span><span>!</span><span>?</span>
+</div>
+<div class="lock" style="left: -8px; top: -8px"></div>
+<div class="lock" style="right: -8px; top: -8px"></div>
+<div class="lock" style="left: -8px; bottom: -8px"></div>
+<div class="open" style="right: -8px; bottom: -8px"></div>
+</div>
+
+<div style="position: absolute; left: 22px; top: 56px; right: 22px; display: flex; flex-direction: column; gap: 3px">
+<div style="font-size: 15px; font-weight: 600">Sheet 3 · w–?</div>
+<div class="m" style="font-size: 9.5px; color: #B8B6AF">3 of 4 corners · hold steady</div>
+</div>
+
+<div class="m" style="position: absolute; left: 22px; right: 22px; top: 616px; font-size: 9.5px; color: #B8B6AF; text-align: center">The shutter arms when the last corner locks · hold for manual</div>
+
+<div style="position: absolute; left: 0; top: 672px; width: 390px; height: 172px">
+<dc-import name="Deck" section="Capture" left="close" right="shutter" right-dim="true" theme="black" hide-sections="true" toggles="Flash|Grid*" hint-size="390px,172px"></dc-import>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

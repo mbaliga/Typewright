@@ -3108,6 +3108,10 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     upload this prompt worked from had the two documents but not the mockups. P11's S01/S02/S06
     UI, and every later screen, needs them first.
 
+    **Resolved 19 Oct 2026.** The canvas "Typewright V1 screens" (29 boards and its index) is
+    checked in unchanged at `ui/v1-screens/` (see its README for the source and version).
+    The Brief's screens (S25–S27) are not on it: item 139.
+
     *Madhav.*
 
 124. **The glyph model has no Unicode code points.** `core-geometry`'s `Glyph` data class
@@ -3301,3 +3305,11 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     record absolute metrics per face (`data/scripts/fetch_style_atlas_fonts.py`) or a different
     source for them. Owner: Madhav.
 
+139. **The Brief's screens (S25–S27) have no board on the V1 canvas (Brief).** The canvas
+    "Typewright V1 screens" (`ui/v1-screens/`) draws S01–S24, `Deck`, `DeckStates` and
+    `DesktopDraw`. It has nothing for the Brief's six doors, its questions, the wrap-up, the Brief
+    tab or the Guide, so law 6 has no look for them to reproduce. Until it does, the interaction
+    source is the prototype in `ui/v1-screens/brief/`, restyled to the canvas's tokens and
+    components (IBM Plex, the grained ground, the page frame, `chip`, underline inputs, the
+    `Deck`), and the Compose screen follows the prototype. The owner needs to draw S25–S27 on the
+    canvas, or approve the restyled screenshots before PR #6 merges. Owner: Madhav.

@@ -1,0 +1,300 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "About.dc.html": {
+      "h": 844,
+      "title": "S23 About & licences",
+      "w": 390,
+      "x": 1880,
+      "y": 5056
+    },
+    "Building.dc.html": {
+      "h": 844,
+      "title": "S17 Ship · building",
+      "w": 390,
+      "x": 1410,
+      "y": 3792
+    },
+    "Camera.dc.html": {
+      "h": 844,
+      "title": "S09 Camera",
+      "w": 390,
+      "x": 1410,
+      "y": 1264
+    },
+    "Capture.dc.html": {
+      "h": 844,
+      "title": "S08 Capture · Sheets",
+      "w": 390,
+      "x": 470,
+      "y": 1264
+    },
+    "Cells.dc.html": {
+      "h": 844,
+      "title": "S08 Capture · Cells",
+      "w": 390,
+      "x": 940,
+      "y": 1264
+    },
+    "Check.dc.html": {
+      "h": 844,
+      "title": "S14 Check · Report",
+      "w": 390,
+      "x": 0,
+      "y": 3792
+    },
+    "Deck.dc.html": {
+      "h": 172,
+      "title": "Deck component",
+      "w": 390,
+      "x": 960,
+      "y": 6320
+    },
+    "DeckStates.dc.html": {
+      "h": 844,
+      "title": "Deck states",
+      "w": 880,
+      "x": 0,
+      "y": 6320
+    },
+    "DesktopDraw.dc.html": {
+      "h": 800,
+      "title": "Desktop · Draw with the rich menu",
+      "w": 1280,
+      "x": 1430,
+      "y": 6320
+    },
+    "Draw.dc.html": {
+      "h": 844,
+      "title": "S11 Draw",
+      "w": 390,
+      "x": 0,
+      "y": 2528
+    },
+    "DrawMenu.dc.html": {
+      "h": 844,
+      "title": "S20 Rich context menu · touch",
+      "w": 390,
+      "x": 1410,
+      "y": 2528
+    },
+    "DrawRadial.dc.html": {
+      "h": 844,
+      "title": "S12 Radial · sweep (keep the finger down)",
+      "w": 390,
+      "x": 470,
+      "y": 2528
+    },
+    "Economy.dc.html": {
+      "h": 844,
+      "title": "S15 Check · Economy",
+      "w": 390,
+      "x": 470,
+      "y": 3792
+    },
+    "FontInfo.dc.html": {
+      "h": 844,
+      "title": "S06 Font info",
+      "w": 390,
+      "x": 2350,
+      "y": 0
+    },
+    "Glyphs.dc.html": {
+      "h": 844,
+      "title": "S04 Home · Glyphs",
+      "w": 390,
+      "x": 1880,
+      "y": 0
+    },
+    "Home.dc.html": {
+      "h": 844,
+      "title": "S04 Home · Specimen",
+      "w": 390,
+      "x": 1410,
+      "y": 0
+    },
+    "ImportAudit.dc.html": {
+      "h": 844,
+      "title": "S03 Import audit",
+      "w": 390,
+      "x": 940,
+      "y": 0
+    },
+    "Learn.dc.html": {
+      "h": 844,
+      "title": "S18 Learn · Lineages",
+      "w": 390,
+      "x": 0,
+      "y": 5056
+    },
+    "Main.dc.html": {
+      "h": 844,
+      "title": "S01 Projects",
+      "w": 390,
+      "x": 0,
+      "y": 0
+    },
+    "Map.dc.html": {
+      "h": 844,
+      "title": "S24 Map",
+      "w": 390,
+      "x": 2350,
+      "y": 2528
+    },
+    "NewProject.dc.html": {
+      "h": 844,
+      "title": "S02 New project",
+      "w": 390,
+      "x": 470,
+      "y": 0
+    },
+    "RadialTap.dc.html": {
+      "h": 844,
+      "title": "S12 Radial · lift and tap",
+      "w": 390,
+      "x": 940,
+      "y": 2528
+    },
+    "Settings.dc.html": {
+      "h": 844,
+      "title": "S21 Settings",
+      "w": 390,
+      "x": 940,
+      "y": 5056
+    },
+    "Ship.dc.html": {
+      "h": 844,
+      "title": "S16 Ship",
+      "w": 390,
+      "x": 940,
+      "y": 3792
+    },
+    "Space.dc.html": {
+      "h": 844,
+      "title": "S13 Space",
+      "w": 390,
+      "x": 1880,
+      "y": 2528
+    },
+    "Templates.dc.html": {
+      "h": 844,
+      "title": "S07 Templates",
+      "w": 390,
+      "x": 0,
+      "y": 1264
+    },
+    "ThemeEditor.dc.html": {
+      "h": 844,
+      "title": "S22 Theme editor",
+      "w": 390,
+      "x": 1410,
+      "y": 5056
+    },
+    "Trace.dc.html": {
+      "h": 844,
+      "title": "S10 Trace",
+      "w": 390,
+      "x": 1880,
+      "y": 1264
+    },
+    "Workbook.dc.html": {
+      "h": 844,
+      "title": "S19 Workbook",
+      "w": 390,
+      "x": 470,
+      "y": 5056
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-09-24T23:10:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "row0": {
+      "kind": "title1",
+      "maxW": 2740,
+      "text": "Start and projects",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "row1": {
+      "kind": "title1",
+      "maxW": 2270,
+      "text": "Capture and trace",
+      "w": 240,
+      "x": 0,
+      "y": 964
+    },
+    "row2": {
+      "kind": "title1",
+      "maxW": 2740,
+      "text": "Draw and space",
+      "w": 240,
+      "x": 0,
+      "y": 2228
+    },
+    "row3": {
+      "kind": "title1",
+      "maxW": 1800,
+      "text": "Check and ship",
+      "w": 240,
+      "x": 0,
+      "y": 3492
+    },
+    "row4": {
+      "kind": "title1",
+      "maxW": 2270,
+      "text": "Learn, workbook and app",
+      "w": 240,
+      "x": 0,
+      "y": 4756
+    },
+    "row5": {
+      "kind": "title1",
+      "maxW": 2710,
+      "text": "The control deck and desktop",
+      "w": 240,
+      "x": 0,
+      "y": 6020
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "NewProject.dc.html",
+    "ImportAudit.dc.html",
+    "Home.dc.html",
+    "Glyphs.dc.html",
+    "FontInfo.dc.html",
+    "Templates.dc.html",
+    "Capture.dc.html",
+    "Cells.dc.html",
+    "Camera.dc.html",
+    "Trace.dc.html",
+    "Draw.dc.html",
+    "DrawRadial.dc.html",
+    "RadialTap.dc.html",
+    "DrawMenu.dc.html",
+    "Space.dc.html",
+    "Map.dc.html",
+    "Check.dc.html",
+    "Economy.dc.html",
+    "Ship.dc.html",
+    "Building.dc.html",
+    "Learn.dc.html",
+    "Workbook.dc.html",
+    "Settings.dc.html",
+    "ThemeEditor.dc.html",
+    "About.dc.html",
+    "DeckStates.dc.html",
+    "Deck.dc.html",
+    "DesktopDraw.dc.html"
+  ],
+  "pages": [],
+  "title": "Typewright V1 screens"
+}

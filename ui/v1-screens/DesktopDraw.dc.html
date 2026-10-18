@@ -1,0 +1,123 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desktop, Draw with a context menu</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+@font-face { font-family: "Hyle Deco"; src: url(/_blob/87ef2c1f7693e8b7acd70e03d6088e45) format("truetype"); }
+body { margin: 0; background: #EFE9DC; }
+.m { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+.hy { font-family: "Hyle Deco", serif; }
+.tool { display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 12px; font-size: 13px; }
+.key { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #6F6A5E; margin-left: auto; }
+.gh { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #6F6A5E; padding: 14px 12px 4px; }
+.lab { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #6F6A5E; }
+.val { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.mr { display: flex; align-items: center; gap: 10px; height: 27px; padding: 0 12px; font-size: 13px; }
+.mk { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #6F6A5E; margin-left: auto; white-space: nowrap; }
+.mc { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: #6F6A5E; }
+.ms { font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase; color: #6F6A5E; padding: 8px 12px 2px; }
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; position: relative; overflow: hidden; background: #EFE9DC; color: #17150F; font-family: 'IBM Plex Sans', system-ui, sans-serif">
+<svg width="1280" height="800" style="position: absolute; left: 0; top: 0; opacity: 0.55; mix-blend-mode: multiply; pointer-events: none" aria-hidden="true"><filter id="gr"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"></feTurbulence><feColorMatrix values="0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.22 0 0 0 0.26 0"></feColorMatrix></filter><rect width="1280" height="800" filter="url(#gr)"></rect></svg>
+
+<div style="position: absolute; left: 300px; top: 30px; width: 440px; height: 690px; background-image: linear-gradient(rgba(23,21,15,0.09) 1px, transparent 1px), linear-gradient(90deg, rgba(23,21,15,0.09) 1px, transparent 1px); background-size: 32px 32px; -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 30%, transparent 100%); mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 30%, transparent 100%)"></div>
+
+<svg width="1280" height="800" viewBox="0 0 1280 800" style="position: absolute; left: 0; top: 0" aria-label="The o on the desktop canvas with a node selected">
+<defs><linearGradient id="dl" gradientUnits="userSpaceOnUse" x1="210" y1="0" x2="960" y2="0"><stop offset="0" style="stop-color: #17150F; stop-opacity: 0"></stop><stop offset="0.14" style="stop-color: #17150F; stop-opacity: 0.45"></stop><stop offset="0.86" style="stop-color: #17150F; stop-opacity: 0.45"></stop><stop offset="1" style="stop-color: #17150F; stop-opacity: 0"></stop></linearGradient></defs>
+<g style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 1px" fill="#6F6A5E">
+<line x1="210" y1="60" x2="960" y2="60" stroke="url(#dl)"></line><text x="900" y="55" text-anchor="end">CAP HEIGHT 700</text>
+<line x1="210" y1="220" x2="960" y2="220" stroke="url(#dl)"></line><text x="900" y="215" text-anchor="end">X-HEIGHT 500</text>
+<line x1="210" y1="620" x2="960" y2="620" stroke="url(#dl)"></line><text x="900" y="635" text-anchor="end">BASELINE 0</text>
+<line x1="330" y1="40" x2="330" y2="700" stroke="rgba(23,21,15,0.25)"></line>
+<line x1="710" y1="40" x2="710" y2="700" stroke="rgba(23,21,15,0.25)"></line>
+</g>
+<g fill="none" stroke="rgba(23,21,15,0.62)" stroke-dasharray="5 3"><circle cx="577.2" cy="314.4" r="94.4"></circle><circle cx="577.2" cy="314.4" r="59.2"></circle><circle cx="462" cy="525.6" r="94.4"></circle><circle cx="462" cy="525.6" r="59.2"></circle><line x1="519.6" y1="160" x2="519.6" y2="690"></line></g>
+<path fill-rule="evenodd" d="M 462.0 620.0 L 577.2 620.0 C 629.4 620.0 671.6 577.8 671.6 525.6 L 671.6 314.4 C 671.6 262.2 629.4 220.0 577.2 220.0 L 462.0 220.0 C 409.8 220.0 367.6 262.2 367.6 314.4 L 367.6 525.6 C 367.6 577.8 409.8 620.0 462.0 620.0 Z M 462.0 584.8 L 577.2 584.8 C 609.9 584.8 636.4 558.3 636.4 525.6 L 636.4 314.4 C 636.4 281.7 609.9 255.2 577.2 255.2 L 462.0 255.2 C 429.3 255.2 402.8 281.7 402.8 314.4 L 402.8 525.6 C 402.8 558.3 429.3 584.8 462.0 584.8 Z" fill="rgba(23,21,15,0.07)" stroke="#17150F" stroke-width="1.5"></path>
+<g stroke="rgba(23,21,15,0.5)" stroke-width="1"><line x1="577.2" y1="620.0" x2="629.4" y2="620.0"></line> <line x1="671.6" y1="525.6" x2="671.6" y2="577.8"></line> <line x1="577.2" y1="220.0" x2="629.4" y2="220.0"></line> <line x1="462.0" y1="220.0" x2="409.8" y2="220.0"></line> <line x1="367.6" y1="314.4" x2="367.6" y2="262.2"></line> <line x1="367.6" y1="525.6" x2="367.6" y2="577.8"></line> <line x1="462.0" y1="620.0" x2="409.8" y2="620.0"></line> <line x1="577.2" y1="584.8" x2="609.9" y2="584.8"></line> <line x1="636.4" y1="525.6" x2="636.4" y2="558.3"></line> <line x1="636.4" y1="314.4" x2="636.4" y2="281.7"></line> <line x1="577.2" y1="255.2" x2="609.9" y2="255.2"></line> <line x1="462.0" y1="255.2" x2="429.3" y2="255.2"></line> <line x1="402.8" y1="314.4" x2="402.8" y2="281.7"></line> <line x1="402.8" y1="525.6" x2="402.8" y2="558.3"></line> <line x1="462.0" y1="584.8" x2="429.3" y2="584.8"></line></g>
+<g fill="#EFE9DC" stroke="#17150F" stroke-width="1"><circle cx="629.4" cy="620.0" r="3"></circle> <circle cx="671.6" cy="577.8" r="3"></circle> <circle cx="409.8" cy="220.0" r="3"></circle> <circle cx="367.6" cy="262.2" r="3"></circle> <circle cx="367.6" cy="577.8" r="3"></circle> <circle cx="409.8" cy="620.0" r="3"></circle> <circle cx="609.9" cy="584.8" r="3"></circle> <circle cx="636.4" cy="558.3" r="3"></circle> <circle cx="636.4" cy="281.7" r="3"></circle> <circle cx="609.9" cy="255.2" r="3"></circle> <circle cx="429.3" cy="255.2" r="3"></circle> <circle cx="402.8" cy="281.7" r="3"></circle> <circle cx="402.8" cy="558.3" r="3"></circle> <circle cx="429.3" cy="584.8" r="3"></circle> <circle cx="629.4" cy="220.0" r="3"></circle></g>
+<g fill="#EFE9DC" stroke="#17150F" stroke-width="1.5"><circle cx="462.0" cy="620.0" r="4"></circle> <circle cx="577.2" cy="620.0" r="4"></circle> <circle cx="671.6" cy="525.6" r="4"></circle> <circle cx="462.0" cy="220.0" r="4"></circle> <circle cx="577.2" cy="220.0" r="4"></circle> <circle cx="367.6" cy="314.4" r="4"></circle> <circle cx="367.6" cy="525.6" r="4"></circle> <circle cx="462.0" cy="584.8" r="4"></circle> <circle cx="577.2" cy="584.8" r="4"></circle> <circle cx="636.4" cy="525.6" r="4"></circle> <circle cx="636.4" cy="314.4" r="4"></circle> <circle cx="577.2" cy="255.2" r="4"></circle> <circle cx="462.0" cy="255.2" r="4"></circle> <circle cx="402.8" cy="314.4" r="4"></circle> <circle cx="402.8" cy="525.6" r="4"></circle></g>
+<line x1="671.6" y1="314.4" x2="671.6" y2="262.2" stroke="#5F4BE0" stroke-width="1.2"></line>
+<circle cx="671.6" cy="262.2" r="3.2" fill="#EFE9DC" stroke="#5F4BE0" stroke-width="1.2"></circle>
+<circle cx="671.6" cy="314.4" r="8" fill="none" stroke="#5F4BE0" stroke-width="1.2"></circle>
+<circle cx="671.6" cy="314.4" r="4.5" fill="#5F4BE0"></circle>
+<path d="M 676 318 L 676 334 L 680 330 L 683 337 L 685.5 336 L 682.5 329 L 688 329 Z" fill="#17150F" stroke="#EFE9DC" stroke-width="1"></path>
+</svg>
+
+<div style="position: absolute; left: 0; top: 0; width: 1280px; height: 46px; display: flex; align-items: center; gap: 16px; padding: 0 18px; box-sizing: border-box">
+<span class="m" style="font-size: 9.5px; color: #6F6A5E">Typewright</span>
+<span style="font-size: 14px; font-weight: 600">Hyle Deco Redraw · o</span>
+<span class="m" style="font-size: 9.5px; color: #6F6A5E; letter-spacing: 0.06em">16 on · 16 off · ✓ in range</span>
+<span class="m" style="font-size: 9.5px; color: #6F6A5E; margin-left: auto; letter-spacing: 0.06em">Command… Ctrl K · shortcuts ?</span>
+</div>
+
+<div style="position: absolute; left: 0; top: 46px; width: 210px; height: 754px; background: linear-gradient(to right, #E7E0D2 0, #E7E0D2 80%, rgba(231,224,210,0) 100%)">
+<div class="gh">Tools</div>
+<div class="tool" style="background: #17150F; color: #EFE9DC"><span>Select</span><span class="key" style="color: rgba(239,233,220,0.7)">V</span></div>
+<div class="tool"><span>Pen</span><span class="key">P</span></div>
+<div class="tool"><span>Hobby curve</span><span class="key">H</span></div>
+<div class="tool"><span>Primitives</span><span class="key">S</span></div>
+<div class="tool"><span>Boolean</span><span class="key">B</span></div>
+<div class="tool"><span>Stroke</span><span class="key">K</span></div>
+<div class="tool"><span>Measure</span><span class="key">M</span></div>
+<div class="tool"><span>Anchors</span><span class="key">A</span></div>
+<div class="tool"><span>Metrics</span><span class="key">T</span></div>
+<div class="gh">Layers</div>
+<div class="tool" style="font-weight: 600"><span>Master</span><span class="key">editing</span></div>
+<div class="tool" style="color: #6F6A5E"><span>Sketch</span><span class="key">hidden</span></div>
+<div class="tool" style="color: #6F6A5E"><span>Background · scan</span><span class="key">30%</span></div>
+<div class="m" style="position: absolute; left: 12px; bottom: 18px; right: 16px; font-size: 8.5px; letter-spacing: 0.06em; line-height: 1.8; color: #6F6A5E">⇧ constrain · Alt break symmetry<br>Space pan · Ctrl select</div>
+</div>
+
+<div style="position: absolute; left: 1040px; top: 46px; width: 240px; height: 754px; background: linear-gradient(to left, #E7E0D2 0, #E7E0D2 80%, rgba(231,224,210,0) 100%); box-sizing: border-box; padding: 14px 18px 0 30px; display: flex; flex-direction: column; gap: 16px">
+<div class="lab">Node</div>
+<div style="display: flex; gap: 18px"><div style="display: flex; flex-direction: column; gap: 2px"><span class="lab">x</span><span class="val" style="background: #17150F; color: #EFE9DC; padding: 0 4px">427</span></div><div style="display: flex; flex-direction: column; gap: 2px"><span class="lab">y</span><span class="val">382</span></div><div style="display: flex; flex-direction: column; gap: 2px"><span class="lab">type</span><span class="val">Smooth</span></div></div>
+<div style="display: flex; gap: 18px"><div style="display: flex; flex-direction: column; gap: 2px"><span class="lab">handle out</span><span class="val">65 · 90°</span></div><div style="display: flex; flex-direction: column; gap: 2px"><span class="lab">in</span><span class="val" style="color: #6F6A5E">line</span></div></div>
+<div class="lab" style="margin-top: 8px">Glyph</div>
+<div style="display: flex; gap: 18px"><div style="display: flex; flex-direction: column; gap: 2px"><span class="lab">adv</span><span class="val">475</span></div><div style="display: flex; flex-direction: column; gap: 2px"><span class="lab">lsb</span><span class="val">47</span></div><div style="display: flex; flex-direction: column; gap: 2px"><span class="lab">rsb</span><span class="val">48</span></div></div>
+<div style="font-size: 12px; color: #6F6A5E; line-height: 1.45">Type <span style="font-family: 'IBM Plex Mono', monospace; color: #17150F">=o.lsb+1</span> in any field. ↑ ↓ step, ⇧ for 10.</div>
+<div class="lab" style="margin-top: 8px">Proof</div>
+<div class="hy" style="font-size: 22px; line-height: 1.35">nonononHOHOHO<br>hominid onion</div>
+</div>
+
+<div style="position: absolute; left: 680px; top: 322px; width: 290px; background: #E3DCCD; padding: 10px 0 8px; display: flex; flex-direction: column">
+<div style="padding: 0 12px 6px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; font-weight: 600">1 node · 427, 382 · smooth</span><span class="mc">outer contour of o</span></div>
+<div style="margin: 2px 12px 4px; padding-bottom: 4px; border-bottom: 1px solid rgba(23,21,15,0.3); font-size: 12.5px; color: #6F6A5E">Find… <span style="color: #17150F">|</span></div>
+<div class="ms">This node</div>
+<div class="mr" style="background: #17150F; color: #EFE9DC"><span>Make corner</span><span class="mc" style="color: rgba(239,233,220,0.65)">smooth → corner</span><span class="mk" style="color: rgba(239,233,220,0.8)">Enter</span></div>
+<div class="mr"><span>Delete node, keep the curve</span><span class="mk">⌫</span></div>
+<div class="mr"><span>Split the contour here</span><span class="mk">Ctrl ⇧ K</span></div>
+<div class="mr"><span>Align to</span><span class="mk">›</span></div>
+<div class="ms">This contour</div>
+<div class="mr" style="color: rgba(23,21,15,0.4)"><span>Add extremes</span><span class="mc">already has them</span><span class="mk">Ctrl ⇧ E</span></div>
+<div class="mr"><span>Reverse direction</span><span class="mk">Ctrl Alt R</span></div>
+<div class="mr"><span>Tidy with live count</span><span class="mc">no change</span><span class="mk">Ctrl ⇧ Y</span></div>
+<div class="mr"><span>Duplicate contour</span><span class="mc">+8 · +8</span><span class="mk">Ctrl D</span></div>
+<div class="ms">This glyph</div>
+<div class="mr"><span>Lock as approved</span><span class="mk">Ctrl L</span></div>
+<div class="mr"><span>● Clear glyph</span><span class="mk"></span></div>
+</div>
+
+<div style="position: absolute; left: 390px; top: 628px; width: 390px; height: 172px">
+<dc-import name="Deck" section="Draw" left="back" right="menu" toggles="Outline*|Fill||Construction*" hint-size="390px,172px"></dc-import>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

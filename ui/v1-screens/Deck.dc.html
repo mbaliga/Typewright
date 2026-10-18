@@ -1,0 +1,170 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Control deck</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 390px; height: 172px; position: relative; font-family: 'IBM Plex Mono', ui-monospace, monospace; opacity: {{deckOp}}">
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 172px; background: linear-gradient(to bottom, {{c.paper0}} 0%, {{c.paper}} 40%)"></div>
+<svg width="390" height="172" viewBox="0 0 390 172" style="position: absolute; left: 0; top: 0; overflow: visible" aria-hidden="true">
+<defs>
+<path id="sa" d="M -19.3 153.6 A 527 527 0 0 1 409.3 153.6"></path>
+<path id="ta" d="M 73.4 62.8 A 585 585 0 0 1 316.6 62.8"></path>
+</defs>
+<g style="opacity: {{secOp}}">
+<path d="M -26.3 138.1 A 544 544 0 0 1 416.3 138.1" fill="none" style="stroke: {{c.line}}; stroke-width: 1"></path>
+<path d="M -12.4 169.1 A 510 510 0 0 1 402.4 169.1" fill="none" style="stroke: {{c.line}}; stroke-width: 1"></path>
+<path d="M -19.3 153.6 A 527 527 0 0 1 409.3 153.6" fill="none" style="stroke: {{c.ink}}; stroke-width: 26; stroke-dasharray: {{s2.dash}}; stroke-dashoffset: {{s2.dashoff}}"></path>
+<text dy="3.7" style="font-size: 10.5px; letter-spacing: 1.5px; font-weight: 500; fill: {{s0.fill}}; opacity: {{s0.op}}"><textPath href="#sa" startOffset="{{s0.off}}" text-anchor="middle">{{s0.label}}</textPath></text>
+<text dy="3.7" style="font-size: 10.5px; letter-spacing: 1.5px; font-weight: 500; fill: {{s1.fill}}; opacity: {{s1.op}}"><textPath href="#sa" startOffset="{{s1.off}}" text-anchor="middle">{{s1.label}}</textPath></text>
+<text dy="3.7" style="font-size: 10.5px; letter-spacing: 1.5px; font-weight: 600; fill: {{s2.fill}}; opacity: {{s2.op}}"><textPath href="#sa" startOffset="{{s2.off}}" text-anchor="middle">{{s2.label}}</textPath></text>
+<text dy="3.7" style="font-size: 10.5px; letter-spacing: 1.5px; font-weight: 500; fill: {{s3.fill}}; opacity: {{s3.op}}"><textPath href="#sa" startOffset="{{s3.off}}" text-anchor="middle">{{s3.label}}</textPath></text>
+<text dy="3.7" style="font-size: 10.5px; letter-spacing: 1.5px; font-weight: 500; fill: {{s4.fill}}; opacity: {{s4.op}}"><textPath href="#sa" startOffset="{{s4.off}}" text-anchor="middle">{{s4.label}}</textPath></text>
+</g>
+<path d="M 70.3 48.1 A 600 600 0 0 1 319.7 48.1" fill="none" style="stroke: {{c.line}}; stroke-width: 1"></path>
+<path d="M 76.5 77.5 A 570 570 0 0 1 313.5 77.5" fill="none" style="stroke: {{c.line}}; stroke-width: 1"></path>
+<path d="M 73.4 62.8 A 585 585 0 0 1 316.6 62.8" fill="none" style="stroke: {{c.ink}}; stroke-width: 22; stroke-dasharray: {{t0.dash}}; stroke-dashoffset: {{t0.dashoff}}"></path>
+<path d="M 73.4 62.8 A 585 585 0 0 1 316.6 62.8" fill="none" style="stroke: {{c.ink}}; stroke-width: 22; stroke-dasharray: {{t1.dash}}; stroke-dashoffset: {{t1.dashoff}}"></path>
+<path d="M 73.4 62.8 A 585 585 0 0 1 316.6 62.8" fill="none" style="stroke: {{c.ink}}; stroke-width: 22; stroke-dasharray: {{t2.dash}}; stroke-dashoffset: {{t2.dashoff}}"></path>
+<path d="M 73.4 62.8 A 585 585 0 0 1 316.6 62.8" fill="none" style="stroke: {{c.ink}}; stroke-width: 22; stroke-dasharray: {{t3.dash}}; stroke-dashoffset: {{t3.dashoff}}"></path>
+<path d="M 73.4 62.8 A 585 585 0 0 1 316.6 62.8" fill="none" style="stroke: {{c.ink}}; stroke-width: 22; stroke-dasharray: {{t4.dash}}; stroke-dashoffset: {{t4.dashoff}}"></path>
+<path d="M 73.4 62.8 A 585 585 0 0 1 316.6 62.8" fill="none" style="stroke: {{c.ink}}; stroke-width: 22; stroke-dasharray: {{t5.dash}}; stroke-dashoffset: {{t5.dashoff}}"></path>
+<text dy="3.4" style="font-size: 9px; letter-spacing: 1px; font-weight: 500; fill: {{t0.fill}}; opacity: {{t0.op}}"><textPath href="#ta" startOffset="{{t0.off}}" text-anchor="middle">{{t0.label}}</textPath></text>
+<text dy="3.4" style="font-size: 9px; letter-spacing: 1px; font-weight: 500; fill: {{t1.fill}}; opacity: {{t1.op}}"><textPath href="#ta" startOffset="{{t1.off}}" text-anchor="middle">{{t1.label}}</textPath></text>
+<text dy="3.4" style="font-size: 9px; letter-spacing: 1px; font-weight: 500; fill: {{t2.fill}}; opacity: {{t2.op}}"><textPath href="#ta" startOffset="{{t2.off}}" text-anchor="middle">{{t2.label}}</textPath></text>
+<text dy="3.4" style="font-size: 9px; letter-spacing: 1px; font-weight: 500; fill: {{t3.fill}}; opacity: {{t3.op}}"><textPath href="#ta" startOffset="{{t3.off}}" text-anchor="middle">{{t3.label}}</textPath></text>
+<text dy="3.4" style="font-size: 9px; letter-spacing: 1px; font-weight: 500; fill: {{t4.fill}}; opacity: {{t4.op}}"><textPath href="#ta" startOffset="{{t4.off}}" text-anchor="middle">{{t4.label}}</textPath></text>
+<text dy="3.4" style="font-size: 9px; letter-spacing: 1px; font-weight: 500; fill: {{t5.fill}}; opacity: {{t5.op}}"><textPath href="#ta" startOffset="{{t5.off}}" text-anchor="middle">{{t5.label}}</textPath></text>
+<g transform="translate(40 71)">
+<g style="opacity: {{lBack}}">
+<circle r="25" style="fill: {{c.paper}}; stroke: {{c.ink}}; stroke-width: 1.5"></circle>
+<path d="M 3 -8 L -5 0 L 3 8" fill="none" style="stroke: {{c.ink}}; stroke-width: 2; stroke-linecap: square"></path>
+</g>
+<g style="opacity: {{lClose}}">
+<circle r="26" style="fill: {{c.red}}"></circle>
+<path d="M -7 -7 L 7 7 M 7 -7 L -7 7" fill="none" style="stroke: #FFFFFF; stroke-width: 2.4; stroke-linecap: square"></path>
+</g>
+</g>
+<g transform="translate(350 71)" style="opacity: {{rOp}}">
+<g style="opacity: {{rMenu}}">
+<circle r="25" style="fill: {{c.paper}}; stroke: {{c.ink}}; stroke-width: 1.5"></circle>
+<circle cx="-8" r="2.2" style="fill: {{c.ink}}"></circle>
+<circle r="2.2" style="fill: {{c.ink}}"></circle>
+<circle cx="8" r="2.2" style="fill: {{c.ink}}"></circle>
+</g>
+<g style="opacity: {{rFill}}">
+<circle r="26" style="fill: {{c.ink}}"></circle>
+<path d="M 0 -8 V 8 M -8 0 H 8" fill="none" style="stroke: {{c.paper}}; stroke-width: 2.2; opacity: {{rPlus}}"></path>
+<path d="M -8 0 H 7 M 2 -6 L 8 0 L 2 6" fill="none" style="stroke: {{c.paper}}; stroke-width: 2.2; opacity: {{rNext}}"></path>
+<path d="M -8 0.5 L -2.5 6 L 8 -5.5" fill="none" style="stroke: {{c.paper}}; stroke-width: 2.4; opacity: {{rCheck}}"></path>
+<path d="M 7 -2 A 7.5 7.5 0 1 0 5.4 5.3 M 7.8 -8.5 L 7.4 -1.6 L 1 -2.8" fill="none" style="stroke: {{c.paper}}; stroke-width: 2.1; opacity: {{rRefresh}}"></path>
+<path d="M 0 5 V -8 M -6 -2 L 0 -8 L 6 -2 M -8 9 H 8" fill="none" style="stroke: {{c.paper}}; stroke-width: 2.2; opacity: {{rBuild}}"></path>
+<path d="M 0 -8 V 5 M -6 -1 L 0 5 L 6 -1 M -8 9 H 8" fill="none" style="stroke: {{c.paper}}; stroke-width: 2.2; opacity: {{rDown}}"></path>
+</g>
+<g style="opacity: {{rShutter}}">
+<circle r="25" fill="none" style="stroke: {{c.ink}}; stroke-width: 2"></circle>
+<circle r="19" style="fill: {{c.ink}}"></circle>
+</g>
+</g>
+</svg>
+<button aria-label="{{leftLabel}}" style="position: absolute; left: 14px; top: 45px; width: 52px; height: 52px; border-radius: 26px; border: 0; background: transparent; padding: 0; cursor: pointer"></button>
+<button aria-label="{{rightLabel}}" style="position: absolute; left: 324px; top: 45px; width: 52px; height: 52px; border-radius: 26px; border: 0; background: transparent; padding: 0; cursor: pointer"></button>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"section":{"editor":"enum","options":["Home","Capture","Trace","Draw","Space","Check","Ship","Learn","Workbook"],"default":"Draw"},"left":{"editor":"enum","options":["back","close","none"],"default":"back"},"right":{"editor":"enum","options":["menu","plus","next","check","refresh","build","download","shutter","none"],"default":"menu"},"toggles":{"editor":"text","default":"Outline*|Fill||Construction*"},"theme":{"editor":"enum","options":["paper","black","blueprint"],"default":"paper"},"dimSections":{"editor":"boolean","default":false},"hideSections":{"editor":"boolean","default":false},"rightDim":{"editor":"boolean","default":false},"dimAll":{"editor":"boolean","default":false},"$preview":{"width":390,"height":172}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const TH = {
+      paper: { ink: '#17150F', paper: '#EFE9DC', paper0: 'rgba(239,233,220,0)', line: 'rgba(23,21,15,0.22)', red: '#D0342C' },
+      black: { ink: '#F3F3F0', paper: '#000000', paper0: 'rgba(0,0,0,0)', line: 'rgba(255,255,255,0.24)', red: '#FF5A4E' },
+      blueprint: { ink: '#FFFFFF', paper: '#17417C', paper0: 'rgba(23,65,124,0)', line: 'rgba(255,255,255,0.38)', red: '#FF5A4E' }
+    };
+    const c = TH[p.theme] || TH.paper;
+    const yes = (v) => v === true || v === 'true';
+    const S = ['Home', 'Capture', 'Trace', 'Draw', 'Space', 'Check', 'Ship', 'Learn', 'Workbook'];
+    const cur = Math.max(0, S.indexOf(p.section || 'Draw'));
+    const L1 = 441.5;
+    const L2 = 245.0;
+    const secs = [];
+    for (let d = -2; d <= 2; d++) {
+      const i = cur + d;
+      const ok = i >= 0 && i < S.length;
+      const label = ok ? S[i].toUpperCase() : '';
+      const w = label.length * 7.6 + 24;
+      const off = (0.5 + d * 0.2) * L1;
+      secs.push({
+        label: label,
+        off: off.toFixed(1),
+        fill: d === 0 ? c.paper : c.ink,
+        op: !ok ? 0 : (d === 0 ? 1 : (Math.abs(d) === 1 ? 0.72 : 0.38)),
+        dash: d === 0 ? w.toFixed(1) + ' 2000' : '0 2000',
+        dashoff: (-(off - w / 2)).toFixed(1)
+      });
+    }
+    const raw = (p.toggles || '').trim();
+    const items = [];
+    if (raw) {
+      raw.split('||').forEach((g, gi) => {
+        g.split('|').forEach((t, ti) => {
+          const s = t.trim();
+          if (!s) return;
+          const on = s.endsWith('*');
+          items.push({ label: (on ? s.slice(0, -1) : s).toUpperCase(), on: on, gap: gi > 0 && ti === 0 });
+        });
+      });
+    }
+    const widths = items.map((it) => it.label.length * 6.4 + 13);
+    const gapW = 12;
+    const total = widths.reduce((a, b) => a + b, 0) + items.filter((it) => it.gap).length * gapW;
+    let x = L2 / 2 - total / 2;
+    const tg = [];
+    items.slice(0, 6).forEach((it, k) => {
+      if (it.gap) x += gapW;
+      const w = widths[k];
+      tg.push({
+        label: it.label,
+        off: (x + w / 2).toFixed(1),
+        fill: it.on ? c.paper : c.ink,
+        op: 1,
+        dash: it.on ? (w - 2).toFixed(1) + ' 2000' : '0 2000',
+        dashoff: (-(x + 1)).toFixed(1)
+      });
+      x += w;
+    });
+    while (tg.length < 6) tg.push({ label: '', off: '0', fill: c.ink, op: 0, dash: '0 2000', dashoff: '0' });
+    const L = p.left || 'back';
+    const R = p.right || 'menu';
+    const is = (v) => (v ? 1 : 0);
+    const names = { menu: 'More', plus: 'New', next: 'Next', check: 'Accept', refresh: 'Run again', build: 'Build', download: 'Export', shutter: 'Capture', none: '' };
+    return {
+      c: c,
+      s0: secs[0], s1: secs[1], s2: secs[2], s3: secs[3], s4: secs[4],
+      t0: tg[0], t1: tg[1], t2: tg[2], t3: tg[3], t4: tg[4], t5: tg[5],
+      secOp: yes(p.hideSections) ? 0 : (yes(p.dimSections) ? 0.3 : 1),
+      lBack: is(L === 'back'),
+      lClose: is(L === 'close'),
+      rMenu: is(R === 'menu'),
+      rFill: is(['plus', 'next', 'check', 'refresh', 'build', 'download'].indexOf(R) >= 0),
+      rPlus: is(R === 'plus'), rNext: is(R === 'next'), rCheck: is(R === 'check'),
+      rRefresh: is(R === 'refresh'), rBuild: is(R === 'build'), rDown: is(R === 'download'),
+      rShutter: is(R === 'shutter'),
+      rOp: R === 'none' ? 0 : (yes(p.rightDim) ? 0.35 : 1),
+      deckOp: yes(p.dimAll) ? 0.3 : 1,
+      leftLabel: L === 'close' ? 'Close' : 'Back',
+      rightLabel: names[R] || 'More'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>About and licences</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+@font-face { font-family: "Hyle Deco"; src: url(/_blob/87ef2c1f7693e8b7acd70e03d6088e45) format("truetype"); }
+body { margin: 0; background: #EFE9DC; }
+.m { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+.hy { font-family: "Hyle Deco", serif; }
+.gh { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #6F6A5E; }
+.tx { font-size: 13px; line-height: 1.5; }
+.lic { display: flex; justify-content: space-between; font-size: 12.5px; line-height: 1.9; }
+.lv { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.06em; color: #6F6A5E; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #EFE9DC; color: #17150F; font-family: 'IBM Plex Sans', system-ui, sans-serif">
+<svg width="390" height="844" style="position: absolute; left: 0; top: 0; opacity: 0.55; mix-blend-mode: multiply; pointer-events: none" aria-hidden="true"><filter id="gr"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"></feTurbulence><feColorMatrix values="0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.22 0 0 0 0.26 0"></feColorMatrix></filter><rect width="390" height="844" filter="url(#gr)"></rect></svg>
+
+<div style="position: absolute; left: 22px; top: 52px; right: 22px; display: flex; flex-direction: column; gap: 3px">
+<div style="font-size: 15px; font-weight: 600">About</div>
+<div class="m" style="color: #6F6A5E; font-size: 9.5px">Typewright 1.0.0 · asystemofcells</div>
+</div>
+
+<div style="position: absolute; left: 22px; right: 22px; top: 104px; display: flex; flex-direction: column; gap: 18px; height: 566px; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 85%, transparent 100%); mask-image: linear-gradient(to bottom, #000 85%, transparent 100%)">
+
+<div class="sec" style="display: flex; flex-direction: column; gap: 5px">
+<div class="gh">Licence</div>
+<div class="tx">The app is fair source (FSL-1.1-ALv2): free to use, change and share for anything except selling a competing product, and each release becomes Apache-2.0 two years on. The engine is Apache-2.0. <b style="font-weight: 600">The fonts you make are yours.</b></div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 5px">
+<div class="gh">Privacy</div>
+<div class="tx">Typewright collects nothing. It only goes online when you ask: to fetch a comparison font from Google Fonts.</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 5px">
+<div class="gh">Support · desktop, web and GitHub builds</div>
+<div class="tx">It's free for everyone. If it helped you, you can help it keep going. Supporting unlocks nothing.</div>
+<a href="#" style="font-size: 13px; font-weight: 600; color: #5F4BE0; text-decoration: none">Support Typewright ›</a>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 2px">
+<div class="gh" style="margin-bottom: 4px">Built with</div>
+<div class="lic"><span>Kotlin · Compose Multiplatform</span><span class="lv">Apache-2.0</span></div>
+<div class="lic"><span>Skia</span><span class="lv">BSD-3-Clause</span></div>
+<div class="lic"><span>FreeType</span><span class="lv">FTL</span></div>
+<div class="lic"><span>fontTools</span><span class="lv">MIT</span></div>
+<div class="lic"><span>fontmake</span><span class="lv">Apache-2.0</span></div>
+<div class="lic"><span>Chaquopy</span><span class="lv">MIT</span></div>
+<div class="lic"><span>IBM Plex Sans · Mono</span><span class="lv">OFL-1.1</span></div>
+<div class="lic"><span>Hyle Deco · 17 Learn faces</span><span class="lv">OFL-1.1</span></div>
+<a href="#" style="font-size: 12.5px; font-weight: 600; color: #5F4BE0; text-decoration: none; margin-top: 6px">All notices, in full ›</a>
+</div>
+</div>
+
+<div style="position: absolute; left: 0; top: 672px; width: 390px; height: 172px">
+<dc-import name="Deck" section="Home" left="back" right="menu" toggles="" dim-sections="true" hint-size="390px,172px"></dc-import>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
