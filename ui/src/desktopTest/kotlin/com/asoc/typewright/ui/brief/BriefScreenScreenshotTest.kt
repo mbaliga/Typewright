@@ -3,6 +3,7 @@
 package com.asoc.typewright.ui.brief
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import com.asoc.typewright.brief.Dimension
@@ -10,7 +11,9 @@ import com.asoc.typewright.brief.Door
 import com.asoc.typewright.brief.Level
 import com.asoc.typewright.brief.Step
 import com.asoc.typewright.brief.startingReferences
+import com.asoc.typewright.project.ContrastModel
 import com.asoc.typewright.project.Ethos
+import com.asoc.typewright.project.Use
 import com.asoc.typewright.qa.corpus.loadStyleAtlas
 import com.asoc.typewright.ui.ScreenshotHarness
 import com.asoc.typewright.ui.project.InMemoryProjectFolderPicker
@@ -105,6 +108,38 @@ class BriefScreenScreenshotTest {
                 CompositionLocalProvider(LocalProjectWorkspace provides workspace) {
                     BriefScreen(texture = CanvasTextures.PAPER, state = state)
                 }
+            }
+        assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
+    }
+
+    @Test
+    fun rendersTheNewProjectBoardWithAProjectOpen() {
+        val workspace = createProjectWorkspace(CoroutineScope(Dispatchers.Default))
+        runBlocking { createUntitledProject(workspace, InMemoryProjectFolderPicker(workspace)) }
+        val shot =
+            ScreenshotHarness.capture(name = "brief-screen-new-project", width = 780, height = 1688, density = 2f) {
+                CompositionLocalProvider(LocalProjectWorkspace provides workspace) {
+                    val state = rememberBriefScreenUiState()
+                    remember(state) {
+                        state.beginNewProject()
+                        state.chooseIntentModel(ContrastModel.SANS)
+                        state.chooseIntentUse(Use.DISPLAY)
+                        state.chooseGenre("display-artdeco")
+                    }
+                    BriefScreen(texture = CanvasTextures.PAPER, state = state)
+                }
+            }
+        assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
+    }
+
+    @Test
+    fun rendersTheNewProjectBoardWithNoProjectAndSaysSo() {
+        val state = BriefScreenUiState(atlas = loadStyleAtlas())
+        state.beginNewProject()
+        state.chooseGenre("display-artdeco")
+        val shot =
+            ScreenshotHarness.capture(name = "brief-screen-new-project-no-project", width = 780, height = 1688, density = 2f) {
+                BriefScreen(texture = CanvasTextures.PAPER, state = state)
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
     }

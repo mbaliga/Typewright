@@ -3,6 +3,7 @@
 package com.asoc.typewright.brief
 
 import com.asoc.typewright.project.Ethos
+import com.asoc.typewright.project.Use
 
 /** At most this many feelings: more and they stop pointing anywhere. */
 const val MAX_FEELINGS = 3
@@ -85,4 +86,32 @@ fun Ethos.withWordmark(text: String?): Ethos = copy(wordmark = text?.trim()?.tak
 fun Ethos.reopening(stepId: String): Ethos {
     val i = answered.indexOf(stepId)
     return if (i < 0) this else copy(answered = answered.take(i))
+}
+
+/** The use id S02's Text chip stands for: the same one [withEthos][com.asoc.typewright.brief.withEthos] reads back as [Use.TEXT]. */
+const val INTENT_TEXT_USE_ID = "body-text"
+
+/** The use id S02's Display chip stands for: the first of the ids [withEthos][com.asoc.typewright.brief.withEthos] reads back as [Use.DISPLAY]. */
+const val INTENT_DISPLAY_USE_ID = "headline"
+
+/**
+ * Makes [use] the main use, the way S02's Text and Display chips do: [Use.TEXT] puts `body-text`
+ * first and [Use.DISPLAY] puts `headline` first, and the other chip's use, with its own answers,
+ * goes. Any other use already chosen stays, after it. Null removes both. The ethos stays the one
+ * record: the chips write into it and `Brief.use` is read back from it.
+ */
+fun Ethos.withIntentUse(use: Use?): Ethos {
+    val wanted =
+        when (use) {
+            Use.TEXT -> INTENT_TEXT_USE_ID
+            Use.DISPLAY -> INTENT_DISPLAY_USE_ID
+            null -> null
+        }
+    var edited = this
+    for (id in listOf(INTENT_TEXT_USE_ID, INTENT_DISPLAY_USE_ID)) {
+        if (id != wanted && id in edited.uses) edited = edited.withUseToggled(id)
+    }
+    if (wanted != null && wanted !in edited.uses) edited = edited.copy(uses = listOf(wanted) + edited.uses)
+    if (wanted != null && edited.uses.first() != wanted) edited = edited.copy(uses = listOf(wanted) + (edited.uses - wanted))
+    return edited
 }

@@ -134,7 +134,14 @@ fun BriefScreen(
     val position =
         remember(state.door, state.ethos, state.model, state.drawing, state.refining, state.focus) { state.askPosition() }
     val atDoors = state.tab == BriefScreenTab.ASK && position == null
+    val onBoard = state.newProject
     val nothingAnswered = state.ethos.isEmpty
+    val session =
+        LocalProjectWorkspace.current
+            ?.current
+            ?.collectAsState()
+            ?.value
+    val draft = remember(session) { NewProjectDraft(session) }
     var menuOpen by remember { mutableStateOf(false) }
     var confirmingStartOver by remember { mutableStateOf(false) }
     Box(modifier = modifier.fillMaxSize().background(texture.canvas.toColor())) {
@@ -148,17 +155,21 @@ fun BriefScreen(
                     .padding(start = PAGE_SIDE.dp, end = PAGE_SIDE.dp, top = PAGE_TOP.dp, bottom = PAGE_BOTTOM.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            PageHeader(title = "Brief", subtitle = state.subtitle, texture = texture)
+            PageHeader(title = if (onBoard) "New project" else "Brief", subtitle = state.subtitle, texture = texture)
             when (state.tab) {
                 BriefScreenTab.ASK -> {
-                    AskTab(
-                        state = state,
-                        position = position,
-                        texture = texture,
-                        confirmingStartOver = confirmingStartOver,
-                        onConfirmingStartOver = { confirmingStartOver = it },
-                        onStartDrawing = onStartDrawing,
-                    )
+                    if (onBoard) {
+                        NewProjectStep(state = state, draft = draft, texture = texture)
+                    } else {
+                        AskTab(
+                            state = state,
+                            position = position,
+                            texture = texture,
+                            confirmingStartOver = confirmingStartOver,
+                            onConfirmingStartOver = { confirmingStartOver = it },
+                            onStartDrawing = onStartDrawing,
+                        )
+                    }
                 }
 
                 BriefScreenTab.BRIEF -> {
@@ -178,10 +189,13 @@ fun BriefScreen(
             right = if (atDoors) DeckRight.NEXT else DeckRight.MENU,
             toggles = if (atDoors) emptyList() else BriefScreenTab.ORDERED.map { DeckToggle(it.label, on = it == state.tab) },
             dimSections = true,
-            rightDimmed = atDoors && nothingAnswered,
+            rightDimmed = atDoors && nothingAnswered && !onBoard,
             onLeft = { if (atDoors || !state.back()) onBack() },
             onRight = {
-                if (atDoors) {
+                if (onBoard) {
+                    draft.commit()
+                    state.finishNewProject()
+                } else if (atDoors) {
                     if (!nothingAnswered) state.selectTab(BriefScreenTab.GUIDE)
                 } else {
                     menuOpen = !menuOpen
@@ -281,7 +295,7 @@ private const val MENU_BOTTOM = 136
 // Shared pieces
 // ---------------------------------------------------------------------------------------------
 
-private fun bodyStyle(
+internal fun bodyStyle(
     color: Color,
     sizeSp: Double = 12.5,
     weight: FontWeight = FontWeight.Normal,
@@ -294,7 +308,7 @@ private fun bodyStyle(
         color = color,
     )
 
-private fun monoStyle(
+internal fun monoStyle(
     color: Color,
     sizeSp: Double = 9.5,
 ): TextStyle = Typography.mono(sizeSp = sizeSp).copy(color = color)
@@ -385,7 +399,7 @@ private fun ButtonRow(
 
 /** A chip: mono, no border; the chosen one is an ink block with paper text. */
 @Composable
-private fun Chip(
+internal fun Chip(
     label: String,
     on: Boolean,
     texture: CanvasTexture,
@@ -408,7 +422,7 @@ private fun Chip(
 
 /** Chips that wrap onto as many lines as they need. */
 @Composable
-private fun Chips(content: @Composable () -> Unit) {
+internal fun Chips(content: @Composable () -> Unit) {
     @OptIn(ExperimentalLayoutApi::class)
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { content() }
 }
@@ -554,7 +568,7 @@ private fun Modifier.leftRule(color: Color): Modifier =
     drawBehind { drawRect(color = color, size = Size(LEFT_RULE_WIDTH.dp.toPx(), size.height)) }
 
 /** A text field's underline (ink at 35%), in place of a box. */
-private fun Modifier.underline(color: Color): Modifier =
+internal fun Modifier.underline(color: Color): Modifier =
     drawBehind {
         val stroke = 1.dp.toPx()
         drawRect(color = color.copy(alpha = FIELD_LINE_ALPHA), topLeft = Offset(0f, size.height - stroke), size = Size(size.width, stroke))

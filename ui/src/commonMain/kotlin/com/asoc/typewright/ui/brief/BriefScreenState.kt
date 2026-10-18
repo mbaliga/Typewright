@@ -32,6 +32,7 @@ import com.asoc.typewright.brief.withConfirmedStyleClass
 import com.asoc.typewright.brief.withEthos
 import com.asoc.typewright.brief.withFeelingToggled
 import com.asoc.typewright.brief.withGenre
+import com.asoc.typewright.brief.withIntentUse
 import com.asoc.typewright.brief.withLevel
 import com.asoc.typewright.brief.withMeasuredLevels
 import com.asoc.typewright.brief.withReferenceToggled
@@ -39,11 +40,15 @@ import com.asoc.typewright.brief.withSignatureToggled
 import com.asoc.typewright.brief.withUseOption
 import com.asoc.typewright.brief.withUseToggled
 import com.asoc.typewright.brief.withWordmark
+import com.asoc.typewright.project.Brief
+import com.asoc.typewright.project.BriefSource
+import com.asoc.typewright.project.ContrastModel
 import com.asoc.typewright.project.EditResult
 import com.asoc.typewright.project.Ethos
 import com.asoc.typewright.project.FontState
 import com.asoc.typewright.project.MetaChange
 import com.asoc.typewright.project.ProjectSession
+import com.asoc.typewright.project.Use
 import com.asoc.typewright.qa.corpus.StyleAtlas
 import com.asoc.typewright.qa.corpus.loadStyleAtlas
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
@@ -90,6 +95,12 @@ const val BRIEF_NO_DRAWING_NOTE: String = "Draw some letters and the guide will 
  * that never provides it (every existing screenshot test).
  */
 val LocalOpenBrief: ProvidableCompositionLocal<((Door?) -> Unit)?> = staticCompositionLocalOf { null }
+
+/**
+ * Opens [BriefScreen] on the new-project step ([BriefScreenUiState.beginNewProject]): what "New
+ * project…" calls once the project exists. Null where nothing provided it.
+ */
+val LocalOpenNewProjectBrief: ProvidableCompositionLocal<(() -> Unit)?> = staticCompositionLocalOf { null }
 
 /**
  * The Brief screen's state: the person's [ethos], what it resolves to ([model]), their own
@@ -151,13 +162,65 @@ class BriefScreenUiState(
     /** True when answers are written to an open project. */
     val saved: Boolean get() = persist != null
 
+    /**
+     * True while the Brief is the new-project flow's second step, laid out as the canvas's
+     * `NewProject` board: name, scripts, intent, closest class and a line about it, instead of the
+     * doors. Any other way into the Brief ends it.
+     */
+    var newProject: Boolean by mutableStateOf(false)
+        private set
+
+    /**
+     * The Serif/Sans chip on that board: which classes "Closest class" offers. It starts as what
+     * the ethos already implies, and it is a filter, not a second copy of the answer: the model the
+     * brief records is read back from the ethos.
+     */
+    var intentModel: ContrastModel? by mutableStateOf(null)
+        private set
+
+    /** The model and use the ethos implies, the same ones [saveEthos] writes into the project's brief. */
+    val implied: Brief get() = Brief(source = BriefSource.BLANK).withEthos(ethos)
+
+    /** Opens the new-project step: the board first, then on to the Brief proper. */
+    fun beginNewProject() {
+        newProject = true
+        tab = BriefScreenTab.ASK
+        door = null
+        focus = null
+        refining = false
+        intentModel = implied.model
+    }
+
+    /** Leaves the new-project step for the Brief itself: the guide once there are answers, otherwise the doors. */
+    fun finishNewProject() {
+        newProject = false
+        tab = if (ethos.isEmpty) BriefScreenTab.ASK else BriefScreenTab.GUIDE
+    }
+
+    /** "Not sure" on Closest class: leaves the board for the other doors. */
+    fun notSure() {
+        newProject = false
+        tab = BriefScreenTab.ASK
+        chooseDoor(null)
+    }
+
+    /** Filters the classes by Serif or Sans; choosing the one already chosen clears it. */
+    fun chooseIntentModel(model: ContrastModel?) {
+        intentModel = if (intentModel == model) null else model
+    }
+
+    /** Makes [use] the main use (Text or Display); null clears it. */
+    fun chooseIntentUse(use: Use?) = commit(ethos.withIntentUse(use))
+
     /** Shows [tab]. */
     fun selectTab(tab: BriefScreenTab) {
+        newProject = false
         this.tab = tab
     }
 
     /** Goes in by [door]; null goes back to choosing one. The answers stay: another door skips what is already answered. */
     fun chooseDoor(door: Door?) {
+        newProject = false
         this.door = door
         refining = false
         focus = null
@@ -274,6 +337,7 @@ class BriefScreenUiState(
             val chosen = door
             val position = askPosition()
             return when {
+                newProject -> "Step 2 of 3 · the brief"
                 tab == BriefScreenTab.BRIEF -> "What your answers add up to"
                 tab == BriefScreenTab.GUIDE -> "What to draw, and why"
                 focus != null -> "Changing one answer · the others stay"
@@ -290,6 +354,10 @@ class BriefScreenUiState(
      */
     fun back(): Boolean =
         when {
+            newProject -> {
+                false
+            }
+
             focus != null || tab != BriefScreenTab.ASK || door != null -> {
                 if (focus == null && tab != BriefScreenTab.ASK) tab = BriefScreenTab.ASK else goBack()
                 true

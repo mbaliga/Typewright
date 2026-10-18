@@ -524,7 +524,7 @@ p { margin: 0 0 10px; }
       case "_startOverMenu": confirming = true; send({ type: "tab", id: "ask" }); send({ type: "door", id: null }); return;
       case "_about": say("The real Brief engine, compiled to JavaScript, with the real style atlas. Nothing leaves this page."); return;
       case "_close": say("In the app, Close leaves the Brief and returns to where you came from; nothing is lost until you create the project."); return;
-      case "_next": say("In the app, Next goes on to the project's metrics (S02 step 3); this prototype is the Brief."); return;
+      case "_next": say("In the app, Next on the doors goes on to the guide once there is an answer."); return;
       case "_menu": if (menu.hidden) openMenu(); else menu.hidden = true; return;
       case "_back": {
         const before = JSON.stringify(view);

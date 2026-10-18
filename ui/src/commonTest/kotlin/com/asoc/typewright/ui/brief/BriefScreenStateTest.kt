@@ -283,6 +283,59 @@ class BriefScreenStateTest {
     }
 
     @Test
+    fun theNewProjectStepSaysItIsStepTwoAndEndsInTheGuideOrTheDoors() {
+        val state = BriefScreenUiState(atlas = null)
+        state.beginNewProject()
+        assertTrue(state.newProject)
+        assertEquals("Step 2 of 3 · the brief", state.subtitle)
+        assertFalse(state.back(), "the deck's left circle is Close here")
+
+        state.finishNewProject()
+        assertFalse(state.newProject)
+        assertEquals(BriefScreenTab.ASK, state.tab, "nothing answered: the doors")
+
+        state.beginNewProject()
+        state.chooseGenre("display-artdeco")
+        state.finishNewProject()
+        assertEquals(BriefScreenTab.GUIDE, state.tab)
+    }
+
+    @Test
+    fun notSureLeavesTheBoardForTheDoorsAndKeepsTheAnswers() {
+        val state = BriefScreenUiState(initialEthos = Ethos(uses = listOf("headline")), atlas = null)
+        state.beginNewProject()
+        state.notSure()
+        assertFalse(state.newProject)
+        assertNull(state.door)
+        assertEquals(BriefScreenTab.ASK, state.tab)
+        assertEquals(listOf("headline"), state.ethos.uses)
+    }
+
+    @Test
+    fun theIntentChipsWriteTheEthosAndTheModelAndUseAreReadBackFromIt() {
+        val state = BriefScreenUiState(atlas = null)
+        state.beginNewProject()
+        state.chooseIntentUse(com.asoc.typewright.project.Use.DISPLAY)
+        assertEquals(listOf("headline"), state.ethos.uses)
+        assertEquals(com.asoc.typewright.project.Use.DISPLAY, state.implied.use)
+
+        state.chooseGenre("sans-geometric")
+        assertEquals(com.asoc.typewright.project.ContrastModel.SANS, state.implied.model)
+        assertEquals("sans-geometric", state.implied.styleClass.declared)
+    }
+
+    @Test
+    fun theSerifSansChipFiltersTheClassesWithoutWritingASecondCopy() {
+        val state = BriefScreenUiState(atlas = null)
+        state.beginNewProject()
+        state.chooseIntentModel(com.asoc.typewright.project.ContrastModel.SERIF)
+        assertEquals(com.asoc.typewright.project.ContrastModel.SERIF, state.intentModel)
+        assertTrue(state.ethos.isEmpty)
+        state.chooseIntentModel(com.asoc.typewright.project.ContrastModel.SERIF)
+        assertNull(state.intentModel)
+    }
+
+    @Test
     fun theKeeperHandsBackTheSameStateWhileTheProjectIsTheSame() {
         val keeper = BriefStateKeeper()
         val first = keeper.stateFor(null) { BriefScreenUiState() }

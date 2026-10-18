@@ -27,6 +27,7 @@ import com.asoc.typewright.brief.Door
 import com.asoc.typewright.project.ProjectWorkspace
 import com.asoc.typewright.ui.brief.BriefScreen
 import com.asoc.typewright.ui.brief.LocalOpenBrief
+import com.asoc.typewright.ui.brief.LocalOpenNewProjectBrief
 import com.asoc.typewright.ui.brief.rememberBriefScreenUiState
 import com.asoc.typewright.ui.brief.rememberBriefStateKeeper
 import com.asoc.typewright.ui.learn.LearnScreen
@@ -127,6 +128,7 @@ fun TypewrightApp(
         LocalProjectWorkspace provides workspace,
         LocalZipTransferSupported provides supportsZipTransfer,
         LocalOpenBrief provides navState::openBrief,
+        LocalOpenNewProjectBrief provides navState::openNewProjectBrief,
     ) {
         Box(modifier = modifier.fillMaxSize()) {
             TypewrightSheet(modifier = Modifier.fillMaxSize())
@@ -147,6 +149,12 @@ fun TypewrightApp(
                         navState.pendingBriefDoor?.let { door ->
                             briefState.chooseDoor(door)
                             navState.pendingBriefDoor = null
+                        }
+                    }
+                    LaunchedEffect(navState.pendingNewProject) {
+                        if (navState.pendingNewProject) {
+                            briefState.beginNewProject()
+                            navState.pendingNewProject = false
                         }
                     }
                     // Start drawing closes the Brief onto the sheet, which opens on Draw.
@@ -209,6 +217,10 @@ class TypewrightAppNavState(
     var pendingBriefDoor: Door? by mutableStateOf(null)
         internal set
 
+    /** [openNewProjectBrief] was called: the Brief opens on the new-project step, consumed (and cleared) like [pendingBriefDoor]. */
+    var pendingNewProject: Boolean by mutableStateOf(false)
+        internal set
+
     /** What [LearnEntryButton]'s own `onClick` calls. Closes [showWorkbook] -- the two screens are mutually exclusive full-screen overlays. */
     fun openLearn() {
         showLearn = true
@@ -245,6 +257,12 @@ class TypewrightAppNavState(
         showLearn = false
         showWorkbook = false
         pendingBriefDoor = door
+    }
+
+    /** What "New project…" calls once the project exists: opens the Brief on S02's second step, the new-project board. */
+    fun openNewProjectBrief() {
+        openBrief(null)
+        pendingNewProject = true
     }
 
     /** What [BriefScreen]'s own back button, via `onBack`, calls. */

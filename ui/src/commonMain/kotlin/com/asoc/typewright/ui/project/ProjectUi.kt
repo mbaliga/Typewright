@@ -179,8 +179,8 @@ fun blankNewProjectSpec(name: String): NewProjectSpec =
  * result-line text.
  *
  * [onCreated] runs only once a project is actually created, never on a cancelled picker or a
- * refused folder: WP4's "New project… creates the project, then opens the Brief on the doors" --
- * S02 step 2 *is* the Brief's Style and Use doors, so there is no separate step 2 screen to open.
+ * refused folder: "New project…" creates the project, then opens the Brief on S02's second step --
+ * the Brief's Style and Use doors, laid out as the canvas's `NewProject` board.
  */
 suspend fun createUntitledProject(
     workspace: ProjectWorkspace,
