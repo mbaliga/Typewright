@@ -1,6 +1,28 @@
 # Handoff: fold the declared brief into the Brief
 
-For a Claude Code session (Sonnet is enough). Read `CLAUDE.md`, then `docs/BRIEF.md`, `docs/SCREENS_V1.md` S02 and S25–S27, and build brief §8.4 before touching code. Written 18 Oct 2026.
+For a Claude Code session (Sonnet is enough). Read `CLAUDE.md`, then `docs/BRIEF.md`, `docs/SCREENS_V1.md` S02 and S25–S27, and build brief §8.4 before touching code. Written 18 Oct 2026; revised 19 Oct 2026 to make the owner's V1 screens canvas the look source.
+
+## The look source: the V1 screens canvas
+
+The owner's design canvas, "Typewright V1 screens" (https://claude.ai/artifact/9WvaeXrcEkHYBJ25K1GM7m), holds the `*.dc.html` boards that CLAUDE.md law 6 and OQ 123 refer to and that the repository is missing: S01–S24, `Deck`, `DeckStates` and `DesktopDraw`. The first version of this handoff, and PR #5's Brief, were drawn without it. Where they differ, **the canvas wins**.
+
+What the canvas fixes, which the Brief currently gets wrong:
+
+| | Canvas | Brief today |
+|---|---|---|
+| Type | IBM Plex Sans (text) and IBM Plex Mono (labels, chips) | system sans and mono |
+| Ground | #EFE9DC with an feTurbulence grain overlay; ink #17150F; muted #6F6A5E | flat paper, no grain |
+| Page frame | title 15 px / 600 at left 22, top 56; content from top ~120; deck at top 672, 390 × 172 | its own header and spacing |
+| Labels | mono 9–10 px, uppercase, 0.14 em tracking | larger mono labels |
+| Choices | `chip`: mono 10 px, 0.12 em, padding 6 × 9, no border, transparent; **on** = ink block, paper text | ink-block rows (same idea, other metrics) |
+| Inputs | underline, `rgba(23,21,15,0.35)` | underline (matches) |
+| Action links | violet #5F4BE0 text (Workbook, Learn, Draw) | underlined ink text |
+| Deck | the `Deck` component: section arc `M -19.3 153.6 A 527 527 0 0 1 409.3 153.6` with a 26 px ink band behind the current label; toggle arc `M 73.4 62.8 A 585 585 0 0 1 316.6 62.8` with a 22 px band; circles at (40, 71) and (350, 71), r 25 (26 filled); neighbour labels at 0.72 and 0.38 opacity | an approximation (R = 1.35 × width) |
+| Sections | Home … Workbook; **there is no Brief section** | the prototype draws "Brief" as a section |
+
+**Where the Brief lives, per the canvas.** S02 `NewProject` is "Step 2 of 3 · the brief": Name, Scripts chips, Intent chips (Serif / Sans, Text / Display), "Closest class · what you will be measured against" chips with corpus counts (Art deco · n 8, Geometric sans · n 30, …, Not sure), the line "Only 8 art deco families on Google Fonts qualify, so its boxes are wide. Typewright will also infer a class from your letters, show its evidence, and ask you to confirm.", and "One line about it · optional". The deck there is `section=Home, left=close, right=next`, sections dimmed. So the Brief is reached from S02 step 2 and from Workbook Task 1, never from the section arc. That board is WP2–WP4 of this handoff drawn out; build it as drawn.
+
+**What the canvas does not show.** The doors, the questions, the wrap-up, the Brief tab and the Guide (S25–S27) have no board. Law 6 says to stop rather than invent: the prototype in `ui/v1-screens/brief/` stays their interaction source, but it is restyled to the canvas's tokens and components (WP0). Record in `OPEN_QUESTIONS.md` that S25–S27 need boards on the canvas, and ask the owner to approve the restyled screenshots before the PR merges.
 
 ## Where things stand
 
@@ -37,15 +59,17 @@ For a Claude Code session (Sonnet is enough). Read `CLAUDE.md`, then `docs/BRIEF
 - Step copy comes from the engine (`Step.prompt` and `Step.why`), never hard-coded in the UI.
 - With no project open, the Brief says so ("Not saved: no project is open"). Where the atlas can't load (the web build), it says so too (OQ 131).
 
-### Look (owner's taste; SCREENS_V1 §3; D7)
-- Options are rows of type with whitespace, with no boxes and no rules between them.
-- A chosen answer is an **ink block with paper text**: never violet, never a border, no "CHOSEN" word.
+### Look (the canvas first; then owner's taste, SCREENS_V1 §3, D7)
+- The canvas's tokens and components, as in the table above: IBM Plex, the grained ground, the page frame, mono labels, `chip`, underline inputs, the `Deck` component.
+- Options are rows of type with whitespace, with no boxes and no rules between them. Short, mono answers (Intent, closest class, uses) are canvas `chip`s.
+- A chosen answer is an **ink block with paper text**, which is what the canvas's `chip.on` is: never violet, never a border, no "CHOSEN" word.
 - A tension is a 2 dp ink rule down its left edge, never a box.
 - Text fields are an underline, never a box.
-- Buttons are square and flat, with mono uppercase labels: primary is an ink block, secondary has a 1 dp ink outline, tertiary is underlined text.
-- Every answer, door, reference and the sentence are set in the real cue face (`BriefCueFonts`). The sentence and the glyphs use the genre's face.
+- Buttons are square and flat, with mono uppercase labels: primary is an ink block, secondary has a 1 dp ink outline. Tertiary actions follow the canvas: violet #5F4BE0 text.
+- Every answer, door, reference and the sentence are set in the real cue face (`BriefCueFonts`); the cue faces are the one exception to IBM Plex. The sentence and the glyphs use the genre's face.
+- Corpus counts stay beside class names ("Art deco · n 8"), as on S02: the user sees how wide each target is (law 5).
 - Nothing is red. Colour is never the only signal.
-- Only the deck is round, in the prototype (the app has no deck yet). Leave its geometry alone: two concentric arcs at R = 1.35 × width and R + 58, 52 dp circles on the toggle ring, and labels that fade 100/70/40% along the arc.
+- Only the deck is round. Use the canvas `Deck` geometry exactly (table above), not the prototype's approximation, and never a "Brief" section.
 - Keep explanatory copy short. New UI text goes behind an info affordance, not onto the surface.
 
 ### Tests that must stay green
@@ -57,6 +81,12 @@ For a Claude Code session (Sonnet is enough). Read `CLAUDE.md`, then `docs/BRIEF
 ## Work packages
 
 Each WP is one commit, with tests. Stop and report rather than guess (CLAUDE.md "When unsure").
+
+**WP0. Bring the canvas in, and restyle the Brief to it.**
+- Ask the owner to export the canvas boards (or attach the project folder). Check them into `ui/v1-screens/` as `*.dc.html` plus `canvas.json`, unchanged, with an SPDX header added only where the format allows a comment. This closes OQ 123. Do not redraw or "tidy" them.
+- Prototype (`ui/v1-screens/brief/prototype.html`): switch to IBM Plex (embed the font files at build time, like the cue fonts, with licences in `THIRD_PARTY.md`), add the grain, use the canvas page frame and `chip` metrics, and replace the hand-drawn deck with the canvas `Deck` geometry. The deck shows `section=Home`, left `close`, right `next` on the doors, as on S02. Rebuild and re-run the walk; the walk's selectors may change, its checks may not.
+- Compose (`BriefScreen.kt`): the same tokens. If the app's theme lacks IBM Plex or the grain, file an OQ and use what the app's other V1 screens use; do not add a second theme.
+- Screenshot test: update the goldens, and put before/after screenshots in the PR for the owner.
 
 **WP1. One record.**
 - In `brief`, add `fun Brief.withEthos(ethos: Ethos): Brief`, which re-derives the old fields:
@@ -80,7 +110,8 @@ Each WP is one commit, with tests. Stop and report rather than guess (CLAUDE.md 
 
 **WP4. S02 step 2 is the Brief.**
 - `New project…` (`ProjectUi.blankNewProjectSpec`) creates the project, then opens the Brief on the doors.
-- No new screen: the Style and Use doors *are* step 2.
+- No new screen: the Style and Use doors *are* step 2, laid out as the canvas's `NewProject` board (Name, Scripts, Intent, Closest class with counts, the explanation line, One line about it), with the deck as drawn there.
+- "Not sure" on Closest class opens the other doors (References, Feeling, Mirror, Blank).
 - Step 3 (metrics from the class median) is optional here. If the atlas lacks cap, ascender or descender data, file an OQ and skip it; don't invent numbers (law 5).
 
 **WP5. Task 1 meets the References door.**
@@ -89,7 +120,7 @@ Each WP is one commit, with tests. Stop and report rather than guess (CLAUDE.md 
 - The gate stays manual; its "no automated check yet" wording stays honest.
 
 **WP6. Docs.**
-- `SCREENS_V1` S02: step 2 becomes "the Brief's Style and Use doors".
+- `SCREENS_V1` S02: step 2 becomes "the Brief's Style and Use doors", pointing at the `NewProject` board; S25–S27 point at the prototype until they have boards.
 - `docs/BRIEF.md`: a "One record" section with the derivation rules.
 - `DECISIONS.md`: a D-entry for "ethos is the source of truth".
 - `OPEN_QUESTIONS.md`: anything deferred.
