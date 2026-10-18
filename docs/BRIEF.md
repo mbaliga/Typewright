@@ -93,6 +93,14 @@ on the atlas is printed by `ReadingAccuracyTest`: 52% top-1 and 83% top-3 among 
 classes, 40% and 69% across all 23. The app shows the neighbours, not just the verdict, because
 that is what the number is really made of.
 
+`readAs` is the Brief's only reader (docs/HANDOFF_BRIEF_FOLD.md "one reader"). `qa:corpus`'s
+older `StyleScorer.rankStyleClasses` (TYPEWRIGHT_BUILD_BRIEF.md 8.4's "small hand-written scorer")
+reads left one out on the same 242 corpus faces at 36% top-1 / 76% top-3 -- markedly behind
+`readAs`'s 52% / 83% on the same faces -- and no V1 screen calls it (`docs/V1_TRIAGE.md` item 19).
+It is `@Deprecated` with a pointer to `readAs`, not removed: it needs no style atlas to vote
+against, only its own ten-class heuristic, so a caller outside the Brief with no atlas available
+could still reach for it.
+
 ## Drift
 
 For each target feature the drawing's own measurement is compared: ON, NEAR, OFF or UNMEASURED

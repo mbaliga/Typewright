@@ -126,7 +126,18 @@ data class StyleClassMatch(
  * The detector's ranking of the ten corpus classes for [measurement], most likely first, with
  * the plain-language evidence behind each score (brief 8.4's "infers a class ... and shows its
  * evidence"). The scorer is a hand-written heuristic, so the UI labels it "our heuristic".
+ *
+ * Superseded by `com.asoc.typewright.brief.readAs` (docs/HANDOFF_BRIEF_FOLD.md "one reader"),
+ * which reads left one out on the atlas noticeably better (242 corpus faces: this function 36%
+ * top-1 / 76% top-3; `readAs` 52% / 83%, `ReadingAccuracyTest`) and is what the Brief and its UI
+ * use. Kept, not removed: a caller outside the Brief with no atlas to vote against (only this
+ * function's own ten-class heuristic, no k-nearest-neighbour search) could still reach for it;
+ * `StyleScorerTest`/`StyleDetectorRealFontValidationTest` exercise it directly for that reason.
  */
+@Deprecated(
+    "Superseded by com.asoc.typewright.brief.readAs, which reads markedly more accurately against the style atlas",
+    ReplaceWith("readAs(measurement, atlas)", "com.asoc.typewright.brief.readAs"),
+)
 fun rankStyleClasses(measurement: StyleMeasurement): List<StyleClassMatch> =
     rankStyleClasses(
         FeatureVector(
