@@ -3313,3 +3313,28 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     components (IBM Plex, the grained ground, the page frame, `chip`, underline inputs, the
     `Deck`), and the Compose screen follows the prototype. The owner needs to draw S25–S27 on the
     canvas, or approve the restyled screenshots before PR #6 merges. Owner: Madhav.
+
+140. **The app has no IBM Plex, no grain and only a first-cut deck (Brief).** The canvas sets
+    everything in IBM Plex on a grained ground, and `UI_SPEC` §2's type is still system fonts
+    (OQ 9: bundling is `[CONFIRM]`) with a `grainOpacity` token but no grain renderer, so the
+    Compose Brief screen takes the canvas's sizes, spacing, chips, links and colours and keeps the
+    system fonts and a flat ground; it does not add a second theme. The prototype
+    (`ui/v1-screens/brief/`) does embed Plex (OFL-1.1, `THIRD_PARTY.md`) and draw the grain.
+    `ui/.../deck/ControlDeck.kt` is the canvas `Deck`'s geometry, state-driven, so the Brief does
+    not carry its own back button or tab row; the router, the gestures and the section arc's
+    navigation stay with the deck prompt. The ⋯ menu does not yet offer *Command…* (C7) because
+    the screen is not handed a way to open the palette. Owner: Madhav, with the deck prompt.
+
+141. **Where the new-project board differs from the canvas's `NewProject` (Brief).** Built as
+    drawn, with these deliberate differences, each for want of a measured or specified source:
+    (a) the project is created before the board opens ("New project…" makes `Untitled/` first), so
+    Close leaves a project behind, where S02 says nothing is written until Create; (b) Name sets the
+    manifest's name only: the folder keeps `Untitled`, and the UFO's family name is unchanged;
+    (c) the script counts are the glyphs the app really holds (Kana 112, Devanagari 66, Naskh 133),
+    not the canvas's sketch (68 and 49), and Latin shows none because nothing in the app counts it;
+    (d) Serif/Sans filters the class chips and writes nothing, since the ethos has no generic "serif"
+    answer; Text and Display write `body-text` and `headline`; (e) the classes offered follow the
+    intent chips, so all ten show with none chosen where the canvas sketches four; (f) "only N …
+    qualify, so its boxes are wide" is shown for fewer than 15 measured families, our heuristic
+    (`FEW_FAMILIES`); (g) "3 Metrics" is drawn dimmed as in the canvas, but Next skips it (OQ 138).
+    Owner: Madhav.

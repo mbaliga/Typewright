@@ -275,10 +275,15 @@ defaults from §2.
   empty; right **→** on steps 1–2, **✓** on step 3.
 - **Content:**
   1. *Source:* Draw on paper · Open a font · Start blank.
-  2. *Brief:* name; scripts (Latin, plus Kana · Devanagari · Naskh marked Preview); then the
-     Brief's own Style and Use doors (S25), which answer the old intent/class chips directly
-     (docs/HANDOFF_BRIEF_FOLD.md, decision D18: one record, one reader) -- no separate intent
-     or class picker here.
+  2. *Brief:* drawn on the canvas as `NewProject` (`ui/v1-screens/NewProject.dc.html`): a step
+     strip, **Name**, **Scripts** (Latin, plus Kana · Devanagari · Naskh marked Preview),
+     **Intent** (Serif · Sans, Text · Display), **Closest class · what you will be measured
+     against** (each class with its corpus count, as in *Art deco · n 8*, then *Not sure*), a
+     line under them, and **One line about it**, optional. These are the Brief's own Style and
+     Use doors asked the short way (docs/HANDOFF_BRIEF_FOLD.md, decision D18: one record, one
+     reader): a class chip sets the ethos's genre, Text and Display set its main use, and Serif
+     and Sans narrow which classes are offered. *Not sure* leaves for the other doors (S25).
+     There is no separate intent or class picker.
   3. *Metrics:* UPM 1000; x-height, cap, ascender and descender prefilled from the class
      median, each editable and each showing that median (not yet built: the atlas carries no
      absolute metric to prefill from, OPEN_QUESTIONS 138); the folder location.
