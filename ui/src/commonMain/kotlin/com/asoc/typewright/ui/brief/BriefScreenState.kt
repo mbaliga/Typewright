@@ -26,6 +26,7 @@ import com.asoc.typewright.brief.questionFor
 import com.asoc.typewright.brief.reopening
 import com.asoc.typewright.brief.resolveBrief
 import com.asoc.typewright.brief.skipping
+import com.asoc.typewright.brief.withConfirmedStyleClass
 import com.asoc.typewright.brief.withEthos
 import com.asoc.typewright.brief.withFeelingToggled
 import com.asoc.typewright.brief.withGenre
@@ -100,7 +101,9 @@ class BriefScreenUiState(
     initialDrawing: Drawing = Drawing.EMPTY,
     initialTab: BriefScreenTab = if (initialEthos.isEmpty) BriefScreenTab.ASK else BriefScreenTab.GUIDE,
     initialDoor: Door? = null,
+    initialConfirmedStyleClass: String? = null,
     private val persist: ((Ethos) -> Boolean)? = null,
+    private val persistConfirmedStyleClass: ((String?) -> Boolean)? = null,
 ) {
     var tab: BriefScreenTab by mutableStateOf(initialTab)
         private set
@@ -130,6 +133,10 @@ class BriefScreenUiState(
 
     /** Whether the last change reached a project, in words. */
     var saveNote: String by mutableStateOf(if (persist == null) BRIEF_NOT_SAVED_NOTE else BRIEF_SAVED_NOTE)
+        private set
+
+    /** The corpus class the person has actively confirmed reads as them (WP3 "Confirm"), or null. */
+    var confirmedStyleClass: String? by mutableStateOf(initialConfirmedStyleClass)
         private set
 
     /** True when answers are written to an open project. */
@@ -228,6 +235,17 @@ class BriefScreenUiState(
 
     /** Marks [dimension] as a deliberate departure from the genre, or unmarks it. */
     fun toggleSignature(dimension: Dimension) = commit(ethos.withSignatureToggled(dimension))
+
+    /**
+     * Confirms [key] (a node-economy corpus class) as the project's own style class, from a
+     * reading in the Mirror door or the Brief tab -- never set by itself, only by a person's own
+     * tap on "This is it" (WP3 "the style is never confirmed silently"); null un-confirms. A
+     * no-op with no project open: there is nothing to confirm into.
+     */
+    fun confirmStyleClass(key: String?) {
+        val save = persistConfirmedStyleClass ?: return
+        if (save(key)) confirmedStyleClass = key
+    }
 
     /** Moves on from [step] with what is chosen so far (for the multiple-choice steps, which have no single answer). */
     fun confirm(step: Step) = commit(ethos.answering(step.id))
@@ -353,18 +371,20 @@ fun rememberBriefScreenUiState(keeper: BriefStateKeeper = rememberBriefStateKeep
     val state =
         remember(keeper, session) {
             keeper.stateFor(session) {
+                val brief =
+                    session
+                        ?.state
+                        ?.value
+                        ?.meta
+                        ?.manifest
+                        ?.brief
                 BriefScreenUiState(
-                    initialEthos =
-                        session
-                            ?.state
-                            ?.value
-                            ?.meta
-                            ?.manifest
-                            ?.brief
-                            ?.ethos ?: Ethos(),
+                    initialEthos = brief?.ethos ?: Ethos(),
                     atlas = keeper.atlas,
                     initialDrawing = drawing,
+                    initialConfirmedStyleClass = brief?.styleClass?.confirmed,
                     persist = session?.let { live -> { ethos: Ethos -> saveEthos(live, ethos) } },
+                    persistConfirmedStyleClass = session?.let { live -> { key: String? -> saveConfirmedStyleClass(live, key) } },
                 )
             }
         }
@@ -379,4 +399,13 @@ private fun saveEthos(
 ): Boolean {
     val brief = session.state.value.meta.manifest.brief
     return session.update(MetaChange.SetBrief(brief.withEthos(ethos))) !is EditResult.Refused
+}
+
+/** Writes [key] into [session]'s brief as its confirmed style class; false when the project refuses it. */
+private fun saveConfirmedStyleClass(
+    session: ProjectSession,
+    key: String?,
+): Boolean {
+    val brief = session.state.value.meta.manifest.brief
+    return session.update(MetaChange.SetBrief(brief.withConfirmedStyleClass(key))) !is EditResult.Refused
 }

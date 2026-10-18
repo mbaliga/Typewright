@@ -10,6 +10,7 @@ import com.asoc.typewright.project.StyleClass
 import com.asoc.typewright.project.Use
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 class BriefEditsTest {
@@ -78,5 +79,24 @@ class BriefEditsTest {
     fun theEthosItselfRoundTrips() {
         val ethos = Ethos(genre = "slab", uses = listOf("signage"))
         assertEquals(ethos, blank.withEthos(ethos).ethos)
+    }
+
+    @Test
+    fun confirmingACorpusClassSetsItAndLeavesEverythingElseAlone() {
+        val declared = blank.withEthos(Ethos(genre = "slab", uses = listOf("signage")))
+        val confirmed = declared.withConfirmedStyleClass("slab")
+        assertEquals("slab", confirmed.styleClass.confirmed)
+        assertEquals(declared.copy(styleClass = declared.styleClass.copy(confirmed = "slab")), confirmed)
+    }
+
+    @Test
+    fun confirmingNullUnconfirms() {
+        val confirmed = blank.withConfirmedStyleClass("slab")
+        assertNull(confirmed.withConfirmedStyleClass(null).styleClass.confirmed)
+    }
+
+    @Test
+    fun confirmingANonCorpusClassIsRefused() {
+        assertFailsWith<IllegalArgumentException> { blank.withConfirmedStyleClass("sans-rounded") }
     }
 }

@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.asoc.typewright.brief.AskPosition
+import com.asoc.typewright.brief.CORPUS_GENRE_KEYS
 import com.asoc.typewright.brief.Cue
 import com.asoc.typewright.brief.Dimension
 import com.asoc.typewright.brief.Door
@@ -51,6 +52,7 @@ import com.asoc.typewright.brief.Genre
 import com.asoc.typewright.brief.GenreGroup
 import com.asoc.typewright.brief.GuideKind
 import com.asoc.typewright.brief.OriginKind
+import com.asoc.typewright.brief.Reading
 import com.asoc.typewright.brief.Source
 import com.asoc.typewright.brief.Step
 import com.asoc.typewright.brief.Tension
@@ -59,11 +61,13 @@ import com.asoc.typewright.brief.WrapUp
 import com.asoc.typewright.brief.cueFaceOf
 import com.asoc.typewright.brief.describeFace
 import com.asoc.typewright.brief.facesLike
+import com.asoc.typewright.brief.genreByKey
 import com.asoc.typewright.brief.guideFor
 import com.asoc.typewright.brief.needsConfirm
 import com.asoc.typewright.brief.offersNotSure
 import com.asoc.typewright.brief.planFor
 import com.asoc.typewright.brief.prompt
+import com.asoc.typewright.brief.readAs
 import com.asoc.typewright.brief.searchFaces
 import com.asoc.typewright.brief.why
 import com.asoc.typewright.ui.tokens.CanvasTexture
@@ -432,6 +436,28 @@ private fun TensionCard(
     state = state,
     texture = texture,
 )
+
+/**
+ * "This is it: <genre>" under a reading (WP3 "Confirm"): the first corpus class
+ * (node-economy's ten, [CORPUS_GENRE_KEYS]) among its votes, since only those have a style class
+ * to confirm. Nothing if the reading named none. The style is never confirmed silently -- this is
+ * the only place [BriefScreenUiState.confirmStyleClass] is ever called, and only by a tap.
+ */
+@Composable
+private fun ConfirmStyleClassAction(
+    reading: Reading?,
+    state: BriefScreenUiState,
+    texture: CanvasTexture,
+) {
+    val corpusVote = reading?.genres?.firstOrNull { it.genre.key in CORPUS_GENRE_KEYS } ?: return
+    val confirmed = state.confirmedStyleClass == corpusVote.genre.key
+    ActionButton(
+        label = if (confirmed) "Confirmed: ${corpusVote.genre.name}" else "This is it: ${corpusVote.genre.name}",
+        texture = texture,
+        onClick = { state.confirmStyleClass(if (confirmed) null else corpusVote.genre.key) },
+        filled = confirmed,
+    )
+}
 
 /** Clears every answer, after a second tap: the ink-block confirmation SCREENS_V1 asks for before anything is lost. */
 @Composable
@@ -890,6 +916,7 @@ private fun ReadDrawingView(
                 style = bodyStyle(fg),
             )
         }
+        ConfirmStyleClassAction(reading = reading, state = state, texture = texture)
     }
     if (step.levels.isNotEmpty()) {
         SectionLabel(text = "What each measures as", texture = texture)
@@ -952,6 +979,7 @@ private fun BriefTab(
         ActionButton(label = "Choose a door", texture = texture, onClick = { state.selectTab(BriefScreenTab.ASK) }, filled = true)
     }
     BasicText(text = state.saveNote.uppercase(), style = monoStyle(muted))
+    BasicText(text = declaredAndConfirmedLine(state), style = monoStyle(muted))
     if (state.atlas == null) {
         BasicText(text = BRIEF_ATLAS_UNAVAILABLE_NOTE, style = bodyStyle(muted, sizeSp = 11.5))
     }
@@ -959,12 +987,44 @@ private fun BriefTab(
     TargetsTable(state = state, texture = texture)
     TensionsList(state = state, texture = texture)
     ReferencesList(state = state, texture = texture)
+    if (state.drawing.font.glyphs
+            .isNotEmpty() && state.atlas != null
+    ) {
+        Rule(texture)
+        ReadingSection(state = state, texture = texture)
+    }
     if (!model.isEmpty) {
         Rule(texture)
         SectionLabel(text = "Next", texture = texture)
         BasicText(text = "The guide turns this brief into what to draw, in what order, and why.", style = bodyStyle(muted, sizeSp = 11.5))
         ActionButton(label = "See your guide", texture = texture, onClick = { state.selectTab(BriefScreenTab.GUIDE) }, filled = true)
     }
+}
+
+/** "declared: <genre> · confirmed: <genre or "not yet">" (WP3 "Confirm"), the Brief tab's own one-line summary of [StyleClass]. */
+private fun declaredAndConfirmedLine(state: BriefScreenUiState): String {
+    val declared =
+        state.model.genre
+            ?.takeIf { it.corpus }
+            ?.name ?: "none"
+    val confirmed = state.confirmedStyleClass?.let { genreByKey(it)?.name } ?: "not yet"
+    return "declared: $declared · confirmed: $confirmed"
+}
+
+/** The Brief tab's own reading, once letters exist: the same [readAs] vote and confirm action the Mirror door offers, so confirming does not require a trip through Ask. */
+@Composable
+private fun ReadingSection(
+    state: BriefScreenUiState,
+    texture: CanvasTexture,
+) {
+    val atlas = state.atlas ?: return
+    val reading = remember(state.drawing, atlas) { readAs(state.drawing.measurement, atlas) } ?: return
+    val fg = texture.fg.toColor()
+    SectionLabel(text = "Your letters read as", texture = texture)
+    for (vote in reading.genres) {
+        BasicText(text = "${vote.genre.name}: ${vote.votes} of the ${reading.k} nearest faces", style = bodyStyle(fg))
+    }
+    ConfirmStyleClassAction(reading = reading, state = state, texture = texture)
 }
 
 @Composable

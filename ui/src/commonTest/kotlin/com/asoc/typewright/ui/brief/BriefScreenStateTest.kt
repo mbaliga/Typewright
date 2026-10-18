@@ -202,6 +202,44 @@ class BriefScreenStateTest {
     }
 
     @Test
+    fun withNoProjectConfirmingAStyleClassIsANoOp() {
+        val state = BriefScreenUiState()
+        state.confirmStyleClass("slab")
+        assertNull(state.confirmedStyleClass)
+    }
+
+    @Test
+    fun withAProjectConfirmingAStyleClassSavesItAndUnconfirmingClearsIt() {
+        val saved = mutableListOf<String?>()
+        val state =
+            BriefScreenUiState(persistConfirmedStyleClass = {
+                saved += it
+                true
+            })
+        assertNull(state.confirmedStyleClass)
+
+        state.confirmStyleClass("slab")
+        assertEquals("slab", state.confirmedStyleClass)
+        assertEquals(listOf<String?>("slab"), saved)
+
+        state.confirmStyleClass(null)
+        assertNull(state.confirmedStyleClass)
+        assertEquals(listOf("slab", null), saved)
+    }
+
+    @Test
+    fun aProjectThatRefusesAConfirmationLeavesItUnconfirmed() {
+        val state = BriefScreenUiState(persistConfirmedStyleClass = { false })
+        state.confirmStyleClass("slab")
+        assertNull(state.confirmedStyleClass)
+    }
+
+    @Test
+    fun aBriefOpensWithItsProjectsOwnConfirmedStyleClass() {
+        assertEquals("slab", BriefScreenUiState(initialConfirmedStyleClass = "slab").confirmedStyleClass)
+    }
+
+    @Test
     fun theKeeperHandsBackTheSameStateWhileTheProjectIsTheSame() {
         val keeper = BriefStateKeeper()
         val first = keeper.stateFor(null) { BriefScreenUiState() }

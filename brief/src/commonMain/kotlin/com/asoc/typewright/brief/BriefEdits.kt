@@ -54,3 +54,14 @@ private fun useFor(ethos: Ethos): Use? =
     }
 
 private fun declaredStyleClassFor(ethos: Ethos): String? = ethos.genre?.takeIf { it in CORPUS_GENRE_KEYS }
+
+/**
+ * Confirms [key] as the project's style class (WP3 "Confirm"): a node-economy corpus class
+ * ([CORPUS_GENRE_KEYS]) the person has actively agreed reads as them, from a reading in the
+ * Mirror door or the Brief tab -- never set by itself, only by a tap on "This is it". `null`
+ * un-confirms. Leaves `declared`, `model`, `use`, `ethos` and `note` exactly as they are.
+ */
+fun Brief.withConfirmedStyleClass(key: String?): Brief {
+    require(key == null || key in CORPUS_GENRE_KEYS) { "'$key' is not one of the ten node-economy classes" }
+    return copy(styleClass = styleClass.copy(confirmed = key))
+}
