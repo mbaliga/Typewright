@@ -1,11 +1,19 @@
 <title>Typewright Brief</title>
 <!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
 <!--
-  The Brief's design prototype (S25–S27). build.py fills the placeholders: the cue faces, the style
-  atlas, the example letters, and the real engine compiled to JavaScript. This file is the look and
-  the interaction; every word and number on the page comes from the engine.
+  The Brief's design prototype (S25–S27). build.py fills the placeholders: IBM Plex, the cue faces,
+  the style atlas, the example letters, and the real engine compiled to JavaScript. This file is the
+  look and the interaction; every word and number on the page comes from the engine.
+
+  The look is the owner's V1 screens canvas (ui/v1-screens/, CLAUDE.md law 6): IBM Plex Sans and
+  Mono on the grained ground #EFE9DC, a 390-wide phone column with the title at left 22 / top 56 and
+  the content from about 118, mono labels, the canvas `chip`, underline inputs, violet action
+  links, and the canvas `Deck` (ui/v1-screens/Deck.dc.html) ported with its exact geometry. The
+  canvas has no board for the Brief's own screens, so what they hold is this prototype's, dressed in
+  the canvas's tokens (docs/OPEN_QUESTIONS.md).
 -->
 <style>
+/*@PLEX_FONTS@*/
 /*@CUE_FONTS@*/
 
 /* One phone column on paper; space is made by type and whitespace, selection is an ink block, and
@@ -15,129 +23,139 @@
   --ink: #17150F;
   --fg: #1B1915;
   --muted: #6F6A5E;
-  --line: rgba(23, 21, 15, .20);
-  --band: rgba(23, 21, 15, .045);
+  --line: rgba(23, 21, 15, .22);
+  --field: rgba(23, 21, 15, .35);
+  --accent: #5F4BE0;
+  --red: #D0342C;
+  --paper0: rgba(239, 233, 220, 0);
   --on-ink: #EFE9DC;
   --on-ink-muted: rgba(239, 233, 220, .72);
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  --sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
   color-scheme: light;
 }
+/* The canvas's black ground (Deck theme "black"; the app's BLACK texture and its violet on black). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --canvas: #000000; --ink: #F3F3F0; --fg: #ECECEA; --muted: #8E8E89;
-    --line: rgba(255, 255, 255, .22); --band: rgba(255, 255, 255, .06);
-    --on-ink: #000000; --on-ink-muted: rgba(0, 0, 0, .66); color-scheme: dark;
+    --line: rgba(255, 255, 255, .24); --field: rgba(243, 243, 240, .35); --accent: #8E7BFF; --red: #FF5A4E;
+    --paper0: rgba(0, 0, 0, 0); --on-ink: #000000; --on-ink-muted: rgba(0, 0, 0, .66); color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --canvas: #000000; --ink: #F3F3F0; --fg: #ECECEA; --muted: #8E8E89;
-  --line: rgba(255, 255, 255, .22); --band: rgba(255, 255, 255, .06);
-  --on-ink: #000000; --on-ink-muted: rgba(0, 0, 0, .66); color-scheme: dark;
+  --line: rgba(255, 255, 255, .24); --field: rgba(243, 243, 240, .35); --accent: #8E7BFF; --red: #FF5A4E;
+  --paper0: rgba(0, 0, 0, 0); --on-ink: #000000; --on-ink-muted: rgba(0, 0, 0, .66); color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
 html, body { background: var(--canvas); }
-body { margin: 0; color: var(--fg); font: 15px/1.45 var(--sans); padding-inline: 16px; -webkit-tap-highlight-color: transparent; }
-.app { max-width: 440px; margin: 0 auto; padding-block: 18px 210px; }
+body { margin: 0; color: var(--ink); font: 13px/1.45 var(--sans); -webkit-tap-highlight-color: transparent; }
 
-/* Header: the page title and a mono line, nothing else (SCREENS_V1 §2.5). */
-header { padding-block: 4px 18px; }
-header h1 { font-size: 15px; font-weight: 600; margin: 0; letter-spacing: .01em; }
-.mono, header p, .label, .btn, .note-mono {
-  font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-variant-numeric: tabular-nums;
+/* The grain (paper only; the black ground has none). Under the text, over the ground. */
+.grain { position: fixed; inset: 0; width: 100%; height: 100%; opacity: .55; mix-blend-mode: multiply; pointer-events: none; z-index: 0; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .grain { display: none; } }
+:root[data-theme="dark"] .grain { display: none; }
+
+/* The page frame: 390 wide, title at left 22 / top 56, content from about 118, room for the deck. */
+.app { position: relative; z-index: 1; width: 390px; max-width: 100%; margin: 0 auto; padding: 56px 22px 214px; }
+header { display: flex; flex-direction: column; gap: 3px; margin-bottom: 26px; }
+header h1 { font-size: 15px; font-weight: 600; margin: 0; }
+.m, header p, .label, .btn, .note-mono {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; font-variant-numeric: tabular-nums;
 }
-header p { margin: 3px 0 0; color: var(--muted); }
+header p { margin: 0; color: var(--muted); font-size: 9.5px; }
 
-.label { color: var(--muted); margin: 34px 0 10px; }
-.label:first-child { margin-top: 6px; }
-.prompt { font-size: 21px; line-height: 1.22; font-weight: 600; margin: 10px 0 6px; text-wrap: balance; }
-.why { color: var(--muted); font-size: 13.5px; margin: 0 0 18px; max-width: 34em; }
-.small { color: var(--muted); font-size: 13px; margin: 8px 0; }
-.note-mono { color: var(--muted); margin: 10px 0; }
+.label { color: var(--muted); font-size: 9.5px; margin: 26px 0 8px; }
+.label:first-child { margin-top: 0; }
+.prompt { font-size: 17px; line-height: 1.3; font-weight: 600; margin: 6px 0 4px; text-wrap: balance; }
+.why { color: var(--muted); font-size: 12.5px; line-height: 1.45; margin: 0 0 16px; max-width: 330px; }
+.small { color: var(--muted); font-size: 12.5px; line-height: 1.45; margin: 8px 0; max-width: 330px; }
+.note-mono { color: var(--muted); font-size: 9.5px; margin: 8px 0; }
 p { margin: 0 0 10px; }
 
-/* Choices: rows of type. The chosen one is an ink block with paper text. */
-.choices { display: grid; gap: 2px; margin: 0 -12px; }
+/* Choices with a specimen: rows of type. The chosen one is an ink block with paper text. */
+.choices { display: grid; gap: 2px; margin: 0 -10px; }
 .choice {
   display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: center; column-gap: 14px;
   width: 100%; text-align: left; font: inherit; color: inherit; background: none; border: 0;
-  padding: 12px; cursor: pointer;
+  padding: 10px; cursor: pointer;
 }
 .choice.plain { grid-template-columns: minmax(0, 1fr); }
 .choice .sp { font-size: 38px; line-height: 1; white-space: nowrap; overflow: hidden; }
 .choice .t { font-weight: 600; font-size: 15px; }
-.choice .d { color: var(--muted); font-size: 13px; margin-top: 1px; }
-.choice .x { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; color: var(--muted); margin-top: 4px; text-transform: uppercase; }
+.choice .d { color: var(--muted); font-size: 12.5px; margin-top: 1px; }
+.choice .x { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; color: var(--muted); margin-top: 4px; text-transform: uppercase; }
 .choice[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
 .choice[aria-pressed="true"] .d, .choice[aria-pressed="true"] .x { color: var(--on-ink-muted); }
-.choice:focus-visible, .btn:focus-visible, .seg button:focus-visible, .circle:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
-/* Buttons: square, flat. Primary is an ink block. */
-.row { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
-.btn { min-height: 44px; padding: 12px 15px; border: 1px solid var(--ink); background: none; color: var(--fg); cursor: pointer; }
+/* The canvas `chip`: short mono answers (uses, feelings, yes/no). On = ink block, paper text. */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; padding: 6px 9px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
+.chip.on, .chip[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
+.choice:focus-visible, .btn:focus-visible, .chip:focus-visible, .dk:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* Buttons: square, flat, mono. Primary is an ink block, secondary an ink outline; the tertiary
+   action is the canvas's violet link. */
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 0; }
+.btn { padding: 11px 14px; border: 1px solid var(--ink); background: none; color: var(--ink); cursor: pointer; }
 .btn.primary { background: var(--ink); color: var(--on-ink); }
-.btn.quiet { border-color: transparent; padding-inline: 4px; text-decoration: underline; text-underline-offset: 4px; color: var(--muted); }
+.btn.quiet { border: 0; padding: 4px 2px; font-family: var(--sans); font-size: 12.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--accent); }
 
 /* Text fields: an underline, not a box. */
-.field { width: 100%; font: 17px/1.3 var(--sans); color: var(--fg); background: none; border: 0; border-bottom: 1px solid var(--ink); padding: 10px 0; border-radius: 0; }
+.field { width: 100%; font: 14px/1.3 var(--sans); color: var(--ink); background: none; border: 0; border-bottom: 1px solid var(--field); padding: 4px 0; border-radius: 0; }
 .field::placeholder { color: var(--muted); }
-.field:focus { outline: none; border-bottom-width: 2px; }
+.field:focus { outline: none; border-bottom-color: var(--ink); }
 
 /* The brief's own words, in the genre's face. */
-.sentence { font-size: 25px; line-height: 1.24; margin: 8px 0 10px; text-wrap: balance; }
-.glyphs { font-size: 40px; line-height: 1.15; letter-spacing: .14em; margin: 6px 0 8px; word-break: break-word; }
-.glyphs.big { font-size: 72px; letter-spacing: .1em; }
+.sentence { font-size: 22px; line-height: 1.25; margin: 6px 0 10px; text-wrap: balance; }
+.glyphs { font-size: 38px; line-height: 1.15; letter-spacing: .14em; margin: 6px 0 8px; word-break: break-word; }
+.glyphs.big { font-size: 64px; letter-spacing: .1em; }
 
 /* A tension: a rule on the left, so it reads as one thing to decide. */
 .tension { border-left: 2px solid var(--ink); padding: 2px 0 2px 14px; margin: 18px 0; }
-.tension .t { font-weight: 600; }
-.tension .b { margin: 4px 0; }
-.src { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; color: var(--muted); }
+.tension .t { font-weight: 600; font-size: 13px; }
+.tension .b { margin: 4px 0; font-size: 12.5px; }
+.src { font-family: var(--mono); font-size: 9px; letter-spacing: .06em; color: var(--muted); }
 
 /* Targets: feature, then what the brief asks and where it came from. */
 .targets { display: grid; gap: 14px; }
-.target { display: grid; grid-template-columns: 9.5em minmax(0, 1fr); column-gap: 12px; }
+.target { display: grid; grid-template-columns: 8.5em minmax(0, 1fr); column-gap: 12px; font-size: 12.5px; }
 .target .f { font-weight: 600; }
 .target .v { font-variant-numeric: tabular-nums; }
-.target .o { color: var(--muted); font-size: 13px; }
+.target .o { color: var(--muted); font-size: 12px; }
 
 .item { margin: 16px 0 22px; }
-.item .t { font-weight: 600; }
+.item .t { font-weight: 600; font-size: 14px; }
+.item p { font-size: 12.5px; }
 .face { display: grid; grid-template-columns: 76px minmax(0, 1fr); column-gap: 14px; align-items: center; margin: 12px 0; }
 .face .sp { font-size: 34px; line-height: 1; }
-.face .d { color: var(--muted); font-size: 13px; }
+.face .t { font-weight: 600; font-size: 15px; }
+.face .d { color: var(--muted); font-size: 12.5px; }
 
-/* The control deck (SCREENS_V1 §2): two concentric arcs and two circles, the only round things. */
-.deck { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(100vw, 560px); height: calc(150px + env(safe-area-inset-bottom, 0px)); pointer-events: none; overflow: hidden; }
-.bloom { position: fixed; left: 0; right: 0; bottom: 0; height: calc(190px + env(safe-area-inset-bottom, 0px)); pointer-events: none;
-  background: linear-gradient(to top, var(--canvas) 0%, var(--canvas) 58%, transparent 100%); }
-.deck svg { position: absolute; inset: 0 0 env(safe-area-inset-bottom, 0px) 0; width: 100%; height: 150px; overflow: visible; }
-.deck .arc-band { fill: none; stroke: var(--band); stroke-width: 44; }
-.deck .arc-line { fill: none; stroke: var(--line); stroke-width: 1; }
-.sec { position: absolute; left: 0; top: 0; pointer-events: auto; transform-origin: center; white-space: nowrap;
-  font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--fg);
-  background: none; border: 0; padding: 5px 9px; cursor: pointer; }
-.sec.here { background: var(--ink); color: var(--on-ink); }
-.circle { position: absolute; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; border: 1.5px solid var(--ink);
-  background: var(--canvas); color: var(--fg); font-size: 22px; line-height: 1; pointer-events: auto; cursor: pointer; display: grid; place-items: center; }
-.seg { position: absolute; left: 0; top: 0; pointer-events: auto; display: flex; transform-origin: center; }
-.seg button { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; background: none; border: 0;
-  color: var(--fg); padding: 9px 11px; cursor: pointer; }
-.seg button[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
+/* The control deck: the canvas `Deck` component (ui/v1-screens/Deck.dc.html), 390 x 172 at the foot.
+   Its paper fades up over the page, and the grain dissolves there (C4); the fade spans the viewport so a
+   wider window shows no strip. Only the circles and the arcs are round (C2). */
+.bloom { position: fixed; left: 0; right: 0; bottom: 0; height: 172px; z-index: 2; pointer-events: none;
+  background: linear-gradient(to bottom, var(--paper0) 0%, var(--canvas) 40%); }
+.deck { position: fixed; left: 50%; bottom: 0; width: 390px; height: 172px; margin-left: -195px; z-index: 3; pointer-events: none;
+  font-family: var(--mono); transform-origin: 50% 100%; }
+.deck svg { position: absolute; left: 0; top: 0; width: 390px; height: 172px; overflow: visible; }
+.dk { position: absolute; padding: 0; border: 0; background: transparent; cursor: pointer; pointer-events: auto; }
 
 /* The ⋯ menu rises from its circle; a toast says what only the app does. */
-.menu { position: fixed; right: max(16px, calc(50vw - 264px)); bottom: calc(118px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 2px; z-index: 5; min-width: 230px; }
-.menu button { text-align: left; font: 15px/1.3 var(--sans); padding: 13px 14px; border: 0; background: var(--ink); color: var(--on-ink); cursor: pointer; }
-.menu button .k { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--on-ink-muted); margin-top: 2px; }
-.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(170px + env(safe-area-inset-bottom, 0px)); max-width: min(92vw, 420px);
-  background: var(--ink); color: var(--on-ink); padding: 11px 14px; font-size: 14px; z-index: 6; }
+.menu { position: fixed; right: max(14px, calc(50vw - 181px)); bottom: 136px; display: grid; gap: 2px; z-index: 5; min-width: 230px; }
+.menu button { text-align: left; font: 13px/1.3 var(--sans); padding: 11px 13px; border: 0; background: var(--ink); color: var(--on-ink); cursor: pointer; }
+.menu button .k { display: block; font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--on-ink-muted); margin-top: 2px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 184px; max-width: min(92vw, 360px);
+  background: var(--ink); color: var(--on-ink); padding: 10px 13px; font-size: 12.5px; z-index: 6; }
 @media (prefers-reduced-motion: no-preference) {
   .app.fresh > * { animation: rise .24s ease-out both; }
   @keyframes rise { from { opacity: .35; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 }
 </style>
 
+<svg class="grain" aria-hidden="true"><filter id="gr" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"></feTurbulence><feColorMatrix values="0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.22 0 0 0 0.26 0"></feColorMatrix></filter><rect width="100%" height="100%" filter="url(#gr)"></rect></svg>
 <div class="app" id="app"><header><h1>Brief</h1><p>Loading 613 measured faces</p></header></div>
 <div class="bloom"></div>
 <nav class="deck" id="deck" aria-label="Sections and page toggles"></nav>
@@ -154,7 +172,9 @@ p { margin: 0 0 10px; }
   const deck = document.getElementById("deck");
   const menu = document.getElementById("menu");
   const toast = document.getElementById("toast");
-  const SECTIONS = ["Home", "Brief", "Capture", "Trace", "Draw", "Space", "Check", "Ship", "Learn", "Workbook"];
+  // The canvas's sections. There is no Brief section: the Brief is reached from S02 step 2 and from
+  // Workbook Task 1, so on its pages the deck stays on Home, dimmed.
+  const SECTIONS = ["Home", "Capture", "Trace", "Draw", "Space", "Check", "Ship", "Learn", "Workbook"];
   let view = null;
   let confirming = false;
 
@@ -171,7 +191,11 @@ p { margin: 0 0 10px; }
   }
 
   // ---- pieces --------------------------------------------------------------------------------
-  const btn = (label, action, kind = "") => `<button class="btn ${kind}" data-a="${a(action)}">${esc(label)}</button>`;
+  const btn = (label, action, kind = "") => `<button class="btn ${kind}" data-a="${a(action)}">${esc(label)}${kind === "quiet" ? " ›" : ""}</button>`;
+  // The canvas `chip`: a short mono answer. The chosen ones are ink blocks.
+  const chip = (o, action) => `<button class="chip${o.chosen ? " on" : ""}" aria-pressed="${!!o.chosen}" data-a="${a(action)}">${esc(o.title)}</button>`;
+  const chips = (opts, actionOf) => `<div class="chips">${opts.map((o) => chip(o, actionOf(o))).join("")}</div>` +
+    opts.filter((o) => o.chosen && o.detail).map((o) => `<p class="small"><b>${esc(o.title)}</b> · ${esc(o.detail)}</p>`).join("");
   const specimen = (c) => {
     if (!c) return "";
     const size = c.text.length <= 2 ? 38 : c.text.length <= 4 ? 26 : 19;
@@ -226,13 +250,13 @@ p { margin: 0 0 10px; }
           g.options.map((o) => choice(o, { type: "genre", key: o.key })).join("") + `</div>`).join("");
         break;
       case "uses":
-        html += `<div class="choices">${s.options.map((o) => choice(o, { type: "use", key: o.key })).join("")}</div>`;
+        html += chips(s.options, (o) => ({ type: "use", key: o.key }));
         break;
       case "useOption":
-        html += `<div class="choices">${s.options.map((o) => choice(o, { type: "useOption", use: s.use, question: s.question, key: o.key })).join("")}</div>`;
+        html += chips(s.options, (o) => ({ type: "useOption", use: s.use, question: s.question, key: o.key }));
         break;
       case "feelings":
-        html += `<div class="label">${esc(s.count)}</div><div class="choices">${s.options.map((o) => choice(o, { type: "feeling", key: o.key })).join("")}</div>`;
+        html += `<div class="label">${esc(s.count)}</div>` + chips(s.options, (o) => ({ type: "feeling", key: o.key }));
         break;
       case "dimension":
         html += `<div class="choices">${s.options.map((o) => choice(o, { type: "level", dim: s.dim, key: o.key })).join("")}</div>`;
@@ -357,45 +381,96 @@ p { margin: 0 0 10px; }
   }
 
   // ---- the deck ------------------------------------------------------------------------------
+  // The canvas `Deck` component (ui/v1-screens/Deck.dc.html), ported as drawn: the section arc
+  // `M -19.3 153.6 A 527 527 0 0 1 409.3 153.6` with a 26 px ink band behind the current label, the
+  // toggle arc `M 73.4 62.8 A 585 585 0 0 1 316.6 62.8` with 22 px bands, circles at (40, 71) and
+  // (350, 71) of r 25 (26 filled), neighbours at 0.72 and 0.38 opacity.
+  const L1 = 441.5;
+  const L2 = 245.0;
+  const RIGHT_NAMES = { menu: "More", next: "Next", none: "" };
+  const toggleArcPoint = (s) => {
+    const phi = -Math.asin(121.6 / 585) + s / 585;
+    return [195 + 585 * Math.sin(phi), 635.02 - 585 * Math.cos(phi)];
+  };
+
+  function deckConfig() {
+    if (view && view.handoff) return { section: "Draw", left: "back", right: "menu", toggles: "Outline*|Fill||Construction*", dim: false };
+    if (view && view.tab === "ask" && view.ask.mode === "doors") return { section: "Home", left: "close", right: "next", toggles: "", dim: true };
+    const on = (id, label) => (view && view.tab === id ? label + "*" : label);
+    return { section: "Home", left: "back", right: "menu", toggles: `${on("ask", "Ask")}|${on("brief", "Brief")}|${on("guide", "Guide")}`, dim: true };
+  }
+
   function drawDeck() {
-    const W = deck.clientWidth || Math.min(window.innerWidth, 560);
-    const H = 150;
-    const R = 1.35 * W;
-    const cx = W / 2;
-    const ys = H - 34;
-    const cy = ys + R;
-    const R2 = R + 58;
-    const at = (r, th) => [cx + r * Math.sin(th), cy - r * Math.cos(th)];
-    const span = Math.asin(Math.min(1, (W / 2) / R));
-    const arc = (r) => { const [x0, y0] = at(r, -span * 1.02); const [x1, y1] = at(r, span * 1.02); return `M${x0},${y0} A${r},${r} 0 0 1 ${x1},${y1}`; };
-    const cxL = 42, cxR = W - 42;
-    const yOn = (x) => cy - Math.sqrt(R2 * R2 - (x - cx) * (x - cx));
-    const here = view && view.handoff ? "Draw" : "Brief";
-    const c = SECTIONS.indexOf(here);
-    const step = (W / 4.7) / R;
-    let html = `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><path class="arc-band" d="${arc(R)}"/><path class="arc-band" d="${arc(R2)}"/><path class="arc-line" d="${arc(R + 22)}"/></svg>`;
-    SECTIONS.forEach((name, i) => {
-      const d = i - c;
-      if (Math.abs(d) > 3) return;
-      const th = d * step;
-      const [x, y] = at(R, th);
-      const op = [1, 1, .7, .4][Math.abs(d)];
-      html += `<button class="sec ${d === 0 ? "here" : ""}" style="opacity:${op};transform:translate(${x}px,${y}px) translate(-50%,-50%) rotate(${th}rad)" data-a="${a({ type: "_section", name })}">${name}</button>`;
-    });
-    const [tx, ty] = at(R2, 0);
-    if (view && view.handoff) {
-      // Draw's own toggles (SCREENS_V1 §2.4): Outline · Fill ‖ Construction, Construction on by default.
-      const draw = [["Outline", true], ["Fill", false], null, ["Construction", true]];
-      html += `<div class="seg" style="transform:translate(${tx}px,${ty}px) translate(-50%,-50%)">` +
-        draw.map((d) => d ? `<button aria-pressed="${d[1]}" data-a="${a({ type: "_drawToggle" })}">${d[0]}</button>` : `<span style="width:10px"></span>`).join("") + `</div>`;
-    } else {
-      const tabs = [["ask", "Ask"], ["brief", "Brief"], ["guide", "Guide"]];
-      html += `<div class="seg" style="transform:translate(${tx}px,${ty}px) translate(-50%,-50%)">` +
-        tabs.map(([id, label]) => `<button aria-pressed="${view && view.tab === id}" data-a="${a({ type: "tab", id })}">${label}</button>`).join("") + `</div>`;
+    const cfg = deckConfig();
+    const cur = Math.max(0, SECTIONS.indexOf(cfg.section));
+    const secs = [];
+    for (let d = -2; d <= 2; d++) {
+      const i = cur + d;
+      const ok = i >= 0 && i < SECTIONS.length;
+      const label = ok ? SECTIONS[i].toUpperCase() : "";
+      const w = label.length * 7.6 + 24;
+      const off = (0.5 + d * 0.2) * L1;
+      secs.push({ label, off: off.toFixed(1), fill: d === 0 ? "var(--canvas)" : "var(--ink)", weight: d === 0 ? 600 : 500,
+        op: !ok ? 0 : d === 0 ? 1 : Math.abs(d) === 1 ? 0.72 : 0.38,
+        dash: d === 0 ? w.toFixed(1) + " 2000" : "0 2000", dashoff: (-(off - w / 2)).toFixed(1) });
     }
-    html += `<button class="circle" aria-label="Back" style="left:${cxL}px;top:${yOn(cxL)}px" data-a="${a({ type: "_back" })}">‹</button>`;
-    html += `<button class="circle" aria-label="Page menu" style="left:${cxR}px;top:${yOn(cxR)}px" data-a="${a({ type: "_menu" })}">⋯</button>`;
+    const items = [];
+    cfg.toggles.split("||").forEach((g, gi) => g.split("|").forEach((t, ti) => {
+      const s = t.trim();
+      if (!s) return;
+      const on = s.endsWith("*");
+      items.push({ label: (on ? s.slice(0, -1) : s).toUpperCase(), on, gap: gi > 0 && ti === 0, id: (on ? s.slice(0, -1) : s).toLowerCase() });
+    }));
+    const widths = items.map((it) => it.label.length * 6.4 + 13);
+    const gapW = 12;
+    const total = widths.reduce((x, y) => x + y, 0) + items.filter((it) => it.gap).length * gapW;
+    let x = L2 / 2 - total / 2;
+    const tg = [];
+    items.slice(0, 6).forEach((it, k) => {
+      if (it.gap) x += gapW;
+      const w = widths[k];
+      tg.push({ label: it.label, id: it.id, w, off: (x + w / 2).toFixed(1), fill: it.on ? "var(--canvas)" : "var(--ink)", op: 1,
+        dash: it.on ? (w - 2).toFixed(1) + " 2000" : "0 2000", dashoff: (-(x + 1)).toFixed(1), mid: x + w / 2 });
+      x += w;
+    });
+    while (tg.length < 6) tg.push({ label: "", off: "0", fill: "var(--ink)", op: 0, dash: "0 2000", dashoff: "0" });
+
+    const L = cfg.left, R = cfg.right;
+    const o = (v) => (v ? 1 : 0);
+    const text = (t, size, ls, anchorId) =>
+      `<text dy="${anchorId === "sa" ? 3.7 : 3.4}" style="font-size:${size}px;letter-spacing:${ls}px;font-weight:${t.weight || 500};fill:${t.fill};opacity:${t.op}"><textPath href="#${anchorId}" startOffset="${t.off}" text-anchor="middle">${esc(t.label)}</textPath></text>`;
+    let svg = `<svg viewBox="0 0 390 172" aria-hidden="true"><defs><path id="sa" d="M -19.3 153.6 A 527 527 0 0 1 409.3 153.6"/><path id="ta" d="M 73.4 62.8 A 585 585 0 0 1 316.6 62.8"/></defs>`;
+    svg += `<g style="opacity:${cfg.dim ? 0.3 : 1}">` +
+      `<path d="M -26.3 138.1 A 544 544 0 0 1 416.3 138.1" fill="none" style="stroke:var(--line);stroke-width:1"/>` +
+      `<path d="M -12.4 169.1 A 510 510 0 0 1 402.4 169.1" fill="none" style="stroke:var(--line);stroke-width:1"/>` +
+      `<path d="M -19.3 153.6 A 527 527 0 0 1 409.3 153.6" fill="none" style="stroke:var(--ink);stroke-width:26;stroke-dasharray:${secs[2].dash};stroke-dashoffset:${secs[2].dashoff}"/>` +
+      secs.map((t) => text(t, 10.5, 1.5, "sa")).join("") + `</g>`;
+    svg += `<path d="M 70.3 48.1 A 600 600 0 0 1 319.7 48.1" fill="none" style="stroke:var(--line);stroke-width:1"/>` +
+      `<path d="M 76.5 77.5 A 570 570 0 0 1 313.5 77.5" fill="none" style="stroke:var(--line);stroke-width:1"/>` +
+      tg.map((t) => `<path d="M 73.4 62.8 A 585 585 0 0 1 316.6 62.8" fill="none" style="stroke:var(--ink);stroke-width:22;stroke-dasharray:${t.dash};stroke-dashoffset:${t.dashoff}"/>`).join("") +
+      tg.map((t) => text(t, 9, 1, "ta")).join("");
+    svg += `<g transform="translate(40 71)"><g style="opacity:${o(L === "back")}"><circle r="25" style="fill:var(--canvas);stroke:var(--ink);stroke-width:1.5"/>` +
+      `<path d="M 3 -8 L -5 0 L 3 8" fill="none" style="stroke:var(--ink);stroke-width:2;stroke-linecap:square"/></g>` +
+      `<g style="opacity:${o(L === "close")}"><circle r="26" style="fill:var(--red)"/>` +
+      `<path d="M -7 -7 L 7 7 M 7 -7 L -7 7" fill="none" style="stroke:#FFFFFF;stroke-width:2.4;stroke-linecap:square"/></g></g>`;
+    svg += `<g transform="translate(350 71)" style="opacity:${R === "none" ? 0 : 1}">` +
+      `<g style="opacity:${o(R === "menu")}"><circle r="25" style="fill:var(--canvas);stroke:var(--ink);stroke-width:1.5"/>` +
+      `<circle cx="-8" r="2.2" style="fill:var(--ink)"/><circle r="2.2" style="fill:var(--ink)"/><circle cx="8" r="2.2" style="fill:var(--ink)"/></g>` +
+      `<g style="opacity:${o(R === "next")}"><circle r="26" style="fill:var(--ink)"/>` +
+      `<path d="M -8 0 H 7 M 2 -6 L 8 0 L 2 6" fill="none" style="stroke:var(--canvas);stroke-width:2.2"/></g></g></svg>`;
+
+    let html = svg;
+    html += `<button class="dk" aria-label="${L === "close" ? "Close" : "Back"}" style="left:14px;top:45px;width:52px;height:52px;border-radius:26px" data-a="${a({ type: L === "close" ? "_close" : "_back" })}"></button>`;
+    if (R !== "none") html += `<button class="dk" aria-label="${RIGHT_NAMES[R]}" style="left:324px;top:45px;width:52px;height:52px;border-radius:26px" data-a="${a({ type: R === "menu" ? "_menu" : "_next" })}"></button>`;
+    for (const t of tg) {
+      if (!t.label) continue;
+      const [px, py] = toggleArcPoint(t.mid);
+      const action = view && view.handoff ? { type: "_drawToggle" } : { type: "tab", id: t.id };
+      html += `<button class="dk" aria-label="${esc(t.label)}" aria-pressed="${t.fill === "var(--canvas)"}" style="left:${(px - t.w / 2).toFixed(1)}px;top:${(py - 12).toFixed(1)}px;width:${t.w.toFixed(1)}px;height:24px" data-a="${a(action)}"></button>`;
+    }
     deck.innerHTML = html;
+    const k = Math.min(1, window.innerWidth / 390);
+    deck.style.transform = k < 1 ? `scale(${k})` : "";
   }
 
   function openMenu() {
@@ -448,7 +523,8 @@ p { margin: 0 0 10px; }
       case "_toggleExample": send({ type: "example", on: !view.exampleOn }); say(view.exampleOn ? "Measuring Hyle Deco as your letters." : "Example letters cleared."); return;
       case "_startOverMenu": confirming = true; send({ type: "tab", id: "ask" }); send({ type: "door", id: null }); return;
       case "_about": say("The real Brief engine, compiled to JavaScript, with the real style atlas. Nothing leaves this page."); return;
-      case "_section": if (action.name !== "Brief") say(`${action.name} is another section of the app; this prototype is the Brief.`); return;
+      case "_close": say("In the app, Close leaves the Brief and returns to where you came from; nothing is lost until you create the project."); return;
+      case "_next": say("In the app, Next goes on to the project's metrics (S02 step 3); this prototype is the Brief."); return;
       case "_menu": if (menu.hidden) openMenu(); else menu.hidden = true; return;
       case "_back": {
         const before = JSON.stringify(view);

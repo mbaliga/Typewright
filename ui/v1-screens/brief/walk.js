@@ -11,6 +11,8 @@ const page_url = "file://" + process.argv[2];
 const shots = path.join(__dirname, "build", "shots");
 fs.mkdirSync(shots, { recursive: true });
 
+// An answer is a row of type (.choice) or, for short mono answers, a canvas chip (.chip).
+const ANSWER = ".choice, .chip";
 const DOORS = ["I know the style", "I know what it's for", "I know fonts I like", "I know the feeling", "I've drawn some letters", "I don't know yet"];
 
 async function run() {
@@ -40,15 +42,15 @@ async function run() {
         const prompt = (await page.textContent(".prompt")).trim();
         prompts.push(prompt);
         if (steps === 0) await page.screenshot({ path: `${shots}/${tag}-1-first.png`, fullPage: false });
-        const forward = await page.$$('.choice, button:has-text("Skip"), button:has-text("Done"), button:has-text("Set wordmark"), button:has-text("Use these answers")');
+        const forward = await page.$$('.choice, .chip, button:has-text("Skip"), button:has-text("Done"), button:has-text("Set wordmark"), button:has-text("Use these answers")');
         if (!forward.length) { problems.push(`${tag}: no way forward at "${prompt}"`); break; }
         if (prompt === "What is it for?") {
-          if (di === 1) await page.click('.choice:has-text("Watch face")').catch(() => page.click(".choice"));
+          if (di === 1) await page.click('.chip:has-text("Watch face")').catch(() => page.click(ANSWER));
           await page.click('button:has-text("Done")');
         } else if (prompt === "What should it feel like?") {
-          const c = await page.$$(".choice");
+          const c = await page.$$(ANSWER);
           await c[0].click();
-          await (await page.$$(".choice"))[1].click();
+          await (await page.$$(ANSWER))[1].click();
           await page.click('button:has-text("Done")');
         } else if (prompt === "Which fonts do you like?") {
           const before = await page.$$eval(".choice", (els) => els.map((e) => e.textContent));
@@ -73,7 +75,7 @@ async function run() {
           await page.screenshot({ path: `${shots}/${tag}-1b-mirror-read.png`, fullPage: true });
           await page.click('button:has-text("Use these answers")');
         } else {
-          const c = await page.$(".choice");
+          const c = await page.$(ANSWER);
           if (c) await c.click(); else await page.click('button:has-text("Skip")');
         }
       }
@@ -96,13 +98,13 @@ async function run() {
         const focusedPrompt = (await page.textContent(".prompt")).trim();
         report.push(`${tag} settle → asks "${focusedPrompt}"`);
         await page.screenshot({ path: `${shots}/${tag}-2b-settle.png` });
-        await page.click(".choice");
+        await page.click(ANSWER);
       }
       // Ask more, then back to the wrap-up.
       if (more && di === 5) {
         await more.click();
         let extra = 0;
-        while (!(await page.$('.label:text-is("Your brief")')) && extra < 20) { await page.click(".choice"); extra++; }
+        while (!(await page.$('.label:text-is("Your brief")')) && extra < 20) { await page.click(ANSWER); extra++; }
         report.push(`${tag} ask more → ${extra} more questions, then the wrap-up again`);
       }
       await page.click('button:has-text("Read the brief")');

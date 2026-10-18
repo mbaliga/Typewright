@@ -183,6 +183,23 @@ uses `fontTools`/`skia-pathops` as build tooling only, never shipped.
 | Abril Fatface | Copyright (c) 2011, Copyright (c) 2011, TypeTogether (www.type-together.com), with Reserved Font Names "Abril" and "Abril Fatface" | OFL-1.1 |
 | Space Mono | Copyright 2016 The Space Mono Project Authors (https://github.com/googlefonts/spacemono) | OFL-1.1 |
 
+## Embedded in the Brief prototype: IBM Plex
+
+The V1 screens canvas (`ui/v1-screens/`) is set in IBM Plex Sans and IBM Plex Mono, so the Brief's
+design prototype (`ui/v1-screens/brief/`, a design source, never shipped in the apps) embeds them
+as base64 `@font-face` rules at build time. The six files in `ui/v1-screens/fonts/` are the
+originals, byte for byte, from https://github.com/IBM/plex (`packages/plex-sans` and
+`packages/plex-mono`, `fonts/complete/ttf`, Plex Sans 3.005 and Plex Mono 2.005). They are not
+subset, instanced or renamed, so this redistributes the Original Version and keeps the Reserved
+Font Name "Plex" intact (OFL-1.1 condition 3 applies to Modified Versions). The licence text, which
+names the Reserved Font Name, is `ui/v1-screens/fonts/IBMPlex-OFL.txt`. The apps themselves do not
+bundle Plex yet (`docs/OPEN_QUESTIONS.md` item 9 and 140).
+
+| Family | Weights | Copyright | Licence |
+|---|---|---|---|
+| IBM Plex Sans | 400, 500, 600 | Copyright 2018 IBM Corp. with Reserved Font Name "Plex" | OFL-1.1 |
+| IBM Plex Mono | 400, 500, 600 | Copyright 2017 IBM Corp. with Reserved Font Name "Plex" | OFL-1.1 |
+
 ## Embedded in the explorer
 
 `ui/typewright-explorer.html` embeds 11 real fonts as base64 `@font-face` rules (licensing pass,
