@@ -36,6 +36,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.asoc.typewright.brief.Door
 import com.asoc.typewright.core.geometry.Contour
 import com.asoc.typewright.core.geometry.ContourLocation
 import com.asoc.typewright.core.geometry.ContourPoint
@@ -53,6 +54,7 @@ import com.asoc.typewright.core.geometry.reverseContour
 import com.asoc.typewright.core.geometry.roundContourCoordinates
 import com.asoc.typewright.core.geometry.simplifyContour
 import com.asoc.typewright.project.ProjectWorkspace
+import com.asoc.typewright.ui.brief.LocalOpenBrief
 import com.asoc.typewright.ui.project.InMemoryProjectFolderPicker
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.project.LocalZipTransferSupported
@@ -112,10 +114,11 @@ fun CommandPalette(
     var lastResult by remember { mutableStateOf<String?>(null) }
     val workspace = LocalProjectWorkspace.current
     val zipTransferSupported = LocalZipTransferSupported.current
+    val openBrief = LocalOpenBrief.current
     val scope = rememberCoroutineScope()
     val entries =
-        remember(workspace, zipTransferSupported) {
-            paletteEntries() + projectPaletteEntries(workspace, zipTransferSupported, scope) { lastResult = it }
+        remember(workspace, zipTransferSupported, openBrief) {
+            paletteEntries() + projectPaletteEntries(workspace, zipTransferSupported, openBrief, scope) { lastResult = it }
         }
     val filtered = remember(query, entries) { entries.filter { it.label.contains(query, ignoreCase = true) } }
     if (highlighted >= filtered.size) highlighted = 0
@@ -393,11 +396,13 @@ private fun paletteEntries(): List<PaletteEntry> =
  * table's own last row; every existing screenshot test, which never provides one either). Each
  * `run` launches the real, `suspend` [ProjectWorkspace] call on [scope] and reports through
  * [setResult] once it finishes, returning a "working…" line immediately so [CommandPalette]'s own
- * synchronous result line has something honest to show meanwhile.
+ * synchronous result line has something honest to show meanwhile. "New project…" also opens the
+ * Brief on the doors once created (WP4, [openBrief] null when nothing provided [LocalOpenBrief]).
  */
 private fun projectPaletteEntries(
     workspace: ProjectWorkspace?,
     zipTransferSupported: Boolean,
+    openBrief: ((Door?) -> Unit)?,
     scope: CoroutineScope,
     setResult: (String) -> Unit,
 ): List<PaletteEntry> {
@@ -410,7 +415,7 @@ private fun projectPaletteEntries(
                 label = "New project…",
                 description = "choose a folder; creates Untitled/ inside",
                 run = {
-                    scope.launch { setResult(createUntitledProject(workspace, picker)) }
+                    scope.launch { setResult(createUntitledProject(workspace, picker, onCreated = { openBrief?.invoke(null) })) }
                     "New project…: working…"
                 },
             ),

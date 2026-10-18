@@ -3,12 +3,14 @@
 package com.asoc.typewright.ui.brief
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import com.asoc.typewright.brief.AskPosition
 import com.asoc.typewright.brief.BriefModel
 import com.asoc.typewright.brief.Dimension
@@ -81,6 +83,16 @@ const val BRIEF_ATLAS_UNAVAILABLE_NOTE: String =
 
 /** Said by the guide when there are no letters to measure. */
 const val BRIEF_NO_DRAWING_NOTE: String = "Draw some letters and the guide will measure them"
+
+/**
+ * Opens [BriefScreen] on [Door], or on the doors (null) when nothing more specific is meant --
+ * provided once, near the root, by [com.asoc.typewright.ui.TypewrightApp], the same shape
+ * [com.asoc.typewright.ui.project.LocalProjectWorkspace] already uses so a composable two or more
+ * levels down (WP4's "New project…" palette entry, WP5's Workbook Task 1 "Pick in the Brief")
+ * can open the Brief without a widened parameter list the whole way up. Null in any composition
+ * that never provides it (every existing screenshot test).
+ */
+val LocalOpenBrief: ProvidableCompositionLocal<((Door?) -> Unit)?> = staticCompositionLocalOf { null }
 
 /**
  * The Brief screen's state: the person's [ethos], what it resolves to ([model]), their own

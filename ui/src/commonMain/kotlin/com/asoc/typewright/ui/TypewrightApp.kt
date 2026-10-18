@@ -23,8 +23,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.asoc.typewright.brief.Door
 import com.asoc.typewright.project.ProjectWorkspace
 import com.asoc.typewright.ui.brief.BriefScreen
+import com.asoc.typewright.ui.brief.LocalOpenBrief
 import com.asoc.typewright.ui.brief.rememberBriefScreenUiState
 import com.asoc.typewright.ui.brief.rememberBriefStateKeeper
 import com.asoc.typewright.ui.learn.LearnScreen
@@ -124,6 +126,7 @@ fun TypewrightApp(
     CompositionLocalProvider(
         LocalProjectWorkspace provides workspace,
         LocalZipTransferSupported provides supportsZipTransfer,
+        LocalOpenBrief provides navState::openBrief,
     ) {
         Box(modifier = modifier.fillMaxSize()) {
             TypewrightSheet(modifier = Modifier.fillMaxSize())
@@ -136,11 +139,21 @@ fun TypewrightApp(
                 }
 
                 navState.showBrief -> {
+                    val briefState = rememberBriefScreenUiState(briefKeeper)
+                    // WP4/WP5's LocalOpenBrief callers can ask for a specific door (e.g.
+                    // References); applied once, here, then cleared so a later plain "Brief" tap
+                    // (openBrief(null)) does not keep forcing that door back open.
+                    LaunchedEffect(navState.pendingBriefDoor) {
+                        navState.pendingBriefDoor?.let { door ->
+                            briefState.chooseDoor(door)
+                            navState.pendingBriefDoor = null
+                        }
+                    }
                     // Start drawing closes the Brief onto the sheet, which opens on Draw.
                     BriefScreen(
                         modifier = Modifier.fillMaxSize(),
                         onBack = navState::closeBrief,
-                        state = rememberBriefScreenUiState(briefKeeper),
+                        state = briefState,
                         onStartDrawing = navState::closeBrief,
                         onOpenLearn = navState::openLearn,
                     )
@@ -161,7 +174,7 @@ fun TypewrightApp(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         WorkbookEntryButton(onClick = navState::openWorkbook)
-                        BriefEntryButton(onClick = navState::openBrief)
+                        BriefEntryButton(onClick = { navState.openBrief() })
                         LearnEntryButton(onClick = navState::openLearn)
                     }
                 }
@@ -192,6 +205,10 @@ class TypewrightAppNavState(
     var showBrief: Boolean by mutableStateOf(initialShowBrief)
         internal set
 
+    /** A door [openBrief] was asked to open straight into, consumed (and cleared) by [TypewrightApp]'s own Brief branch. */
+    var pendingBriefDoor: Door? by mutableStateOf(null)
+        internal set
+
     /** What [LearnEntryButton]'s own `onClick` calls. Closes [showWorkbook] -- the two screens are mutually exclusive full-screen overlays. */
     fun openLearn() {
         showLearn = true
@@ -216,11 +233,18 @@ class TypewrightAppNavState(
         showWorkbook = false
     }
 
-    /** What [BriefEntryButton]'s own `onClick` calls. Closes the other two screens: all three are full-screen overlays. */
-    fun openBrief() {
+    /**
+     * What [BriefEntryButton]'s own `onClick`, and every [com.asoc.typewright.ui.brief.
+     * LocalOpenBrief] caller (WP4's "New project…" palette entry, WP5's Workbook Task 1 "Pick in
+     * the Brief"), call. [door] opens straight into that door (e.g. References); null opens on
+     * the doors, or the Guide once there are answers ([BriefScreenUiState]'s own rule). Closes
+     * the other two screens: all three are full-screen overlays.
+     */
+    fun openBrief(door: Door? = null) {
         showBrief = true
         showLearn = false
         showWorkbook = false
+        pendingBriefDoor = door
     }
 
     /** What [BriefScreen]'s own back button, via `onBack`, calls. */
