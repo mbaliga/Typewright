@@ -65,9 +65,6 @@ enum class BriefScreenTab(
     }
 }
 
-/** The line under the screen title. */
-const val BRIEF_SCREEN_SUBTITLE: String = "ask · brief · guide"
-
 /** Said whenever the answers live only in this session (CLAUDE.md law 4: a stub says so). */
 const val BRIEF_NOT_SAVED_NOTE: String = "Not saved: no project is open"
 
@@ -267,6 +264,41 @@ class BriefScreenUiState(
         if (step is Step.AskDimension && step.dimension == focus) focus = null
         commit(ethos.skipping(step.id))
     }
+
+    /**
+     * The line under the page title (the canvas's page header): where in the Brief the person is, in
+     * words. Questions adapt to the answers, so it counts what has been asked, never "of M".
+     */
+    val subtitle: String
+        get() {
+            val chosen = door
+            val position = askPosition()
+            return when {
+                tab == BriefScreenTab.BRIEF -> "What your answers add up to"
+                tab == BriefScreenTab.GUIDE -> "What to draw, and why"
+                focus != null -> "Changing one answer · the others stay"
+                chosen == null || position == null -> "Six ways in"
+                position.step == null -> "${chosen.label} · ${position.total} asked"
+                else -> "${chosen.label} · question ${position.answered + 1}"
+            }
+        }
+
+    /**
+     * What the deck's Back does: out of a revisited question, else back to Ask from another tab,
+     * else the last question, and at the first the doors. False at the doors, where there is nowhere
+     * left inside the Brief and the screen itself should close.
+     */
+    fun back(): Boolean =
+        when {
+            focus != null || tab != BriefScreenTab.ASK || door != null -> {
+                if (focus == null && tab != BriefScreenTab.ASK) tab = BriefScreenTab.ASK else goBack()
+                true
+            }
+
+            else -> {
+                false
+            }
+        }
 
     /**
      * Goes back one question: out of a revisited question first; otherwise the last question with an

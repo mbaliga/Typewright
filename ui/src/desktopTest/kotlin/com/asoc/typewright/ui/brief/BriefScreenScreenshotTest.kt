@@ -50,7 +50,7 @@ class BriefScreenScreenshotTest {
     @Test
     fun rendersTheDoorsOnTheAskTab() {
         val shot =
-            ScreenshotHarness.capture(name = "brief-screen-ask-doors", width = 420, height = 860, density = 2f) {
+            ScreenshotHarness.capture(name = "brief-screen-ask-doors", width = 780, height = 1688, density = 2f) {
                 BriefScreen(texture = CanvasTextures.PAPER, state = stateOn(BriefScreenTab.ASK))
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
@@ -63,7 +63,7 @@ class BriefScreenScreenshotTest {
         val state = stateOn(BriefScreenTab.ASK, door = Door.STYLE)
         assertNotNull(state.askPosition()?.step)
         val shot =
-            ScreenshotHarness.capture(name = "brief-screen-ask-question", width = 420, height = 860, density = 2f) {
+            ScreenshotHarness.capture(name = "brief-screen-ask-question", width = 780, height = 1688, density = 2f) {
                 BriefScreen(texture = CanvasTextures.PAPER, state = state)
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
@@ -76,7 +76,7 @@ class BriefScreenScreenshotTest {
         assertNull(state.askPosition()?.step)
         assertNotNull(state.wrapUp()?.drawFirst)
         val shot =
-            ScreenshotHarness.capture(name = "brief-screen-wrap-up", width = 420, height = 1400, density = 2f) {
+            ScreenshotHarness.capture(name = "brief-screen-wrap-up", width = 780, height = 1688, density = 2f) {
                 BriefScreen(texture = CanvasTextures.PAPER, state = state)
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
@@ -87,7 +87,7 @@ class BriefScreenScreenshotTest {
         val state = BriefScreenUiState(atlas = loadStyleAtlas(), initialDoor = Door.REFERENCES)
         assertTrue((state.askPosition()?.step as? Step.PickReferences)?.starters.orEmpty().isNotEmpty())
         val shot =
-            ScreenshotHarness.capture(name = "brief-screen-references", width = 420, height = 1400, density = 2f) {
+            ScreenshotHarness.capture(name = "brief-screen-references", width = 780, height = 2400, density = 2f) {
                 BriefScreen(texture = CanvasTextures.PAPER, state = state)
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
@@ -101,7 +101,7 @@ class BriefScreenScreenshotTest {
         val family = startingReferences(atlas).first()
         val state = BriefScreenUiState(initialEthos = Ethos(references = listOf(family)), atlas = atlas, initialDoor = Door.REFERENCES)
         val shot =
-            ScreenshotHarness.capture(name = "brief-screen-add-to-scrapbook", width = 420, height = 1400, density = 2f) {
+            ScreenshotHarness.capture(name = "brief-screen-add-to-scrapbook", width = 780, height = 2400, density = 2f) {
                 CompositionLocalProvider(LocalProjectWorkspace provides workspace) {
                     BriefScreen(texture = CanvasTextures.PAPER, state = state)
                 }
@@ -112,7 +112,7 @@ class BriefScreenScreenshotTest {
     @Test
     fun rendersTheBriefTab() {
         val shot =
-            ScreenshotHarness.capture(name = "brief-screen-brief", width = 420, height = 860, density = 2f) {
+            ScreenshotHarness.capture(name = "brief-screen-brief", width = 780, height = 1688, density = 2f) {
                 BriefScreen(texture = CanvasTextures.PAPER, state = stateOn(BriefScreenTab.BRIEF))
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
@@ -121,7 +121,7 @@ class BriefScreenScreenshotTest {
     @Test
     fun rendersTheGuideTab() {
         val shot =
-            ScreenshotHarness.capture(name = "brief-screen-guide", width = 420, height = 860, density = 2f) {
+            ScreenshotHarness.capture(name = "brief-screen-guide", width = 780, height = 1688, density = 2f) {
                 BriefScreen(texture = CanvasTextures.PAPER, state = stateOn(BriefScreenTab.GUIDE))
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
@@ -132,7 +132,12 @@ class BriefScreenScreenshotTest {
         for (tab in BriefScreenTab.ORDERED) {
             val state = BriefScreenUiState(initialEthos = seeded, atlas = null, initialTab = tab)
             val shot =
-                ScreenshotHarness.capture(name = "brief-screen-no-atlas-${tab.name.lowercase()}", width = 420, height = 860, density = 2f) {
+                ScreenshotHarness.capture(
+                    name = "brief-screen-no-atlas-${tab.name.lowercase()}",
+                    width = 780,
+                    height = 1688,
+                    density = 2f,
+                ) {
                     BriefScreen(texture = CanvasTextures.PAPER, state = state)
                 }
             assertTrue(shot.file.length() > 0, "PNG written to ${shot.file} for tab ${tab.label}")
@@ -142,7 +147,7 @@ class BriefScreenScreenshotTest {
     @Test
     fun onBackIsNotInvokedByAPlainRender() {
         var backCalls = 0
-        ScreenshotHarness.capture(name = "brief-screen-back-not-yet-tapped", width = 420, height = 860, density = 2f) {
+        ScreenshotHarness.capture(name = "brief-screen-back-not-yet-tapped", width = 780, height = 1688, density = 2f) {
             BriefScreen(texture = CanvasTextures.PAPER, onBack = { backCalls++ }, state = stateOn(BriefScreenTab.ASK))
         }
         assertTrue(backCalls == 0, "onBack must not fire just from rendering")

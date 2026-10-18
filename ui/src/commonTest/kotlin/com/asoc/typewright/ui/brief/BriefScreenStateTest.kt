@@ -240,6 +240,49 @@ class BriefScreenStateTest {
     }
 
     @Test
+    fun theSubtitleSaysWhereInTheBriefThePersonIs() {
+        val state = BriefScreenUiState(atlas = null)
+        assertEquals("Six ways in", state.subtitle)
+
+        state.chooseDoor(Door.STYLE)
+        assertEquals("${Door.STYLE.label} · question 1", state.subtitle)
+        state.skip(assertNotNull(state.askPosition()?.step))
+        assertEquals("${Door.STYLE.label} · question 2", state.subtitle)
+
+        state.askAbout(Dimension.ROUNDNESS)
+        assertEquals("Changing one answer · the others stay", state.subtitle)
+        state.leaveFocus()
+
+        state.selectTab(BriefScreenTab.BRIEF)
+        assertEquals("What your answers add up to", state.subtitle)
+        state.selectTab(BriefScreenTab.GUIDE)
+        assertEquals("What to draw, and why", state.subtitle)
+    }
+
+    @Test
+    fun backLeavesAFocusedQuestionThenAnotherTabThenTheLastQuestionThenTheDoors() {
+        val state = BriefScreenUiState(initialDoor = Door.STYLE, initialTab = BriefScreenTab.GUIDE)
+        state.askAbout(Dimension.ROUNDNESS)
+        assertTrue(state.back())
+        assertNull(state.focus)
+
+        // From another tab, Back returns to Ask first.
+        state.selectTab(BriefScreenTab.BRIEF)
+        assertTrue(state.back())
+        assertEquals(BriefScreenTab.ASK, state.tab)
+
+        // Then the last question answered, and at the first question the doors.
+        state.skip(assertNotNull(state.askPosition()?.step))
+        assertTrue(state.back())
+        assertEquals(0, state.askPosition()?.answered)
+        assertTrue(state.back())
+        assertNull(state.door)
+
+        // At the doors there is nowhere left inside the Brief.
+        assertFalse(state.back())
+    }
+
+    @Test
     fun theKeeperHandsBackTheSameStateWhileTheProjectIsTheSame() {
         val keeper = BriefStateKeeper()
         val first = keeper.stateFor(null) { BriefScreenUiState() }

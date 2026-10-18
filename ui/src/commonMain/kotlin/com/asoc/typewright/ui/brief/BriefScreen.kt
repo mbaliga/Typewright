@@ -5,17 +5,21 @@ package com.asoc.typewright.ui.brief
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
@@ -35,11 +39,16 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.asoc.typewright.brief.AskPosition
 import com.asoc.typewright.brief.CORPUS_GENRE_KEYS
@@ -75,15 +84,24 @@ import com.asoc.typewright.project.MetaChange
 import com.asoc.typewright.project.scrapbook.ScrapbookPin
 import com.asoc.typewright.project.scrapbook.ScrapbookPinKind
 import com.asoc.typewright.project.scrapbook.stablePinRotationDegrees
+import com.asoc.typewright.ui.deck.ControlDeck
+import com.asoc.typewright.ui.deck.DeckLeft
+import com.asoc.typewright.ui.deck.DeckRight
+import com.asoc.typewright.ui.deck.DeckSection
+import com.asoc.typewright.ui.deck.DeckToggle
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.CanvasTextures
+import com.asoc.typewright.ui.tokens.MeaningColors
 import com.asoc.typewright.ui.tokens.Typography
 import com.asoc.typewright.ui.tokens.toColor
 
 /**
  * The Brief screen: find the visual language a font is aiming for, read what the answers add up
- * to, and get the guide that follows from it. Three toggles share one scrolling page:
+ * to, and get the guide that follows from it. It is laid out as the V1 screens canvas lays it out
+ * (`ui/v1-screens/`): the page frame (title at left 22 and top 56, content from about 118), the
+ * control deck at the foot, and no title bar, back button or tab row of its own. Three pages share
+ * one scrolling column, and the deck's toggle arc switches between them:
  *
  * - **Ask** opens on six doors, each set in a real typeface; the chosen door asks its questions
  *   one at a time, every answer shown as a specimen in the face it was measured on. When they are
@@ -96,10 +114,13 @@ import com.asoc.typewright.ui.tokens.toColor
  * - **Guide** lists what to do next, grouped by the kind of advice, then the drawing plan, and
  *   ends in [onStartDrawing]: the brief always leads to drawing.
  *
- * A chosen answer, like the chosen tab, is an ink block with paper text; options are rows of type
- * with no box around them. There is no red anywhere here. Where the style atlas cannot load, or no project is
- * open, the screen says so in words. [onOpenLearn], when given, opens the lesson a guide item
- * points to.
+ * The deck's left circle is Close on the doors and Back everywhere else, where Back steps out of
+ * the brief one place at a time ([BriefScreenUiState.back]) and leaves through [onBack] only from
+ * the doors' side. The right circle is Next on the doors, which goes on to the guide once there is
+ * an answer, and the ⋯ menu elsewhere. A chosen answer is an ink block with paper text; options are
+ * rows of type with no box around them. There is no red anywhere here but the Close circle. Where
+ * the style atlas cannot load, or no project is open, the screen says so in words. [onOpenLearn],
+ * when given, opens the lesson a guide item points to.
  */
 @Composable
 fun BriefScreen(
@@ -110,21 +131,34 @@ fun BriefScreen(
     onStartDrawing: () -> Unit = onBack,
     onOpenLearn: (() -> Unit)? = null,
 ) {
-    Column(modifier = modifier.fillMaxSize().background(texture.canvas.toColor())) {
-        BriefHeaderBar(texture = texture, onBack = onBack)
-        BriefTabsRow(texture = texture, selected = state.tab, onSelect = state::selectTab)
+    val position =
+        remember(state.door, state.ethos, state.model, state.drawing, state.refining, state.focus) { state.askPosition() }
+    val atDoors = state.tab == BriefScreenTab.ASK && position == null
+    val nothingAnswered = state.ethos.isEmpty
+    var menuOpen by remember { mutableStateOf(false) }
+    var confirmingStartOver by remember { mutableStateOf(false) }
+    Box(modifier = modifier.fillMaxSize().background(texture.canvas.toColor())) {
         Column(
             modifier =
                 Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .widthIn(max = PAGE_WIDTH.dp)
+                    .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 18.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+                    .padding(start = PAGE_SIDE.dp, end = PAGE_SIDE.dp, top = PAGE_TOP.dp, bottom = PAGE_BOTTOM.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            PageHeader(title = "Brief", subtitle = state.subtitle, texture = texture)
             when (state.tab) {
                 BriefScreenTab.ASK -> {
-                    AskTab(state = state, texture = texture, onStartDrawing = onStartDrawing)
+                    AskTab(
+                        state = state,
+                        position = position,
+                        texture = texture,
+                        confirmingStartOver = confirmingStartOver,
+                        onConfirmingStartOver = { confirmingStartOver = it },
+                        onStartDrawing = onStartDrawing,
+                    )
                 }
 
                 BriefScreenTab.BRIEF -> {
@@ -136,85 +170,112 @@ fun BriefScreen(
                 }
             }
         }
+        ControlDeck(
+            texture = texture,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            section = DeckSection.HOME,
+            left = if (atDoors) DeckLeft.CLOSE else DeckLeft.BACK,
+            right = if (atDoors) DeckRight.NEXT else DeckRight.MENU,
+            toggles = if (atDoors) emptyList() else BriefScreenTab.ORDERED.map { DeckToggle(it.label, on = it == state.tab) },
+            dimSections = true,
+            rightDimmed = atDoors && nothingAnswered,
+            onLeft = { if (atDoors || !state.back()) onBack() },
+            onRight = {
+                if (atDoors) {
+                    if (!nothingAnswered) state.selectTab(BriefScreenTab.GUIDE)
+                } else {
+                    menuOpen = !menuOpen
+                }
+            },
+            onToggle = { state.selectTab(BriefScreenTab.ORDERED[it]) },
+        )
+        if (menuOpen) {
+            BriefMenu(
+                texture = texture,
+                nothingAnswered = nothingAnswered,
+                onDismiss = { menuOpen = false },
+                onStartOver = {
+                    menuOpen = false
+                    if (!nothingAnswered) {
+                        state.selectTab(BriefScreenTab.ASK)
+                        state.chooseDoor(null)
+                        confirmingStartOver = true
+                    }
+                },
+            )
+        }
     }
 }
 
+/** The page frame, from the canvas: 390 wide, title at left 22 and top 56, room for the deck below. */
+private const val PAGE_WIDTH = 390
+private const val PAGE_SIDE = 22
+private const val PAGE_TOP = 56
+private const val PAGE_BOTTOM = 214
+
+/** The page title (15 sp, semibold) and, under it, where in the page the person is (mono, small, muted). */
 @Composable
-private fun BriefHeaderBar(
+private fun PageHeader(
+    title: String,
+    subtitle: String,
     texture: CanvasTexture,
-    onBack: () -> Unit,
 ) {
-    val fg = texture.fg.toColor()
-    val muted = texture.muted.toColor()
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Box(
-            modifier = Modifier.size(34.dp).clickable(onClick = onBack),
-            contentAlignment = Alignment.Center,
-        ) {
-            BasicText(text = "‹", style = TextStyle(fontFamily = FontFamily.Default, fontSize = 16.sp, color = fg))
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            BasicText(
-                text = "Brief",
-                style = TextStyle(fontFamily = FontFamily.Default, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = fg),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            BasicText(
-                text = BRIEF_SCREEN_SUBTITLE,
-                style = Typography.mono(sizeSp = 11.0).copy(color = muted),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+    Column(modifier = Modifier.padding(bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        BasicText(
+            text = title,
+            style =
+                TextStyle(
+                    fontFamily = FontFamily.Default,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = texture.fg.toColor(),
+                ),
+        )
+        BasicText(text = subtitle.uppercase(), style = monoStyle(texture.muted.toColor()))
     }
 }
 
-/** The three toggles as one segmented row; the chosen one is an ink block with paper text. */
+/**
+ * The ⋯ menu, which rises from the deck's right circle: ink blocks with paper text, a mono second
+ * line under each. A tap anywhere else closes it. The command palette is not offered here yet,
+ * because this screen is not handed a way to open it.
+ */
 @Composable
-private fun BriefTabsRow(
+private fun BriefMenu(
     texture: CanvasTexture,
-    selected: BriefScreenTab,
-    onSelect: (BriefScreenTab) -> Unit,
+    nothingAnswered: Boolean,
+    onDismiss: () -> Unit,
+    onStartOver: () -> Unit,
 ) {
-    val ink = texture.ink.toColor()
-    val canvas = texture.canvas.toColor()
-    val muted = texture.muted.toColor()
-    Row(
+    val onInk = texture.canvas.toColor()
+    Box(
         modifier =
             Modifier
-                .fillMaxWidth()
-                .padding(start = 18.dp, end = 18.dp, top = 2.dp, bottom = 10.dp),
+                .fillMaxSize()
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
     ) {
-        for (tab in BriefScreenTab.ORDERED) {
-            val isSelected = tab == selected
-            Box(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .let { if (isSelected) it.background(ink) else it }
-                        .clickable { onSelect(tab) }
-                        .padding(vertical = 8.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                BasicText(
-                    text = tab.label,
-                    style =
-                        TextStyle(
-                            fontFamily = FontFamily.Default,
-                            fontSize = 12.5.sp,
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                            color = if (isSelected) canvas else muted,
-                        ),
-                )
-            }
+        Column(
+            modifier =
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = PAGE_SIDE.dp, bottom = MENU_BOTTOM.dp)
+                    .width(MENU_WIDTH.dp)
+                    .background(texture.ink.toColor())
+                    .clickable(onClick = onStartOver)
+                    .padding(horizontal = 13.dp, vertical = 11.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            BasicText(text = "Start over", style = bodyStyle(onInk, sizeSp = 13.0))
+            BasicText(
+                text = (if (nothingAnswered) "Nothing answered yet" else "Clear every answer").uppercase(),
+                style = monoStyle(onInk.copy(alpha = ON_INK_MUTED_ALPHA), sizeSp = 9.0).copy(letterSpacing = 0.12.em),
+            )
         }
     }
 }
+
+private const val MENU_WIDTH = 230
+private const val MENU_BOTTOM = 136
 
 // ---------------------------------------------------------------------------------------------
 // Shared pieces
@@ -228,7 +289,7 @@ private fun bodyStyle(
     TextStyle(
         fontFamily = FontFamily.Default,
         fontSize = sizeSp.sp,
-        lineHeight = (sizeSp * 1.4).sp,
+        lineHeight = (sizeSp * 1.45).sp,
         fontWeight = weight,
         color = color,
     )
@@ -238,21 +299,41 @@ private fun monoStyle(
     sizeSp: Double = 9.5,
 ): TextStyle = Typography.mono(sizeSp = sizeSp).copy(color = color)
 
-/** A small uppercase mono label. */
+/** A small uppercase mono label, with the canvas's room above it (26 between sections). */
 @Composable
 private fun SectionLabel(
+    text: String,
+    texture: CanvasTexture,
+    first: Boolean = false,
+) {
+    BasicText(
+        text = text.uppercase(),
+        style = monoStyle(texture.muted.toColor()),
+        modifier = Modifier.padding(top = if (first) 0.dp else 14.dp),
+    )
+}
+
+/** A line of muted text under a prompt or beside a control (12.5 sp, 330 wide at most). */
+@Composable
+private fun Small(
+    text: String,
+    texture: CanvasTexture,
+) {
+    BasicText(text = text, style = bodyStyle(texture.muted.toColor()), modifier = Modifier.widthIn(max = READING_WIDTH.dp))
+}
+
+/** A small muted mono note, upper case. */
+@Composable
+private fun NoteMono(
     text: String,
     texture: CanvasTexture,
 ) {
     BasicText(text = text.uppercase(), style = monoStyle(texture.muted.toColor()))
 }
 
-@Composable
-private fun Rule(texture: CanvasTexture) {
-    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(texture.line.toColor()))
-}
+private const val READING_WIDTH = 330
 
-/** A square, flat button: outlined, or an ink block when [filled]. */
+/** A square, flat button: an ink outline, or an ink block with paper text when [filled]. */
 @Composable
 private fun ActionButton(
     label: String,
@@ -267,19 +348,115 @@ private fun ActionButton(
             Modifier
                 .let { if (filled) it.background(ink) else it.border(1.dp, ink) }
                 .clickable(onClick = onClick)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 14.dp, vertical = 11.dp),
     ) {
-        BasicText(text = label.uppercase(), style = monoStyle(if (filled) canvas else texture.fg.toColor(), sizeSp = 10.0))
+        BasicText(text = label.uppercase(), style = monoStyle(if (filled) canvas else ink, sizeSp = 10.0))
     }
+}
+
+/** The tertiary action: the canvas's violet link, sans, semibold, with a trailing ›. */
+@Composable
+private fun ActionLink(
+    label: String,
+    texture: CanvasTexture,
+    onClick: () -> Unit,
+) {
+    BasicText(
+        text = "$label ›",
+        style = bodyStyle(MeaningColors.VIOLET.forTexture(texture.id).toColor(), weight = FontWeight.SemiBold),
+        modifier = Modifier.clickable(onClick = onClick).padding(horizontal = 2.dp, vertical = 4.dp),
+    )
+}
+
+/** A row of buttons or links. */
+@Composable
+private fun ButtonRow(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    @OptIn(ExperimentalLayoutApi::class)
+    FlowRow(
+        modifier = modifier.padding(top = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) { content() }
+}
+
+/** A chip: mono, no border; the chosen one is an ink block with paper text. */
+@Composable
+private fun Chip(
+    label: String,
+    on: Boolean,
+    texture: CanvasTexture,
+    onClick: () -> Unit,
+) {
+    val ink = texture.ink.toColor()
+    Box(
+        modifier =
+            Modifier
+                .let { if (on) it.background(ink) else it }
+                .clickable(onClick = onClick)
+                .padding(horizontal = 9.dp, vertical = 6.dp),
+    ) {
+        BasicText(
+            text = label.uppercase(),
+            style = monoStyle(if (on) texture.canvas.toColor() else ink, sizeSp = 10.0).copy(letterSpacing = 0.12.em),
+        )
+    }
+}
+
+/** Chips that wrap onto as many lines as they need. */
+@Composable
+private fun Chips(content: @Composable () -> Unit) {
+    @OptIn(ExperimentalLayoutApi::class)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { content() }
+}
+
+/** The note a chosen chip leaves under the row: its name in bold, then what it means. */
+@Composable
+private fun ChosenNote(
+    title: String,
+    detail: String,
+    texture: CanvasTexture,
+) {
+    BasicText(
+        text =
+            buildAnnotatedString {
+                withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(title) }
+                append(" · $detail")
+            },
+        style = bodyStyle(texture.muted.toColor()),
+        modifier = Modifier.widthIn(max = READING_WIDTH.dp),
+    )
 }
 
 /** True inside an ink block, where text is set in the canvas colour. */
 private val LocalOnInk = staticCompositionLocalOf { false }
 
 /**
- * A choice: a row of type with whitespace around it, no box. The chosen one is an ink block with
- * paper text, the same selection as the deck's toggles (SCREENS_V1 §3: an ink block for UI
- * selection, never the accent).
+ * Rows of type with whitespace around them and no box: the canvas's `choices`, 2 apart, bleeding
+ * 10 either side so a chosen row's ink block has room around text that stays on the page's edge.
+ */
+@Composable
+private fun Choices(content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier = Modifier.bleed(CHOICE_PADDING.dp), verticalArrangement = Arrangement.spacedBy(2.dp), content = content)
+}
+
+private const val CHOICE_PADDING = 10
+
+/** Makes the content [amount] wider on each side than the room it is given, without moving its start. */
+private fun Modifier.bleed(amount: Dp): Modifier =
+    layout { measurable, constraints ->
+        val extra = amount.roundToPx()
+        val width = constraints.maxWidth + 2 * extra
+        val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+        layout(constraints.maxWidth, placeable.height) { placeable.place(-extra, 0) }
+    }
+
+/**
+ * A choice: a row of type. The chosen one is an ink block with paper text, the same selection as
+ * the deck's toggles (SCREENS_V1 §3: an ink block for UI selection, never the accent).
  */
 @Composable
 private fun OptionCard(
@@ -294,26 +471,34 @@ private fun OptionCard(
                 .fillMaxWidth()
                 .let { if (selected) it.background(texture.ink.toColor()) else it }
                 .clickable(onClick = onClick)
-                .padding(12.dp),
+                .padding(CHOICE_PADDING.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         CompositionLocalProvider(LocalOnInk provides selected) { content() }
     }
 }
 
-/** [cue]'s text set in its real typeface. */
+/** [cue]'s text set in its real typeface; short cues are set large, long ones smaller (canvas: 38, 26, 19). */
 @Composable
 private fun Specimen(
     cue: Cue,
-    sizeSp: Double,
     color: Color,
+    sizeSp: Double? = null,
 ) {
+    val size =
+        sizeSp ?: if (cue.text.length <= 2) {
+            38.0
+        } else if (cue.text.length <= 4) {
+            26.0
+        } else {
+            19.0
+        }
     BasicText(
         text = cue.text,
         style =
             TextStyle(
                 fontFamily = BriefCueFonts.familyFor(cue.face),
-                fontSize = sizeSp.sp,
+                fontSize = size.sp,
                 color = color,
                 fontFeatureSettings = if (cue.tabular) "tnum" else null,
             ),
@@ -321,7 +506,11 @@ private fun Specimen(
     )
 }
 
-/** A specimen on the left, a title and a muted line on the right: the shape of every door, use and answer. */
+/**
+ * A specimen in a 76-wide column on the left, a title and a muted line on the right: the shape of
+ * every door, use and answer. With no specimen the text takes the whole row, unless [keepColumn]
+ * holds the column so names line up in a mixed list.
+ */
 @Composable
 private fun SpecimenRow(
     cue: Cue?,
@@ -329,21 +518,33 @@ private fun SpecimenRow(
     detail: String,
     texture: CanvasTexture,
     extra: String? = null,
+    keepColumn: Boolean = false,
+    specimenSp: Double? = null,
 ) {
     val onInk = LocalOnInk.current
     val fg = if (onInk) texture.canvas.toColor() else texture.fg.toColor()
     val muted = if (onInk) texture.canvas.toColor().copy(alpha = ON_INK_MUTED_ALPHA) else texture.muted.toColor()
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
         if (cue != null) {
-            Box(modifier = Modifier.width(84.dp)) { Specimen(cue = cue, sizeSp = 26.0, color = fg) }
+            Box(modifier = Modifier.width(SPECIMEN_COLUMN.dp)) { Specimen(cue = cue, color = fg, sizeSp = specimenSp) }
+        } else if (keepColumn) {
+            Spacer(modifier = Modifier.width(SPECIMEN_COLUMN.dp))
         }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            BasicText(text = title, style = bodyStyle(fg, sizeSp = 13.0, weight = FontWeight.SemiBold))
-            if (detail.isNotEmpty()) BasicText(text = detail, style = bodyStyle(muted, sizeSp = 11.5))
-            if (extra != null) BasicText(text = extra, style = monoStyle(muted))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            BasicText(text = title, style = bodyStyle(fg, sizeSp = 15.0, weight = FontWeight.SemiBold))
+            if (detail.isNotEmpty()) BasicText(text = detail, style = bodyStyle(muted))
+            if (extra != null) {
+                BasicText(
+                    text = extra.uppercase(),
+                    style = monoStyle(muted, sizeSp = 9.0).copy(letterSpacing = 0.08.em),
+                    modifier = Modifier.padding(top = 3.dp),
+                )
+            }
         }
     }
 }
+
+private const val SPECIMEN_COLUMN = 76
 
 /** How strongly muted text shows on an ink block. */
 private const val ON_INK_MUTED_ALPHA = 0.72f
@@ -352,16 +553,26 @@ private const val ON_INK_MUTED_ALPHA = 0.72f
 private fun Modifier.leftRule(color: Color): Modifier =
     drawBehind { drawRect(color = color, size = Size(LEFT_RULE_WIDTH.dp.toPx(), size.height)) }
 
-/** A text field's underline, in place of a box. */
+/** A text field's underline (ink at 35%), in place of a box. */
 private fun Modifier.underline(color: Color): Modifier =
     drawBehind {
         val stroke = 1.dp.toPx()
-        drawRect(color = color, topLeft = Offset(0f, size.height - stroke), size = Size(size.width, stroke))
+        drawRect(color = color.copy(alpha = FIELD_LINE_ALPHA), topLeft = Offset(0f, size.height - stroke), size = Size(size.width, stroke))
     }
 
+private const val FIELD_LINE_ALPHA = 0.35f
 private const val LEFT_RULE_WIDTH = 2
 
 private fun sourceLine(source: Source): String = "${source.kind.label} · ${source.citation}"
+
+/** Where a piece of advice comes from: mono, small, not upper-cased. */
+@Composable
+private fun SourceLine(
+    text: String,
+    muted: Color,
+) {
+    BasicText(text = text, style = monoStyle(muted, sizeSp = 9.0).copy(letterSpacing = 0.06.em))
+}
 
 /** The face the brief's own words are set in: the chosen genre's cue face, or the default face before there is one. */
 private fun briefFamily(state: BriefScreenUiState): FontFamily =
@@ -378,7 +589,7 @@ private fun BriefSentence(
 ) {
     BasicText(
         text = state.model.sentence,
-        style = TextStyle(fontFamily = briefFamily(state), fontSize = 23.sp, lineHeight = 31.sp, color = texture.fg.toColor()),
+        style = TextStyle(fontFamily = briefFamily(state), fontSize = 22.sp, lineHeight = 27.5.sp, color = texture.fg.toColor()),
     )
 }
 
@@ -399,14 +610,19 @@ private fun TensionCard(
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()
     Column(
-        modifier = Modifier.fillMaxWidth().leftRule(texture.ink.toColor()).padding(start = 14.dp, top = 2.dp, bottom = 2.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp)
+                .leftRule(texture.ink.toColor())
+                .padding(start = 14.dp, top = 2.dp, bottom = 2.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         BasicText(text = title, style = bodyStyle(fg, sizeSp = 13.0, weight = FontWeight.SemiBold))
-        BasicText(text = body, style = bodyStyle(fg, sizeSp = 12.0))
-        if (source != null) BasicText(text = sourceLine(source), style = monoStyle(muted, sizeSp = 9.0))
+        BasicText(text = body, style = bodyStyle(fg))
+        if (source != null) SourceLine(text = sourceLine(source), muted = muted)
         if (signature != null || dimension != null) {
-            Row(modifier = Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ButtonRow(modifier = Modifier.padding(top = 4.dp)) {
                 if (signature != null) {
                     val kept = signature in state.model.signatures
                     ActionButton(
@@ -465,34 +681,6 @@ private fun ConfirmStyleClassAction(
     )
 }
 
-/** Clears every answer, after a second tap: the ink-block confirmation SCREENS_V1 asks for before anything is lost. */
-@Composable
-private fun StartOver(
-    state: BriefScreenUiState,
-    texture: CanvasTexture,
-) {
-    var confirming by remember { mutableStateOf(false) }
-    if (!confirming) {
-        ActionButton(label = "Start over", texture = texture, onClick = { confirming = true })
-        return
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        BasicText(text = "Clear every answer in this brief?", style = bodyStyle(texture.fg.toColor(), sizeSp = 12.0))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ActionButton(
-                label = "Clear answers",
-                texture = texture,
-                onClick = {
-                    confirming = false
-                    state.startOver()
-                },
-                filled = true,
-            )
-            ActionButton(label = "Keep them", texture = texture, onClick = { confirming = false })
-        }
-    }
-}
-
 // ---------------------------------------------------------------------------------------------
 // Ask
 // ---------------------------------------------------------------------------------------------
@@ -500,60 +688,52 @@ private fun StartOver(
 @Composable
 private fun AskTab(
     state: BriefScreenUiState,
+    position: AskPosition?,
     texture: CanvasTexture,
+    confirmingStartOver: Boolean,
+    onConfirmingStartOver: (Boolean) -> Unit,
     onStartDrawing: () -> Unit,
 ) {
-    val position =
-        remember(state.door, state.ethos, state.model, state.drawing, state.refining, state.focus) { state.askPosition() }
     if (position == null) {
-        DoorList(state = state, texture = texture)
+        DoorList(
+            state = state,
+            texture = texture,
+            confirmingStartOver = confirmingStartOver,
+            onConfirmingStartOver = onConfirmingStartOver,
+        )
         return
     }
-    val fg = texture.fg.toColor()
-    val muted = texture.muted.toColor()
     val step = position.step
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (position.focused) {
-            ActionButton(label = "Back", texture = texture, onClick = state::leaveFocus)
-            Column(modifier = Modifier.weight(1f)) {
-                BasicText(text = "Changing one answer", style = bodyStyle(fg, sizeSp = 13.0, weight = FontWeight.SemiBold))
-                BasicText(text = "Your other answers stay as they are", style = monoStyle(muted))
-            }
-        } else {
-            ActionButton(label = "Doors", texture = texture, onClick = { state.chooseDoor(null) })
-            Column(modifier = Modifier.weight(1f)) {
-                BasicText(text = state.door?.label.orEmpty(), style = bodyStyle(fg, sizeSp = 13.0, weight = FontWeight.SemiBold))
-                BasicText(text = progressWords(position), style = monoStyle(muted))
-            }
-        }
-    }
-    Rule(texture)
     if (step == null) {
         WrapUpView(state = state, texture = texture)
         return
     }
     StepView(step = step, state = state, texture = texture, onStartDrawing = onStartDrawing)
-    Rule(texture)
-    val canGoBack = !position.focused && position.answered > 0
-    if (canGoBack || step.needsConfirm) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (canGoBack) ActionButton(label = "Back", texture = texture, onClick = state::goBack)
-            if (step.needsConfirm) ActionButton(label = "Done", texture = texture, onClick = { state.confirm(step) }, filled = true)
-        }
-    }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (position.focused) {
-            ActionButton(label = "Keep my answer", texture = texture, onClick = { state.skip(step) })
-        } else {
+            ButtonRow {
+                ActionButton(label = "Back", texture = texture, onClick = state::leaveFocus)
+                ActionButton(label = "Keep my answer", texture = texture, onClick = { state.skip(step) })
+            }
+            return@Column
+        }
+        val canGoBack = position.answered > 0
+        if (canGoBack || step.needsConfirm) {
+            ButtonRow {
+                if (canGoBack) ActionButton(label = "Back", texture = texture, onClick = state::goBack)
+                if (step.needsConfirm) ActionButton(label = "Done", texture = texture, onClick = { state.confirm(step) }, filled = true)
+            }
+        }
+        ButtonRow {
             if (step.offersNotSure) ActionButton(label = "I'm not sure", texture = texture, onClick = { state.skip(step) })
-            ActionButton(label = "Skip", texture = texture, onClick = { state.skip(step) })
+            ActionLink(label = "Skip", texture = texture, onClick = { state.skip(step) })
         }
     }
 }
 
 /**
  * The end of a door's questions, which is where the drawing starts: the brief in one sentence,
- * what is left to settle, the letters to draw first, and the ways on from here.
+ * the letters to draw first, the ways on from here, and what is left to settle.
  */
 @Composable
 private fun WrapUpView(
@@ -563,12 +743,11 @@ private fun WrapUpView(
     val wrap = remember(state.door, state.model, state.drawing) { state.wrapUp() } ?: return
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()
-    SectionLabel(text = "Your brief", texture = texture)
+    SectionLabel(text = "Your brief", texture = texture, first = true)
     BriefSentence(state = state, texture = texture)
-    BasicText(text = wrapUpSummary(wrap), style = monoStyle(muted))
+    NoteMono(text = wrapUpSummary(wrap), texture = texture)
     val first = wrap.drawFirst
     if (first != null) {
-        Rule(texture)
         SectionLabel(
             text =
                 if (state.drawing.font.glyphs
@@ -580,34 +759,27 @@ private fun WrapUpView(
                 },
             texture = texture,
         )
-        BasicText(
-            text = first.glyphs.joinToString(" "),
-            style = TextStyle(fontFamily = briefFamily(state), fontSize = 34.sp, lineHeight = 42.sp, color = fg),
-        )
-        BasicText(text = first.title, style = bodyStyle(fg, sizeSp = 13.0, weight = FontWeight.SemiBold))
-        BasicText(text = first.why, style = bodyStyle(fg, sizeSp = 12.0))
+        Glyphs(text = first.glyphs.joinToString(" "), state = state, texture = texture)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            BasicText(text = first.title, style = bodyStyle(fg, sizeSp = 14.0, weight = FontWeight.SemiBold))
+            BasicText(text = first.why, style = bodyStyle(fg))
+        }
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    ButtonRow(modifier = Modifier.padding(top = 4.dp)) {
         ActionButton(label = "See your guide", texture = texture, onClick = { state.selectTab(BriefScreenTab.GUIDE) }, filled = true)
         ActionButton(label = "Read the brief", texture = texture, onClick = { state.selectTab(BriefScreenTab.BRIEF) })
     }
     if (wrap.toSettle.isNotEmpty()) {
-        Rule(texture)
         SectionLabel(text = "To settle, now or later", texture = texture)
         for (tension in wrap.toSettle.take(MAX_WRAP_UP_TENSIONS)) TensionCard(tension = tension, state = state, texture = texture)
         val more = wrap.toSettle.size - MAX_WRAP_UP_TENSIONS
-        if (more > 0) BasicText(text = "$more more in the Brief", style = bodyStyle(muted, sizeSp = 11.5))
+        if (more > 0) BasicText(text = "$more more in the Brief.", style = bodyStyle(muted))
     }
-    Rule(texture)
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    ButtonRow(modifier = Modifier.padding(top = 14.dp)) {
         if (wrap.moreQuestions > 0) ActionButton(label = "Ask ${wrap.moreQuestions} more", texture = texture, onClick = state::askMore)
-        ActionButton(label = "Try another door", texture = texture, onClick = { state.chooseDoor(null) })
+        ActionLink(label = "Try another door", texture = texture, onClick = { state.chooseDoor(null) })
     }
 }
-
-/** Where the person is, in words: the questions adapt to the answers, so a running total would mislead. */
-private fun progressWords(position: AskPosition): String =
-    if (position.step == null) "${position.total} asked" else "question ${position.answered + 1}"
 
 /** At most this many tensions in the wrap-up; the rest wait in the Brief. */
 private const val MAX_WRAP_UP_TENSIONS = 3
@@ -627,23 +799,58 @@ private fun wrapUpSummary(wrap: WrapUp): String {
 private fun DoorList(
     state: BriefScreenUiState,
     texture: CanvasTexture,
+    confirmingStartOver: Boolean,
+    onConfirmingStartOver: (Boolean) -> Unit,
 ) {
-    BasicText(text = "Where would you like to start?", style = bodyStyle(texture.fg.toColor(), sizeSp = 16.0, weight = FontWeight.SemiBold))
-    BasicText(
-        text = "Every door ends at the same brief. They differ in what is asked first.",
-        style = bodyStyle(texture.muted.toColor(), sizeSp = 11.5),
+    Prompt(
+        prompt = "Where would you like to start?",
+        why = "Start from what you already know. Every door ends at the same brief; they differ in what is asked first.",
+        texture = texture,
     )
     if (!state.ethos.isEmpty) {
-        BasicText(
-            text = "Your answers so far carry over: a door skips what is already answered.",
-            style = bodyStyle(texture.muted.toColor(), sizeSp = 11.5),
-        )
-        StartOver(state = state, texture = texture)
-    }
-    for (door in Door.entries) {
-        OptionCard(texture = texture, selected = false, onClick = { state.chooseDoor(door) }) {
-            SpecimenRow(cue = door.cue, title = door.label, detail = door.caption, texture = texture)
+        Small(text = "Your answers so far carry over: a door skips what is already answered.", texture = texture)
+        if (confirmingStartOver) {
+            Small(text = "Clear every answer in this brief?", texture = texture)
+            ButtonRow {
+                ActionButton(
+                    label = "Clear answers",
+                    texture = texture,
+                    onClick = {
+                        onConfirmingStartOver(false)
+                        state.startOver()
+                    },
+                    filled = true,
+                )
+                ActionButton(label = "Keep them", texture = texture, onClick = { onConfirmingStartOver(false) })
+            }
+        } else {
+            ButtonRow { ActionLink(label = "Start over", texture = texture, onClick = { onConfirmingStartOver(true) }) }
         }
+    }
+    Spacer(modifier = Modifier.height(10.dp))
+    Choices {
+        for (door in Door.entries) {
+            OptionCard(texture = texture, selected = false, onClick = { state.chooseDoor(door) }) {
+                SpecimenRow(cue = door.cue, title = door.label, detail = door.caption, texture = texture)
+            }
+        }
+    }
+}
+
+/** A question, 17 sp semibold, and a muted line under it saying why it is asked. */
+@Composable
+private fun Prompt(
+    prompt: String,
+    why: String,
+    texture: CanvasTexture,
+) {
+    Column(modifier = Modifier.padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        BasicText(
+            text = prompt,
+            style = bodyStyle(texture.fg.toColor(), sizeSp = 17.0, weight = FontWeight.SemiBold).copy(lineHeight = (17 * 1.3).sp),
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        Small(text = why, texture = texture)
     }
 }
 
@@ -652,9 +859,27 @@ private fun DoorList(
 private fun StepPrompt(
     step: Step,
     texture: CanvasTexture,
+) = Prompt(prompt = step.prompt, why = step.why, texture = texture)
+
+/** [text] in the brief's face, large and spaced out: the letters to draw. */
+@Composable
+private fun Glyphs(
+    text: String,
+    state: BriefScreenUiState,
+    texture: CanvasTexture,
+    sizeSp: Double = 38.0,
 ) {
-    BasicText(text = step.prompt, style = bodyStyle(texture.fg.toColor(), sizeSp = 16.0, weight = FontWeight.SemiBold))
-    BasicText(text = step.why, style = bodyStyle(texture.muted.toColor(), sizeSp = 11.5))
+    BasicText(
+        text = text,
+        style =
+            TextStyle(
+                fontFamily = briefFamily(state),
+                fontSize = sizeSp.sp,
+                lineHeight = (sizeSp * 1.15).sp,
+                letterSpacing = 0.14.em,
+                color = texture.fg.toColor(),
+            ),
+    )
 }
 
 @Composable
@@ -686,22 +911,26 @@ private fun PickGenreView(
     StepPrompt(step = step, texture = texture)
     if (step.suggestions.isNotEmpty()) {
         SectionLabel(text = "Suggested", texture = texture)
-        for (suggestion in step.suggestions) {
-            GenreCard(
-                genre = suggestion.genre,
-                note = suggestion.reason,
-                selected = chosen == suggestion.genre.key,
-                state = state,
-                texture = texture,
-            )
+        Choices {
+            for (suggestion in step.suggestions) {
+                GenreCard(
+                    genre = suggestion.genre,
+                    note = suggestion.reason,
+                    selected = chosen == suggestion.genre.key,
+                    state = state,
+                    texture = texture,
+                )
+            }
         }
     }
     for (group in GenreGroup.entries) {
         val genres = GENRES.filter { it.group == group }
         if (genres.isEmpty()) continue
         SectionLabel(text = group.title, texture = texture)
-        for (genre in genres) {
-            GenreCard(genre = genre, note = genre.oneLine, selected = chosen == genre.key, state = state, texture = texture)
+        Choices {
+            for (genre in genres) {
+                GenreCard(genre = genre, note = genre.oneLine, selected = chosen == genre.key, state = state, texture = texture)
+            }
         }
     }
 }
@@ -726,11 +955,10 @@ private fun PickUsesView(
     texture: CanvasTexture,
 ) {
     StepPrompt(step = step, texture = texture)
-    for (use in USES) {
-        OptionCard(texture = texture, selected = use.id in state.ethos.uses, onClick = { state.toggleUse(use.id) }) {
-            SpecimenRow(cue = use.cue, title = use.name, detail = use.oneLine, texture = texture)
-        }
+    Chips {
+        for (use in USES) Chip(label = use.name, on = use.id in state.ethos.uses, texture = texture) { state.toggleUse(use.id) }
     }
+    for (use in USES.filter { it.id in state.ethos.uses }) ChosenNote(title = use.name, detail = use.oneLine, texture = texture)
 }
 
 @Composable
@@ -740,17 +968,16 @@ private fun AskUseView(
     texture: CanvasTexture,
 ) {
     val chosen = state.ethos.useOptions["${step.use.id}.${step.question.id}"]
-    SectionLabel(text = "For ${step.use.forWhat}", texture = texture)
+    SectionLabel(text = "For ${step.use.forWhat}", texture = texture, first = true)
     StepPrompt(step = step, texture = texture)
-    for (option in step.question.options) {
-        OptionCard(
-            texture = texture,
-            selected = chosen == option.id,
-            onClick = { state.answerUse(step.use, step.question, option.id) },
-        ) {
-            SpecimenRow(cue = null, title = option.label, detail = option.caption, texture = texture)
+    Chips {
+        for (option in step.question.options) {
+            Chip(label = option.label, on = chosen == option.id, texture = texture) { state.answerUse(step.use, step.question, option.id) }
         }
     }
+    step.question.options
+        .firstOrNull { it.id == chosen }
+        ?.let { ChosenNote(title = it.label, detail = it.caption, texture = texture) }
 }
 
 @Composable
@@ -762,17 +989,30 @@ private fun WordmarkView(
     var draft by remember { mutableStateOf(state.ethos.wordmark.orEmpty()) }
     val fg = texture.fg.toColor()
     StepPrompt(step = step, texture = texture)
-    Box(modifier = Modifier.fillMaxWidth().underline(texture.ink.toColor()).padding(vertical = 10.dp)) {
+    Box(modifier = Modifier.fillMaxWidth().underline(texture.ink.toColor()).padding(vertical = 4.dp)) {
         BasicTextField(
             value = draft,
             onValueChange = { draft = it },
-            textStyle = bodyStyle(fg, sizeSp = 16.0),
+            textStyle = bodyStyle(fg, sizeSp = 14.0),
             singleLine = true,
             cursorBrush = SolidColor(fg),
             modifier = Modifier.fillMaxWidth(),
+            decorationBox = { inner ->
+                Box {
+                    if (draft.isEmpty()) {
+                        BasicText(
+                            text = "The name, as it will be set",
+                            style = bodyStyle(texture.muted.toColor(), sizeSp = 14.0),
+                        )
+                    }
+                    inner()
+                }
+            },
         )
     }
-    ActionButton(label = "Set wordmark", texture = texture, onClick = { state.setWordmark(draft) }, filled = true)
+    ButtonRow(modifier = Modifier.padding(top = 4.dp)) {
+        ActionButton(label = "Set wordmark", texture = texture, onClick = { state.setWordmark(draft) }, filled = true)
+    }
 }
 
 @Composable
@@ -783,10 +1023,15 @@ private fun PickFeelingsView(
 ) {
     StepPrompt(step = step, texture = texture)
     SectionLabel(text = "${state.ethos.feelings.size} of 3 chosen", texture = texture)
-    for (feeling in FEELINGS) {
-        OptionCard(texture = texture, selected = feeling.key in state.ethos.feelings, onClick = { state.toggleFeeling(feeling.key) }) {
-            SpecimenRow(cue = null, title = feeling.word, detail = feeling.gloss, texture = texture)
+    Chips {
+        for (feeling in FEELINGS) {
+            Chip(label = feeling.word, on = feeling.key in state.ethos.feelings, texture = texture) { state.toggleFeeling(feeling.key) }
         }
+    }
+    for (feeling in FEELINGS.filter {
+        it.key in state.ethos.feelings
+    }) {
+        ChosenNote(title = feeling.word, detail = feeling.gloss, texture = texture)
     }
 }
 
@@ -801,10 +1046,12 @@ private fun PickReferencesView(
     var query by remember { mutableStateOf("") }
     StepPrompt(step = step, texture = texture)
     if (atlas == null) {
-        BasicText(text = BRIEF_ATLAS_UNAVAILABLE_NOTE, style = bodyStyle(muted, sizeSp = 11.5))
+        BasicText(text = BRIEF_ATLAS_UNAVAILABLE_NOTE, style = bodyStyle(muted))
     }
     SectionLabel(text = "${state.ethos.references.size} of 3 chosen", texture = texture)
-    for (family in state.ethos.references) ReferenceCard(family = family, state = state, texture = texture)
+    if (state.ethos.references.isNotEmpty()) {
+        Choices { for (family in state.ethos.references) ReferenceCard(family = family, state = state, texture = texture) }
+    }
     if (atlas == null) return
     SearchField(
         value = query,
@@ -828,7 +1075,7 @@ private fun PickReferencesView(
             else -> step.starters
         }.filter { it !in state.ethos.references }
     SectionLabel(text = label, texture = texture)
-    for (family in shown) ReferenceCard(family = family, state = state, texture = texture)
+    Choices { for (family in shown) ReferenceCard(family = family, state = state, texture = texture) }
 }
 
 /** At most this many search results at once. */
@@ -853,7 +1100,7 @@ private fun ReferenceCard(
     val cue = cueFaceOf(family)?.let { Cue(it, "Aa") }
     val chosen = family in state.ethos.references
     OptionCard(texture = texture, selected = chosen, onClick = { state.toggleReference(family) }) {
-        SpecimenRow(cue = cue, title = family, detail = detail, texture = texture)
+        SpecimenRow(cue = cue, title = family, detail = detail, texture = texture, keepColumn = true)
         if (chosen) AddReferenceToScrapbookAction(family = family, detail = detail, texture = texture)
     }
 }
@@ -925,7 +1172,7 @@ private fun SearchField(
 ) {
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()
-    Box(modifier = Modifier.fillMaxWidth().underline(texture.ink.toColor()).padding(vertical = 10.dp)) {
+    Box(modifier = Modifier.fillMaxWidth().underline(texture.ink.toColor()).padding(top = 18.dp, bottom = 4.dp)) {
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
@@ -954,7 +1201,7 @@ private fun ReadDrawingView(
     val muted = texture.muted.toColor()
     StepPrompt(step = step, texture = texture)
     if (state.atlas == null) {
-        BasicText(text = BRIEF_ATLAS_UNAVAILABLE_NOTE, style = bodyStyle(muted, sizeSp = 11.5))
+        BasicText(text = BRIEF_ATLAS_UNAVAILABLE_NOTE, style = bodyStyle(muted))
         return
     }
     if (step.levels.isEmpty()) {
@@ -962,15 +1209,12 @@ private fun ReadDrawingView(
     }
     if (step.toDraw.isNotEmpty()) {
         SectionLabel(text = "Still to draw for a surer reading", texture = texture)
-        BasicText(text = step.toDraw.toList().joinToString(" "), style = bodyStyle(fg, sizeSp = 16.0))
+        Glyphs(text = step.toDraw.toList().joinToString(" "), state = state, texture = texture)
     }
     val letters = state.drawing.font
     if (letters.glyphs.isEmpty()) {
-        BasicText(
-            text = "Draw them, then come back: this question waits. Or skip it and answer by eye.",
-            style = bodyStyle(muted, sizeSp = 11.5),
-        )
-        ActionButton(label = "Start drawing", texture = texture, onClick = onStartDrawing, filled = true)
+        Small(text = "Draw them, then come back: this question waits. Or skip it and answer by eye.", texture = texture)
+        ButtonRow { ActionButton(label = "Start drawing", texture = texture, onClick = onStartDrawing, filled = true) }
     }
     val reading = step.reading
     if (reading != null) {
@@ -986,9 +1230,16 @@ private fun ReadDrawingView(
     if (step.levels.isNotEmpty()) {
         SectionLabel(text = "What each measures as", texture = texture)
         for ((dimension, level) in step.levels) {
-            SpecimenRow(cue = level.cue, title = dimension.title, detail = level.label, texture = texture)
+            SpecimenRow(cue = level.cue, title = dimension.title, detail = level.label, texture = texture, specimenSp = 34.0)
         }
-        ActionButton(label = "Use these answers", texture = texture, onClick = { state.adoptMeasured(step.levels) }, filled = true)
+        ButtonRow {
+            ActionButton(
+                label = "Use these answers",
+                texture = texture,
+                onClick = { state.adoptMeasured(step.levels) },
+                filled = true,
+            )
+        }
     }
 }
 
@@ -1001,25 +1252,27 @@ private fun AskDimensionView(
     val chosen = state.model.answer(step.dimension)
     val genreName = state.model.genre?.name
     StepPrompt(step = step, texture = texture)
-    for (level in step.options) {
-        val count = step.genreCounts[level] ?: 0
-        val notes =
-            listOfNotNull(
-                if (level == step.suggested) suggestedNote(step) else null,
-                if (step.genreTotal > 0 && genreName != null) "$count of ${step.genreTotal} $genreName faces measured" else null,
-            ).joinToString(" · ")
-        OptionCard(
-            texture = texture,
-            selected = chosen == level,
-            onClick = { state.answerLevel(step.dimension, level) },
-        ) {
-            SpecimenRow(
-                cue = level.cue,
-                title = level.label,
-                detail = level.phrase,
+    Choices {
+        for (level in step.options) {
+            val count = step.genreCounts[level] ?: 0
+            val notes =
+                listOfNotNull(
+                    if (level == step.suggested) suggestedNote(step) else null,
+                    if (step.genreTotal > 0 && genreName != null) "$count of ${step.genreTotal} $genreName faces measured" else null,
+                ).joinToString(" · ")
+            OptionCard(
                 texture = texture,
-                extra = notes.takeIf { it.isNotEmpty() },
-            )
+                selected = chosen == level,
+                onClick = { state.answerLevel(step.dimension, level) },
+            ) {
+                SpecimenRow(
+                    cue = level.cue,
+                    title = level.label,
+                    detail = level.phrase,
+                    texture = texture,
+                    extra = notes.takeIf { it.isNotEmpty() },
+                )
+            }
         }
     }
 }
@@ -1037,32 +1290,30 @@ private fun BriefTab(
     texture: CanvasTexture,
 ) {
     val model = state.model
-    val muted = texture.muted.toColor()
     BriefSentence(state = state, texture = texture)
     if (model.isEmpty) {
-        BasicText(text = "Answer a few questions in Ask and the brief fills in here.", style = bodyStyle(muted, sizeSp = 11.5))
-        ActionButton(label = "Choose a door", texture = texture, onClick = { state.selectTab(BriefScreenTab.ASK) }, filled = true)
+        Small(text = "Answer a few questions in Ask and the brief fills in here.", texture = texture)
+        ButtonRow {
+            ActionButton(label = "Choose a door", texture = texture, onClick = { state.selectTab(BriefScreenTab.ASK) }, filled = true)
+        }
     }
-    BasicText(text = state.saveNote.uppercase(), style = monoStyle(muted))
-    BasicText(text = declaredAndConfirmedLine(state), style = monoStyle(muted))
-    if (state.atlas == null) {
-        BasicText(text = BRIEF_ATLAS_UNAVAILABLE_NOTE, style = bodyStyle(muted, sizeSp = 11.5))
-    }
-    Rule(texture)
+    NoteMono(text = state.saveNote, texture = texture)
+    NoteMono(text = declaredAndConfirmedLine(state), texture = texture)
+    if (state.atlas == null) Small(text = BRIEF_ATLAS_UNAVAILABLE_NOTE, texture = texture)
     TargetsTable(state = state, texture = texture)
     TensionsList(state = state, texture = texture)
     ReferencesList(state = state, texture = texture)
     if (state.drawing.font.glyphs
             .isNotEmpty() && state.atlas != null
     ) {
-        Rule(texture)
         ReadingSection(state = state, texture = texture)
     }
     if (!model.isEmpty) {
-        Rule(texture)
         SectionLabel(text = "Next", texture = texture)
-        BasicText(text = "The guide turns this brief into what to draw, in what order, and why.", style = bodyStyle(muted, sizeSp = 11.5))
-        ActionButton(label = "See your guide", texture = texture, onClick = { state.selectTab(BriefScreenTab.GUIDE) }, filled = true)
+        Small(text = "The guide turns this brief into what to draw, in what order, and why.", texture = texture)
+        ButtonRow {
+            ActionButton(label = "See your guide", texture = texture, onClick = { state.selectTab(BriefScreenTab.GUIDE) }, filled = true)
+        }
     }
 }
 
@@ -1089,7 +1340,7 @@ private fun ReadingSection(
     for (vote in reading.genres) {
         BasicText(text = "${vote.genre.name}: ${vote.votes} of the ${reading.k} nearest faces", style = bodyStyle(fg))
     }
-    ConfirmStyleClassAction(reading = reading, state = state, texture = texture)
+    ButtonRow { ConfirmStyleClassAction(reading = reading, state = state, texture = texture) }
 }
 
 @Composable
@@ -1107,50 +1358,47 @@ private fun TargetsTable(
         }
     SectionLabel(text = "Targets", texture = texture)
     if (targets.isEmpty()) {
-        BasicText(
-            text = "No targets yet: nothing has been chosen that a letter can be measured against.",
-            style = bodyStyle(muted, sizeSp = 11.5),
-        )
+        Small(text = "No targets yet: nothing has been chosen that a letter can be measured against.", texture = texture)
         return
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(modifier = Modifier.weight(3f)) { BasicText(text = "FEATURE", style = monoStyle(muted, sizeSp = 8.5)) }
-        Box(modifier = Modifier.weight(4f)) { BasicText(text = "TARGET", style = monoStyle(muted, sizeSp = 8.5)) }
-        Box(modifier = Modifier.weight(4f)) { BasicText(text = "WHERE IT CAME FROM", style = monoStyle(muted, sizeSp = 8.5)) }
-    }
-    for (target in targets) {
-        Rule(texture)
-        val origin = target.origin
-        val evidence =
-            when {
-                origin.faces > 0 -> "${origin.faces} faces measured"
-                target.range != null -> "our heuristic"
-                else -> null
-            }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(modifier = Modifier.weight(3f)) {
-                BasicText(text = target.feature.label, style = bodyStyle(fg, sizeSp = 12.0, weight = FontWeight.SemiBold))
-            }
-            Box(modifier = Modifier.weight(4f)) { BasicText(text = target.describe(), style = bodyStyle(fg, sizeSp = 12.0)) }
-            Column(modifier = Modifier.weight(4f)) {
-                BasicText(text = "${origin.kind.word} · ${origin.label}", style = bodyStyle(muted, sizeSp = 11.0))
-                if (evidence != null) BasicText(text = evidence, style = monoStyle(muted, sizeSp = 9.0))
-                if (origin.kind == OriginKind.ANSWER && target.firm) BasicText(text = "firm", style = monoStyle(muted, sizeSp = 9.0))
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        for (target in targets) {
+            val origin = target.origin
+            val evidence =
+                when {
+                    origin.faces > 0 -> "${origin.faces} faces measured"
+                    target.range != null -> "our heuristic"
+                    else -> null
+                }
+            val firm = if (origin.kind == OriginKind.ANSWER && target.firm) "firm" else null
+            val whereFrom = listOfNotNull("${origin.kind.word} · ${origin.label}", evidence, firm).joinToString(" · ")
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                BasicText(
+                    text = target.feature.label,
+                    style = bodyStyle(fg, weight = FontWeight.SemiBold),
+                    modifier = Modifier.width(TARGET_FEATURE_COLUMN.dp),
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    BasicText(text = target.describe(), style = bodyStyle(fg).copy(fontFeatureSettings = "tnum"))
+                    BasicText(text = whereFrom, style = bodyStyle(muted, sizeSp = 12.0))
+                }
             }
         }
     }
 }
+
+/** 8.5 em of the 12.5 sp text beside it, as the canvas sets it. */
+private const val TARGET_FEATURE_COLUMN = 106
 
 @Composable
 private fun TensionsList(
     state: BriefScreenUiState,
     texture: CanvasTexture,
 ) {
-    val muted = texture.muted.toColor()
     val tensions = state.model.tensions
     SectionLabel(text = "Tensions", texture = texture)
     if (tensions.isEmpty()) {
-        BasicText(text = "None found: nothing you chose pulls against anything else.", style = bodyStyle(muted, sizeSp = 11.5))
+        Small(text = "None found: nothing you chose pulls against anything else.", texture = texture)
         return
     }
     for (tension in tensions) TensionCard(tension = tension, state = state, texture = texture)
@@ -1161,16 +1409,15 @@ private fun ReferencesList(
     state: BriefScreenUiState,
     texture: CanvasTexture,
 ) {
-    val muted = texture.muted.toColor()
     val atlas = state.atlas
     val matches: List<FaceMatch> = remember(state.model) { facesLike(state.model) }
     SectionLabel(text = "Faces that already fit", texture = texture)
     if (atlas == null) {
-        BasicText(text = "Matching real faces needs the style atlas.", style = bodyStyle(muted, sizeSp = 11.5))
+        Small(text = "Matching real faces needs the style atlas.", texture = texture)
         return
     }
     if (matches.isEmpty()) {
-        BasicText(text = "None yet: they appear once the brief has targets.", style = bodyStyle(muted, sizeSp = 11.5))
+        Small(text = "None yet: they appear once the brief has targets.", texture = texture)
         return
     }
     for (match in matches) {
@@ -1181,6 +1428,7 @@ private fun ReferencesList(
             detail = face?.let { describeFace(it, atlas) }.orEmpty(),
             texture = texture,
             extra = if (match.misses.isEmpty()) null else "misses: " + match.misses.joinToString(", ") { it.label },
+            specimenSp = 34.0,
         )
     }
 }
@@ -1202,7 +1450,6 @@ private fun GuideTab(
     val drawing = state.drawing
     val items = remember(model, drawing) { guideFor(model, drawing) }
     val plan = remember(model) { planFor(model) }
-    val glyphStyle = TextStyle(fontFamily = briefFamily(state), fontSize = 22.sp, lineHeight = 30.sp, color = fg)
 
     if (drawing.font.glyphs.isEmpty()) {
         BasicText(text = BRIEF_NO_DRAWING_NOTE, style = bodyStyle(fg))
@@ -1210,7 +1457,6 @@ private fun GuideTab(
     for (kind in GuideKind.entries) {
         val ofKind = items.filter { it.kind == kind }
         if (ofKind.isEmpty()) continue
-        Rule(texture)
         SectionLabel(text = kind.word, texture = texture)
         for (item in ofKind) {
             if (kind == GuideKind.TENSION) {
@@ -1224,14 +1470,14 @@ private fun GuideTab(
                     texture = texture,
                 )
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    BasicText(text = item.title, style = bodyStyle(fg, sizeSp = 13.0, weight = FontWeight.SemiBold))
-                    if (item.glyphs.isNotEmpty()) BasicText(text = item.glyphs, style = glyphStyle)
-                    BasicText(text = item.body, style = bodyStyle(fg, sizeSp = 12.0))
+                Column(modifier = Modifier.padding(top = 4.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    BasicText(text = item.title, style = bodyStyle(fg, sizeSp = 14.0, weight = FontWeight.SemiBold))
+                    if (item.glyphs.isNotEmpty()) Glyphs(text = item.glyphs, state = state, texture = texture)
+                    BasicText(text = item.body, style = bodyStyle(fg))
                     val check = item.check
-                    if (check != null) BasicText(text = check.status.word.uppercase(), style = monoStyle(muted, sizeSp = 9.0))
+                    if (check != null) NoteMono(text = check.status.word, texture = texture)
                     val source = item.source
-                    if (source != null) BasicText(text = sourceLine(source), style = monoStyle(muted, sizeSp = 9.0))
+                    if (source != null) SourceLine(text = sourceLine(source), muted = muted)
                     GuideItemAction(
                         kind = kind,
                         dimension = item.dimension,
@@ -1245,13 +1491,12 @@ private fun GuideTab(
         }
     }
     if (items.isEmpty()) {
-        BasicText(text = "Nothing to advise yet: choose a style or a use in Ask.", style = bodyStyle(muted, sizeSp = 11.5))
-        ActionButton(label = "Choose a door", texture = texture, onClick = { state.selectTab(BriefScreenTab.ASK) })
+        Small(text = "Nothing to advise yet: choose a style or a use in Ask.", texture = texture)
+        ButtonRow { ActionButton(label = "Choose a door", texture = texture, onClick = { state.selectTab(BriefScreenTab.ASK) }) }
     }
-    Rule(texture)
     SectionLabel(text = "Drawing plan", texture = texture)
     if (plan.isEmpty()) {
-        BasicText(text = "No plan yet: it follows from the brief.", style = bodyStyle(muted, sizeSp = 11.5))
+        Small(text = "No plan yet: it follows from the brief.", texture = texture)
     }
     for (step in plan) {
         val remaining = step.remaining(drawing.font)
@@ -1261,20 +1506,18 @@ private fun GuideTab(
                 remaining.isEmpty() -> "all drawn"
                 else -> "${remaining.size} of ${step.glyphs.size} still to draw"
             }
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            BasicText(text = step.title, style = bodyStyle(fg, sizeSp = 13.0, weight = FontWeight.SemiBold))
-            if (step.glyphs.isNotEmpty()) BasicText(text = step.glyphs.joinToString(" "), style = glyphStyle)
-            BasicText(text = status.uppercase(), style = monoStyle(muted, sizeSp = 9.0))
-            BasicText(text = step.why, style = bodyStyle(fg, sizeSp = 12.0))
-            BasicText(text = sourceLine(step.source), style = monoStyle(muted, sizeSp = 9.0))
+        Column(modifier = Modifier.padding(top = 4.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            BasicText(text = step.title, style = bodyStyle(fg, sizeSp = 14.0, weight = FontWeight.SemiBold))
+            if (step.glyphs.isNotEmpty()) Glyphs(text = step.glyphs.joinToString(" "), state = state, texture = texture, sizeSp = 30.0)
+            NoteMono(text = status, texture = texture)
+            BasicText(text = step.why, style = bodyStyle(fg))
+            SourceLine(text = sourceLine(step.source), muted = muted)
         }
     }
-    Rule(texture)
-    BasicText(
-        text = "Draw opens on the sheet. Come back any time: the guide measures your letters as you draw.",
-        style = bodyStyle(muted, sizeSp = 11.5),
-    )
-    ActionButton(label = "Start drawing", texture = texture, onClick = onStartDrawing, filled = true)
+    Column(modifier = Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Small(text = "Draw opens on the sheet. Come back any time: the guide measures your letters as you draw.", texture = texture)
+        ButtonRow { ActionButton(label = "Start drawing", texture = texture, onClick = onStartDrawing, filled = true) }
+    }
 }
 
 /** What a guide item lets the person do next: draw its letters, change the brief instead of the drawing, or open its lesson. */
@@ -1289,15 +1532,15 @@ private fun GuideItemAction(
 ) {
     when {
         kind == GuideKind.NEXT -> {
-            ActionButton(label = "Start drawing", texture = texture, onClick = onStartDrawing, filled = true)
+            ButtonRow { ActionButton(label = "Start drawing", texture = texture, onClick = onStartDrawing, filled = true) }
         }
 
         kind == GuideKind.DRIFT && dimension != null -> {
-            ActionButton(label = "Or change the brief", texture = texture, onClick = { state.askAbout(dimension) })
+            ButtonRow { ActionButton(label = "Or change the brief", texture = texture, onClick = { state.askAbout(dimension) }) }
         }
 
         kind == GuideKind.LEARN && onOpenLearn != null -> {
-            ActionButton(label = "Open Learn", texture = texture, onClick = onOpenLearn)
+            ButtonRow { ActionButton(label = "Open Learn", texture = texture, onClick = onOpenLearn) }
         }
     }
 }
