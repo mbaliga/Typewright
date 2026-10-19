@@ -1,5 +1,7 @@
 # Handoff: fold the declared brief into the Brief
 
+> **Amended 19 Oct 2026:** see `docs/HANDOFF_BRIEF_AMENDMENT_1.md`, which applies on top of PR #6 and supersedes this file where they differ.
+
 For a Claude Code session (Sonnet is enough). Read `CLAUDE.md`, then `docs/BRIEF.md`, `docs/SCREENS_V1.md` S02 and S25–S27, and build brief §8.4 before touching code. Written 18 Oct 2026; revised 19 Oct 2026 to make the owner's V1 screens canvas the look source.
 
 ## The look source: the V1 screens canvas
