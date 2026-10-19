@@ -2,27 +2,22 @@
 
 package com.asoc.typewright.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import com.asoc.typewright.brief.Door
 import com.asoc.typewright.project.ProjectWorkspace
 import com.asoc.typewright.ui.brief.BriefScreen
@@ -37,81 +32,41 @@ import com.asoc.typewright.ui.learn.LearnScreen
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.project.LocalZipTransferSupported
 import com.asoc.typewright.ui.project.rememberProjectWorkspace
+import com.asoc.typewright.ui.settings.AboutScreen
+import com.asoc.typewright.ui.settings.SettingsScreen
+import com.asoc.typewright.ui.settings.ThemeEditorScreen
+import com.asoc.typewright.ui.settings.ThemeEditorState
 import com.asoc.typewright.ui.sheet.TypewrightSheet
-import com.asoc.typewright.ui.tokens.CanvasTextures
-import com.asoc.typewright.ui.tokens.Typography
-import com.asoc.typewright.ui.tokens.toColor
+import com.asoc.typewright.ui.shell.HomeScreen
+import com.asoc.typewright.ui.shell.LocalOpenProjects
+import com.asoc.typewright.ui.shell.LocalOpenSettings
+import com.asoc.typewright.ui.shell.LocalSectionNav
+import com.asoc.typewright.ui.shell.MapScreen
+import com.asoc.typewright.ui.shell.ProjectsScreen
+import com.asoc.typewright.ui.shell.SectionNav
+import com.asoc.typewright.ui.shell.StubSection
+import com.asoc.typewright.ui.theme.AppearanceState
+import com.asoc.typewright.ui.theme.LocalAppearance
+import com.asoc.typewright.ui.theme.Theme
 import com.asoc.typewright.ui.workbook.WorkbookScreen
-import com.asoc.typewright.ui.workbook.loadWorkbookCampaignSnapshot
-import com.asoc.typewright.ui.workbook.nextTaskLabel
 import com.asoc.typewright.ui.workbook.rememberWorkbookScreenUiState
 
 /**
- * The app's entry point on every platform (`app-android`/`app-desktop`/`app-web` each call only
- * this). From P0 through P4a this was a paper-canvas placeholder with the app's name in mono ink;
- * task P4b replaces that placeholder with the real one-sheet UI ([TypewrightSheet]), opened on
- * the Draw room with the paper texture, per UI_SPEC §2 ("Default: paper [CONFIRM]" -- still the
- * default pending that confirmation) and UI_SPEC §9's own screen list (Draw is the sheet's first
- * room). [PaperTokens] (the old placeholder's own two colours) is unused by this function now but
- * left in place: `PlaceholderScreenshotTest`'s pixel-level assertions still reference it directly
- * against `CanvasTextures.PAPER`'s own values, which it also is a subset of.
+ * The app: one router, one control deck.
  *
- * **Task P6 ("Shell" phase): the minimal, honest way to reach [LearnScreen].** The Learn screen
- * (`com.asoc.typewright.ui.learn.LearnScreen`, matching `ui/typewright-explorer.html`'s own
- * standalone `#s-learn` station) is real, complete and tested on its own, but nothing in this app
- * could open it until this change -- a real, disclosed gap (`docs/OPEN_QUESTIONS.md` item 56).
- * This task's own instructions are explicit that the *full* cross-station navigation shell
- * (Home/Capture/Trace/Economy/Draw-Space-Learn/Check/Ship/Workbook/Desktop) is separate, later
- * work the explorer itself does not yet design either, and stay out of scope here -- what this
- * function adds is only a minimal, honest entry point: [TypewrightAppNavState.showLearn] (a
- * plain, testable state class, the same shape [com.asoc.typewright.ui.puck.PuckUiState] already
- * uses -- see [TypewrightAppNavState]'s own KDoc), a small always-visible "Learn" tab pinned to
- * the bottom-right corner (an ink block, this app's established selection/affordance language,
- * CLAUDE.md law 8) that opens [LearnScreen] full-screen over [TypewrightSheet], and [LearnScreen]'s
- * own real back button (`onBack = navState::closeLearn`) to return. Chosen over, say, a debug-only
- * flag or a no-op placeholder button because the task's own instructions rule both out by name;
- * chosen over trying to bend [TypewrightSheet]'s own [com.asoc.typewright.ui.sheet.Room.LEARN]
- * placeholder room into a real entry point because the human product owner's decision, restated
- * in this task's own instructions, is that the real Learn experience is [LearnScreen] itself, not
- * that room's content. The corner was picked, not guessed: [TypewrightSheet]'s own glass already
- * claims every other corner/edge of the phone (`TypewrightSheet.kt`: [com.asoc.typewright.ui.
- * glass.Header] top-start, `LayersPanel` top-end, `SpaceRoomGlass`/`CommandPalette` top-centre,
- * `InspectorRow` bottom-start, [com.asoc.typewright.ui.glass.EdgeMarks] centre-start/-end) --
- * bottom-end is the one corner nothing else in the sheet draws into.
+ * The router ([TypewrightAppNavState]) holds which of the nine sections is current, in the order
+ * the deck's section arc names them, and whether the Brief is open over it. Every screen draws the
+ * deck itself and reaches the router through [LocalSectionNav], so a tap, a swipe, the arrow or digit
+ * keys or the Map take the person to any section from any screen. Draw and Space are two regions of
+ * one sheet ([TypewrightSheet], kept in composition so its camera and tool survive a trip to another
+ * section); Home, Learn and Workbook are screens; Capture, Trace, Check and Ship are not built, and
+ * say so inside the real deck rather than being hidden (law 4). The Brief opens over the section it
+ * was opened from and keeps its answers when the person leaves it ([rememberBriefStateKeeper]).
  *
- * **Task P7: a second corner affordance for [com.asoc.typewright.ui.workbook.WorkbookScreen],
- * stacked in the same bottom-end corner as [LearnEntryButton] -- there is no free corner left.**
- * By this task's own start, every corner/edge [TypewrightSheet] itself claims is exactly the list
- * above (unchanged since P6), and P6's own [LearnEntryButton] now additionally occupies the one
- * corner that used to be free. P7's own brief asks for the workbook to appear "as a one-line
- * next-task on the specimen" (TYPEWRIGHT_BUILD_BRIEF.md section 9/`PROMPTS_CLAUDE_CODE.md` P7) --
- * but this app has no specimen/home screen yet, a real, already-disclosed gap
- * (`docs/OPEN_QUESTIONS.md` item 82, and item 56 it points back to: "the *full* cross-station
- * navigation shell... remains separate, later, undesigned-by-the-explorer work"). Given that gap,
- * stacking a second small ink-block affordance directly above [LearnEntryButton] in the same
- * corner -- showing the real one-line next-task label ([nextTaskLabel], `#s-home`'s own `.taskcard`
- * copy shape, e.g. "Task 1 · Choose your reference", never a generic "Workbook" label except when
- * [com.asoc.typewright.ui.workbook.WorkbookCampaignSnapshot] itself could not load) -- is this
- * build's own honest substitute for that missing specimen taskcard, not an attempt to build the
- * specimen screen itself (`docs/OPEN_QUESTIONS.md` records this substitution explicitly). Opening
- * [com.asoc.typewright.ui.workbook.WorkbookScreen] closes [LearnScreen] if it was open, and vice
- * versa ([TypewrightAppNavState.openWorkbook]/[TypewrightAppNavState.openLearn]) -- both are
- * full-screen, texture-occluding overlays over the same [TypewrightSheet], so showing both at once
- * would mean one silently painting over the other.
- *
- * **Task P11 WP5: the project workspace holder.** [workspace] is the app-wide
- * [ProjectWorkspace] (docs/PROJECT_MODEL.md §13's stopgap wiring), reachable from
- * [com.asoc.typewright.ui.glass.Header] and [com.asoc.typewright.ui.glass.CommandPalette] (both
- * inside [TypewrightSheet], which this function does not otherwise touch) through
- * [LocalProjectWorkspace] rather than a widened parameter list on every glass composable between
- * here and there. Its own default, [rememberProjectWorkspace], is the in-memory stopgap this
- * worktree has; app-desktop's and app-web's own `main()` instead build and pass one of their own,
- * so their own lifecycle hooks (window close, tab visibility) can reach the *same* instance
- * outside Compose. [supportsZipTransfer] is similarly passed in by app-web only (docs/
- * PROJECT_MODEL.md §13's palette table: the two `.zip` rows are "web in-memory mode only").
- * [reopenLast] runs once, here, on every launch -- with no project remembered (every render
- * before P11 WP5, and Android, which has no reachable entry to reach any other outcome without a
- * hardware keyboard) it finds nothing and every screen keeps rendering exactly as it did before.
+ * [workspace] is the app-wide project holder, reachable everywhere through [LocalProjectWorkspace];
+ * its own default is an in-memory stopgap, and each platform's `main()` passes its own so its
+ * lifecycle hooks can reach the same instance. [supportsZipTransfer] is passed by the web app only.
+ * [systemBack] lets the platform's back reach whichever screen is on top.
  */
 @Composable
 fun TypewrightApp(
@@ -122,34 +77,108 @@ fun TypewrightApp(
     systemBack: SystemBack? = null,
 ) {
     // Guarded: a caller that already holds a live session across this composable's own recreate
-    // (MainActivity's process-scoped workspace, on an Activity recreate) must not have it silently
-    // replaced by whatever ProjectWorkspace.open() would reopen from disk, which would drop the
-    // in-memory session and its undo history. Only a workspace with nothing open yet reopens.
-    LaunchedEffect(workspace) { if (workspace.current.value == null) workspace.reopenLast() }
-    // Out here, not inside the Brief branch, so its answers, door and tab survive a trip to Draw and back.
+    // must not have it silently replaced by whatever the workspace would reopen from disk.
+    LaunchedEffect(workspace) {
+        if (workspace.current.value == null) workspace.reopenLast()
+        // First launch, or nothing to reopen: the app's root is Projects.
+        if (workspace.current.value == null) navState.openProjects()
+    }
     val briefKeeper = rememberBriefStateKeeper()
+    val scope = rememberCoroutineScope()
+    val appearance = remember(workspace) { AppearanceState(workspace.appConfig, scope) }
+    LaunchedEffect(appearance) { appearance.load() }
+    val texture = appearance.resolve(isSystemInDarkTheme()).toTexture()
+    val density = LocalDensity.current
+    val nav =
+        SectionNav(
+            current = navState.section,
+            goTo = navState::goToSection,
+            openMap = { navState.mapOpen = true },
+        )
     CompositionLocalProvider(
         LocalProjectWorkspace provides workspace,
         LocalZipTransferSupported provides supportsZipTransfer,
         LocalOpenBrief provides navState::openBrief,
         LocalSystemBack provides systemBack,
         LocalOpenNewProjectBrief provides navState::openNewProjectBrief,
+        LocalSectionNav provides nav,
+        LocalAppearance provides appearance,
+        LocalOpenSettings provides navState::openSettings,
+        LocalOpenProjects provides navState::openProjects,
+        LocalDensity provides Density(density.density, density.fontScale * appearance.settings.textScale.toFloat()),
     ) {
         Box(modifier = modifier.fillMaxSize()) {
-            TypewrightSheet(modifier = Modifier.fillMaxSize())
+            val onSheet = navState.section == DeckSection.DRAW || navState.section == DeckSection.SPACE
+            TypewrightSheet(
+                modifier = Modifier.fillMaxSize(),
+                initialTexture = texture,
+                section = if (onSheet) navState.section else DeckSection.DRAW,
+                onSectionChanged = { if (onSheet && !navState.showBrief) navState.section = it },
+                deckVisible = onSheet && !navState.showBrief && !navState.mapOpen,
+            )
             when {
-                navState.showLearn -> {
-                    // Opaque: LearnScreen paints its own texture-coloured background across the
-                    // whole box, the same "occluding background" pattern SpaceRoomGlass already
-                    // established for a glass element that needs to fully cover what is behind it.
-                    LearnScreen(modifier = Modifier.fillMaxSize(), onBack = navState::closeLearn)
+                navState.showProjects -> {
+                    ProjectsScreen(texture = texture, onOpened = navState::goToSection, modifier = Modifier.fillMaxSize())
+                }
+
+                navState.overlay == AppOverlay.SETTINGS -> {
+                    SettingsScreen(
+                        appearance = appearance,
+                        texture = texture,
+                        section = navState.section,
+                        onBack = navState::closeOverlay,
+                        onCustomTheme = navState::openThemeEditor,
+                        onAbout = navState::openAbout,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+
+                navState.overlay == AppOverlay.THEME_EDITOR && navState.editorBase != null -> {
+                    val base = navState.editorBase!!
+                    val editor =
+                        remember(navState.editorToken) {
+                            ThemeEditorState(
+                                base,
+                                appearance.freshId(navState.editorExisting?.name ?: "${base.name} copy"),
+                                navState.editorExisting,
+                            )
+                        }
+                    ThemeEditorScreen(
+                        state = editor,
+                        section = navState.section,
+                        onSave = {
+                            appearance.saveTheme(it)
+                            navState.closeOverlay()
+                        },
+                        onLeave = navState::closeOverlay,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+
+                navState.overlay == AppOverlay.ABOUT -> {
+                    AboutScreen(
+                        texture = texture,
+                        section = navState.section,
+                        onBack = navState::closeOverlay,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+
+                navState.mapOpen -> {
+                    MapScreen(
+                        texture = texture,
+                        current = navState.section,
+                        onGo = {
+                            navState.mapOpen = false
+                            navState.goToSection(it)
+                        },
+                        onClose = { navState.mapOpen = false },
+                    )
                 }
 
                 navState.showBrief -> {
                     val briefState = rememberBriefScreenUiState(briefKeeper)
-                    // WP4/WP5's LocalOpenBrief callers can ask for a specific door (e.g.
-                    // References); applied once, here, then cleared so a later plain "Brief" tap
-                    // (openBrief(null)) does not keep forcing that door back open.
+                    // Callers can ask for a specific door (References from Workbook Task 1); applied once, then cleared.
                     LaunchedEffect(navState.pendingBriefDoor) {
                         navState.pendingBriefDoor?.let { door ->
                             briefState.chooseDoor(door)
@@ -162,129 +191,178 @@ fun TypewrightApp(
                             navState.pendingNewProject = false
                         }
                     }
-                    // Start drawing closes the Brief onto the sheet, which opens on Draw.
                     BriefScreen(
                         modifier = Modifier.fillMaxSize(),
+                        texture = texture,
+                        // Back from the doors leaves the Brief for the section it was opened from.
                         onBack = navState::closeBrief,
                         state = briefState,
-                        onStartDrawing = navState::closeBrief,
-                        onOpenLearn = navState::openLearn,
+                        // Start drawing leaves the Brief for the sheet.
+                        onStartDrawing = { navState.goToSection(DeckSection.DRAW) },
+                        onOpenLearn = { navState.goToSection(DeckSection.LEARN) },
                         section = navState.briefFrom,
                         onSection = navState::goToSection,
+                        onMap = nav.openMap,
                     )
                 }
 
-                navState.showWorkbook -> {
+                navState.section == DeckSection.HOME -> {
+                    HomeScreen(
+                        texture = texture,
+                        modifier = Modifier.fillMaxSize(),
+                        onOpenDraw = { navState.goToSection(DeckSection.DRAW) },
+                        onOpenWorkbook = { navState.goToSection(DeckSection.WORKBOOK) },
+                    )
+                }
+
+                navState.section == DeckSection.LEARN -> {
+                    LearnScreen(modifier = Modifier.fillMaxSize(), texture = texture, onBack = navState::closeLearn)
+                }
+
+                navState.section == DeckSection.WORKBOOK -> {
                     WorkbookScreen(
                         modifier = Modifier.fillMaxSize(),
+                        texture = texture,
                         onBack = navState::closeWorkbook,
                         uiState = rememberWorkbookScreenUiState(),
                     )
                 }
 
-                else -> {
-                    Column(
-                        modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-                        horizontalAlignment = Alignment.End,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        WorkbookEntryButton(onClick = navState::openWorkbook)
-                        BriefEntryButton(onClick = { navState.openBrief() })
-                        LearnEntryButton(onClick = navState::openLearn)
-                    }
+                !onSheet -> {
+                    StubSection(texture = texture, section = navState.section, modifier = Modifier.fillMaxSize())
                 }
             }
         }
     }
 }
 
+/** The states that sit under a section (SCREENS_V1 S21–S23). */
+enum class AppOverlay { SETTINGS, THEME_EDITOR, ABOUT }
+
 /**
- * [TypewrightApp]'s own navigation state: which of [showLearn]/[showWorkbook] (mutually
- * exclusive -- see [openLearn]/[openWorkbook]) is open over [TypewrightSheet], if either. A plain
- * class, not a `@Composable` function, holding two Compose `mutableStateOf` fields -- mirrors
- * [com.asoc.typewright.ui.puck.PuckUiState]'s own shape so a test can construct one directly,
- * pre-seed or mutate either flag, and render [TypewrightApp] in any state with no simulated
- * pointer sequence needed, the same "GESTURE HONESTY" precedent (CLAUDE.md law 4) [com.asoc.
- * typewright.ui.SheetScreenshotTest]'s own `puckState.gestureState = ...` already sets for a real,
- * plain click this container can actually simulate.
+ * The router's state: the current [section], whether the [Map][mapOpen] is open, and whether the
+ * Brief is open over the section it was opened from ([briefFrom]). A plain class over Compose state,
+ * constructible in any state with no simulated gesture. [showLearn], [showWorkbook] and [showBrief]
+ * read the same state, so each screen is reachable and testable by its own name.
  */
 class TypewrightAppNavState(
     initialShowLearn: Boolean = false,
     initialShowWorkbook: Boolean = false,
     initialShowBrief: Boolean = false,
+    initialSection: DeckSection =
+        when {
+            initialShowLearn -> DeckSection.LEARN
+            initialShowWorkbook -> DeckSection.WORKBOOK
+            else -> DeckSection.HOME
+        },
+    initialBriefFrom: DeckSection = DeckSection.HOME,
 ) {
-    var showLearn: Boolean by mutableStateOf(initialShowLearn)
+    /** The section the app is on: Home is where it starts. */
+    var section: DeckSection by mutableStateOf(initialSection)
         internal set
-    var showWorkbook: Boolean by mutableStateOf(initialShowWorkbook)
-        internal set
+
     var showBrief: Boolean by mutableStateOf(initialShowBrief)
         internal set
 
-    /** A door [openBrief] was asked to open straight into, consumed (and cleared) by [TypewrightApp]'s own Brief branch. */
+    /** True while the Map (S24) covers the screen. */
+    var mapOpen: Boolean by mutableStateOf(false)
+
+    /** True while Projects (S01), the app's root, covers the screen. */
+    var showProjects: Boolean by mutableStateOf(false)
+        internal set
+
+    fun openProjects() {
+        showBrief = false
+        mapOpen = false
+        overlay = null
+        showProjects = true
+    }
+
+    /** A state that sits under the current section, which stays current but dimmed and inert: Settings, the theme editor or About. */
+    var overlay: AppOverlay? by mutableStateOf(null)
+        internal set
+
+    /** The theme the editor opened with, and the custom theme it is editing (null for a new one); [editorToken] changes on each open so its state starts fresh. */
+    var editorBase: Theme? by mutableStateOf(null)
+        private set
+    var editorExisting: Theme? by mutableStateOf(null)
+        private set
+    var editorToken: Int by mutableStateOf(0)
+        private set
+
+    fun openSettings() {
+        overlay = AppOverlay.SETTINGS
+    }
+
+    fun openAbout() {
+        overlay = AppOverlay.ABOUT
+    }
+
+    fun openThemeEditor(
+        base: Theme,
+        existing: Theme? = null,
+    ) {
+        editorBase = base
+        editorExisting = existing
+        editorToken += 1
+        overlay = AppOverlay.THEME_EDITOR
+    }
+
+    /** Back from an overlay: the editor and About go back to Settings, and Settings goes back to the screen under it. */
+    fun closeOverlay() {
+        overlay = if (overlay == AppOverlay.SETTINGS) null else AppOverlay.SETTINGS
+    }
+
+    val showLearn: Boolean get() = section == DeckSection.LEARN && !showBrief
+    val showWorkbook: Boolean get() = section == DeckSection.WORKBOOK && !showBrief
+
+    /** A door [openBrief] was asked to open straight into, consumed (and cleared) by the Brief branch. */
     var pendingBriefDoor: Door? by mutableStateOf(null)
         internal set
 
-    /** [openNewProjectBrief] was called: the Brief opens on the new-project step, consumed (and cleared) like [pendingBriefDoor]. */
+    /** [openNewProjectBrief] was called: the Brief opens on the new-project step, consumed like [pendingBriefDoor]. */
     var pendingNewProject: Boolean by mutableStateOf(false)
         internal set
 
-    /** What [LearnEntryButton]'s own `onClick` calls. Closes [showWorkbook] -- the two screens are mutually exclusive full-screen overlays. */
-    fun openLearn() {
-        showLearn = true
-        showWorkbook = false
-        showBrief = false
-    }
-
-    /** What [LearnScreen]'s own back button, via `onBack`, calls. */
-    fun closeLearn() {
-        showLearn = false
-    }
-
-    /** What [WorkbookEntryButton]'s own `onClick` calls. Closes [showLearn] -- the two screens are mutually exclusive full-screen overlays. */
-    fun openWorkbook() {
-        showWorkbook = true
-        showLearn = false
-        showBrief = false
-    }
-
-    /** What [com.asoc.typewright.ui.workbook.WorkbookScreen]'s own back button, via `onBack`, calls. */
-    fun closeWorkbook() {
-        showWorkbook = false
-    }
+    /** The section the Brief was opened from, which stays current and live on its deck: Home, or Workbook when opened from Task 1. */
+    var briefFrom: DeckSection by mutableStateOf(initialBriefFrom)
+        internal set
 
     /**
-     * What [BriefEntryButton]'s own `onClick`, and every [com.asoc.typewright.ui.brief.
-     * LocalOpenBrief] caller (WP4's "New project…" palette entry, WP5's Workbook Task 1 "Pick in
-     * the Brief"), call. [door] opens straight into that door (e.g. References); null opens on
-     * the doors, or the Guide once there are answers ([BriefScreenUiState]'s own rule). Closes
-     * the other two screens: all three are full-screen overlays.
+     * Goes to [target] from anywhere, closing the Brief and the Map. The Brief's answers are kept
+     * either way, because its state lives outside this screen.
+     */
+    fun goToSection(target: DeckSection) {
+        showBrief = false
+        mapOpen = false
+        overlay = null
+        showProjects = false
+        section = target
+    }
+
+    fun openLearn() = goToSection(DeckSection.LEARN)
+
+    /** Back from Learn goes up one level: Home. */
+    fun closeLearn() = goToSection(DeckSection.HOME)
+
+    fun openWorkbook() = goToSection(DeckSection.WORKBOOK)
+
+    /** Back from Workbook goes up one level: Home. */
+    fun closeWorkbook() = goToSection(DeckSection.HOME)
+
+    /**
+     * Opens the Brief over [from] (Home, or Workbook from Task 1), on [door] when given, otherwise on
+     * the doors, or the Guide once there are answers.
      */
     fun openBrief(
         door: Door? = null,
         from: DeckSection = DeckSection.HOME,
     ) {
         briefFrom = from
+        section = from
+        mapOpen = false
         showBrief = true
-        showLearn = false
-        showWorkbook = false
         pendingBriefDoor = door
-    }
-
-    /** The section the Brief was opened from, which stays current and live on its deck: Home, or Workbook when opened from Task 1. */
-    var briefFrom: DeckSection by mutableStateOf(DeckSection.HOME)
-        internal set
-
-    /**
-     * Where a tap on the deck's section arc goes from the Brief. Until the router exists (the deck
-     * prompt) only Workbook and Learn have a screen of their own; Home and the sections that live on
-     * the sheet close the Brief onto it. The answers are kept either way.
-     */
-    fun goToSection(section: DeckSection) {
-        when (section) {
-            DeckSection.WORKBOOK -> openWorkbook()
-            DeckSection.LEARN -> openLearn()
-            else -> closeBrief()
-        }
     }
 
     /** What "New project…" calls once the project exists: opens the Brief on S02's second step, the new-project board. */
@@ -293,104 +371,32 @@ class TypewrightAppNavState(
         pendingNewProject = true
     }
 
-    /** What [BriefScreen]'s own back button, via `onBack`, calls. */
+    /** Back from the Brief's doors: leaves it for the section it was opened from. */
     fun closeBrief() {
         showBrief = false
     }
+
+    internal fun save(): List<Int> = listOf(section.ordinal, if (showBrief) 1 else 0, briefFrom.ordinal)
+
+    internal companion object {
+        fun restore(saved: List<Int>) =
+            TypewrightAppNavState(
+                initialShowBrief = saved[1] == 1,
+                initialSection = DeckSection.entries[saved[0]],
+                initialBriefFrom = DeckSection.entries[saved[2]],
+            )
+
+        val Saver = listSaver<TypewrightAppNavState, Int>(save = { it.save() }, restore = ::restore)
+    }
 }
 
-/** Remembers a [TypewrightAppNavState] for the composition's lifetime, starting closed unless [initialShowLearn]/[initialShowWorkbook] say otherwise. */
+/** Remembers a [TypewrightAppNavState] across recomposition and across the process being recreated, on Home unless told otherwise. */
 @Composable
 fun rememberTypewrightAppNavState(
     initialShowLearn: Boolean = false,
     initialShowWorkbook: Boolean = false,
     initialShowBrief: Boolean = false,
-): TypewrightAppNavState = remember { TypewrightAppNavState(initialShowLearn, initialShowWorkbook, initialShowBrief) }
-
-/** The small, always-visible, real affordance that opens [LearnScreen] -- see [TypewrightApp]'s own KDoc for why it exists and why this corner. */
-@Composable
-private fun LearnEntryButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val texture = CanvasTextures.DEFAULT
-    Box(
-        modifier =
-            modifier
-                .background(texture.ink.toColor())
-                .clickable(onClick = onClick)
-                .padding(horizontal = 12.dp, vertical = 9.dp),
-    ) {
-        BasicText(text = "Learn", style = Typography.mono(sizeSp = 11.0).copy(color = texture.canvas.toColor()))
+): TypewrightAppNavState =
+    rememberSaveable(saver = TypewrightAppNavState.Saver) {
+        TypewrightAppNavState(initialShowLearn, initialShowWorkbook, initialShowBrief)
     }
-}
-
-/** The small, always-visible affordance that opens [BriefScreen], stacked with the other two in the same corner. */
-@Composable
-private fun BriefEntryButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val texture = CanvasTextures.DEFAULT
-    Box(
-        modifier =
-            modifier
-                .background(texture.ink.toColor())
-                .clickable(onClick = onClick)
-                .padding(horizontal = 12.dp, vertical = 9.dp),
-    ) {
-        BasicText(text = "Brief", style = Typography.mono(sizeSp = 11.0).copy(color = texture.canvas.toColor()))
-    }
-}
-
-/**
- * The small, always-visible, real affordance that opens [com.asoc.typewright.ui.workbook.
- * WorkbookScreen] at the campaign module's own real current/next task -- see [TypewrightApp]'s own
- * KDoc ("Task P7") for why it stacks above [LearnEntryButton] in the same corner rather than
- * inventing a new one, and why its label is real data ([nextTaskLabel]), not a generic "Workbook"
- * word.
- *
- * [loadWorkbookCampaignSnapshot] runs the real font parse and campaign gate computation once per
- * composition ([remember]) -- a second, independent load from
- * [com.asoc.typewright.ui.workbook.WorkbookScreen]'s own [com.asoc.typewright.ui.workbook.
- * rememberWorkbookScreenUiState] when it opens, not a shared instance threaded through
- * [TypewrightApp]'s own state: [com.asoc.typewright.ui.workbook.WorkbookScreen]'s own signature
- * is fixed to `(modifier, texture, onBack, uiState)` (this task's own instruction, matching
- * [LearnScreen]'s established shape) with no fifth "pre-loaded snapshot" parameter to widen it
- * for. Both loads are deterministic and read the same real data, so they always agree; the
- * duplicated font-parse-plus-corpus-load cost is a real, small inefficiency, not a correctness
- * gap, and disclosed as a known simplification (`docs/OPEN_QUESTIONS.md`) rather than left silent.
- */
-@Composable
-private fun WorkbookEntryButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val texture = CanvasTextures.DEFAULT
-    val snapshot = remember { loadWorkbookCampaignSnapshot() }
-    Box(
-        modifier =
-            modifier
-                .widthIn(max = WORKBOOK_ENTRY_BUTTON_MAX_WIDTH_DP.dp)
-                .background(texture.ink.toColor())
-                .clickable(onClick = onClick)
-                .padding(horizontal = 12.dp, vertical = 9.dp),
-    ) {
-        BasicText(
-            text = nextTaskLabel(snapshot),
-            style = Typography.mono(sizeSp = 9.5, textAlign = TextAlign.End).copy(color = texture.canvas.toColor()),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
-/**
- * A real, longer task title ("Task 10 · Extend a script (optional)") reads as a small corner tab
- * only with a width cap -- confirmed by screenshot, not by eye alone (this task's own instruction):
- * the first unconstrained render spanned nearly the full phone width, reading as a banner rather
- * than a stacked corner affordance next to [LearnEntryButton]. Ellipsis, not wrapping, keeps
- * [WorkbookEntryButton]'s own real label a genuine one line ("a one-line next-task", this task's
- * own brief) rather than growing the corner stack's own height unpredictably.
- */
-private const val WORKBOOK_ENTRY_BUTTON_MAX_WIDTH_DP = 190.0

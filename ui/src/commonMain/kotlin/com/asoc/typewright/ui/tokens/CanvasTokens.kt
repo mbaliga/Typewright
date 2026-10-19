@@ -18,10 +18,26 @@ data class CanvasTexture(
     val grainOpacity: Double,
     /** Blueprint's own second grid ("0 (+ 24 dp grid at white 6%)" in UI_SPEC §2); null elsewhere. */
     val fineGrid: FineGrid? = null,
+    /** True for a dark ground: the chrome is light on dark, the close red is the dark-ground red, and a meaning colour takes its dark value. */
+    val dark: Boolean = id == TextureId.BLACK || id == TextureId.BLUEPRINT,
+    /**
+     * The colour roles a theme sets beyond the ground and the text: accent, snap target, node
+     * colours, lines and comparison layers (SCREENS_V1 §3.1). Empty for the five built-in textures,
+     * whose roles are the meaning colours of UI_SPEC §2; a custom theme fills what it sets.
+     */
+    val roles: Map<ThemeRole, Argb> = emptyMap(),
+    /** The grid's opacity where a theme sets it; null means the standard [GridToken] value. */
+    val gridOpacity: Double? = null,
 )
 
+/** The colour of [role] on this texture: the theme's own, or null where the texture has none and the caller falls back to the meaning colour. */
+fun CanvasTexture.role(role: ThemeRole): Argb? = roles[role]
+
+/** Selection in live geometry, action links, the Trace scrubber thumb and the user's point on box plots (violet by default). */
+val CanvasTexture.accent: Argb get() = roles[ThemeRole.ACCENT] ?: MeaningColors.VIOLET.forTexture(this)
+
 /** The explorer's `data-texture` values (UI_SPEC §2 / brief §6), in the table's own order. */
-enum class TextureId { PAPER, VELLUM, BLUEPRINT, BLACK, WHITE }
+enum class TextureId { PAPER, VELLUM, BLUEPRINT, BLACK, WHITE, CUSTOM }
 
 /** Blueprint's extra grid, on top of the standard one [GridToken] describes (UI_SPEC §2's grain-column parenthetical). */
 data class FineGrid(
@@ -108,13 +124,31 @@ data class MeaningColor(
     val dark: Argb,
     val blueprint: Argb = dark,
 ) {
-    /** [light] on [TextureId.PAPER]/[TextureId.VELLUM]/[TextureId.WHITE], [dark] on [TextureId.BLACK], [blueprint] on [TextureId.BLUEPRINT]. */
+    /** [light] on [TextureId.PAPER]/[TextureId.VELLUM]/[TextureId.WHITE], [dark] on [TextureId.BLACK], [blueprint] on [TextureId.BLUEPRINT]. A custom theme is light or dark by its own ground. */
     fun forTexture(id: TextureId): Argb =
         when (id) {
-            TextureId.PAPER, TextureId.VELLUM, TextureId.WHITE -> light
+            TextureId.PAPER, TextureId.VELLUM, TextureId.WHITE, TextureId.CUSTOM -> light
             TextureId.BLACK -> dark
             TextureId.BLUEPRINT -> blueprint
         }
+
+    /**
+     * This colour on [texture]: where a theme sets the role this colour stands for (accent for
+     * violet, snap target for cyan, comparison layers 1 and 2 for amber and magenta), the theme's
+     * value; otherwise the built-in value for the texture, dark or light by its ground.
+     */
+    fun forTexture(texture: CanvasTexture): Argb {
+        val role =
+            when {
+                this === MeaningColors.VIOLET -> ThemeRole.ACCENT
+                this === MeaningColors.CYAN -> ThemeRole.SNAP_TARGET
+                this === MeaningColors.AMBER -> ThemeRole.COMPARISON_1
+                this === MeaningColors.MAGENTA -> ThemeRole.COMPARISON_2
+                else -> null
+            }
+        role?.let { texture.roles[it] }?.let { return it }
+        return if (texture.id == TextureId.CUSTOM) (if (texture.dark) dark else light) else forTexture(texture.id)
+    }
 }
 
 /** UI_SPEC.md §2's four meaning colours. Never used for anything but selection/snapping/comparison (CLAUDE.md law 8). */
@@ -147,7 +181,7 @@ object GridToken {
     fun colorFor(texture: CanvasTexture): Argb =
         when (texture.id) {
             TextureId.BLACK -> Argb.rgb(0xFFFFFF).withAlpha(WHITE_OPACITY_ON_DARK)
-            else -> texture.ink.withAlpha(INK_OPACITY)
+            else -> texture.ink.withAlpha(texture.gridOpacity ?: INK_OPACITY)
         }
 }
 

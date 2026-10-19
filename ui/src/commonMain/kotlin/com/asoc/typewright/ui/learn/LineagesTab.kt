@@ -154,7 +154,7 @@ internal fun ErasStrip(
     texture: CanvasTexture,
     onSelect: (Int) -> Unit,
 ) {
-    val violet = MeaningColors.VIOLET.forTexture(texture.id).toColor()
+    val violet = MeaningColors.VIOLET.forTexture(texture).toColor()
     Row(
         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -236,7 +236,7 @@ internal fun CalloutChip(
     callout: Callout,
     texture: CanvasTexture,
 ) {
-    val violet = MeaningColors.VIOLET.forTexture(texture.id).toColor()
+    val violet = MeaningColors.VIOLET.forTexture(texture).toColor()
     BasicText(
         text = "${callout.glyph} · ${callout.part}: ${callout.label}",
         style = Typography.mono(sizeSp = 9.5).copy(color = violet),
@@ -249,7 +249,7 @@ internal fun StressDial(
     texture: CanvasTexture,
     modifier: Modifier = Modifier,
 ) {
-    val violet = MeaningColors.VIOLET.forTexture(texture.id).toColor()
+    val violet = MeaningColors.VIOLET.forTexture(texture).toColor()
     val trackColor = texture.line.toColor()
     val lineAlpha = if (angle == null) 0.25f else 1f
     val animatedAngle by
@@ -285,7 +285,7 @@ internal fun ScrubBar(
     onScrub: (Double) -> Unit,
 ) {
     var widthPx by remember { mutableStateOf(0f) }
-    val thumbColor = MeaningColors.VIOLET.forTexture(texture.id).toColor()
+    val thumbColor = MeaningColors.VIOLET.forTexture(texture).toColor()
     val trackColor = texture.line.toColor()
 
     Box(
@@ -324,7 +324,7 @@ internal fun CaptionBlock(
     scene: Scene,
     texture: CanvasTexture,
 ) {
-    val violet = MeaningColors.VIOLET.forTexture(texture.id).toColor()
+    val violet = MeaningColors.VIOLET.forTexture(texture).toColor()
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             BasicText(
@@ -386,7 +386,7 @@ internal fun QuizCard(
 ) {
     var selected by remember(item) { mutableStateOf<String?>(null) }
     val quizFontFamily = rememberLearnFaceFamilyForFamilyName(item.faceFamily)
-    val violet = MeaningColors.VIOLET.forTexture(texture.id).toColor()
+    val violet = MeaningColors.VIOLET.forTexture(texture).toColor()
 
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         BasicText(

@@ -82,7 +82,7 @@ public fun LensTab(
     val muted = texture.muted.toColor()
     val lineColor = texture.line.toColor()
     val canvasColor = texture.canvas.toColor()
-    val violet = MeaningColors.VIOLET.forTexture(texture.id).toColor()
+    val violet = MeaningColors.VIOLET.forTexture(texture).toColor()
 
     Column(
         modifier =

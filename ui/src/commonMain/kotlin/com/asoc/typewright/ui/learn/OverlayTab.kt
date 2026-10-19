@@ -139,7 +139,7 @@ public fun OverlayTab(
                         } else {
                             val color =
                                 layerPlan.layer.meaningColor
-                                    ?.forTexture(texture.id)
+                                    ?.forTexture(texture)
                                     ?.toColor() ?: fg
                             val dashDp = layerPlan.layer.dashPattern
                             val effect =
@@ -157,7 +157,7 @@ public fun OverlayTab(
                         if (divergence.tickPointsPx.isNotEmpty()) {
                             val tickColor =
                                 divergence.comparisonLayer.meaningColor
-                                    ?.forTexture(texture.id)
+                                    ?.forTexture(texture)
                                     ?.toColor() ?: fg
                             val half = with(density) { 3.dp.toPx() }
                             val tickStrokePx = with(density) { 1.3.dp.toPx() }
@@ -377,7 +377,7 @@ private fun LayerSwatch(
     fg: Color,
     texture: CanvasTexture,
 ) {
-    val color = layer.meaningColor?.forTexture(texture.id)?.toColor() ?: fg
+    val color = layer.meaningColor?.forTexture(texture)?.toColor() ?: fg
     Canvas(Modifier.width(SWATCH_WIDTH_DP.dp).height(12.dp).padding(top = 5.dp)) {
         val y = size.height / 2f
         val strokeWidthPx = 2.dp.toPx()

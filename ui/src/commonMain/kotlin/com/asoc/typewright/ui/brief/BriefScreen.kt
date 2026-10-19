@@ -113,6 +113,7 @@ import com.asoc.typewright.ui.deck.ownsDeckKeys
 import com.asoc.typewright.ui.glass.CommandPalette
 import com.asoc.typewright.ui.glass.commandPaletteShortcut
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
+import com.asoc.typewright.ui.shell.ConfirmBlock
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.CanvasTextures
 import com.asoc.typewright.ui.tokens.MeaningColors
@@ -547,51 +548,6 @@ private fun BriefMenu(
 private const val MENU_WIDTH = 230
 private const val MENU_BOTTOM = 136
 
-/** An ink block on the glass that asks before something is lost (build brief §4.5): the message, then two text buttons. */
-@Composable
-private fun ConfirmBlock(
-    texture: CanvasTexture,
-    message: String,
-    confirmLabel: String,
-    cancelLabel: String,
-    onConfirm: () -> Unit,
-    onCancel: () -> Unit,
-) {
-    val onInk = texture.canvas.toColor()
-    Box(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onCancel),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            modifier =
-                Modifier
-                    .padding(horizontal = PAGE_SIDE.dp)
-                    .widthIn(max = 340.dp)
-                    .background(texture.ink.toColor())
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
-                    .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            BasicText(text = message, style = bodyStyle(onInk, sizeSp = 13.0))
-            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                BasicText(
-                    text = confirmLabel,
-                    style = bodyStyle(onInk, sizeSp = 12.5, weight = FontWeight.SemiBold),
-                    modifier = Modifier.clickable(onClick = onConfirm).padding(vertical = 8.dp),
-                )
-                BasicText(
-                    text = cancelLabel,
-                    style = bodyStyle(onInk.copy(alpha = ON_INK_MUTED_ALPHA), sizeSp = 12.5),
-                    modifier = Modifier.clickable(onClick = onCancel).padding(vertical = 8.dp),
-                )
-            }
-        }
-    }
-}
-
 /** One line on the glass, in an ink block above the deck: why a control did not go anywhere. */
 @Composable
 private fun Toast(
@@ -682,7 +638,7 @@ private fun ActionButton(
     onClick: () -> Unit,
     filled: Boolean = false,
 ) {
-    val violet = MeaningColors.VIOLET.forTexture(texture.id).toColor()
+    val violet = MeaningColors.VIOLET.forTexture(texture).toColor()
     BasicText(
         text = label,
         style = bodyStyle(if (filled) texture.canvas.toColor() else violet, weight = FontWeight.SemiBold),
@@ -1349,7 +1305,7 @@ private fun WordmarkView(
 ) {
     val fg = texture.fg.toColor()
     StepPrompt(step = step, texture = texture)
-    Box(modifier = Modifier.fillMaxWidth().fieldFocus(MeaningColors.VIOLET.forTexture(texture.id).toColor()).padding(vertical = 4.dp)) {
+    Box(modifier = Modifier.fillMaxWidth().fieldFocus(MeaningColors.VIOLET.forTexture(texture).toColor()).padding(vertical = 4.dp)) {
         BasicTextField(
             value = draft,
             onValueChange = onDraft,
@@ -1540,7 +1496,7 @@ private fun SearchField(
             Modifier
                 .fillMaxWidth()
                 .fieldFocus(
-                    MeaningColors.VIOLET.forTexture(texture.id).toColor(),
+                    MeaningColors.VIOLET.forTexture(texture).toColor(),
                 ).padding(top = 18.dp, bottom = 4.dp),
     ) {
         BasicTextField(

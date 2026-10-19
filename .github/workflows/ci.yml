@@ -30,6 +30,11 @@ jobs:
       # depends on an FSL-1.1-ALv2 module.
       - name: Licence split
         run: python3 tools/check_licences.py
+      # SCREENS_V1 S23: About shows THIRD_PARTY.md, so every dependency has an entry and the embedded copy is current.
+      - name: Third-party notices
+        run: |
+          python3 tools/check_third_party.py
+          python3 tools/gen_notices.py --check
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
