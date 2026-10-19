@@ -156,7 +156,7 @@ class BriefScreenStateTest {
         state.toggleUse("watch-face")
         state.skipToTheEnd()
         val wrap = assertNotNull(state.wrapUp())
-        assertEquals(listOf('0', '1'), assertNotNull(wrap.drawFirst).glyphs)
+        assertEquals("noHO".toList(), assertNotNull(wrap.drawFirst).glyphs)
         assertTrue(wrap.moreQuestions > 0)
 
         state.askMore()

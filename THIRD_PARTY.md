@@ -152,7 +152,7 @@ every one of the seventeen through `core-font`'s own production `readSfntFont`.
 ## Embedded for the Brief's visual cues
 
 The Brief shows each answer in a real typeface (docs/BRIEF.md). `data/scripts/build_brief_cues.py`
-subsets 20 families fetched from `google/fonts` (the commit pinned in
+subsets the families fetched from `google/fonts` (the commit pinned in
 `data/brief-cues/manifest.json`) to Basic Latin, instances variable fonts at the weight shown, and
 renames each "Typewright Cue <Key>", a Modified Version under the SIL Open Font License 1.1
 that keeps any Reserved Font Name off it. The bytes ship as base64 in
@@ -162,14 +162,13 @@ uses `fontTools`/`skia-pathops` as build tooling only, never shipped.
 
 | Family | Copyright | Licence |
 |---|---|---|
-| Poppins | Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins) | OFL-1.1 |
 | Jost | Copyright 2020 The Jost Project Authors (https://github.com/indestructible-type/Jost) | OFL-1.1 |
 | Work Sans | Copyright 2019 The Work Sans Project Authors (https://github.com/weiweihuanghuang/Work-Sans) | OFL-1.1 |
 | Inter | Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter) | OFL-1.1 |
-| Open Sans | Copyright 2020 The Open Sans Project Authors (https://github.com/googlefonts/opensans) | OFL-1.1 |
+| Source Sans 3 | Copyright 2010-2020 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source' | OFL-1.1 |
 | EB Garamond | Copyright 2017 The EB Garamond Project Authors (https://github.com/octaviopardo/EBGaramond12) | OFL-1.1 |
 | Libre Baskerville | Copyright 2012 The Libre Baskerville Project Authors (https://github.com/impallari/Libre-Baskerville) | OFL-1.1 |
-| Libre Bodoni | Copyright 2012 The Libre Bodoni Project Authors (https://github.com/googlefonts/Libre-Bodoni/) | OFL-1.1 |
+| Playfair Display | Copyright 2017 The Playfair Display Project Authors (https://github.com/clauseggers/Playfair-Display), with Reserved Font Name "Playfair Display" | OFL-1.1 |
 | Zilla Slab | Copyright 2017, The Mozilla Foundation | OFL-1.1 |
 | Limelight | Copyright (c) 2010 by Sorkin Type Co with Reserved Font Name Limelight. This Font Software is licensed under the SIL Open Font License, Version 1.1. T | OFL-1.1 |
 | Poiret One | Copyright 2011 The Poiret One Project Authors (https://github.com/alexeiva/poiretone) | OFL-1.1 |

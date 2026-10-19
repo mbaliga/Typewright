@@ -1091,6 +1091,7 @@ private fun WrapUpView(
     SectionLabel(text = "Your brief", texture = texture, first = true)
     BriefSentence(state = state, texture = texture)
     NoteMono(text = wrapUpSummary(wrap), texture = texture)
+    Small(text = reviewerLine(state), texture = texture)
     val first = wrap.drawFirst
     if (first != null) {
         SectionLabel(
@@ -1105,6 +1106,7 @@ private fun WrapUpView(
             texture = texture,
         )
         Glyphs(text = first.glyphs.joinToString(" "), state = state, texture = texture)
+        wrap.thenGenre?.let { Small(text = "then what makes it ${it.genreName}: ${it.letters}", texture = texture) }
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             BasicText(text = first.title, style = bodyStyle(fg, sizeSp = 14.0, weight = FontWeight.SemiBold))
             BasicText(text = first.why, style = bodyStyle(fg))
@@ -1425,9 +1427,9 @@ private fun PickReferencesView(
     val label =
         when {
             searching && found.isEmpty() -> "No measured face by that name"
-            searching -> "Found"
-            step.suggestions.isNotEmpty() -> "Fit your brief so far"
-            else -> "Well-known faces to start from"
+            searching -> "Found · best name match first"
+            step.suggestions.isNotEmpty() -> "Fit your brief so far · closest to your targets first"
+            else -> "Well-known faces to start from · listed, not ranked"
         }
     val shown =
         when {
@@ -1662,6 +1664,7 @@ private fun BriefTab(
     }
     NoteMono(text = state.saveNote, texture = texture)
     NoteMono(text = declaredAndConfirmedLine(state), texture = texture)
+    Small(text = reviewerLine(state), texture = texture)
     if (state.atlas == null) Small(text = BRIEF_ATLAS_UNAVAILABLE_NOTE, texture = texture)
     TargetsTable(state = state, texture = texture)
     TensionsList(state = state, texture = texture)
@@ -1676,6 +1679,32 @@ private fun BriefTab(
         Small(text = "The guide turns this brief into what to draw, in what order, and why.", texture = texture)
         ButtonRow {
             ActionButton(label = "See your guide", texture = texture, onClick = { state.selectTab(BriefScreenTab.GUIDE) }, filled = true)
+        }
+    }
+}
+
+/**
+ * What a reviewer will check for this class, in one line: its node-economy box, with how many
+ * measured families it rests on, and Google Fonts' packaging rules. Check holds the detail; it is
+ * not built yet, so this line has nothing to link to.
+ */
+private fun reviewerLine(state: BriefScreenUiState): String {
+    val genre = state.model.genre?.takeIf { it.corpus }
+    val count =
+        genre?.let {
+            state.atlas
+                ?.pack
+                ?.classes
+                ?.get(it.key)
+                ?.n
+        }
+    return when {
+        genre != null && count != null -> {
+            "A reviewer will check ${genre.name.lowercase()}'s node-economy box (n $count) and Google Fonts' packaging rules."
+        }
+
+        else -> {
+            "A reviewer will check Google Fonts' packaging rules, and a node-economy box once there is a class."
         }
     }
 }
@@ -1796,7 +1825,7 @@ private fun ReferencesList(
 ) {
     val atlas = state.atlas
     val matches: List<FaceMatch> = remember(state.model) { facesLike(state.model) }
-    SectionLabel(text = "Faces that already fit", texture = texture)
+    SectionLabel(text = "Faces that already fit · closest to your targets first", texture = texture)
     if (atlas == null) {
         Small(text = "Matching real faces needs the style atlas.", texture = texture)
         return
