@@ -43,6 +43,7 @@ include(
     ":campaign",
     ":scripts",
     ":project",
+    ":brief",
 )
 
 // Platform modules and apps: these have an Android target, so they need the Android SDK.

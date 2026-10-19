@@ -83,14 +83,15 @@ internal fun circleRingGlyph(
     )
 
 /**
- * A ring whose stroke is thicker at top/bottom than at the sides (vertical stress, angle ~0):
- * outer circle radius [outerRadius], inner *ellipse* narrower vertically ([innerRy] < [innerRx]),
- * so the vertical gap (top/bottom thickness) is larger than the horizontal gap (side thickness).
+ * A didone-like ring: thin at top and bottom, heavy at the sides, so its stress axis (the line
+ * through the thinnest parts) is vertical, angle ~0. Outer circle radius [outerRadius]; the inner
+ * *ellipse* is narrower horizontally ([innerRx] < [innerRy]), so the side walls are thicker than
+ * the top and bottom.
  */
 internal fun verticalStressRingGlyph(
     outerRadius: Double = 250.0,
-    innerRx: Double = 180.0,
-    innerRy: Double = 140.0,
+    innerRx: Double = 140.0,
+    innerRy: Double = 180.0,
     advanceWidth: Int = 550,
 ): Glyph =
     Glyph(
@@ -99,11 +100,11 @@ internal fun verticalStressRingGlyph(
         listOf(ellipseContour(0.0, 0.0, outerRadius, outerRadius), ellipseContour(0.0, 0.0, innerRx, innerRy)),
     )
 
-/** As [verticalStressRingGlyph], but rotated a quarter turn: the sides are thicker than top/bottom (stress ~horizontal). */
+/** As [verticalStressRingGlyph], turned a quarter: heavy at top and bottom, thin at the sides, so the stress axis is horizontal (~90). */
 internal fun horizontalStressRingGlyph(
     outerRadius: Double = 250.0,
-    innerRx: Double = 140.0,
-    innerRy: Double = 180.0,
+    innerRx: Double = 180.0,
+    innerRy: Double = 140.0,
     advanceWidth: Int = 550,
 ): Glyph =
     Glyph(
@@ -357,3 +358,30 @@ internal fun proportionGlyphs(
     val h = Glyph("H", 480, listOf(polygon(0 to 0, 420 to 0, 420 to capHeightValue, 0 to capHeightValue)))
     return x to h
 }
+
+/**
+ * A two-storey `a` reduced to straight lines, 500 tall: a stem on the right, a lower bowl with its
+ * counter, and an arm across the top, with open space (the aperture) between the bowl's top and
+ * the arm, reachable from the left. A vertical line through the counter meets the bowl's top and
+ * then the arm.
+ */
+internal fun twoStoreyAGlyph(): Glyph =
+    Glyph(
+        "a",
+        530,
+        listOf(
+            polygon(0 to 0, 450 to 0, 450 to 500, 120 to 500, 120 to 430, 380 to 430, 380 to 260, 0 to 260),
+            polygon(70 to 70, 310 to 70, 310 to 190, 70 to 190),
+        ),
+    )
+
+/** A one-storey `a` reduced to straight lines, 500 tall and heavy: one bowl whose counter stops one 90-unit stroke below the top. */
+internal fun oneStoreyHeavyAGlyph(): Glyph =
+    Glyph(
+        "a",
+        530,
+        listOf(
+            polygon(0 to 0, 450 to 0, 450 to 500, 0 to 500),
+            polygon(90 to 90, 360 to 90, 360 to 410, 90 to 410),
+        ),
+    )

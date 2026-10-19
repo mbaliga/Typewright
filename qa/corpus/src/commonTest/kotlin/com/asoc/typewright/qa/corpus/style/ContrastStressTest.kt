@@ -28,7 +28,10 @@ class ContrastStressTest {
     }
 
     @Test
-    fun verticalStressRingIsThickestAtTopAndBottom() {
+    fun ringThinAtTopAndBottomHasVerticalStress() {
+        // The didone case: hairlines at 12 and 6 o'clock, heavy sides. The stress axis runs
+        // through the thinnest parts, so it is vertical even though the thickest diameter is
+        // horizontal.
         val o = verticalStressRingGlyph()
         val stress = assertNotNull(stressAngleDegrees(o))
         assertTrue(abs(stress) < 15.0, "stress was $stress degrees, expected close to 0 (vertical)")
@@ -37,7 +40,7 @@ class ContrastStressTest {
     }
 
     @Test
-    fun horizontalStressRingIsThickestAtTheSides() {
+    fun ringThinAtTheSidesHasHorizontalStress() {
         val o = horizontalStressRingGlyph()
         val stress = assertNotNull(stressAngleDegrees(o))
         assertTrue(abs(abs(stress) - 90.0) < 15.0, "stress was $stress degrees, expected close to +-90 (horizontal)")

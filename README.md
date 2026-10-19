@@ -99,6 +99,7 @@ Notes:
 | `engine-construct/` | `:engine-construct` | JVM, Wasm | construction geometry, booleans, spiro (M2) |
 | `qa/` | `:qa` | JVM, Wasm | the quality gate's own checks and the Fontbakery result model |
 | `qa/corpus/` | `:qa:corpus` | JVM, Wasm | node-economy distributions and the style detector; `data/node-economy-*.json` is copied into its generated resources |
+| `brief/` | `:brief` | JVM, Wasm | the Brief: doors, questions, measured targets, tensions, drift and the drawing guide (docs/BRIEF.md) |
 | `learn/` | `:learn` | JVM, Wasm | still a P0 placeholder; the overlay, anatomy lens and scrapbook logic lives in `ui` (`ui/src/commonMain/.../ui/learn/`) |
 | `learn/scenes/` | `:learn:scenes` | JVM, Wasm | lesson scene format and model |
 | `campaign/` | `:campaign` | JVM, Wasm | the workbook engine |

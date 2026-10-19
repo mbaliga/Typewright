@@ -3,6 +3,7 @@
 package com.asoc.typewright.qa.corpus.style
 
 import com.asoc.typewright.core.geometry.Glyph
+import com.asoc.typewright.core.geometry.Vec2
 import com.asoc.typewright.core.geometry.signedArea
 import kotlin.math.abs
 
@@ -16,13 +17,11 @@ import kotlin.math.abs
  *   encloses one, for 2. This is a reliable topological signal, so it is this package's primary
  *   one.
  * - [storeysFromA]: both constructions usually have exactly 2 contours (outline + one counter),
- *   so contour count cannot tell them apart. Instead this compares the main counter's own ink
- *   height to the whole glyph's: a single-storey `a`'s counter is close to circular and nearly
- *   fills the x-height (Futura's bowl reaches close to both the baseline and the x-height line);
- *   a double-storey `a`'s counter is the lower bowl only, with the arm/link rising above it, so it
- *   covers a visibly smaller fraction. [A_COUNTER_HEIGHT_RATIO_THRESHOLD] (our heuristic, law 5)
- *   was set by inspecting the ten Lineages exemplars' actual `a`s (see this module's validation
- *   notes) rather than derived from a published rule.
+ *   so contour count cannot tell them apart. Instead this reads the ink above the main counter on
+ *   a vertical line through it: a two-storey `a` crosses the top of its lower bowl and then the
+ *   arm (two runs, with the open aperture between them); a one-storey `a` crosses only the top of
+ *   its round bowl. [A_COUNTER_HEIGHT_RATIO_THRESHOLD] and [SINGLE_TOP_STROKE_MAX] (our heuristic,
+ *   law 5) only break ties when the line meets no ink, or one solid run, above the counter.
  *
  * [combineStoreys] prefers `g`'s answer when available.
  */
@@ -45,9 +44,41 @@ fun storeysFromA(a: Glyph): Storeys {
     val glyphBounds = a.inkBounds() ?: return Storeys.UNKNOWN
     val counterBounds = counter.tightBounds() ?: return Storeys.UNKNOWN
     if (glyphBounds.height <= 0.0) return Storeys.UNKNOWN
-    val ratio = counterBounds.height / glyphBounds.height
-    return if (ratio >= A_COUNTER_HEIGHT_RATIO_THRESHOLD) Storeys.SINGLE else Storeys.DOUBLE
+    // Read the ink above the counter on a vertical line through it. A two-storey a has two runs
+    // there: the top of the bowl, then the arm across the open space above it. A one-storey a
+    // has one: the top of its single round bowl. The counter-height ratio alone (the earlier rule)
+    // read most regular-weight one-storey a's as two-storey, because a heavier stroke shortens
+    // the counter; it stays as the tie-break for a single solid run.
+    val runsAbove =
+        listOf(0.5, 0.35).maxOf { fraction ->
+            val x = counterBounds.minX + counterBounds.width * fraction
+            inkIntervals(a.lineCrossings(Vec2(x, glyphBounds.minY - 10.0), Vec2(0.0, 1.0)))
+                .count { run -> glyphBounds.minY - 10.0 + run.start >= counterBounds.maxY - 1.0 }
+        }
+    return when {
+        runsAbove >= 2 -> {
+            Storeys.DOUBLE
+        }
+
+        runsAbove == 0 -> {
+            if (counterBounds.height / glyphBounds.height >=
+                A_COUNTER_HEIGHT_RATIO_THRESHOLD
+            ) {
+                Storeys.SINGLE
+            } else {
+                Storeys.DOUBLE
+            }
+        }
+
+        else -> {
+            val aboveCounter = (glyphBounds.maxY - counterBounds.maxY) / glyphBounds.height
+            if (aboveCounter <= SINGLE_TOP_STROKE_MAX) Storeys.SINGLE else Storeys.DOUBLE
+        }
+    }
 }
+
+/** The most of an `a`'s height one top stroke above a one-storey bowl takes; more than this is a solid upper storey. */
+private const val SINGLE_TOP_STROKE_MAX = 0.3
 
 /** `g`'s answer when known (the more reliable, topological signal per this file's KDoc); `a`'s otherwise. [Storeys.UNKNOWN] if both are. */
 internal fun combineStoreys(
