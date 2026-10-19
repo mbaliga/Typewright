@@ -29,10 +29,13 @@ Google Fonts-quality fonts and teaches the user what quality means. Targets: And
 5. **Measured, not invented.** Any number the app judges a user by comes from
    `qa/corpus` and is shown as a distribution. If a check has no measurement behind it,
    its UI says "our heuristic".
-6. **The design is the UI.** For V1 screens, `docs/SCREENS_V1.md`, `docs/INTERACTION_V1.md`
-   and the mockup sources in `ui/v1-screens/` define look and interaction. The explorer,
-   `ui/typewright-explorer.html`, stays the source for what they don't show: the Lens,
-   Overlay and Scrapbook tabs, and the desktop frame. Reproduce them; do not improvise a
+6. **The design is the UI.** The explorer, `ui/typewright-explorer.html` (and `UI_SPEC.md`,
+   which describes it), is the look the owner has verified by eye: where it and the V1 canvas
+   boards disagree on how something looks, the explorer wins (decision D19). For V1 screens,
+   `docs/SCREENS_V1.md`, `docs/INTERACTION_V1.md` and the mockup sources in `ui/v1-screens/`
+   still govern what only they show: the S02 layout, the other V1 boards, and the deck's
+   geometry, drawn in the explorer's tokens. The explorer also stays the source for what they
+   don't show: the Lens, Overlay and Scrapbook tabs, and the desktop frame. Reproduce them; do not improvise a
    component's look. If a screen is missing from all of them, stop and say so rather than
    inventing.
 7. **Plain files.** A project is a directory of UFO 3 and JSON. No proprietary blob. Every

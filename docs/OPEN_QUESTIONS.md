@@ -3314,7 +3314,11 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     `Deck`), and the Compose screen follows the prototype. The owner needs to draw S25–S27 on the
     canvas, or approve the restyled screenshots before PR #6 merges. Owner: Madhav.
 
-140. **The app has no IBM Plex, no grain and only a first-cut deck (Brief).** The canvas sets
+140. **Closed by Amendment 1: the app keeps the explorer's system fonts (Brief).** The owner's
+    direction is the explorer's look (decision D19), so the app's system sans and mono stand and
+    IBM Plex is kept only for the canvas boards and the prototype's canvas copy; the grain is the
+    explorer's own and the app has no renderer for it yet. What follows was written before that.
+    **The app has no IBM Plex, no grain and only a first-cut deck (Brief).** The canvas sets
     everything in IBM Plex on a grained ground, and `UI_SPEC` §2's type is still system fonts
     (OQ 9: bundling is `[CONFIRM]`) with a `grainOpacity` token but no grain renderer, so the
     Compose Brief screen takes the canvas's sizes, spacing, chips, links and colours and keeps the
@@ -3338,3 +3342,39 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     qualify, so its boxes are wide" is shown for fewer than 15 measured families, our heuristic
     (`FEW_FAMILIES`); (g) "3 Metrics" is drawn dimmed as in the canvas, but Next skips it (OQ 138).
     Owner: Madhav.
+
+142. **Amendment 1 items not built (Brief).** Each was left rather than drawn without its source:
+    (a) C3, targets as box-plot rows with a log axis for point counts and a linear one for
+    features, and the Guide's "What this does not measure" block, need the genre's quartiles and
+    the person's own values wired into a plot component the app does not have; (b) C5, the Brief
+    tab in the workbook's task frame (Why, Demonstration, Task, Gate, Reflection) and its scrapbook
+    pins, need the workbook's frame as a reusable component and a pin for the reflection; (c) C6,
+    Read the reference, opens Overlay, which is not built, so a reference opens nothing yet; (d) C7,
+    the Lineages stress dial and links from the reading's evidence to Lineages scenes, and the
+    "Gothic" note; (e) C2's line names Check but has nothing to link to, because Check is not built.
+    Owner: Madhav.
+
+143. **The deck's router-side parts are not built (Brief).** The section arc forwards taps, swipes
+    and keys, but there is no router to go to most sections (only Workbook, Learn and the sheet
+    exist), the Map (S24) is not built so long-press and M do nothing, no provider says each
+    station's status so the shapes are drawn but never supplied, the 350 ms fade between screens and
+    a reduced-motion signal wait for the router, and the Android ticks use the platform's own
+    haptic types rather than the 5 ms and 10 ms the spec names. None of it was run on a device.
+
+144. **The desktop and landscape Brief.** The explorer's desktop frame does not show the Brief. The
+    Bocal dock turns into a side dock in landscape, with the bottom dock winning below 520 px of
+    height; whether Typewright's deck does the same is undecided. Owner: Madhav.
+
+145. **Cue faces and the atlas, and three contrast shortfalls (Brief).** The cue faces were
+    rebuilt by `build_brief_cues.py`, which is not byte-for-byte reproducible, so every cue file
+    changed, and the atlas's "bundled" measurements still describe the old files; Source Sans 3 is
+    not in the atlas, so it is not offered as a starting reference. Rerun
+    `fetch_style_atlas_fonts.py` and the atlas generator. Against UI_SPEC §2's own values, muted
+    text is 4.45:1 on paper and 3.74:1 on vellum and violet text is 4.31:1 on vellum, all under 4.5:1
+    (blueprint meets it); `TextureContrastTest` holds them where they are. Owner: Madhav.
+
+146. **Owner calls taken at their defaults (Amendment 1 §F).** Fonts: the explorer's system sans and
+    mono. The Brief's sentence stays in the genre's face. Section order stays V1's (Learn after
+    Ship). No UI sounds, and the off-by-default tick setting is not built. S02's steps are on the
+    toggle arc; Source and Metrics are seats that are off (Source was chosen when the project was
+    made, Metrics is not built). Owner: Madhav.

@@ -1,3 +1,5 @@
+> **Amended 19 Oct 2026: see `docs/HANDOFF_BRIEF_AMENDMENT_1.md`.** The explorer wins on look, and the deck is live and meaningful.
+
 # Handoff: fold the declared brief into the Brief
 
 For a Claude Code session (Sonnet is enough). Read `CLAUDE.md`, then `docs/BRIEF.md`, `docs/SCREENS_V1.md` S02 and S25–S27, and build brief §8.4 before touching code. Written 18 Oct 2026.

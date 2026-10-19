@@ -164,3 +164,28 @@ can be tried end to end. The prototype keeps answers in the page only.
 `qa/corpus` (`StyleAtlas`, `StyleMeasurement`), `data/style-atlas-latin.json` with its generator
 (`data/scripts/fetch_style_atlas_fonts.py`, `StyleAtlasGeneratorTest`), `data/brief-cues/` with
 `data/scripts/build_brief_cues.py`.
+
+## Sources
+
+What the Brief is built from, by pack-1 document and section: `ui/typewright-explorer.html` (each
+screen's Notes) and `UI_SPEC.md` for the look; `TYPEWRIGHT_BUILD_BRIEF.md` §2, §4–§6 and §8–§9 for
+the principles, the glass and the declared brief (§8.4); `docs/TYPEWRIGHT_HANDOFF.md` M4–M6 for
+Overlay, the workbook and Task 1; `docs/KNOWLEDGE.md` F1–F4 for what "on target" does not mean
+and for asking what good means before building; `docs/RESEARCH_font_quality.md` "Anatomy,
+critique and sequence" for drawing the control set first; `docs/SCREENS_V1.md` §2 for the deck.
+
+## What the pack asks of the Brief
+
+- **Draw n o H O first.** The wrap-up and the plan always begin with the control set, whatever the
+  door or the use, with the genre's own letters on a second line ("then what makes it art deco:
+  A E M R S 0 8"). Draw next follows: control set, what the use needs, the n- and o-families (the H-
+  and O-families for a sign or headline), the genre's distinctive letters, then the rest.
+- **Say what a reviewer checks.** The wrap-up and the Brief tab each name the class's node-economy
+  box, with the number of measured families behind it, and Google Fonts' packaging rules.
+- **Name the ranking.** Every best-first list says which ranking it uses: the starting references
+  are listed, not ranked; suggestions and the faces that already fit are closest to the targets
+  first; search is best name match first.
+- **One face per genre.** The cue faces for geometric, humanist and didone are Jost, Source Sans 3
+  and Playfair Display, built by `data/scripts/build_brief_cues.py`.
+- **Not built yet** (`docs/OPEN_QUESTIONS.md` 142): targets as box-plot rows, the Brief tab as
+  workbook Task 1, Read the reference in Overlay, and the stress dial.
