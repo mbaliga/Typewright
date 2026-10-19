@@ -17,7 +17,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +34,7 @@ import com.asoc.typewright.scripts.arabic.ArabicGlyphInventory
 import com.asoc.typewright.scripts.devanagari.DevanagariGlyphInventory
 import com.asoc.typewright.scripts.kana.HIRAGANA_GLYPH_INVENTORY
 import com.asoc.typewright.scripts.kana.KATAKANA_GLYPH_INVENTORY
+import com.asoc.typewright.ui.deck.ownsDeckKeys
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.toColor
 
@@ -51,26 +51,11 @@ internal fun NewProjectStep(
     draft: NewProjectDraft,
     texture: CanvasTexture,
 ) {
-    val ink = texture.ink.toColor()
     val muted = texture.muted.toColor()
     val implied = state.implied
     val model = state.intentModel ?: implied.model
     val classKeys = closestClassKeys(model = model, use = implied.use)
     Column(verticalArrangement = Arrangement.spacedBy(STEP_GAP.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            BasicText(
-                text = "1 Source · ${draft.source}".uppercase(),
-                style = monoStyle(ink, sizeSp = 10.0),
-                modifier = Modifier.alpha(DIMMED_STEP),
-            )
-            BasicText(
-                text = "2 Brief".uppercase(),
-                style = monoStyle(texture.canvas.toColor(), sizeSp = 10.0),
-                modifier = Modifier.background(ink).padding(horizontal = 6.dp, vertical = 2.dp),
-            )
-            BasicText(text = "3 Metrics".uppercase(), style = monoStyle(ink, sizeSp = 10.0), modifier = Modifier.alpha(DIMMED_STEP))
-        }
-
         Field(label = "Name", texture = texture) {
             UnderlineField(
                 value = draft.name,
@@ -167,9 +152,6 @@ internal fun NewProjectStep(
 /** The room between blocks on the board. */
 private const val STEP_GAP = 22
 
-/** How far the steps that are not this one fade. */
-private const val DIMMED_STEP = 0.45f
-
 /** A mono label over its control, 6 apart (8 over a row of chips). */
 @Composable
 private fun Field(
@@ -204,7 +186,7 @@ private fun UnderlineField(
             singleLine = true,
             cursorBrush = SolidColor(fg),
             modifier =
-                Modifier.fillMaxWidth().onFocusChanged {
+                Modifier.fillMaxWidth().ownsDeckKeys().onFocusChanged {
                     if (focused && !it.isFocused) onBlur()
                     focused = it.isFocused
                 },

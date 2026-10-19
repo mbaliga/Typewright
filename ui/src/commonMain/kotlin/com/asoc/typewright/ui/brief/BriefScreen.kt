@@ -5,6 +5,7 @@ package com.asoc.typewright.ui.brief
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,18 +15,22 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +40,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -84,24 +91,39 @@ import com.asoc.typewright.project.MetaChange
 import com.asoc.typewright.project.scrapbook.ScrapbookPin
 import com.asoc.typewright.project.scrapbook.ScrapbookPinKind
 import com.asoc.typewright.project.scrapbook.stablePinRotationDegrees
+import com.asoc.typewright.ui.deck.BriefDeckPage
 import com.asoc.typewright.ui.deck.ControlDeck
+import com.asoc.typewright.ui.deck.DeckAction
+import com.asoc.typewright.ui.deck.DeckKeyCommand
+import com.asoc.typewright.ui.deck.DeckKeys
+import com.asoc.typewright.ui.deck.DeckLayout
 import com.asoc.typewright.ui.deck.DeckLeft
 import com.asoc.typewright.ui.deck.DeckRight
+import com.asoc.typewright.ui.deck.DeckSeats
 import com.asoc.typewright.ui.deck.DeckSection
 import com.asoc.typewright.ui.deck.DeckToggle
+import com.asoc.typewright.ui.deck.NewProjectStage
+import com.asoc.typewright.ui.deck.SeatKind
+import com.asoc.typewright.ui.deck.StationStatus
+import com.asoc.typewright.ui.deck.SystemBackHandler
+import com.asoc.typewright.ui.deck.deckKeys
+import com.asoc.typewright.ui.deck.ownsDeckKeys
+import com.asoc.typewright.ui.glass.CommandPalette
+import com.asoc.typewright.ui.glass.commandPaletteShortcut
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.CanvasTextures
 import com.asoc.typewright.ui.tokens.MeaningColors
 import com.asoc.typewright.ui.tokens.Typography
 import com.asoc.typewright.ui.tokens.toColor
+import kotlinx.coroutines.delay
 
 /**
  * The Brief screen: find the visual language a font is aiming for, read what the answers add up
- * to, and get the guide that follows from it. It is laid out as the V1 screens canvas lays it out
- * (`ui/v1-screens/`): the page frame (title at left 22 and top 56, content from about 118), the
- * control deck at the foot, and no title bar, back button or tab row of its own. Three pages share
- * one scrolling column, and the deck's toggle arc switches between them:
+ * to, and get the guide that follows from it. It is laid out as the explorer lays a screen out
+ * (`ui/typewright-explorer.html`): a quiet header, a scrolling page with an 18 dp gutter, and the
+ * control deck at the foot, with no title bar, back button or tab row of its own. Three views share
+ * one page, and the deck's toggle arc switches between them, always, at the doors too:
  *
  * - **Ask** opens on six doors, each set in a real typeface; the chosen door asks its questions
  *   one at a time, every answer shown as a specimen in the face it was measured on. When they are
@@ -111,16 +133,19 @@ import com.asoc.typewright.ui.tokens.toColor
  * - **Brief** sets the ethos as one large sentence, then the targets (feature, range, where it
  *   came from), the tensions between answers (each kept as a signature or answered again), and
  *   the measured faces that already fit; it ends by pointing at the guide.
- * - **Guide** lists what to do next, grouped by the kind of advice, then the drawing plan, and
- *   ends in [onStartDrawing]: the brief always leads to drawing.
+ * - **Guide** lists what to do next, grouped by the kind of advice, then the drawing plan: the
+ *   brief always leads to drawing.
  *
- * The deck's left circle is Close on the doors and Back everywhere else, where Back steps out of
- * the brief one place at a time ([BriefScreenUiState.back]) and leaves through [onBack] only from
- * the doors' side. The right circle is Next on the doors, which goes on to the guide once there is
- * an answer, and the ⋯ menu elsewhere. A chosen answer is an ink block with paper text; options are
- * rows of type with no box around them. There is no red anywhere here but the Close circle. Where
- * the style atlas cannot load, or no project is open, the screen says so in words. [onOpenLearn],
- * when given, opens the lesson a guide item points to.
+ * What the deck shows comes from [DeckSeats] alone. Its left circle is Back, which steps out of the
+ * brief one place at a time ([BriefScreenUiState.back]) and then leaves through [onBack] to the
+ * section the Brief was opened from ([section]); it is Close only on the new-project step, where
+ * leaving discards something, and then an ink block asks first. Its right circle is the step's one
+ * dominant action, which is removed from the page, or ⋯. The section arc is live: a tap, a swipe,
+ * the arrow and digit keys and the Map take the person to another section through [onSection] and
+ * [onMap], and they are dimmed, with a reason on tap, only during the new-project step. A chosen
+ * answer is an ink block with paper text. There is no red anywhere here but the Close circle.
+ * Where the style atlas cannot load, or no project is open, the screen says so in words.
+ * [onOpenLearn], when given, opens the lesson a guide item points to.
  */
 @Composable
 fun BriefScreen(
@@ -130,136 +155,354 @@ fun BriefScreen(
     state: BriefScreenUiState = rememberBriefScreenUiState(),
     onStartDrawing: () -> Unit = onBack,
     onOpenLearn: (() -> Unit)? = null,
+    section: DeckSection = DeckSection.HOME,
+    onSection: (DeckSection) -> Unit = {},
+    onMap: (() -> Unit)? = null,
+    sectionStatus: (DeckSection) -> StationStatus? = { null },
 ) {
     val position =
         remember(state.door, state.ethos, state.model, state.drawing, state.refining, state.focus) { state.askPosition() }
-    val atDoors = state.tab == BriefScreenTab.ASK && position == null
     val onBoard = state.newProject
     val nothingAnswered = state.ethos.isEmpty
+    val lettersExist =
+        state.drawing.font.glyphs
+            .isNotEmpty()
     val session =
         LocalProjectWorkspace.current
             ?.current
             ?.collectAsState()
             ?.value
     val draft = remember(session) { NewProjectDraft(session) }
+    var wordmarkDraft by remember(state.ethos.wordmark) { mutableStateOf(state.ethos.wordmark.orEmpty()) }
     var menuOpen by remember { mutableStateOf(false) }
-    var confirmingStartOver by remember { mutableStateOf(false) }
-    Box(modifier = modifier.fillMaxSize().background(texture.canvas.toColor())) {
-        Column(
-            modifier =
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .widthIn(max = PAGE_WIDTH.dp)
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(start = PAGE_SIDE.dp, end = PAGE_SIDE.dp, top = PAGE_TOP.dp, bottom = PAGE_BOTTOM.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+    var paletteOpen by remember { mutableStateOf(false) }
+    var confirm by remember { mutableStateOf<PendingConfirm?>(null) }
+    var toast by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(toast) {
+        if (toast != null) {
+            delay(TOAST_MILLIS)
+            toast = null
+        }
+    }
+
+    val page = deckPageOf(state, position)
+    val layout =
+        if (onBoard) {
+            DeckSeats.newProject(NewProjectStage.BRIEF, built = setOf(NewProjectStage.BRIEF), valid = setOf(NewProjectStage.SOURCE))
+        } else {
+            DeckSeats.brief(
+                page,
+                canRunAction = page != BriefDeckPage.WORDMARK || wordmarkDraft.isNotBlank(),
+                whyNot = "Type the name first",
+            )
+        }
+
+    fun leave() {
+        when {
+            onBoard -> confirm = PendingConfirm.CLOSE_NEW_PROJECT
+            !state.back() -> onBack()
+        }
+    }
+
+    fun goTo(target: DeckSection) {
+        when {
+            onBoard -> toast = FINISH_NEW_PROJECT_FIRST
+            target != section -> onSection(target)
+        }
+    }
+
+    fun perform(action: DeckAction) {
+        val step = position?.step
+        when (action) {
+            DeckAction.DONE -> {
+                step?.let(state::confirm)
+            }
+
+            DeckAction.SET_WORDMARK -> {
+                state.setWordmark(wordmarkDraft)
+            }
+
+            DeckAction.USE_ANSWERS -> {
+                (step as? Step.ReadDrawing)?.let { state.adoptMeasured(it.levels) }
+            }
+
+            DeckAction.START_DRAWING, DeckAction.DRAW_FIRST -> {
+                onStartDrawing()
+            }
+
+            DeckAction.NEXT, DeckAction.CREATE -> {
+                draft.commit()
+                state.finishNewProject()
+            }
+        }
+    }
+
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focusRequester.requestFocus() } }
+    SystemBackHandler(enabled = true) { leave() }
+
+    Box(
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(texture.canvas.toColor())
+                .commandPaletteShortcut { paletteOpen = !paletteOpen }
+                .deckKeys { command ->
+                    when (command) {
+                        is DeckKeyCommand.StepSection -> DeckKeys.step(section, command.delta)?.let(::goTo) != null
+                        is DeckKeyCommand.GoToSection -> true.also { goTo(command.section) }
+                        DeckKeyCommand.OpenMap -> onMap?.invoke() != null
+                        DeckKeyCommand.Leave -> true.also { leave() }
+                    }
+                }.focusRequester(focusRequester)
+                .focusable(),
+    ) {
+        Column(modifier = Modifier.align(Alignment.TopCenter).widthIn(max = PAGE_WIDTH.dp).fillMaxSize()) {
             PageHeader(title = if (onBoard) "New project" else "Brief", subtitle = state.subtitle, texture = texture)
-            when (state.tab) {
-                BriefScreenTab.ASK -> {
-                    if (onBoard) {
-                        NewProjectStep(state = state, draft = draft, texture = texture)
-                    } else {
-                        AskTab(
+            Column(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(start = PAGE_SIDE.dp, end = PAGE_SIDE.dp, top = 4.dp, bottom = PAGE_BOTTOM.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                when (state.tab) {
+                    BriefScreenTab.ASK -> {
+                        if (onBoard) {
+                            NewProjectStep(state = state, draft = draft, texture = texture)
+                        } else {
+                            AskTab(
+                                state = state,
+                                position = position,
+                                layout = layout,
+                                texture = texture,
+                                wordmarkDraft = wordmarkDraft,
+                                onWordmarkDraft = { wordmarkDraft = it },
+                                onStartOver = { confirm = PendingConfirm.START_OVER },
+                            )
+                        }
+                    }
+
+                    BriefScreenTab.BRIEF -> {
+                        BriefTab(state = state, texture = texture)
+                    }
+
+                    BriefScreenTab.GUIDE -> {
+                        GuideTab(
                             state = state,
-                            position = position,
+                            layout = layout,
                             texture = texture,
-                            confirmingStartOver = confirmingStartOver,
-                            onConfirmingStartOver = { confirmingStartOver = it },
                             onStartDrawing = onStartDrawing,
+                            onOpenLearn = onOpenLearn,
                         )
                     }
-                }
-
-                BriefScreenTab.BRIEF -> {
-                    BriefTab(state = state, texture = texture)
-                }
-
-                BriefScreenTab.GUIDE -> {
-                    GuideTab(state = state, texture = texture, onStartDrawing = onStartDrawing, onOpenLearn = onOpenLearn)
                 }
             }
         }
         ControlDeck(
             texture = texture,
             modifier = Modifier.align(Alignment.BottomCenter),
-            section = DeckSection.HOME,
-            left = if (atDoors) DeckLeft.CLOSE else DeckLeft.BACK,
-            right = if (atDoors) DeckRight.NEXT else DeckRight.MENU,
-            toggles = if (atDoors) emptyList() else BriefScreenTab.ORDERED.map { DeckToggle(it.label, on = it == state.tab) },
-            dimSections = true,
-            rightDimmed = atDoors && nothingAnswered && !onBoard,
-            onLeft = { if (atDoors || !state.back()) onBack() },
+            section = section,
+            left = layout.left,
+            right = layout.right,
+            toggles =
+                layout.seats.map {
+                    DeckToggle(
+                        it.label,
+                        on = it.id == layout.pressed,
+                        enabled = it.enabled,
+                        why = it.why,
+                        opens = it.kind == SeatKind.OPENS,
+                    )
+                },
+            dimSections = onBoard,
+            rightDimmed = layout.actionWhyNot != null,
+            rightLabel = layout.action?.let { DeckSeats.actionLabel(it, lettersExist) } ?: "More",
+            sectionStatus = sectionStatus,
+            onLeft = ::leave,
             onRight = {
-                if (onBoard) {
-                    draft.commit()
-                    state.finishNewProject()
-                } else if (atDoors) {
-                    if (!nothingAnswered) state.selectTab(BriefScreenTab.GUIDE)
-                } else {
-                    menuOpen = !menuOpen
+                val action = layout.action
+                when {
+                    action == null -> menuOpen = !menuOpen
+                    layout.actionWhyNot != null -> toast = layout.actionWhyNot
+                    else -> perform(action)
                 }
             },
-            onToggle = { state.selectTab(BriefScreenTab.ORDERED[it]) },
+            onRightLong = if (layout.action != null) ({ menuOpen = true }) else null,
+            onToggle = { index ->
+                val seat = layout.seats[index]
+                when {
+                    !seat.enabled -> toast = seat.why
+                    !onBoard -> state.selectTab(BriefScreenTab.valueOf(seat.id.uppercase()))
+                }
+            },
+            onSection = ::goTo,
+            onMap = onMap,
         )
         if (menuOpen) {
             BriefMenu(
                 texture = texture,
-                nothingAnswered = nothingAnswered,
+                items =
+                    briefMenuItems(state, onBoard, nothingAnswered, onCommand = { paletteOpen = true }, onNothing = {
+                        toast =
+                            NOTHING_TO_CLEAR
+                    }) {
+                        confirm = PendingConfirm.START_OVER
+                    },
                 onDismiss = { menuOpen = false },
-                onStartOver = {
-                    menuOpen = false
-                    if (!nothingAnswered) {
-                        state.selectTab(BriefScreenTab.ASK)
-                        state.chooseDoor(null)
-                        confirmingStartOver = true
-                    }
-                },
             )
         }
+        confirm?.let { pending ->
+            ConfirmBlock(
+                texture = texture,
+                message = pending.message,
+                confirmLabel = pending.confirmLabel,
+                cancelLabel = pending.cancelLabel,
+                onConfirm = {
+                    confirm = null
+                    when (pending) {
+                        PendingConfirm.START_OVER -> state.startOver()
+                        PendingConfirm.CLOSE_NEW_PROJECT -> onBack()
+                    }
+                },
+                onCancel = { confirm = null },
+            )
+        }
+        toast?.let { Toast(text = it, texture = texture, modifier = Modifier.align(Alignment.BottomCenter)) }
+        CommandPalette(
+            visible = paletteOpen,
+            onDismiss = { paletteOpen = false },
+            texture = texture,
+            modifier = Modifier.align(Alignment.TopCenter),
+        )
     }
 }
 
-/** The page frame, from the canvas: 390 wide, title at left 22 and top 56, room for the deck below. */
-private const val PAGE_WIDTH = 390
-private const val PAGE_SIDE = 22
-private const val PAGE_TOP = 56
-private const val PAGE_BOTTOM = 214
+private const val FINISH_NEW_PROJECT_FIRST = "Finish or close the new project first"
+private const val NOTHING_TO_CLEAR = "Nothing answered yet, so nothing to clear"
+private const val TOAST_MILLIS = 2600L
 
-/** The page title (15 sp, semibold) and, under it, where in the page the person is (mono, small, muted). */
+/** Something the person is asked to confirm in an ink block on the glass before it happens. */
+private enum class PendingConfirm(
+    val message: String,
+    val confirmLabel: String,
+    val cancelLabel: String,
+) {
+    START_OVER("Clear every answer in this brief?", "Clear answers", "Keep them"),
+    CLOSE_NEW_PROJECT(
+        "Close without finishing? The project stays, as Untitled, and what you typed here is not saved.",
+        "Close",
+        "Keep going",
+    ),
+}
+
+/** Which deck page the Brief is on: the only thing about the screen's state that [DeckSeats] needs. */
+private fun deckPageOf(
+    state: BriefScreenUiState,
+    position: AskPosition?,
+): BriefDeckPage {
+    if (state.tab == BriefScreenTab.BRIEF) return BriefDeckPage.BRIEF_TAB
+    if (state.tab == BriefScreenTab.GUIDE) return BriefDeckPage.GUIDE_TAB
+    if (position == null) return BriefDeckPage.DOORS
+    if (position.focused) return BriefDeckPage.FOCUS
+    val step = position.step ?: return BriefDeckPage.WRAP_UP
+    return when {
+        step == Step.EnterWordmark -> BriefDeckPage.WORDMARK
+
+        step is Step.ReadDrawing && state.atlas != null &&
+            state.drawing.font.glyphs
+                .isEmpty()
+        -> BriefDeckPage.MIRROR_EMPTY
+
+        step is Step.ReadDrawing && state.atlas != null && step.levels.isNotEmpty() -> BriefDeckPage.MIRROR_READING
+
+        step.needsConfirm -> BriefDeckPage.MULTI_CHOICE
+
+        else -> BriefDeckPage.SINGLE_CHOICE
+    }
+}
+
+/** The ⋯ menu's items: Command… first, always, then the Brief's own. */
+private fun briefMenuItems(
+    state: BriefScreenUiState,
+    onBoard: Boolean,
+    nothingAnswered: Boolean,
+    onCommand: () -> Unit,
+    onNothing: () -> Unit,
+    onStartOver: () -> Unit,
+): List<MenuItem> {
+    val command = MenuItem("Command…", "Ctrl or ⌘ K", onCommand)
+    if (onBoard) return listOf(command)
+    return listOf(
+        command,
+        MenuItem("Try another door", "Go back to the six doors") {
+            state.selectTab(BriefScreenTab.ASK)
+            state.chooseDoor(null)
+        },
+        MenuItem("Start over", if (nothingAnswered) "Nothing answered yet" else "Clear every answer") {
+            if (nothingAnswered) onNothing() else onStartOver()
+        },
+        MenuItem("Read the brief", "What your answers add up to") { state.selectTab(BriefScreenTab.BRIEF) },
+        MenuItem("See your guide", "What to draw, and why") { state.selectTab(BriefScreenTab.GUIDE) },
+    )
+}
+
+/** The page frame: the explorer's 18 dp gutter, room at the foot for the deck, a column no wider than a phone. */
+private const val PAGE_WIDTH = 430
+private const val PAGE_SIDE = 18
+private const val PAGE_BOTTOM = 200
+
+/**
+ * The explorer's `.bar` without its buttons (the deck has them): the title (14, semibold) and under
+ * it where in the page the person is (mono, 11, sentence case, muted), 12 below the status bar and
+ * 16 above the page.
+ */
 @Composable
 private fun PageHeader(
     title: String,
     subtitle: String,
     texture: CanvasTexture,
 ) {
-    Column(modifier = Modifier.padding(bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
         BasicText(
             text = title,
             style =
                 TextStyle(
                     fontFamily = FontFamily.Default,
-                    fontSize = 15.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = texture.fg.toColor(),
                 ),
         )
-        BasicText(text = subtitle.uppercase(), style = monoStyle(texture.muted.toColor()))
+        BasicText(text = subtitle, style = monoStyle(texture.muted.toColor(), sizeSp = 11.0).copy(letterSpacing = 0.sp))
     }
 }
 
+/** One line of the ⋯ menu: [title], a mono [note] under it, and what it does. */
+private class MenuItem(
+    val title: String,
+    val note: String,
+    val run: () -> Unit,
+)
+
 /**
  * The ⋯ menu, which rises from the deck's right circle: ink blocks with paper text, a mono second
- * line under each. A tap anywhere else closes it. The command palette is not offered here yet,
- * because this screen is not handed a way to open it.
+ * line under each. A tap anywhere else closes it.
  */
 @Composable
 private fun BriefMenu(
     texture: CanvasTexture,
-    nothingAnswered: Boolean,
+    items: List<MenuItem>,
     onDismiss: () -> Unit,
-    onStartOver: () -> Unit,
 ) {
     val onInk = texture.canvas.toColor()
     Box(
@@ -273,23 +516,102 @@ private fun BriefMenu(
                 Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = PAGE_SIDE.dp, bottom = MENU_BOTTOM.dp)
-                    .width(MENU_WIDTH.dp)
-                    .background(texture.ink.toColor())
-                    .clickable(onClick = onStartOver)
-                    .padding(horizontal = 13.dp, vertical = 11.dp),
+                    .width(MENU_WIDTH.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            BasicText(text = "Start over", style = bodyStyle(onInk, sizeSp = 13.0))
-            BasicText(
-                text = (if (nothingAnswered) "Nothing answered yet" else "Clear every answer").uppercase(),
-                style = monoStyle(onInk.copy(alpha = ON_INK_MUTED_ALPHA), sizeSp = 9.0).copy(letterSpacing = 0.12.em),
-            )
+            for (item in items) {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(texture.ink.toColor())
+                            .clickable {
+                                onDismiss()
+                                item.run()
+                            }.padding(horizontal = 13.dp, vertical = 11.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    BasicText(text = item.title, style = bodyStyle(onInk, sizeSp = 13.0))
+                    BasicText(
+                        text = item.note.uppercase(),
+                        style = monoStyle(onInk.copy(alpha = ON_INK_MUTED_ALPHA), sizeSp = 9.0).copy(letterSpacing = 0.12.em),
+                    )
+                }
+            }
         }
     }
 }
 
 private const val MENU_WIDTH = 230
 private const val MENU_BOTTOM = 136
+
+/** An ink block on the glass that asks before something is lost (build brief §4.5): the message, then two text buttons. */
+@Composable
+private fun ConfirmBlock(
+    texture: CanvasTexture,
+    message: String,
+    confirmLabel: String,
+    cancelLabel: String,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val onInk = texture.canvas.toColor()
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onCancel),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .padding(horizontal = PAGE_SIDE.dp)
+                    .widthIn(max = 340.dp)
+                    .background(texture.ink.toColor())
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+                    .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            BasicText(text = message, style = bodyStyle(onInk, sizeSp = 13.0))
+            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                BasicText(
+                    text = confirmLabel,
+                    style = bodyStyle(onInk, sizeSp = 12.5, weight = FontWeight.SemiBold),
+                    modifier = Modifier.clickable(onClick = onConfirm).padding(vertical = 8.dp),
+                )
+                BasicText(
+                    text = cancelLabel,
+                    style = bodyStyle(onInk.copy(alpha = ON_INK_MUTED_ALPHA), sizeSp = 12.5),
+                    modifier = Modifier.clickable(onClick = onCancel).padding(vertical = 8.dp),
+                )
+            }
+        }
+    }
+}
+
+/** One line on the glass, in an ink block above the deck: why a control did not go anywhere. */
+@Composable
+private fun Toast(
+    text: String,
+    texture: CanvasTexture,
+    modifier: Modifier = Modifier,
+) {
+    BasicText(
+        text = text,
+        style = bodyStyle(texture.canvas.toColor(), sizeSp = 12.5),
+        modifier =
+            modifier
+                .padding(
+                    start = PAGE_SIDE.dp,
+                    end = PAGE_SIDE.dp,
+                    bottom = TOAST_BOTTOM.dp,
+                ).background(texture.ink.toColor())
+                .padding(horizontal = 13.dp, vertical = 10.dp),
+    )
+}
+
+private const val TOAST_BOTTOM = 184
 
 // ---------------------------------------------------------------------------------------------
 // Shared pieces
@@ -703,18 +1025,14 @@ private fun ConfirmStyleClassAction(
 private fun AskTab(
     state: BriefScreenUiState,
     position: AskPosition?,
+    layout: DeckLayout,
     texture: CanvasTexture,
-    confirmingStartOver: Boolean,
-    onConfirmingStartOver: (Boolean) -> Unit,
-    onStartDrawing: () -> Unit,
+    wordmarkDraft: String,
+    onWordmarkDraft: (String) -> Unit,
+    onStartOver: () -> Unit,
 ) {
     if (position == null) {
-        DoorList(
-            state = state,
-            texture = texture,
-            confirmingStartOver = confirmingStartOver,
-            onConfirmingStartOver = onConfirmingStartOver,
-        )
+        DoorList(state = state, texture = texture, onStartOver = onStartOver)
         return
     }
     val step = position.step
@@ -722,20 +1040,28 @@ private fun AskTab(
         WrapUpView(state = state, texture = texture)
         return
     }
-    StepView(step = step, state = state, texture = texture, onStartDrawing = onStartDrawing)
+    StepView(
+        step = step,
+        state = state,
+        layout = layout,
+        texture = texture,
+        wordmarkDraft = wordmarkDraft,
+        onWordmarkDraft = onWordmarkDraft,
+    )
     Column(modifier = Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (position.focused) {
             ButtonRow {
-                ActionButton(label = "Back", texture = texture, onClick = state::leaveFocus)
                 ActionButton(label = "Keep my answer", texture = texture, onClick = { state.skip(step) })
             }
             return@Column
         }
-        val canGoBack = position.answered > 0
-        if (canGoBack || step.needsConfirm) {
+        // Done is the deck's check when the question takes several answers: not drawn here as well.
+        if (position.answered > 0 || (step.needsConfirm && layout.pageCarries(DeckAction.DONE))) {
             ButtonRow {
-                if (canGoBack) ActionButton(label = "Back", texture = texture, onClick = state::goBack)
-                if (step.needsConfirm) ActionButton(label = "Done", texture = texture, onClick = { state.confirm(step) }, filled = true)
+                if (position.answered > 0) ActionButton(label = "Back", texture = texture, onClick = state::goBack)
+                if (step.needsConfirm && layout.pageCarries(DeckAction.DONE)) {
+                    ActionButton(label = "Done", texture = texture, onClick = { state.confirm(step) }, filled = true)
+                }
             }
         }
         ButtonRow {
@@ -779,10 +1105,6 @@ private fun WrapUpView(
             BasicText(text = first.why, style = bodyStyle(fg))
         }
     }
-    ButtonRow(modifier = Modifier.padding(top = 4.dp)) {
-        ActionButton(label = "See your guide", texture = texture, onClick = { state.selectTab(BriefScreenTab.GUIDE) }, filled = true)
-        ActionButton(label = "Read the brief", texture = texture, onClick = { state.selectTab(BriefScreenTab.BRIEF) })
-    }
     if (wrap.toSettle.isNotEmpty()) {
         SectionLabel(text = "To settle, now or later", texture = texture)
         for (tension in wrap.toSettle.take(MAX_WRAP_UP_TENSIONS)) TensionCard(tension = tension, state = state, texture = texture)
@@ -813,8 +1135,7 @@ private fun wrapUpSummary(wrap: WrapUp): String {
 private fun DoorList(
     state: BriefScreenUiState,
     texture: CanvasTexture,
-    confirmingStartOver: Boolean,
-    onConfirmingStartOver: (Boolean) -> Unit,
+    onStartOver: () -> Unit,
 ) {
     Prompt(
         prompt = "Where would you like to start?",
@@ -823,23 +1144,7 @@ private fun DoorList(
     )
     if (!state.ethos.isEmpty) {
         Small(text = "Your answers so far carry over: a door skips what is already answered.", texture = texture)
-        if (confirmingStartOver) {
-            Small(text = "Clear every answer in this brief?", texture = texture)
-            ButtonRow {
-                ActionButton(
-                    label = "Clear answers",
-                    texture = texture,
-                    onClick = {
-                        onConfirmingStartOver(false)
-                        state.startOver()
-                    },
-                    filled = true,
-                )
-                ActionButton(label = "Keep them", texture = texture, onClick = { onConfirmingStartOver(false) })
-            }
-        } else {
-            ButtonRow { ActionLink(label = "Start over", texture = texture, onClick = { onConfirmingStartOver(true) }) }
-        }
+        ButtonRow { ActionLink(label = "Start over", texture = texture, onClick = onStartOver) }
     }
     Spacer(modifier = Modifier.height(10.dp))
     Choices {
@@ -900,18 +1205,50 @@ private fun Glyphs(
 private fun StepView(
     step: Step,
     state: BriefScreenUiState,
+    layout: DeckLayout,
     texture: CanvasTexture,
-    onStartDrawing: () -> Unit,
+    wordmarkDraft: String,
+    onWordmarkDraft: (String) -> Unit,
 ) {
     when (step) {
-        is Step.PickGenre -> PickGenreView(step = step, state = state, texture = texture)
-        Step.PickUses -> PickUsesView(step = step, state = state, texture = texture)
-        is Step.AskUse -> AskUseView(step = step, state = state, texture = texture)
-        Step.EnterWordmark -> WordmarkView(step = step, state = state, texture = texture)
-        is Step.PickFeelings -> PickFeelingsView(step = step, state = state, texture = texture)
-        is Step.PickReferences -> PickReferencesView(step = step, state = state, texture = texture)
-        is Step.ReadDrawing -> ReadDrawingView(step = step, state = state, texture = texture, onStartDrawing = onStartDrawing)
-        is Step.AskDimension -> AskDimensionView(step = step, state = state, texture = texture)
+        is Step.PickGenre -> {
+            PickGenreView(step = step, state = state, texture = texture)
+        }
+
+        Step.PickUses -> {
+            PickUsesView(step = step, state = state, texture = texture)
+        }
+
+        is Step.AskUse -> {
+            AskUseView(step = step, state = state, texture = texture)
+        }
+
+        Step.EnterWordmark -> {
+            WordmarkView(
+                step = step,
+                state = state,
+                layout = layout,
+                texture = texture,
+                draft = wordmarkDraft,
+                onDraft = onWordmarkDraft,
+            )
+        }
+
+        is Step.PickFeelings -> {
+            PickFeelingsView(step = step, state = state, texture = texture)
+        }
+
+        is Step.PickReferences -> {
+            PickReferencesView(step = step, state = state, texture = texture)
+        }
+
+        is Step.ReadDrawing -> {
+            ReadDrawingView(step = step, state = state, layout = layout, texture = texture)
+        }
+
+        is Step.AskDimension -> {
+            AskDimensionView(step = step, state = state, texture = texture)
+        }
     }
 }
 
@@ -998,19 +1335,21 @@ private fun AskUseView(
 private fun WordmarkView(
     step: Step,
     state: BriefScreenUiState,
+    layout: DeckLayout,
     texture: CanvasTexture,
+    draft: String,
+    onDraft: (String) -> Unit,
 ) {
-    var draft by remember { mutableStateOf(state.ethos.wordmark.orEmpty()) }
     val fg = texture.fg.toColor()
     StepPrompt(step = step, texture = texture)
     Box(modifier = Modifier.fillMaxWidth().underline(texture.ink.toColor()).padding(vertical = 4.dp)) {
         BasicTextField(
             value = draft,
-            onValueChange = { draft = it },
+            onValueChange = onDraft,
             textStyle = bodyStyle(fg, sizeSp = 14.0),
             singleLine = true,
             cursorBrush = SolidColor(fg),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().ownsDeckKeys(),
             decorationBox = { inner ->
                 Box {
                     if (draft.isEmpty()) {
@@ -1024,8 +1363,11 @@ private fun WordmarkView(
             },
         )
     }
-    ButtonRow(modifier = Modifier.padding(top = 4.dp)) {
-        ActionButton(label = "Set wordmark", texture = texture, onClick = { state.setWordmark(draft) }, filled = true)
+    // Set is the deck's check here; the button only shows where the deck is not carrying it.
+    if (layout.pageCarries(DeckAction.SET_WORDMARK)) {
+        ButtonRow(modifier = Modifier.padding(top = 4.dp)) {
+            ActionButton(label = "Set wordmark", texture = texture, onClick = { state.setWordmark(draft) }, filled = true)
+        }
     }
 }
 
@@ -1193,7 +1535,7 @@ private fun SearchField(
             textStyle = bodyStyle(fg, sizeSp = 14.0),
             singleLine = true,
             cursorBrush = SolidColor(fg),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().ownsDeckKeys(),
             decorationBox = { inner ->
                 Box {
                     if (value.isEmpty()) BasicText(text = placeholder, style = bodyStyle(muted, sizeSp = 14.0))
@@ -1208,8 +1550,8 @@ private fun SearchField(
 private fun ReadDrawingView(
     step: Step.ReadDrawing,
     state: BriefScreenUiState,
+    layout: DeckLayout,
     texture: CanvasTexture,
-    onStartDrawing: () -> Unit,
 ) {
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()
@@ -1228,7 +1570,6 @@ private fun ReadDrawingView(
     val letters = state.drawing.font
     if (letters.glyphs.isEmpty()) {
         Small(text = "Draw them, then come back: this question waits. Or skip it and answer by eye.", texture = texture)
-        ButtonRow { ActionButton(label = "Start drawing", texture = texture, onClick = onStartDrawing, filled = true) }
     }
     val reading = step.reading
     if (reading != null) {
@@ -1246,13 +1587,15 @@ private fun ReadDrawingView(
         for ((dimension, level) in step.levels) {
             SpecimenRow(cue = level.cue, title = dimension.title, detail = level.label, texture = texture, specimenSp = 34.0)
         }
-        ButtonRow {
-            ActionButton(
-                label = "Use these answers",
-                texture = texture,
-                onClick = { state.adoptMeasured(step.levels) },
-                filled = true,
-            )
+        if (layout.pageCarries(DeckAction.USE_ANSWERS)) {
+            ButtonRow {
+                ActionButton(
+                    label = "Use these answers",
+                    texture = texture,
+                    onClick = { state.adoptMeasured(step.levels) },
+                    filled = true,
+                )
+            }
         }
     }
 }
@@ -1454,6 +1797,7 @@ private fun ReferencesList(
 @Composable
 private fun GuideTab(
     state: BriefScreenUiState,
+    layout: DeckLayout,
     texture: CanvasTexture,
     onStartDrawing: () -> Unit,
     onOpenLearn: (() -> Unit)?,
@@ -1496,6 +1840,7 @@ private fun GuideTab(
                         kind = kind,
                         dimension = item.dimension,
                         state = state,
+                        layout = layout,
                         texture = texture,
                         onStartDrawing = onStartDrawing,
                         onOpenLearn = onOpenLearn,
@@ -1530,7 +1875,9 @@ private fun GuideTab(
     }
     Column(modifier = Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Small(text = "Draw opens on the sheet. Come back any time: the guide measures your letters as you draw.", texture = texture)
-        ButtonRow { ActionButton(label = "Start drawing", texture = texture, onClick = onStartDrawing, filled = true) }
+        if (layout.pageCarries(DeckAction.START_DRAWING)) {
+            ButtonRow { ActionButton(label = "Start drawing", texture = texture, onClick = onStartDrawing, filled = true) }
+        }
     }
 }
 
@@ -1540,12 +1887,13 @@ private fun GuideItemAction(
     kind: GuideKind,
     dimension: Dimension?,
     state: BriefScreenUiState,
+    layout: DeckLayout,
     texture: CanvasTexture,
     onStartDrawing: () -> Unit,
     onOpenLearn: (() -> Unit)?,
 ) {
     when {
-        kind == GuideKind.NEXT -> {
+        kind == GuideKind.NEXT && layout.pageCarries(DeckAction.START_DRAWING) -> {
             ButtonRow { ActionButton(label = "Start drawing", texture = texture, onClick = onStartDrawing, filled = true) }
         }
 

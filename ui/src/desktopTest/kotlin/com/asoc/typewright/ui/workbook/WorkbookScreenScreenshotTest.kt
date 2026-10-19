@@ -87,7 +87,7 @@ class WorkbookScreenScreenshotTest {
     fun pickInTheBriefRendersOnTask1WhenLocalOpenBriefIsProvided() {
         val shot =
             ScreenshotHarness.capture(name = "workbook-screen-task1-pick-in-the-brief", width = 800, height = 2600, density = 2f) {
-                CompositionLocalProvider(LocalOpenBrief provides {}) {
+                CompositionLocalProvider(LocalOpenBrief provides { _, _ -> }) {
                     WorkbookScreen(texture = CanvasTextures.PAPER, uiState = WorkbookScreenUiState(initialTaskIndex = 1))
                 }
             }

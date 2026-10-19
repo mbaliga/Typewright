@@ -88,4 +88,66 @@ class ControlDeckScreenshotTest {
             }
         assertTrue(s.file.length() > 0)
     }
+
+    @Test
+    fun theLiveSectionArcWithStatusShapesAndAnOpensSeat() {
+        val s =
+            shot("deck-live-sections") {
+                ControlDeck(
+                    CanvasTextures.PAPER,
+                    section = DeckSection.DRAW,
+                    toggles = listOf(DeckToggle("Ask", on = true), DeckToggle("Brief"), DeckToggle("Overlay", opens = true)),
+                    sectionStatus = {
+                        when (it) {
+                            DeckSection.CAPTURE -> StationStatus.DONE
+                            DeckSection.TRACE -> StationStatus.TO_REFIT
+                            DeckSection.SPACE -> StationStatus.NOT_STARTED
+                            else -> null
+                        }
+                    },
+                    onSection = {},
+                )
+            }
+        assertTrue(s.file.length() > 0)
+    }
+
+    @Test
+    fun theCheckAndNextCirclesAndTheThirtyFivePercentState() {
+        for ((name, right, dimmed) in listOf(
+            Triple("deck-check", DeckRight.CHECK, false),
+            Triple("deck-next-live", DeckRight.NEXT, false),
+            Triple("deck-check-off", DeckRight.CHECK, true),
+        )) {
+            val s =
+                shot(name) {
+                    ControlDeck(
+                        CanvasTextures.PAPER,
+                        section = DeckSection.HOME,
+                        right = right,
+                        rightDimmed = dimmed,
+                        toggles = listOf(DeckToggle("Ask", on = true), DeckToggle("Brief"), DeckToggle("Guide")),
+                    )
+                }
+            assertTrue(s.file.length() > 0, name)
+        }
+    }
+
+    @Test
+    fun aDimmedSectionArcWithTheStepSeatsOfTheNewProject() {
+        val layout =
+            DeckSeats.newProject(NewProjectStage.BRIEF, built = setOf(NewProjectStage.BRIEF), valid = setOf(NewProjectStage.SOURCE))
+        val s =
+            shot("deck-new-project") {
+                ControlDeck(
+                    CanvasTextures.PAPER,
+                    section = DeckSection.HOME,
+                    left = layout.left,
+                    right = layout.right,
+                    dimSections = true,
+                    toggles = layout.seats.map { DeckToggle(it.label, on = it.id == layout.pressed, enabled = it.enabled, why = it.why) },
+                    onSection = {},
+                )
+            }
+        assertTrue(s.file.length() > 0)
+    }
 }

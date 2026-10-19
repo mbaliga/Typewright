@@ -3,7 +3,10 @@
 package com.asoc.typewright.ui.deck
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,23 +15,34 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -44,6 +58,7 @@ import com.asoc.typewright.ui.tokens.TextureId
 import com.asoc.typewright.ui.tokens.toColor
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 
@@ -72,15 +87,63 @@ fun ControlDeck(
     toggles: List<DeckToggle> = emptyList(),
     dimSections: Boolean = false,
     rightDimmed: Boolean = false,
+    rightLabel: String? = null,
+    sectionStatus: (DeckSection) -> StationStatus? = { null },
     onLeft: () -> Unit = {},
     onRight: () -> Unit = {},
+    onRightLong: (() -> Unit)? = null,
     onToggle: (Int) -> Unit = {},
+    onSection: ((DeckSection) -> Unit)? = null,
+    onMap: (() -> Unit)? = null,
 ) {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    val sectionLabels = DeckGeometry.sectionLabels(section)
+    val haptics = LocalHapticFeedback.current
+    var dragged by remember { mutableStateOf(0.0) }
+    val turned = if (onSection == null) 0.0 else DeckKeys.turned(dragged)
+    val sectionLabels = DeckGeometry.sectionLabels(section, shift = turned, status = sectionStatus)
     val toggleLabels = DeckGeometry.toggleLabels(toggles)
-    BoxWithConstraints(modifier.fillMaxWidth().height(DeckGeometry.HEIGHT.dp)) {
+    val ring = texture.ink.toColor()
+    BoxWithConstraints(
+        modifier
+            .fillMaxWidth()
+            .height(DeckGeometry.HEIGHT.dp)
+            .pointerInput(section, onSection) {
+                if (onSection == null) return@pointerInput
+                var turning = false
+                var lastApex = section
+                detectHorizontalDragGestures(
+                    onDragStart = { at ->
+                        // Only a drag that starts on the section arc turns it.
+                        turning = at.y > size.height * SECTION_ARC_TOP_FRACTION
+                        lastApex = section
+                    },
+                    onDragEnd = {
+                        if (turning) {
+                            val to = DeckKeys.settle(section, dragged)
+                            dragged = 0.0
+                            if (to != section) {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onSection(to)
+                            }
+                        }
+                        turning = false
+                    },
+                    onDragCancel = {
+                        dragged = 0.0
+                        turning = false
+                    },
+                ) { _, dx ->
+                    if (!turning) return@detectHorizontalDragGestures
+                    dragged += dx / density.density
+                    val apex = DeckKeys.settle(section, dragged)
+                    if (apex != lastApex) {
+                        lastApex = apex
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    }
+                }
+            },
+    ) {
         val k = min(1f, maxWidth.value / DeckGeometry.WIDTH.toFloat())
         val originX = (maxWidth - DeckGeometry.WIDTH.dp * k) / 2
         val originY = DeckGeometry.HEIGHT.dp * (1 - k)
@@ -103,39 +166,72 @@ fun ControlDeck(
                 w = 52.dp * k,
                 h = 52.dp * k,
                 circular = true,
+                ring = ring,
                 onClick = onLeft,
             )
         }
         if (right != DeckRight.NONE) {
             HitArea(
-                description = if (right == DeckRight.NEXT) "Next" else "More",
+                description = rightLabel ?: if (right == DeckRight.MENU) "More" else "Next",
                 x = originX + 324.dp * k,
                 y = originY + 45.dp * k,
                 w = 52.dp * k,
                 h = 52.dp * k,
                 circular = true,
+                ring = ring,
                 onClick = onRight,
+                onLongClick = onRightLong,
+                disabled = rightDimmed,
             )
         }
         toggleLabels.forEachIndexed { index, label ->
             val (cx, cy) = DeckGeometry.pointAt(DeckGeometry.TOGGLE_RADIUS, DeckGeometry.TOGGLE_HALF_ANGLE, label.centerLength)
+            val w = max(label.bandLength, MIN_HIT)
             HitArea(
                 description = label.text.lowercase().replaceFirstChar { it.uppercase() },
-                x = originX + (cx - label.bandLength / 2).dp * k,
+                x = originX + (cx - w / 2).dp * k,
                 y = originY + (cy - TOGGLE_HIT_HEIGHT / 2).dp * k,
-                w = label.bandLength.dp * k,
+                w = w.dp * k,
                 h = TOGGLE_HIT_HEIGHT.dp * k,
                 circular = false,
+                ring = ring,
+                selected = label.current,
+                disabled = !label.enabled,
                 onClick = { onToggle(index) },
             )
+        }
+        if (onSection != null) {
+            sectionLabels.filter { it.section != null }.forEach { label ->
+                val (cx, cy) = DeckGeometry.pointAt(DeckGeometry.SECTION_RADIUS, DeckGeometry.SECTION_HALF_ANGLE, label.centerLength)
+                val w = max(label.bandLength, MIN_HIT)
+                HitArea(
+                    description = label.section!!.label,
+                    x = originX + (cx - w / 2).dp * k,
+                    y = originY + (cy - MIN_HIT / 2).dp * k,
+                    w = w.dp * k,
+                    h = MIN_HIT.dp * k,
+                    circular = false,
+                    ring = ring,
+                    selected = label.section == section,
+                    selectedWord = "Current page",
+                    onClick = { onSection(label.section) },
+                    onLongClick = onMap,
+                )
+            }
         }
     }
 }
 
-private const val TOGGLE_HIT_HEIGHT = 24.0
+/** Every hit target is at least this tall and wide (UI_SPEC §6's floor is 44 dp). */
+private const val MIN_HIT = 44.0
+private const val TOGGLE_HIT_HEIGHT = MIN_HIT
+
+/** A drag that starts below this fraction of the deck's height is on the section arc. */
+private const val SECTION_ARC_TOP_FRACTION = 0.5f
 
 private fun degrees(radians: Double): Double = radians * 180.0 / PI
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HitArea(
     description: String,
@@ -144,17 +240,35 @@ private fun HitArea(
     w: Dp,
     h: Dp,
     circular: Boolean,
+    ring: Color,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    selected: Boolean = false,
+    selectedWord: String = "Selected",
+    disabled: Boolean = false,
 ) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = if (circular) CircleShape else RectangleShape
     Box(
         Modifier
             .offset(x = x, y = y)
             .size(width = w, height = h)
             .let { if (circular) it.clip(CircleShape) else it }
-            .semantics { contentDescription = description }
-            .clickable(role = Role.Button, onClick = onClick),
+            .let { if (focused) it.border(FOCUS_RING_WIDTH.dp, ring, shape) else it }
+            .semantics {
+                contentDescription = description
+                if (selected) {
+                    this.selected = true
+                    stateDescription = selectedWord
+                }
+                if (disabled) stateDescription = "Not available yet"
+            }.onFocusChanged { focused = it.isFocused }
+            .combinedClickable(role = Role.Button, onClick = onClick, onLongClick = onLongClick),
     )
 }
+
+/** The visible focus ring on every deck control. */
+private const val FOCUS_RING_WIDTH = 2
 
 private fun DrawScope.drawBloom(texture: CanvasTexture) {
     val paper = texture.canvas.toColor()
@@ -261,7 +375,7 @@ private fun DrawScope.drawDeck(
             size = 9f,
             spacing = 1f,
             weight = FontWeight.Medium,
-            color = if (label.current) paper else ink,
+            color = (if (label.current) paper else ink).copy(alpha = label.alpha.toFloat()),
         )
     }
 
@@ -326,6 +440,19 @@ private fun DrawScope.drawDeck(
                 },
                 paper.copy(alpha = paper.alpha * rightAlpha),
                 2.2f,
+            )
+        }
+
+        DeckRight.CHECK -> {
+            drawCircle(ink, DeckGeometry.FILLED_CIRCLE_RADIUS.toFloat(), rightAt, alpha = rightAlpha)
+            stroke(
+                Path().apply {
+                    moveTo(rightAt.x - 8, rightAt.y + 1)
+                    lineTo(rightAt.x - 2, rightAt.y + 7)
+                    lineTo(rightAt.x + 9, rightAt.y - 7)
+                },
+                paper.copy(alpha = paper.alpha * rightAlpha),
+                2.4f,
             )
         }
 

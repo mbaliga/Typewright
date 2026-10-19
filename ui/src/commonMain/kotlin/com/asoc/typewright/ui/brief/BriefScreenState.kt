@@ -51,6 +51,7 @@ import com.asoc.typewright.project.ProjectSession
 import com.asoc.typewright.project.Use
 import com.asoc.typewright.qa.corpus.StyleAtlas
 import com.asoc.typewright.qa.corpus.loadStyleAtlas
+import com.asoc.typewright.ui.deck.DeckSection
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.brief.askPosition as positionIn
 import com.asoc.typewright.brief.wrapUp as wrapUpOf
@@ -87,14 +88,15 @@ const val BRIEF_ATLAS_UNAVAILABLE_NOTE: String =
 const val BRIEF_NO_DRAWING_NOTE: String = "Draw some letters and the guide will measure them"
 
 /**
- * Opens [BriefScreen] on [Door], or on the doors (null) when nothing more specific is meant --
+ * Opens [BriefScreen] on [Door], or on the doors (null) when nothing more specific is meant, under
+ * the section it was opened from ([DeckSection.HOME], or [DeckSection.WORKBOOK] from Task 1) --
  * provided once, near the root, by [com.asoc.typewright.ui.TypewrightApp], the same shape
  * [com.asoc.typewright.ui.project.LocalProjectWorkspace] already uses so a composable two or more
  * levels down (WP4's "New project…" palette entry, WP5's Workbook Task 1 "Pick in the Brief")
  * can open the Brief without a widened parameter list the whole way up. Null in any composition
  * that never provides it (every existing screenshot test).
  */
-val LocalOpenBrief: ProvidableCompositionLocal<((Door?) -> Unit)?> = staticCompositionLocalOf { null }
+val LocalOpenBrief: ProvidableCompositionLocal<((Door?, DeckSection) -> Unit)?> = staticCompositionLocalOf { null }
 
 /**
  * Opens [BriefScreen] on the new-project step ([BriefScreenUiState.beginNewProject]): what "New

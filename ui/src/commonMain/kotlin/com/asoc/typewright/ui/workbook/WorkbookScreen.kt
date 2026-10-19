@@ -48,6 +48,7 @@ import com.asoc.typewright.project.scrapbook.ScrapbookPinKind
 import com.asoc.typewright.project.scrapbook.stablePinRotationDegrees
 import com.asoc.typewright.qa.NodeEconomyReport
 import com.asoc.typewright.ui.brief.LocalOpenBrief
+import com.asoc.typewright.ui.deck.DeckSection
 import com.asoc.typewright.ui.learn.hyleDecoFontFamily
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.tokens.CanvasTexture
@@ -472,7 +473,7 @@ private fun PickInTheBriefAction(
                     sizeSp = 10.5,
                     weight = FontWeight.SemiBold,
                 ).copy(color = MeaningColors.VIOLET.forTexture(texture.id).toColor()),
-        modifier = modifier.padding(top = 8.dp).clickable { openBrief(Door.REFERENCES) },
+        modifier = modifier.padding(top = 8.dp).clickable { openBrief(Door.REFERENCES, DeckSection.WORKBOOK) },
     )
 }
 

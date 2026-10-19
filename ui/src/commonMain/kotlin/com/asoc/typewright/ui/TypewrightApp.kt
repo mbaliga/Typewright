@@ -30,6 +30,9 @@ import com.asoc.typewright.ui.brief.LocalOpenBrief
 import com.asoc.typewright.ui.brief.LocalOpenNewProjectBrief
 import com.asoc.typewright.ui.brief.rememberBriefScreenUiState
 import com.asoc.typewright.ui.brief.rememberBriefStateKeeper
+import com.asoc.typewright.ui.deck.DeckSection
+import com.asoc.typewright.ui.deck.LocalSystemBack
+import com.asoc.typewright.ui.deck.SystemBack
 import com.asoc.typewright.ui.learn.LearnScreen
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.project.LocalZipTransferSupported
@@ -116,6 +119,7 @@ fun TypewrightApp(
     navState: TypewrightAppNavState = rememberTypewrightAppNavState(),
     workspace: ProjectWorkspace = rememberProjectWorkspace(),
     supportsZipTransfer: Boolean = false,
+    systemBack: SystemBack? = null,
 ) {
     // Guarded: a caller that already holds a live session across this composable's own recreate
     // (MainActivity's process-scoped workspace, on an Activity recreate) must not have it silently
@@ -128,6 +132,7 @@ fun TypewrightApp(
         LocalProjectWorkspace provides workspace,
         LocalZipTransferSupported provides supportsZipTransfer,
         LocalOpenBrief provides navState::openBrief,
+        LocalSystemBack provides systemBack,
         LocalOpenNewProjectBrief provides navState::openNewProjectBrief,
     ) {
         Box(modifier = modifier.fillMaxSize()) {
@@ -164,6 +169,8 @@ fun TypewrightApp(
                         state = briefState,
                         onStartDrawing = navState::closeBrief,
                         onOpenLearn = navState::openLearn,
+                        section = navState.briefFrom,
+                        onSection = navState::goToSection,
                     )
                 }
 
@@ -252,11 +259,32 @@ class TypewrightAppNavState(
      * the doors, or the Guide once there are answers ([BriefScreenUiState]'s own rule). Closes
      * the other two screens: all three are full-screen overlays.
      */
-    fun openBrief(door: Door? = null) {
+    fun openBrief(
+        door: Door? = null,
+        from: DeckSection = DeckSection.HOME,
+    ) {
+        briefFrom = from
         showBrief = true
         showLearn = false
         showWorkbook = false
         pendingBriefDoor = door
+    }
+
+    /** The section the Brief was opened from, which stays current and live on its deck: Home, or Workbook when opened from Task 1. */
+    var briefFrom: DeckSection by mutableStateOf(DeckSection.HOME)
+        internal set
+
+    /**
+     * Where a tap on the deck's section arc goes from the Brief. Until the router exists (the deck
+     * prompt) only Workbook and Learn have a screen of their own; Home and the sections that live on
+     * the sheet close the Brief onto it. The answers are kept either way.
+     */
+    fun goToSection(section: DeckSection) {
+        when (section) {
+            DeckSection.WORKBOOK -> openWorkbook()
+            DeckSection.LEARN -> openLearn()
+            else -> closeBrief()
+        }
     }
 
     /** What "New project…" calls once the project exists: opens the Brief on S02's second step, the new-project board. */
