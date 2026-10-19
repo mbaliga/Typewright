@@ -24,6 +24,7 @@ import com.asoc.typewright.project.Brief
 import com.asoc.typewright.project.BriefSource
 import com.asoc.typewright.project.CreateResult
 import com.asoc.typewright.project.EditResult
+import com.asoc.typewright.project.Ethos
 import com.asoc.typewright.project.FileSystemProjectStore
 import com.asoc.typewright.project.GlyphRef
 import com.asoc.typewright.project.LockState
@@ -372,7 +373,16 @@ object GoldenPathSteps {
             val spec =
                 NewProjectSpec(
                     name = "Hyle Deco",
-                    brief = Brief(source = BriefSource.FONT, styleClass = StyleClass(declared = "sans-geometric", confirmed = null)),
+                    // ethos set explicitly, matching styleClass.declared by hand (BriefEdits.kt's
+                    // withEthos would do the same): this step's own round-trip assertion below is
+                    // about locks/diffs/scrapbook/lessons, not the brief migration a declared
+                    // class with no ethos at all would otherwise exercise on reopen.
+                    brief =
+                        Brief(
+                            source = BriefSource.FONT,
+                            styleClass = StyleClass(declared = "sans-geometric", confirmed = null),
+                            ethos = Ethos(genre = "sans-geometric"),
+                        ),
                     scripts = listOf("Latn"),
                     masters = listOf(NewMaster(id = "regular", styleName = "Regular", ufo = sUfo)),
                 )

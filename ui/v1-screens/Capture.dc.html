@@ -1,0 +1,72 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Capture, sheets</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+@font-face { font-family: "Hyle Deco"; src: url(/_blob/87ef2c1f7693e8b7acd70e03d6088e45) format("truetype"); }
+body { margin: 0; background: #EFE9DC; }
+.m { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+.hy { font-family: "Hyle Deco", serif; }
+.photo { width: 76px; height: 96px; background: #CFC8B8; position: relative; overflow: hidden; flex-shrink: 0; }
+.pg { position: absolute; left: 10px; top: 8px; width: 56px; height: 78px; background-color: #F6F2E8; background-image: linear-gradient(rgba(23,21,15,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(23,21,15,0.12) 1px, transparent 1px); background-size: 13px 13px; background-position: 3px 3px; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #EFE9DC; color: #17150F; font-family: 'IBM Plex Sans', system-ui, sans-serif">
+<svg width="390" height="844" style="position: absolute; left: 0; top: 0; opacity: 0.55; mix-blend-mode: multiply; pointer-events: none" aria-hidden="true"><filter id="gr"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"></feTurbulence><feColorMatrix values="0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.22 0 0 0 0.26 0"></feColorMatrix></filter><rect width="390" height="844" filter="url(#gr)"></rect></svg>
+
+<div style="position: absolute; left: 22px; top: 56px; right: 22px; display: flex; flex-direction: column; gap: 3px">
+<div style="font-size: 15px; font-weight: 600">Capture</div>
+<div class="m" style="color: #6F6A5E; font-size: 9.5px">Hyle Deco Redraw · 2 of 5 sheets</div>
+</div>
+
+<div style="position: absolute; left: 22px; top: 122px; right: 22px; display: flex; flex-direction: column; gap: 26px">
+
+<a href="Cells.dc.html" style="display: flex; gap: 16px; color: #17150F; text-decoration: none">
+<div class="photo"><div class="pg" style="transform: rotate(-3.5deg)"><div class="hy" style="position: absolute; left: 4px; top: 4px; font-size: 10px; letter-spacing: 3.2px; line-height: 13px; width: 52px">ABCDEFGHIJKLMNOPQRSTUVWX</div></div></div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding-top: 4px">
+<div style="font-size: 15px; font-weight: 600">Sheet 1 · A–X</div>
+<div class="m" style="font-size: 9.5px"><span style="background: #17150F; color: #EFE9DC; padding: 1px 5px">2 need you</span> · 22 read</div>
+<div class="m" style="font-size: 9px; color: #6F6A5E">Photographed · perspective fixed</div>
+</div>
+</a>
+
+<div style="display: flex; gap: 16px">
+<div class="photo"><div class="pg" style="transform: rotate(2deg)"><div class="hy" style="position: absolute; left: 4px; top: 4px; font-size: 10px; letter-spacing: 3.2px; line-height: 13px; width: 52px">YZabcdefghijklmnopqrstuv</div></div></div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding-top: 4px">
+<div style="font-size: 15px; font-weight: 600">Sheet 2 · Y–v</div>
+<div class="m" style="font-size: 9.5px">✓ 24 read</div>
+<div class="m" style="font-size: 9px; color: #6F6A5E">From file · scan_002.png</div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px; padding-top: 6px">
+<div style="font-size: 14px; font-weight: 600">3 sheets to go</div>
+<div style="font-size: 12.5px; line-height: 1.45; color: #6F6A5E; max-width: 320px">Photograph them, pick them from the gallery, or drop scans and SVG drawings in. Nothing is traced until you open Trace.</div>
+<a href="Templates.dc.html" style="font-size: 13px; font-weight: 600; color: #5F4BE0; text-decoration: none; margin-top: 4px">Print the sheets ›</a>
+</div>
+
+</div>
+
+<div style="position: absolute; left: 0; top: 672px; width: 390px; height: 172px">
+<dc-import name="Deck" section="Capture" left="back" right="plus" toggles="Sheets*|Cells" hint-size="390px,172px"></dc-import>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

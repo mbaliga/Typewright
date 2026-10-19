@@ -2,8 +2,11 @@
 
 package com.asoc.typewright.ui
 
+import com.asoc.typewright.brief.Door
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -113,5 +116,21 @@ class TypewrightAppNavStateTest {
     fun canStartOnTheBrief() {
         assertTrue(TypewrightAppNavState(initialShowBrief = true).showBrief)
         assertFalse(TypewrightAppNavState().showBrief)
+    }
+
+    @Test
+    fun openBriefWithNoDoorLeavesNothingPending() {
+        val state = TypewrightAppNavState()
+        state.openBrief()
+        assertTrue(state.showBrief)
+        assertNull(state.pendingBriefDoor)
+    }
+
+    @Test
+    fun openBriefWithADoorRemembersItUntilConsumed() {
+        val state = TypewrightAppNavState()
+        state.openBrief(Door.REFERENCES)
+        assertTrue(state.showBrief)
+        assertEquals(Door.REFERENCES, state.pendingBriefDoor)
     }
 }

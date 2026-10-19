@@ -2,10 +2,12 @@
 
 package com.asoc.typewright.ui.workbook
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.toPixelMap
 import com.asoc.typewright.campaign.GateCheckStatus
 import com.asoc.typewright.ui.Screenshot
 import com.asoc.typewright.ui.ScreenshotHarness
+import com.asoc.typewright.ui.brief.LocalOpenBrief
 import com.asoc.typewright.ui.tokens.CanvasTextures
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -77,6 +79,28 @@ class WorkbookScreenScreenshotTest {
         val shot =
             ScreenshotHarness.capture(name = "workbook-screen-task1-not-implemented", width = 800, height = 2400, density = 2f) {
                 WorkbookScreen(texture = CanvasTextures.PAPER, uiState = WorkbookScreenUiState(snapshot = snapshot, initialTaskIndex = 1))
+            }
+        assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
+    }
+
+    @Test
+    fun pickInTheBriefRendersOnTask1WhenLocalOpenBriefIsProvided() {
+        val shot =
+            ScreenshotHarness.capture(name = "workbook-screen-task1-pick-in-the-brief", width = 800, height = 2600, density = 2f) {
+                CompositionLocalProvider(LocalOpenBrief provides { _, _ -> }) {
+                    WorkbookScreen(texture = CanvasTextures.PAPER, uiState = WorkbookScreenUiState(initialTaskIndex = 1))
+                }
+            }
+        assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
+    }
+
+    @Test
+    fun pickInTheBriefIsAbsentWithNoLocalOpenBriefProvided() {
+        // The default: every existing screenshot test above never provides LocalOpenBrief either,
+        // and renders fine -- this one says so explicitly for task 1, where the action would show.
+        val shot =
+            ScreenshotHarness.capture(name = "workbook-screen-task1-no-open-brief", width = 800, height = 2600, density = 2f) {
+                WorkbookScreen(texture = CanvasTextures.PAPER, uiState = WorkbookScreenUiState(initialTaskIndex = 1))
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
     }

@@ -5,7 +5,8 @@ package com.asoc.typewright.brief
 /**
  * What the Brief says once a door's questions are through: the ethos in one [sentence], how many
  * measurable [targets] it sets, the tensions still [toSettle] (a kept signature is settled), the
- * letters to [drawFirst], and how many questions are left ([moreQuestions]) for anyone who wants
+ * letters to [drawFirst] (always the control set while any of it is undrawn, with the genre's own
+ * letters named in [thenGenre]), and how many questions are left ([moreQuestions]) for anyone who wants
  * to refine it. It is the hand-off from asking to drawing, so it always names a next step.
  */
 data class WrapUp(
@@ -14,6 +15,13 @@ data class WrapUp(
     val toSettle: List<Tension>,
     val drawFirst: PlanStep?,
     val moreQuestions: Int,
+    val thenGenre: GenreVoice? = null,
+)
+
+/** The letters that make a genre itself, drawn once the control set is: "then what makes it <genre>: a A M". */
+data class GenreVoice(
+    val genreName: String,
+    val letters: String,
 )
 
 /** The wrap-up for [door] once its questions are through; see [WrapUp]. */
@@ -25,7 +33,8 @@ fun wrapUp(
     val kept = model.signatures
     val toSettle = model.tensions.filter { it.signature == null || it.signature !in kept }
     val first = planFor(model).firstOrNull { it.glyphs.isNotEmpty() && it.remaining(drawing.font).isNotEmpty() }
+    val voice = model.genre?.takeIf { first?.id == "control" }?.let { GenreVoice(it.name.lowercase(), it.drawFirst) }
     val answered = model.ethos.answered.toSet()
     val more = refineSteps(door, model, drawing).count { it.id !in answered }
-    return WrapUp(model.sentence, model.targets.size, toSettle, first, more)
+    return WrapUp(model.sentence, model.targets.size, toSettle, first, more, voice)
 }

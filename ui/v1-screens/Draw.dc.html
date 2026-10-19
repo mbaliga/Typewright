@@ -1,0 +1,135 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Draw</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; background: #EFE9DC; }
+.m { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+.lab { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #6F6A5E; }
+.val { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #EFE9DC; color: #17150F; font-family: 'IBM Plex Sans', system-ui, sans-serif">
+<div style="position: absolute; left: 20px; top: 110px; width: 350px; height: 560px; background-image: linear-gradient(rgba(23,21,15,0.09) 1px, transparent 1px), linear-gradient(90deg, rgba(23,21,15,0.09) 1px, transparent 1px); background-size: 27px 27px; -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 30%, transparent 100%); mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 30%, transparent 100%)"></div>
+<svg width="390" height="844" style="position: absolute; left: 0; top: 0; opacity: 0.55; mix-blend-mode: multiply; pointer-events: none" aria-hidden="true"><filter id="gr"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"></feTurbulence><feColorMatrix values="0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.22 0 0 0 0.26 0"></feColorMatrix></filter><rect width="390" height="844" filter="url(#gr)"></rect></svg>
+
+<svg width="390" height="844" viewBox="0 0 390 844" style="position: absolute; left: 0; top: 0" aria-label="The letter o, a rounded rectangle, with 16 on-curve and 16 off-curve points and its construction circles">
+<defs>
+<linearGradient id="ml" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="390" y2="0"><stop offset="0" style="stop-color: #17150F; stop-opacity: 0"></stop><stop offset="0.16" style="stop-color: #17150F; stop-opacity: 0.45"></stop><stop offset="0.84" style="stop-color: #17150F; stop-opacity: 0.45"></stop><stop offset="1" style="stop-color: #17150F; stop-opacity: 0"></stop></linearGradient>
+<linearGradient id="mv" gradientUnits="userSpaceOnUse" x1="0" y1="110" x2="0" y2="640"><stop offset="0" style="stop-color: #17150F; stop-opacity: 0"></stop><stop offset="0.2" style="stop-color: #17150F; stop-opacity: 0.3"></stop><stop offset="0.8" style="stop-color: #17150F; stop-opacity: 0.3"></stop><stop offset="1" style="stop-color: #17150F; stop-opacity: 0"></stop></linearGradient>
+</defs>
+
+<g style="font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; letter-spacing: 1px" fill="#6F6A5E">
+<line x1="0" y1="142" x2="390" y2="142" stroke="url(#ml)" stroke-width="1"></line>
+<text x="376" y="137" text-anchor="end">CAP HEIGHT 700</text>
+<line x1="0" y1="250" x2="390" y2="250" stroke="url(#ml)" stroke-width="1"></line>
+<text x="376" y="245" text-anchor="end">X-HEIGHT 500</text>
+<line x1="0" y1="520" x2="390" y2="520" stroke="url(#ml)" stroke-width="1"></line>
+<text x="376" y="534" text-anchor="end">BASELINE 0</text>
+<line x1="0" y1="633.4" x2="390" y2="633.4" stroke="url(#ml)" stroke-width="1"></line>
+<line x1="66.8" y1="120" x2="66.8" y2="620" stroke="url(#mv)" stroke-width="1"></line>
+<line x1="323.3" y1="120" x2="323.3" y2="620" stroke="url(#mv)" stroke-width="1"></line>
+<text x="70" y="616">LSB 47</text>
+<text x="319" y="616" text-anchor="end">RSB 48</text>
+</g>
+<g fill="none" stroke="rgba(23,21,15,0.62)" stroke-width="1" stroke-dasharray="5 3">
+<circle cx="233.7" cy="313.7" r="63.7"></circle>
+<circle cx="233.7" cy="313.7" r="40"></circle>
+<circle cx="155.9" cy="456.3" r="63.7"></circle>
+<circle cx="155.9" cy="456.3" r="40"></circle>
+<line x1="194.8" y1="200" x2="194.8" y2="580"></line>
+<line x1="170" y1="377.4" x2="300" y2="247.4"></line>
+</g>
+<g stroke="rgba(23,21,15,0.62)" stroke-width="1">
+<line x1="229.7" y1="313.7" x2="237.7" y2="313.7"></line><line x1="233.7" y1="309.7" x2="233.7" y2="317.7"></line>
+<line x1="151.9" y1="456.3" x2="159.9" y2="456.3"></line><line x1="155.9" y1="452.3" x2="155.9" y2="460.3"></line>
+</g>
+<text x="244" y="304" style="font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; letter-spacing: 1px" fill="rgba(23,21,15,0.75)">R 118 · r 74</text>
+<path fill-rule="evenodd" d="M 155.9 520.0 L 233.7 520.0 C 268.9 520.0 297.4 491.5 297.4 456.3 L 297.4 313.7 C 297.4 278.5 268.9 250.0 233.7 250.0 L 155.9 250.0 C 120.7 250.0 92.2 278.5 92.2 313.7 L 92.2 456.3 C 92.2 491.5 120.7 520.0 155.9 520.0 Z M 155.9 496.2 L 233.7 496.2 C 255.7 496.2 273.6 478.4 273.6 456.3 L 273.6 313.7 C 273.6 291.6 255.7 273.8 233.7 273.8 L 155.9 273.8 C 133.8 273.8 115.9 291.6 115.9 313.7 L 115.9 456.3 C 115.9 478.4 133.8 496.2 155.9 496.2 Z" fill="rgba(23,21,15,0.07)" stroke="#17150F" stroke-width="1.5"></path>
+<g stroke="rgba(23,21,15,0.5)" stroke-width="1">
+<line x1="233.7" y1="520" x2="268.9" y2="520"></line><line x1="297.4" y1="456.3" x2="297.4" y2="491.5"></line>
+<line x1="233.7" y1="250" x2="268.9" y2="250"></line>
+<line x1="155.9" y1="250" x2="120.7" y2="250"></line><line x1="92.2" y1="313.7" x2="92.2" y2="278.5"></line>
+<line x1="92.2" y1="456.3" x2="92.2" y2="491.5"></line><line x1="155.9" y1="520" x2="120.7" y2="520"></line>
+<line x1="233.7" y1="496.2" x2="255.7" y2="496.2"></line><line x1="273.6" y1="456.3" x2="273.6" y2="478.4"></line>
+<line x1="273.6" y1="313.7" x2="273.6" y2="291.6"></line><line x1="233.7" y1="273.8" x2="255.7" y2="273.8"></line>
+<line x1="155.9" y1="273.8" x2="133.8" y2="273.8"></line><line x1="115.9" y1="313.7" x2="115.9" y2="291.6"></line>
+<line x1="115.9" y1="456.3" x2="115.9" y2="478.4"></line><line x1="155.9" y1="496.2" x2="133.8" y2="496.2"></line>
+</g>
+<g fill="#EFE9DC" stroke="#17150F" stroke-width="1">
+<circle cx="268.9" cy="520" r="2.6"></circle><circle cx="297.4" cy="491.5" r="2.6"></circle>
+<circle cx="268.9" cy="250" r="2.6"></circle>
+<circle cx="120.7" cy="250" r="2.6"></circle><circle cx="92.2" cy="278.5" r="2.6"></circle>
+<circle cx="92.2" cy="491.5" r="2.6"></circle><circle cx="120.7" cy="520" r="2.6"></circle>
+<circle cx="255.7" cy="496.2" r="2.6"></circle><circle cx="273.6" cy="478.4" r="2.6"></circle>
+<circle cx="273.6" cy="291.6" r="2.6"></circle><circle cx="255.7" cy="273.8" r="2.6"></circle>
+<circle cx="133.8" cy="273.8" r="2.6"></circle><circle cx="115.9" cy="291.6" r="2.6"></circle>
+<circle cx="115.9" cy="478.4" r="2.6"></circle><circle cx="133.8" cy="496.2" r="2.6"></circle>
+</g>
+<g fill="#EFE9DC" stroke="#17150F" stroke-width="1.5">
+<circle cx="155.9" cy="520" r="3.6"></circle><circle cx="233.7" cy="520" r="3.6"></circle><circle cx="297.4" cy="456.3" r="3.6"></circle>
+<circle cx="233.7" cy="250" r="3.6"></circle><circle cx="155.9" cy="250" r="3.6"></circle>
+<circle cx="92.2" cy="313.7" r="3.6"></circle><circle cx="92.2" cy="456.3" r="3.6"></circle>
+<circle cx="155.9" cy="496.2" r="3.6"></circle><circle cx="233.7" cy="496.2" r="3.6"></circle><circle cx="273.6" cy="456.3" r="3.6"></circle>
+<circle cx="273.6" cy="313.7" r="3.6"></circle><circle cx="233.7" cy="273.8" r="3.6"></circle><circle cx="155.9" cy="273.8" r="3.6"></circle>
+<circle cx="115.9" cy="313.7" r="3.6"></circle><circle cx="115.9" cy="456.3" r="3.6"></circle>
+</g>
+<line x1="297.4" y1="313.7" x2="297.4" y2="278.5" stroke="#5F4BE0" stroke-width="1.2"></line>
+<circle cx="297.4" cy="278.5" r="2.8" fill="#EFE9DC" stroke="#5F4BE0" stroke-width="1.2"></circle>
+<circle cx="297.4" cy="313.7" r="7.5" fill="none" stroke="#5F4BE0" stroke-width="1.2"></circle>
+<circle cx="297.4" cy="313.7" r="4.2" fill="#5F4BE0"></circle>
+<g stroke="#0A9D8E" stroke-width="1.5"><line x1="221" y1="250" x2="246" y2="250"></line><line x1="233.7" y1="238" x2="233.7" y2="262"></line></g>
+</svg>
+
+<div style="position: absolute; left: 22px; top: 52px; right: 22px; display: flex; flex-direction: column; gap: 3px">
+<div style="font-size: 15px; font-weight: 600">o · 16 on · 16 off</div>
+<div class="m" style="color: #6F6A5E; font-size: 9.5px">Rounded rectangle · flat top and bottom</div>
+</div>
+
+<svg width="390" height="40" viewBox="0 0 390 40" style="position: absolute; left: 0; top: 92px" aria-label="Box plot: your o has 16 on-curve points; 30 geometric sans faces have 20 to 100">
+<g stroke="rgba(23,21,15,0.08)" stroke-width="1"><line x1="32.7" y1="4" x2="32.7" y2="24"></line><line x1="68.3" y1="4" x2="68.3" y2="24"></line><line x1="103.8" y1="4" x2="103.8" y2="24"></line><line x1="139.3" y1="4" x2="139.3" y2="24"></line><line x1="174.8" y1="4" x2="174.8" y2="24"></line><line x1="210.3" y1="4" x2="210.3" y2="24"></line><line x1="245.9" y1="4" x2="245.9" y2="24"></line><line x1="281.4" y1="4" x2="281.4" y2="24"></line><line x1="316.9" y1="4" x2="316.9" y2="24"></line><line x1="352.4" y1="4" x2="352.4" y2="24"></line></g>
+<line x1="115.2" y1="14" x2="197.7" y2="14" stroke="rgba(23,21,15,0.45)" stroke-width="1"></line>
+<line x1="115.2" y1="12.5" x2="115.2" y2="15.5" stroke="rgba(23,21,15,0.45)"></line><line x1="197.7" y1="12.5" x2="197.7" y2="15.5" stroke="rgba(23,21,15,0.45)"></line>
+<rect x="122.9" y="9" width="1.7" height="10" fill="rgba(23,21,15,0.16)"></rect>
+<line x1="124.6" y1="9" x2="124.6" y2="19" stroke="#17150F" stroke-width="1.5"></line>
+<circle cx="103.8" cy="14" r="4.5" fill="#5F4BE0" stroke="#EFE9DC" stroke-width="2"></circle>
+<text x="22" y="36" style="font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; letter-spacing: 0.8px" fill="#6F6A5E">30 GEOMETRIC SANS · o 20–100 · ✓ FEWER THAN ALL 30</text>
+</svg>
+
+<div style="position: absolute; left: 18px; top: 356px; width: 68px; height: 68px; border-radius: 34px; background: #17150F; display: flex; align-items: center; justify-content: center">
+<div style="position: absolute; left: 25px; top: 7px; width: 18px; height: 3px; background: rgba(239,233,220,0.45)"></div>
+<svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><path d="M 5 21 L 8 13 L 17 4 L 22 9 L 13 18 Z M 5 21 L 10 19 M 14.5 6.5 L 19.5 11.5" fill="none" stroke="#EFE9DC" stroke-width="1.6"></path></svg>
+</div>
+<div class="m" style="position: absolute; left: 18px; width: 68px; top: 430px; text-align: center; font-size: 9.5px">Pen · P</div>
+
+<div style="position: absolute; left: 22px; right: 22px; top: 630px; display: flex; gap: 18px; align-items: flex-end">
+<div style="display: flex; flex-direction: column; gap: 2px"><span class="lab">x</span><span class="val" style="background: #17150F; color: #EFE9DC; padding: 0 4px">427</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span class="lab">y</span><span class="val">382</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span class="lab">on</span><span class="val">16</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span class="lab">off</span><span class="val">16</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span class="lab">node</span><span class="val">Smooth</span></div>
+</div>
+
+<div style="position: absolute; left: 0; top: 672px; width: 390px; height: 172px">
+<dc-import name="Deck" section="Draw" left="back" right="menu" toggles="Outline*|Fill||Construction*" hint-size="390px,172px"></dc-import>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

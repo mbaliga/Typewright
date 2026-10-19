@@ -210,7 +210,29 @@ fun planFor(model: BriefModel): List<PlanStep> {
                 Source(SourceKind.RULE, "Google Fonts guide, requirements", "https://googlefonts.github.io/gf-guide/requirements.html"),
             )
     }
-    return dedupe(steps)
+    return dedupe(inDrawingOrder(steps, capitalsFirst))
+}
+
+/**
+ * The order to draw in: the control set first (the research's strongest consensus, and workbook
+ * Task 4), then what the use itself needs, then the n- and o-families (the H- and O-families for a
+ * sign or headline), then the letters that make the genre itself, then the rest as listed.
+ */
+private fun inDrawingOrder(
+    steps: List<PlanStep>,
+    capitalsFirst: Boolean,
+): List<PlanStep> {
+    val families = if (capitalsFirst) setOf("upper.straight", "upper.round") else setOf("lower.straight", "lower.round")
+
+    fun rank(step: PlanStep): Int =
+        when {
+            step.id == "control" -> 0
+            step.id.startsWith("watch.") || step.id.startsWith("code.") || step.id.startsWith("wordmark.") -> 1
+            step.id in families -> 2
+            step.id == "genre.voice" -> 3
+            else -> 4
+        }
+    return steps.sortedBy(::rank)
 }
 
 /** Drops glyphs already planned by an earlier step, then steps left with nothing to draw (action steps stay). */

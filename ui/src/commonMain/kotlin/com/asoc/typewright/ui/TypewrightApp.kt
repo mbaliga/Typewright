@@ -23,10 +23,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.asoc.typewright.brief.Door
 import com.asoc.typewright.project.ProjectWorkspace
 import com.asoc.typewright.ui.brief.BriefScreen
+import com.asoc.typewright.ui.brief.LocalOpenBrief
+import com.asoc.typewright.ui.brief.LocalOpenNewProjectBrief
 import com.asoc.typewright.ui.brief.rememberBriefScreenUiState
 import com.asoc.typewright.ui.brief.rememberBriefStateKeeper
+import com.asoc.typewright.ui.deck.DeckSection
+import com.asoc.typewright.ui.deck.LocalSystemBack
+import com.asoc.typewright.ui.deck.SystemBack
 import com.asoc.typewright.ui.learn.LearnScreen
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.project.LocalZipTransferSupported
@@ -113,6 +119,7 @@ fun TypewrightApp(
     navState: TypewrightAppNavState = rememberTypewrightAppNavState(),
     workspace: ProjectWorkspace = rememberProjectWorkspace(),
     supportsZipTransfer: Boolean = false,
+    systemBack: SystemBack? = null,
 ) {
     // Guarded: a caller that already holds a live session across this composable's own recreate
     // (MainActivity's process-scoped workspace, on an Activity recreate) must not have it silently
@@ -124,6 +131,9 @@ fun TypewrightApp(
     CompositionLocalProvider(
         LocalProjectWorkspace provides workspace,
         LocalZipTransferSupported provides supportsZipTransfer,
+        LocalOpenBrief provides navState::openBrief,
+        LocalSystemBack provides systemBack,
+        LocalOpenNewProjectBrief provides navState::openNewProjectBrief,
     ) {
         Box(modifier = modifier.fillMaxSize()) {
             TypewrightSheet(modifier = Modifier.fillMaxSize())
@@ -136,13 +146,31 @@ fun TypewrightApp(
                 }
 
                 navState.showBrief -> {
+                    val briefState = rememberBriefScreenUiState(briefKeeper)
+                    // WP4/WP5's LocalOpenBrief callers can ask for a specific door (e.g.
+                    // References); applied once, here, then cleared so a later plain "Brief" tap
+                    // (openBrief(null)) does not keep forcing that door back open.
+                    LaunchedEffect(navState.pendingBriefDoor) {
+                        navState.pendingBriefDoor?.let { door ->
+                            briefState.chooseDoor(door)
+                            navState.pendingBriefDoor = null
+                        }
+                    }
+                    LaunchedEffect(navState.pendingNewProject) {
+                        if (navState.pendingNewProject) {
+                            briefState.beginNewProject()
+                            navState.pendingNewProject = false
+                        }
+                    }
                     // Start drawing closes the Brief onto the sheet, which opens on Draw.
                     BriefScreen(
                         modifier = Modifier.fillMaxSize(),
                         onBack = navState::closeBrief,
-                        state = rememberBriefScreenUiState(briefKeeper),
+                        state = briefState,
                         onStartDrawing = navState::closeBrief,
                         onOpenLearn = navState::openLearn,
+                        section = navState.briefFrom,
+                        onSection = navState::goToSection,
                     )
                 }
 
@@ -161,7 +189,7 @@ fun TypewrightApp(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         WorkbookEntryButton(onClick = navState::openWorkbook)
-                        BriefEntryButton(onClick = navState::openBrief)
+                        BriefEntryButton(onClick = { navState.openBrief() })
                         LearnEntryButton(onClick = navState::openLearn)
                     }
                 }
@@ -192,6 +220,14 @@ class TypewrightAppNavState(
     var showBrief: Boolean by mutableStateOf(initialShowBrief)
         internal set
 
+    /** A door [openBrief] was asked to open straight into, consumed (and cleared) by [TypewrightApp]'s own Brief branch. */
+    var pendingBriefDoor: Door? by mutableStateOf(null)
+        internal set
+
+    /** [openNewProjectBrief] was called: the Brief opens on the new-project step, consumed (and cleared) like [pendingBriefDoor]. */
+    var pendingNewProject: Boolean by mutableStateOf(false)
+        internal set
+
     /** What [LearnEntryButton]'s own `onClick` calls. Closes [showWorkbook] -- the two screens are mutually exclusive full-screen overlays. */
     fun openLearn() {
         showLearn = true
@@ -216,11 +252,45 @@ class TypewrightAppNavState(
         showWorkbook = false
     }
 
-    /** What [BriefEntryButton]'s own `onClick` calls. Closes the other two screens: all three are full-screen overlays. */
-    fun openBrief() {
+    /**
+     * What [BriefEntryButton]'s own `onClick`, and every [com.asoc.typewright.ui.brief.
+     * LocalOpenBrief] caller (WP4's "New project…" palette entry, WP5's Workbook Task 1 "Pick in
+     * the Brief"), call. [door] opens straight into that door (e.g. References); null opens on
+     * the doors, or the Guide once there are answers ([BriefScreenUiState]'s own rule). Closes
+     * the other two screens: all three are full-screen overlays.
+     */
+    fun openBrief(
+        door: Door? = null,
+        from: DeckSection = DeckSection.HOME,
+    ) {
+        briefFrom = from
         showBrief = true
         showLearn = false
         showWorkbook = false
+        pendingBriefDoor = door
+    }
+
+    /** The section the Brief was opened from, which stays current and live on its deck: Home, or Workbook when opened from Task 1. */
+    var briefFrom: DeckSection by mutableStateOf(DeckSection.HOME)
+        internal set
+
+    /**
+     * Where a tap on the deck's section arc goes from the Brief. Until the router exists (the deck
+     * prompt) only Workbook and Learn have a screen of their own; Home and the sections that live on
+     * the sheet close the Brief onto it. The answers are kept either way.
+     */
+    fun goToSection(section: DeckSection) {
+        when (section) {
+            DeckSection.WORKBOOK -> openWorkbook()
+            DeckSection.LEARN -> openLearn()
+            else -> closeBrief()
+        }
+    }
+
+    /** What "New project…" calls once the project exists: opens the Brief on S02's second step, the new-project board. */
+    fun openNewProjectBrief() {
+        openBrief(null)
+        pendingNewProject = true
     }
 
     /** What [BriefScreen]'s own back button, via `onBack`, calls. */

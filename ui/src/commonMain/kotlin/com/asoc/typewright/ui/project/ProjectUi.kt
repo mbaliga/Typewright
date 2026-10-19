@@ -177,21 +177,33 @@ fun blankNewProjectSpec(name: String): NewProjectSpec =
  * `Untitled 3`, … on a name clash (S02 semantics, docs/PROJECT_MODEL.md §13's palette table:
  * "creates Untitled/ inside; name clash gives Untitled 2"). Returns the command palette's own
  * result-line text.
+ *
+ * [onCreated] runs only once a project is actually created, never on a cancelled picker or a
+ * refused folder: "New project…" creates the project, then opens the Brief on S02's second step --
+ * the Brief's Style and Use doors, laid out as the canvas's `NewProject` board.
  */
 suspend fun createUntitledProject(
     workspace: ProjectWorkspace,
     picker: ProjectFolderPicker,
+    onCreated: (() -> Unit)? = null,
 ): String {
     val parent = picker.pickNewProjectParent() ?: return "New project…: no folder was chosen."
     for (suffix in 1..MAX_UNTITLED_ATTEMPTS) {
         val name = if (suffix == 1) "Untitled" else "Untitled $suffix"
         when (val result = workspace.create(parent, blankNewProjectSpec(name))) {
-            is CreateResult.Created -> return "New project…: created \"$name\"."
+            is CreateResult.Created -> {
+                onCreated?.invoke()
+                return "New project…: created \"$name\"."
+            }
 
             // "Untitled" (or "Untitled N") is already taken; loop around to try the next name.
-            is CreateResult.NotEmpty -> Unit
+            is CreateResult.NotEmpty -> {
+                Unit
+            }
 
-            is CreateResult.NotWritable -> return "New project…: ${result.message}"
+            is CreateResult.NotWritable -> {
+                return "New project…: ${result.message}"
+            }
         }
     }
     return "New project…: too many existing \"Untitled\" projects."

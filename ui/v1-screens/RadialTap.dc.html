@@ -1,0 +1,73 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Radial, lift and tap</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body { margin: 0; background: #EFE9DC; }
+.m { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #EFE9DC; color: #17150F; font-family: 'IBM Plex Sans', system-ui, sans-serif">
+<svg width="390" height="844" style="position: absolute; left: 0; top: 0; opacity: 0.55; mix-blend-mode: multiply; pointer-events: none" aria-hidden="true"><filter id="gr"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"></feTurbulence><feColorMatrix values="0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.22 0 0 0 0.26 0"></feColorMatrix></filter><rect width="390" height="844" filter="url(#gr)"></rect></svg>
+
+<svg width="390" height="844" viewBox="0 0 390 844" style="position: absolute; left: 0; top: 0; opacity: 0.3" aria-hidden="true">
+<path fill-rule="evenodd" d="M 155.9 520.0 L 233.7 520.0 C 268.9 520.0 297.4 491.5 297.4 456.3 L 297.4 313.7 C 297.4 278.5 268.9 250.0 233.7 250.0 L 155.9 250.0 C 120.7 250.0 92.2 278.5 92.2 313.7 L 92.2 456.3 C 92.2 491.5 120.7 520.0 155.9 520.0 Z M 155.9 496.2 L 233.7 496.2 C 255.7 496.2 273.6 478.4 273.6 456.3 L 273.6 313.7 C 273.6 291.6 255.7 273.8 233.7 273.8 L 155.9 273.8 C 133.8 273.8 115.9 291.6 115.9 313.7 L 115.9 456.3 C 115.9 478.4 133.8 496.2 155.9 496.2 Z" fill="rgba(23,21,15,0.07)" stroke="#17150F" stroke-width="1.5"></path>
+</svg>
+
+<svg width="390" height="844" viewBox="0 0 390 844" style="position: absolute; left: 0; top: 0" aria-label="Lifted radial: tap a sector; each shows its keyboard shortcut; the centre opens More">
+<g stroke="#EFE9DC" stroke-width="2" fill="#E4DDCD">
+<path d="M 184.1 219.1 A 120 120 0 0 1 275.9 219.1 L 249.1 283.8 A 50 50 0 0 0 210.9 283.8 Z"></path>
+<path d="M 275.9 219.1 A 120 120 0 0 1 340.9 284.1 L 276.2 310.9 A 50 50 0 0 0 249.1 283.8 Z"></path>
+<path d="M 340.9 284.1 A 120 120 0 0 1 340.9 375.9 L 276.2 349.1 A 50 50 0 0 0 276.2 310.9 Z"></path>
+<path d="M 340.9 375.9 A 120 120 0 0 1 275.9 440.9 L 249.1 376.2 A 50 50 0 0 0 276.2 349.1 Z"></path>
+<path d="M 275.9 440.9 A 120 120 0 0 1 184.1 440.9 L 210.9 376.2 A 50 50 0 0 0 249.1 376.2 Z"></path>
+<path d="M 184.1 440.9 A 120 120 0 0 1 119.1 375.9 L 183.8 349.1 A 50 50 0 0 0 210.9 376.2 Z"></path>
+<path d="M 119.1 375.9 A 120 120 0 0 1 119.1 284.1 L 183.8 310.9 A 50 50 0 0 0 183.8 349.1 Z"></path>
+<path d="M 119.1 284.1 A 120 120 0 0 1 184.1 219.1 L 210.9 283.8 A 50 50 0 0 0 183.8 310.9 Z"></path>
+</g>
+<g style="font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.7px" text-anchor="middle">
+<text x="230" y="244" style="font-size: 8px" fill="#17150F">DELETE</text><text x="230" y="256" style="font-size: 7px" fill="#6F6A5E">⌫</text>
+<text x="290.1" y="269" style="font-size: 8px" fill="#17150F">EXTREMA</text><text x="290.1" y="281" style="font-size: 7px" fill="#6F6A5E">CTRL ⇧ E</text>
+<text x="315" y="329" style="font-size: 8px" fill="#17150F">SPLIT</text><text x="315" y="341" style="font-size: 7px" fill="#6F6A5E">CTRL ⇧ K</text>
+<text x="290.1" y="389" style="font-size: 8px" fill="#17150F">BREAK</text><text x="290.1" y="401" style="font-size: 7px" fill="#6F6A5E">CTRL ⇧ B</text>
+<text x="230" y="414" style="font-size: 8px" fill="#17150F">REVERSE</text><text x="230" y="426" style="font-size: 7px" fill="#6F6A5E">CTRL ALT R</text>
+<text x="169.9" y="389" style="font-size: 8px" fill="#17150F">ALIGN</text><text x="169.9" y="401" style="font-size: 7px" fill="#6F6A5E">CTRL ⇧ A</text>
+<text x="145" y="329" style="font-size: 8px" fill="#17150F">TANGENT</text><text x="145" y="341" style="font-size: 7px" fill="#6F6A5E">CTRL ⇧ T</text>
+<text x="169.9" y="269" style="font-size: 8px" fill="#17150F">SMOOTH</text><text x="169.9" y="281" style="font-size: 7px" fill="#6F6A5E">ENTER</text>
+</g>
+<circle cx="230" cy="330" r="30" fill="#17150F"></circle>
+<text x="230" y="333" text-anchor="middle" style="font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; letter-spacing: 1px; font-weight: 600" fill="#EFE9DC">MORE…</text>
+</svg>
+
+<div style="position: absolute; left: 22px; top: 52px; right: 22px; display: flex; flex-direction: column; gap: 3px">
+<div style="font-size: 15px; font-weight: 600">o · node 427, 382</div>
+<div class="m" style="color: #6F6A5E; font-size: 9.5px">Lifted · tap a choice, or More for everything</div>
+</div>
+
+<div style="position: absolute; left: 22px; right: 22px; top: 488px; display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 12.5px; line-height: 1.5; max-width: 330px">You lifted without moving, so the ring waits. Tap what you want. Each choice shows its keyboard shortcut, for when a keyboard is attached. The centre opens the full menu for this node.</div>
+</div>
+
+<div style="position: absolute; left: 0; top: 672px; width: 390px; height: 172px">
+<dc-import name="Deck" section="Draw" left="close" right="menu" toggles="Outline*|Fill||Construction*" hint-size="390px,172px"></dc-import>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

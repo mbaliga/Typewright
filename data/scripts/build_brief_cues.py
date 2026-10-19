@@ -47,16 +47,16 @@ KOTLIN_OUT = ROOT / "ui" / "src" / "commonMain" / "kotlin" / "com" / "asoc" / "t
 
 # key, family, wght (None = the file's own default for a static font), what the cue shows.
 CUES = [
-    ("geometric", "Poppins", 400, "geometric sans: one-storey a, circular o, even stroke"),
+    ("geometric", "Jost", 400, "geometric sans: one-storey a, circular o, even stroke"),
     ("weightLight", "Jost", 300, "one family at three weights: light"),
     ("weightRegular", "Jost", 400, "one family at three weights: regular"),
     ("weightBold", "Jost", 700, "one family at three weights: bold"),
     ("grotesque", "Work Sans", 400, "grotesque: two-storey a, flat terminals"),
     ("neogrotesque", "Inter", 400, "neo-grotesque: large x-height, closed apertures"),
-    ("humanist", "Open Sans", 400, "humanist sans: open apertures, two-storey g"),
+    ("humanist", "Source Sans 3", 400, "humanist sans: open apertures, two-storey g"),
     ("garalde", "EB Garamond", 400, "garalde: diagonal stress, bracketed serifs, small x-height"),
     ("transitional", "Libre Baskerville", 400, "transitional serif"),
-    ("didone", "Libre Bodoni", 400, "didone: vertical stress, hairline serifs, ball terminals"),
+    ("didone", "Playfair Display", 400, "didone: vertical stress, hairline serifs, ball terminals"),
     ("slab", "Zilla Slab", 400, "slab serif"),
     ("deco", "Limelight", None, "art deco, heavy with hairlines, high-waisted"),
     ("decoAiry", "Poiret One", None, "art deco, airy and monoline"),

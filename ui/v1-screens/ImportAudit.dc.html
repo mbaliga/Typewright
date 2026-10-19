@@ -1,0 +1,66 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Import audit</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+@font-face { font-family: "Hyle Deco"; src: url(/_blob/87ef2c1f7693e8b7acd70e03d6088e45) format("truetype"); }
+body { margin: 0; background: #EFE9DC; }
+.m { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+.hy { font-family: "Hyle Deco", serif; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #EFE9DC; color: #17150F; font-family: 'IBM Plex Sans', system-ui, sans-serif">
+<svg width="390" height="844" style="position: absolute; left: 0; top: 0; opacity: 0.55; mix-blend-mode: multiply; pointer-events: none" aria-hidden="true"><filter id="gr"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"></feTurbulence><feColorMatrix values="0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.22 0 0 0 0.26 0"></feColorMatrix></filter><rect width="390" height="844" filter="url(#gr)"></rect></svg>
+
+<div style="position: absolute; left: 22px; top: 56px; right: 22px; opacity: 0.18; display: flex; flex-direction: column; gap: 3px">
+<div style="font-size: 15px; font-weight: 600">Projects</div>
+<div class="hy" style="font-size: 40px; margin-top: 60px">Hamburgefonstiv</div>
+</div>
+
+<div style="position: absolute; left: 18px; top: 150px; width: 354px; background: #17150F; color: #EFE9DC; padding: 22px 20px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div class="m" style="font-size: 9.5px; opacity: 0.6">Before importing · licence check</div>
+<div style="font-size: 16px; font-weight: 600">HyleDeco-Regular.ttf</div>
+</div>
+
+<div class="hy" style="font-size: 44px; line-height: 1">Hamburg</div>
+
+<div style="display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 11px">
+<div style="display: flex; flex-direction: column; gap: 2px"><div class="m" style="font-size: 9px; opacity: 0.6">Licence · name ID 13</div><div style="font-size: 13px; line-height: 1.4">SIL Open Font License 1.1</div></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><div class="m" style="font-size: 9px; opacity: 0.6">Copyright · name ID 0</div><div style="font-size: 13px; line-height: 1.4">Copyright 2026 The Hyle Deco Project Authors (github.com/mbaliga/HyleDeco-gf)</div></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><div class="m" style="font-size: 9px; opacity: 0.6">Reserved Font Name</div><div style="font-size: 13px; line-height: 1.4">None declared</div></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><div class="m" style="font-size: 9px; opacity: 0.6">Designer · name ID 9</div><div style="font-size: 13px; line-height: 1.4">◐ Not set. Check will ask you to fill it in.</div></div>
+</div>
+
+<div style="display: flex; gap: 10px; align-items: flex-start; padding-top: 4px">
+<div style="font-size: 15px; line-height: 1.2">✓</div>
+<div style="display: flex; flex-direction: column; gap: 3px">
+<div class="m" style="font-size: 10px; font-weight: 600">Fine to modify</div>
+<div style="font-size: 12.5px; line-height: 1.45; opacity: 0.85">OFL lets you change and redistribute this font. Keep the copyright line; your changes join its Authors file.</div>
+</div>
+</div>
+</div>
+
+<div style="position: absolute; left: 0; top: 672px; width: 390px; height: 172px">
+<dc-import name="Deck" section="Home" left="close" right="check" toggles="" dim-sections="true" hint-size="390px,172px"></dc-import>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

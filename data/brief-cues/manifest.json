@@ -5,18 +5,18 @@
  "cues": {
   "geometric": {
    "key": "geometric",
-   "family": "Poppins",
+   "family": "Jost",
    "instance": {
     "wght": 400
    },
    "file": "geometric.ttf",
    "renamed": "Typewright Cue Geometric",
    "licence": "OFL-1.1",
-   "licence_file": "poppins-OFL.txt",
-   "copyright": "Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins)",
-   "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/poppins/Poppins-Regular.ttf",
-   "file_size_bytes": 8568,
-   "file_sha256": "8cf4e82a864dd24643c56d962f02243e2fa70d85c521024646ca0cabc5cde806",
+   "licence_file": "jost-OFL.txt",
+   "copyright": "Copyright 2020 The Jost Project Authors (https://github.com/indestructible-type/Jost)",
+   "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/jost/Jost[wght].ttf",
+   "file_size_bytes": 10908,
+   "file_sha256": "7cc6b4dcda40ed480f7a0a3b8b8a0ae4b2959b84979aea9cd52cef633d3fe5b7",
    "shows": "geometric sans: one-storey a, circular o, even stroke"
   },
   "weightLight": {
@@ -32,7 +32,7 @@
    "copyright": "Copyright 2020 The Jost Project Authors (https://github.com/indestructible-type/Jost)",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/jost/Jost[wght].ttf",
    "file_size_bytes": 11032,
-   "file_sha256": "6c8dcb9366281514a2fa245e66823fdcd3ad0ca45d66697a4ec052c688e6331e",
+   "file_sha256": "7051dbaa459b47300a1e176590fe346a1a0dc307918324973011034611acccd0",
    "shows": "one family at three weights: light"
   },
   "weightRegular": {
@@ -48,7 +48,7 @@
    "copyright": "Copyright 2020 The Jost Project Authors (https://github.com/indestructible-type/Jost)",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/jost/Jost[wght].ttf",
    "file_size_bytes": 10932,
-   "file_sha256": "69a7cef9ae8cf408525e2345d9b16b2ea736acb8ae5d98024a53dd20562d8b5c",
+   "file_sha256": "8a19a3fb38579a80fd8024bd8aef27a309e505593c106648eddf8cd971da2979",
    "shows": "one family at three weights: regular"
   },
   "weightBold": {
@@ -64,7 +64,7 @@
    "copyright": "Copyright 2020 The Jost Project Authors (https://github.com/indestructible-type/Jost)",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/jost/Jost[wght].ttf",
    "file_size_bytes": 10912,
-   "file_sha256": "8d395b10a9066fa1a98813b67bce6d3dcdd46a0736363a8ca1286eeff73c86ed",
+   "file_sha256": "978f5a40c9fd9413c71ed818185234e2400c41ca7e375fc8ff614307dd9628a9",
    "shows": "one family at three weights: bold"
   },
   "grotesque": {
@@ -80,7 +80,7 @@
    "copyright": "Copyright 2019 The Work Sans Project Authors (https://github.com/weiweihuanghuang/Work-Sans)",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/worksans/WorkSans[wght].ttf",
    "file_size_bytes": 22404,
-   "file_sha256": "b2f7052ec67f63d2161e2dc8ea191e52d54c99ec9b99c7e5d22587fe34ad6409",
+   "file_sha256": "09fdf3a790307a919f65c1d86cc259b491255c65068f9a887a3250ff649b7114",
    "shows": "grotesque: two-storey a, flat terminals"
   },
   "neogrotesque": {
@@ -96,23 +96,23 @@
    "copyright": "Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/inter/Inter[opsz,wght].ttf",
    "file_size_bytes": 20428,
-   "file_sha256": "bdd451812fa47c05ef487dadfe75077be6edbdb53157af6a4839e50fc9a12ac5",
+   "file_sha256": "097e8f4db6544948c1f68b61ec174d8900b808f4fcad66057852ca3ce796fab2",
    "shows": "neo-grotesque: large x-height, closed apertures"
   },
   "humanist": {
    "key": "humanist",
-   "family": "Open Sans",
+   "family": "Source Sans 3",
    "instance": {
     "wght": 400
    },
    "file": "humanist.ttf",
    "renamed": "Typewright Cue Humanist",
    "licence": "OFL-1.1",
-   "licence_file": "opensans-OFL.txt",
-   "copyright": "Copyright 2020 The Open Sans Project Authors (https://github.com/googlefonts/opensans)",
-   "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/opensans/OpenSans[wdth,wght].ttf",
-   "file_size_bytes": 13048,
-   "file_sha256": "929901ae9117e73768af2f5d64992e5868256f459bf5fa8a77c8e82276951af0",
+   "licence_file": "sourcesans3-OFL.txt",
+   "copyright": "© 2023 Adobe (http://www.adobe.com/), with Reserved Font Name ‘Source’",
+   "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/sourcesans3/SourceSans3[wght].ttf",
+   "file_size_bytes": 19980,
+   "file_sha256": "352617583fe4ec2635dbd27c1ba16c6f53c5d026b40466de4a6d15ac4593ef33",
    "shows": "humanist sans: open apertures, two-storey g"
   },
   "garalde": {
@@ -128,7 +128,7 @@
    "copyright": "Copyright 2017 The EB Garamond Project Authors (https://github.com/octaviopardo/EBGaramond12)",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/ebgaramond/EBGaramond[wght].ttf",
    "file_size_bytes": 28788,
-   "file_sha256": "f9952ffb25c33e13df0f1ea4e508f8c8965f65b73db8c7dae516270ad19921d8",
+   "file_sha256": "4173efcb577d71b600c166d49e43e9c44629573a8d3c500b3324677911e06936",
    "shows": "garalde: diagonal stress, bracketed serifs, small x-height"
   },
   "transitional": {
@@ -144,23 +144,23 @@
    "copyright": "Copyright 2012 The Libre Baskerville Project Authors (https://github.com/impallari/Libre-Baskerville)",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/librebaskerville/LibreBaskerville[wght].ttf",
    "file_size_bytes": 21296,
-   "file_sha256": "9f469f8cd15b55ce6b5fa6873d359d247626668b60e5a1e7f3df0ab40c3af9c1",
+   "file_sha256": "710c0094beb4d9de4740e23287e46e368f0404d4389a05bc94887e7db453ffb4",
    "shows": "transitional serif"
   },
   "didone": {
    "key": "didone",
-   "family": "Libre Bodoni",
+   "family": "Playfair Display",
    "instance": {
     "wght": 400
    },
    "file": "didone.ttf",
    "renamed": "Typewright Cue Didone",
    "licence": "OFL-1.1",
-   "licence_file": "librebodoni-OFL.txt",
-   "copyright": "Copyright 2012 The Libre Bodoni Project Authors (https://github.com/googlefonts/Libre-Bodoni/)",
-   "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/librebodoni/LibreBodoni[wght].ttf",
-   "file_size_bytes": 17336,
-   "file_sha256": "5f4de3f7e19c8c0924dcf91bc77438a23123f3afa5bf273863946d768f55630a",
+   "licence_file": "playfairdisplay-OFL.txt",
+   "copyright": "Copyright 2017 The Playfair Display Project Authors (https://github.com/clauseggers/Playfair-Display), with Reserved Font Name \"Playfair Display\".",
+   "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/playfairdisplay/PlayfairDisplay[wght].ttf",
+   "file_size_bytes": 26940,
+   "file_sha256": "394f7e9eccd3decbd8cb8e137239eda74eced2ce0296f6785128ec5403b46703",
    "shows": "didone: vertical stress, hairline serifs, ball terminals"
   },
   "slab": {
@@ -176,7 +176,7 @@
    "copyright": "Copyright 2017, The Mozilla Foundation",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/zillaslab/ZillaSlab-Regular.ttf",
    "file_size_bytes": 27316,
-   "file_sha256": "2a548082c4bb88af7d824f57ead2ebce8a339db278220648f79234613051bbd5",
+   "file_sha256": "ed6d16d67ba82767e4d55bba1b523716023990df6141f8aed1a563569cf11369",
    "shows": "slab serif"
   },
   "deco": {
@@ -190,7 +190,7 @@
    "copyright": "Copyright (c) 2010 by Sorkin Type Co with Reserved Font Name Limelight.\r\rThis Font Software is licensed under the SIL Open Font License, Version 1.1.\rThis license is copied below, and is also available with a FAQ at:\rhttp://scripts.sil.org/OFL",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/limelight/Limelight-Regular.ttf",
    "file_size_bytes": 12320,
-   "file_sha256": "4d158f36de6442abd75ca4f6bba2cec2b807b8a0ea5276b9c841e90c9ce866d4",
+   "file_sha256": "d4a954e4dfa94d5f529521b14a6756e7454b6afeb61916d2a64ed7912fa45a6e",
    "shows": "art deco, heavy with hairlines, high-waisted"
   },
   "decoAiry": {
@@ -204,7 +204,7 @@
    "copyright": "Copyright 2011 The Poiret One Project Authors (https://github.com/alexeiva/poiretone)",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/poiretone/PoiretOne-Regular.ttf",
    "file_size_bytes": 13664,
-   "file_sha256": "42e0dc0726bca0f0f75040ca272274e494b1df56997862a61e9fd5890290a81e",
+   "file_sha256": "7f6a76ca9773a2448174ecdd57dfd5b3497a83ce3226cfab50fdb14ab5f0c7c3",
    "shows": "art deco, airy and monoline"
   },
   "superellipse": {
@@ -218,7 +218,7 @@
    "copyright": "Copyright 2011 The Michroma Project Authors (https://github.com/googlefonts/Michroma-font)",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/michroma/Michroma-Regular.ttf",
    "file_size_bytes": 10976,
-   "file_sha256": "fa4d68d439f47bbd7f79fb89eea01a00568795343dcfc84b62ad53b3034145b9",
+   "file_sha256": "e96a3322b705f61a1397954fc75f7afc843e73ab319357748998eb4e25f1b741",
    "shows": "squarish rounds, wide"
   },
   "techno": {
@@ -234,7 +234,7 @@
    "copyright": "Copyright 2018 The Orbitron Project Authors (https://github.com/theleagueof/orbitron), with Reserved Font Name: \"Orbitron\".",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/orbitron/Orbitron[wght].ttf",
    "file_size_bytes": 10596,
-   "file_sha256": "aa7a7a7d88bf7d85299bcf3299f481739c094fc0bbf5c3299a0134c2c87c143e",
+   "file_sha256": "1f5e8976f7a8a93031bed9583044fad3985fd16d6360a2461bd2ddf3545b718c",
    "shows": "square rounds, techno"
   },
   "condensed": {
@@ -248,7 +248,7 @@
    "copyright": "Copyright 2020 The League Gothic Project Authors (https://github.com/theleagueof/league-gothic)",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/leaguegothic/LeagueGothic[wdth].ttf",
    "file_size_bytes": 10560,
-   "file_sha256": "b6f6eba8b86c529f147c2930938759f22587987f28da1fb94ea2ac0593a0a9fa",
+   "file_sha256": "9f511e9cb0ba259eec3d571655e340b4cc9c471e40b8e43f21bd37b9a77b448a",
    "shows": "narrow, condensed"
   },
   "rounded": {
@@ -262,7 +262,7 @@
    "copyright": "Copyright 2023 The Varela Round Project Authors (https://github.com/alefalefalef/Varela-Round-Hebrew/), with Reserved Font Names 'Varela' and 'Varela Round'.",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/varelaround/VarelaRound-Regular.ttf",
    "file_size_bytes": 20332,
-   "file_sha256": "953c446fe88a97c9da889e1eff3fea6f56073ccf9ddaa562a5e59c445f39d2e8",
+   "file_sha256": "e166edeabbf348e9224d02f1eaee3a31b618bb6fd535dc45f6e5a0b9d3c28f72",
    "shows": "rounded terminals"
   },
   "lowWaist": {
@@ -276,7 +276,7 @@
    "copyright": "Copyright 2011 The Voltaire Project Authors (https://github.com/SorkinType/Voltaire)",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/voltaire/Voltaire-Regular.ttf",
    "file_size_bytes": 30584,
-   "file_sha256": "340a96e5ab184adb2a6afafd7ad1e849ec64b2fd172d6bed5090efdf59afb201",
+   "file_sha256": "a39949a67f1dcb2c715162ea298bd08c51d36d1b9c80af170591be69766f3021",
    "shows": "a low crossbar, angled terminals"
   },
   "script": {
@@ -292,7 +292,7 @@
    "copyright": "Copyright 2016 The Dancing Script Project Authors (https://github.com/googlefonts/DancingScript), with Reserved Font Name \"Dancing Script\".",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/dancingscript/DancingScript[wght].ttf",
    "file_size_bytes": 27368,
-   "file_sha256": "1ac7dc33fcd0406b42d2c1ef092a598a1afa5ba7d998e393e44562b16493ee8f",
+   "file_sha256": "3799ae733ccccd8e9fcbeefd52bbfa5474aed23424300b7a9c3446ec478eb800",
    "shows": "script"
   },
   "blackletter": {
@@ -306,7 +306,7 @@
    "copyright": "Copyright (c) 2010 j. 'mach' wust with Reserved Font Name UnifrakturMaguntia.\nCopyright (c) 2009 Peter Wiegel.\n\nThis Font Software is licensed under the SIL Open Font License, Version 1.1.",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/unifrakturmaguntia/UnifrakturMaguntia-Book.ttf",
    "file_size_bytes": 36512,
-   "file_sha256": "725d641809d55da6816c305051c7d461402aeffcf5be69c9a524f6e5d1d40f00",
+   "file_sha256": "3beb10bfb5a434051bac2570a3f7271f18784b3973ab604cb200ac892a649964",
    "shows": "blackletter"
   },
   "fatface": {
@@ -320,7 +320,7 @@
    "copyright": "Copyright (c) 2011, Copyright (c) 2011, TypeTogether (www.type-together.com), with Reserved Font Names \"Abril\" and \"Abril Fatface\"",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/abrilfatface/AbrilFatface-Regular.ttf",
    "file_size_bytes": 17292,
-   "file_sha256": "65304047e66a3c7d72afe7038d519616095846975cad74aa1f0429ac50e3ce9e",
+   "file_sha256": "35fbc2103d44d700617544e588de9f0865b3bd5f97631e5c5b5af88bcb6e5220",
    "shows": "fat face"
   },
   "mono": {
@@ -334,7 +334,7 @@
    "copyright": "Copyright 2016 The Space Mono Project Authors (https://github.com/googlefonts/spacemono)",
    "source_font_url": "https://raw.githubusercontent.com/google/fonts/b5efa9c32e8f9b63005f5cdb1ad5527a77d2cd04/ofl/spacemono/SpaceMono-Regular.ttf",
    "file_size_bytes": 10920,
-   "file_sha256": "1e66a2877b002055482c6499b1a3e6531225bdbc094778ef9ee4d3d6ef008892",
+   "file_sha256": "c22b687e717e62042a6239e9660e4b42029ca896bb27f7b3a146417bef7746e3",
    "shows": "monospace"
   }
  }

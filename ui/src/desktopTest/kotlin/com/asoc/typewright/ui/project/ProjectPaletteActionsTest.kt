@@ -44,6 +44,36 @@ class ProjectPaletteActionsTest {
         }
 
     @Test
+    fun newProjectRunsOnCreatedOnceTheProjectActuallyExists() =
+        runBlocking {
+            val workspace = workspace()
+            val picker = InMemoryProjectFolderPicker(workspace)
+            var created = 0
+
+            createUntitledProject(workspace, picker, onCreated = { created++ })
+
+            assertEquals(1, created)
+        }
+
+    @Test
+    fun newProjectWithNoFolderChosenNeverRunsOnCreated() =
+        runBlocking {
+            val workspace = workspace()
+            val picker =
+                object : ProjectFolderPicker {
+                    override suspend fun pickNewProjectParent() = null
+
+                    override suspend fun pickProjectToOpen() = null
+                }
+            var created = 0
+
+            val result = createUntitledProject(workspace, picker, onCreated = { created++ })
+
+            assertTrue(result.contains("no folder was chosen"), result)
+            assertEquals(0, created)
+        }
+
+    @Test
     fun aSecondNewProjectRetriesAsUntitled2OnANameClash() =
         runBlocking {
             val workspace = workspace()

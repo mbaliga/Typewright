@@ -41,8 +41,9 @@ class BriefScenarioTest {
         // The questions include where deco's voice lives.
         val asked = questionsFor(Door.STYLE, model).map { it.id }
         assertTrue(dimensionStepId(Dimension.WAIST) in asked && dimensionStepId(Dimension.CONTRAST) in asked, "$asked")
-        // The plan starts from the figures.
-        assertEquals(listOf('0', '1'), planFor(model).first().glyphs)
+        // The plan starts from the control set, then the figures a watch face is read by.
+        assertEquals("noHO".toList(), planFor(model).first().glyphs)
+        assertEquals(listOf('0', '1'), planFor(model)[1].glyphs)
     }
 
     @Test

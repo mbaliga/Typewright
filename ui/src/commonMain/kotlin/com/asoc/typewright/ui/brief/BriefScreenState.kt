@@ -3,12 +3,14 @@
 package com.asoc.typewright.ui.brief
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import com.asoc.typewright.brief.AskPosition
 import com.asoc.typewright.brief.BriefModel
 import com.asoc.typewright.brief.Dimension
@@ -26,8 +28,11 @@ import com.asoc.typewright.brief.questionFor
 import com.asoc.typewright.brief.reopening
 import com.asoc.typewright.brief.resolveBrief
 import com.asoc.typewright.brief.skipping
+import com.asoc.typewright.brief.withConfirmedStyleClass
+import com.asoc.typewright.brief.withEthos
 import com.asoc.typewright.brief.withFeelingToggled
 import com.asoc.typewright.brief.withGenre
+import com.asoc.typewright.brief.withIntentUse
 import com.asoc.typewright.brief.withLevel
 import com.asoc.typewright.brief.withMeasuredLevels
 import com.asoc.typewright.brief.withReferenceToggled
@@ -35,13 +40,18 @@ import com.asoc.typewright.brief.withSignatureToggled
 import com.asoc.typewright.brief.withUseOption
 import com.asoc.typewright.brief.withUseToggled
 import com.asoc.typewright.brief.withWordmark
+import com.asoc.typewright.project.Brief
+import com.asoc.typewright.project.BriefSource
+import com.asoc.typewright.project.ContrastModel
 import com.asoc.typewright.project.EditResult
 import com.asoc.typewright.project.Ethos
 import com.asoc.typewright.project.FontState
 import com.asoc.typewright.project.MetaChange
 import com.asoc.typewright.project.ProjectSession
+import com.asoc.typewright.project.Use
 import com.asoc.typewright.qa.corpus.StyleAtlas
 import com.asoc.typewright.qa.corpus.loadStyleAtlas
+import com.asoc.typewright.ui.deck.DeckSection
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.brief.askPosition as positionIn
 import com.asoc.typewright.brief.wrapUp as wrapUpOf
@@ -61,9 +71,6 @@ enum class BriefScreenTab(
     }
 }
 
-/** The line under the screen title. */
-const val BRIEF_SCREEN_SUBTITLE: String = "ask · brief · guide"
-
 /** Said whenever the answers live only in this session (CLAUDE.md law 4: a stub says so). */
 const val BRIEF_NOT_SAVED_NOTE: String = "Not saved: no project is open"
 
@@ -79,6 +86,23 @@ const val BRIEF_ATLAS_UNAVAILABLE_NOTE: String =
 
 /** Said by the guide when there are no letters to measure. */
 const val BRIEF_NO_DRAWING_NOTE: String = "Draw some letters and the guide will measure them"
+
+/**
+ * Opens [BriefScreen] on [Door], or on the doors (null) when nothing more specific is meant, under
+ * the section it was opened from ([DeckSection.HOME], or [DeckSection.WORKBOOK] from Task 1) --
+ * provided once, near the root, by [com.asoc.typewright.ui.TypewrightApp], the same shape
+ * [com.asoc.typewright.ui.project.LocalProjectWorkspace] already uses so a composable two or more
+ * levels down (WP4's "New project…" palette entry, WP5's Workbook Task 1 "Pick in the Brief")
+ * can open the Brief without a widened parameter list the whole way up. Null in any composition
+ * that never provides it (every existing screenshot test).
+ */
+val LocalOpenBrief: ProvidableCompositionLocal<((Door?, DeckSection) -> Unit)?> = staticCompositionLocalOf { null }
+
+/**
+ * Opens [BriefScreen] on the new-project step ([BriefScreenUiState.beginNewProject]): what "New
+ * project…" calls once the project exists. Null where nothing provided it.
+ */
+val LocalOpenNewProjectBrief: ProvidableCompositionLocal<(() -> Unit)?> = staticCompositionLocalOf { null }
 
 /**
  * The Brief screen's state: the person's [ethos], what it resolves to ([model]), their own
@@ -99,7 +123,9 @@ class BriefScreenUiState(
     initialDrawing: Drawing = Drawing.EMPTY,
     initialTab: BriefScreenTab = if (initialEthos.isEmpty) BriefScreenTab.ASK else BriefScreenTab.GUIDE,
     initialDoor: Door? = null,
+    initialConfirmedStyleClass: String? = null,
     private val persist: ((Ethos) -> Boolean)? = null,
+    private val persistConfirmedStyleClass: ((String?) -> Boolean)? = null,
 ) {
     var tab: BriefScreenTab by mutableStateOf(initialTab)
         private set
@@ -131,16 +157,72 @@ class BriefScreenUiState(
     var saveNote: String by mutableStateOf(if (persist == null) BRIEF_NOT_SAVED_NOTE else BRIEF_SAVED_NOTE)
         private set
 
+    /** The corpus class the person has actively confirmed reads as them (WP3 "Confirm"), or null. */
+    var confirmedStyleClass: String? by mutableStateOf(initialConfirmedStyleClass)
+        private set
+
     /** True when answers are written to an open project. */
     val saved: Boolean get() = persist != null
 
+    /**
+     * True while the Brief is the new-project flow's second step, laid out as the canvas's
+     * `NewProject` board: name, scripts, intent, closest class and a line about it, instead of the
+     * doors. Any other way into the Brief ends it.
+     */
+    var newProject: Boolean by mutableStateOf(false)
+        private set
+
+    /**
+     * The Serif/Sans chip on that board: which classes "Closest class" offers. It starts as what
+     * the ethos already implies, and it is a filter, not a second copy of the answer: the model the
+     * brief records is read back from the ethos.
+     */
+    var intentModel: ContrastModel? by mutableStateOf(null)
+        private set
+
+    /** The model and use the ethos implies, the same ones [saveEthos] writes into the project's brief. */
+    val implied: Brief get() = Brief(source = BriefSource.BLANK).withEthos(ethos)
+
+    /** Opens the new-project step: the board first, then on to the Brief proper. */
+    fun beginNewProject() {
+        newProject = true
+        tab = BriefScreenTab.ASK
+        door = null
+        focus = null
+        refining = false
+        intentModel = implied.model
+    }
+
+    /** Leaves the new-project step for the Brief itself: the guide once there are answers, otherwise the doors. */
+    fun finishNewProject() {
+        newProject = false
+        tab = if (ethos.isEmpty) BriefScreenTab.ASK else BriefScreenTab.GUIDE
+    }
+
+    /** "Not sure" on Closest class: leaves the board for the other doors. */
+    fun notSure() {
+        newProject = false
+        tab = BriefScreenTab.ASK
+        chooseDoor(null)
+    }
+
+    /** Filters the classes by Serif or Sans; choosing the one already chosen clears it. */
+    fun chooseIntentModel(model: ContrastModel?) {
+        intentModel = if (intentModel == model) null else model
+    }
+
+    /** Makes [use] the main use (Text or Display); null clears it. */
+    fun chooseIntentUse(use: Use?) = commit(ethos.withIntentUse(use))
+
     /** Shows [tab]. */
     fun selectTab(tab: BriefScreenTab) {
+        newProject = false
         this.tab = tab
     }
 
     /** Goes in by [door]; null goes back to choosing one. The answers stay: another door skips what is already answered. */
     fun chooseDoor(door: Door?) {
+        newProject = false
         this.door = door
         refining = false
         focus = null
@@ -228,6 +310,17 @@ class BriefScreenUiState(
     /** Marks [dimension] as a deliberate departure from the genre, or unmarks it. */
     fun toggleSignature(dimension: Dimension) = commit(ethos.withSignatureToggled(dimension))
 
+    /**
+     * Confirms [key] (a node-economy corpus class) as the project's own style class, from a
+     * reading in the Mirror door or the Brief tab -- never set by itself, only by a person's own
+     * tap on "This is it" (WP3 "the style is never confirmed silently"); null un-confirms. A
+     * no-op with no project open: there is nothing to confirm into.
+     */
+    fun confirmStyleClass(key: String?) {
+        val save = persistConfirmedStyleClass ?: return
+        if (save(key)) confirmedStyleClass = key
+    }
+
     /** Moves on from [step] with what is chosen so far (for the multiple-choice steps, which have no single answer). */
     fun confirm(step: Step) = commit(ethos.answering(step.id))
 
@@ -236,6 +329,46 @@ class BriefScreenUiState(
         if (step is Step.AskDimension && step.dimension == focus) focus = null
         commit(ethos.skipping(step.id))
     }
+
+    /**
+     * The line under the page title (the canvas's page header): where in the Brief the person is, in
+     * words. Questions adapt to the answers, so it counts what has been asked, never "of M".
+     */
+    val subtitle: String
+        get() {
+            val chosen = door
+            val position = askPosition()
+            return when {
+                newProject -> "Step 2 of 3 · the brief"
+                tab == BriefScreenTab.BRIEF -> "What your answers add up to"
+                tab == BriefScreenTab.GUIDE -> "What to draw, and why"
+                focus != null -> "Changing one answer · the others stay"
+                chosen == null || position == null -> "Six ways in"
+                position.step == null -> "${chosen.label} · ${position.total} asked"
+                else -> "${chosen.label} · question ${position.answered + 1}"
+            }
+        }
+
+    /**
+     * What the deck's Back does: out of a revisited question, else back to Ask from another tab,
+     * else the last question, and at the first the doors. False at the doors, where there is nowhere
+     * left inside the Brief and the screen itself should close.
+     */
+    fun back(): Boolean =
+        when {
+            newProject -> {
+                false
+            }
+
+            focus != null || tab != BriefScreenTab.ASK || door != null -> {
+                if (focus == null && tab != BriefScreenTab.ASK) tab = BriefScreenTab.ASK else goBack()
+                true
+            }
+
+            else -> {
+                false
+            }
+        }
 
     /**
      * Goes back one question: out of a revisited question first; otherwise the last question with an
@@ -352,18 +485,20 @@ fun rememberBriefScreenUiState(keeper: BriefStateKeeper = rememberBriefStateKeep
     val state =
         remember(keeper, session) {
             keeper.stateFor(session) {
+                val brief =
+                    session
+                        ?.state
+                        ?.value
+                        ?.meta
+                        ?.manifest
+                        ?.brief
                 BriefScreenUiState(
-                    initialEthos =
-                        session
-                            ?.state
-                            ?.value
-                            ?.meta
-                            ?.manifest
-                            ?.brief
-                            ?.ethos ?: Ethos(),
+                    initialEthos = brief?.ethos ?: Ethos(),
                     atlas = keeper.atlas,
                     initialDrawing = drawing,
+                    initialConfirmedStyleClass = brief?.styleClass?.confirmed,
                     persist = session?.let { live -> { ethos: Ethos -> saveEthos(live, ethos) } },
+                    persistConfirmedStyleClass = session?.let { live -> { key: String? -> saveConfirmedStyleClass(live, key) } },
                 )
             }
         }
@@ -377,5 +512,14 @@ private fun saveEthos(
     ethos: Ethos,
 ): Boolean {
     val brief = session.state.value.meta.manifest.brief
-    return session.update(MetaChange.SetBrief(brief.copy(ethos = ethos))) !is EditResult.Refused
+    return session.update(MetaChange.SetBrief(brief.withEthos(ethos))) !is EditResult.Refused
+}
+
+/** Writes [key] into [session]'s brief as its confirmed style class; false when the project refuses it. */
+private fun saveConfirmedStyleClass(
+    session: ProjectSession,
+    key: String?,
+): Boolean {
+    val brief = session.state.value.meta.manifest.brief
+    return session.update(MetaChange.SetBrief(brief.withConfirmedStyleClass(key))) !is EditResult.Refused
 }

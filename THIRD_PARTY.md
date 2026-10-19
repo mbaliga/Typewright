@@ -152,7 +152,7 @@ every one of the seventeen through `core-font`'s own production `readSfntFont`.
 ## Embedded for the Brief's visual cues
 
 The Brief shows each answer in a real typeface (docs/BRIEF.md). `data/scripts/build_brief_cues.py`
-subsets 20 families fetched from `google/fonts` (the commit pinned in
+subsets the families fetched from `google/fonts` (the commit pinned in
 `data/brief-cues/manifest.json`) to Basic Latin, instances variable fonts at the weight shown, and
 renames each "Typewright Cue <Key>", a Modified Version under the SIL Open Font License 1.1
 that keeps any Reserved Font Name off it. The bytes ship as base64 in
@@ -162,14 +162,13 @@ uses `fontTools`/`skia-pathops` as build tooling only, never shipped.
 
 | Family | Copyright | Licence |
 |---|---|---|
-| Poppins | Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins) | OFL-1.1 |
 | Jost | Copyright 2020 The Jost Project Authors (https://github.com/indestructible-type/Jost) | OFL-1.1 |
 | Work Sans | Copyright 2019 The Work Sans Project Authors (https://github.com/weiweihuanghuang/Work-Sans) | OFL-1.1 |
 | Inter | Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter) | OFL-1.1 |
-| Open Sans | Copyright 2020 The Open Sans Project Authors (https://github.com/googlefonts/opensans) | OFL-1.1 |
+| Source Sans 3 | Copyright 2010-2020 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source' | OFL-1.1 |
 | EB Garamond | Copyright 2017 The EB Garamond Project Authors (https://github.com/octaviopardo/EBGaramond12) | OFL-1.1 |
 | Libre Baskerville | Copyright 2012 The Libre Baskerville Project Authors (https://github.com/impallari/Libre-Baskerville) | OFL-1.1 |
-| Libre Bodoni | Copyright 2012 The Libre Bodoni Project Authors (https://github.com/googlefonts/Libre-Bodoni/) | OFL-1.1 |
+| Playfair Display | Copyright 2017 The Playfair Display Project Authors (https://github.com/clauseggers/Playfair-Display), with Reserved Font Name "Playfair Display" | OFL-1.1 |
 | Zilla Slab | Copyright 2017, The Mozilla Foundation | OFL-1.1 |
 | Limelight | Copyright (c) 2010 by Sorkin Type Co with Reserved Font Name Limelight. This Font Software is licensed under the SIL Open Font License, Version 1.1. T | OFL-1.1 |
 | Poiret One | Copyright 2011 The Poiret One Project Authors (https://github.com/alexeiva/poiretone) | OFL-1.1 |
@@ -182,6 +181,23 @@ uses `fontTools`/`skia-pathops` as build tooling only, never shipped.
 | UnifrakturMaguntia | Copyright (c) 2010 j. 'mach' wust with Reserved Font Name UnifrakturMaguntia. Copyright (c) 2009 Peter Wiegel. This Font Software is licensed under th | OFL-1.1 |
 | Abril Fatface | Copyright (c) 2011, Copyright (c) 2011, TypeTogether (www.type-together.com), with Reserved Font Names "Abril" and "Abril Fatface" | OFL-1.1 |
 | Space Mono | Copyright 2016 The Space Mono Project Authors (https://github.com/googlefonts/spacemono) | OFL-1.1 |
+
+## Embedded in the Brief prototype: IBM Plex
+
+The V1 screens canvas (`ui/v1-screens/`) is set in IBM Plex Sans and IBM Plex Mono, so the Brief's
+design prototype (`ui/v1-screens/brief/`, a design source, never shipped in the apps) embeds them
+as base64 `@font-face` rules at build time. The six files in `ui/v1-screens/fonts/` are the
+originals, byte for byte, from https://github.com/IBM/plex (`packages/plex-sans` and
+`packages/plex-mono`, `fonts/complete/ttf`, Plex Sans 3.005 and Plex Mono 2.005). They are not
+subset, instanced or renamed, so this redistributes the Original Version and keeps the Reserved
+Font Name "Plex" intact (OFL-1.1 condition 3 applies to Modified Versions). The licence text, which
+names the Reserved Font Name, is `ui/v1-screens/fonts/IBMPlex-OFL.txt`. The apps themselves do not
+bundle Plex yet (`docs/OPEN_QUESTIONS.md` item 9 and 140).
+
+| Family | Weights | Copyright | Licence |
+|---|---|---|---|
+| IBM Plex Sans | 400, 500, 600 | Copyright 2018 IBM Corp. with Reserved Font Name "Plex" | OFL-1.1 |
+| IBM Plex Mono | 400, 500, 600 | Copyright 2017 IBM Corp. with Reserved Font Name "Plex" | OFL-1.1 |
 
 ## Embedded in the explorer
 

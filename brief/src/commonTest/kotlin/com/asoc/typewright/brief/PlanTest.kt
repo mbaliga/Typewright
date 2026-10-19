@@ -39,17 +39,24 @@ class PlanTest {
     @Test
     fun theGenresVoiceFollowsTheControlCharacters() {
         val steps = plan(Ethos(genre = "display-artdeco"))
-        assertEquals(listOf("control", "genre.voice"), steps.take(2).map { it.id })
-        assertEquals("AEMRS08".toList(), steps[1].glyphs)
+        val ids = steps.map { it.id }
+        assertEquals("control", ids.first())
+        assertTrue(ids.indexOf("lower.straight") < ids.indexOf("lower.round"), "$ids")
+        assertTrue(
+            ids.indexOf("lower.round") < ids.indexOf("genre.voice"),
+            "the n- and o-families come before the distinctive letters: $ids",
+        )
+        assertEquals("AEMRS08".toList(), steps.first { it.id == "genre.voice" }.glyphs)
     }
 
     @Test
     fun aWatchFaceStartsFromItsFigures() {
         val steps = plan(Ethos(uses = listOf("watch-face")))
-        assertEquals(listOf("watch.bones", "watch.figures"), steps.take(2).map { it.id })
-        assertEquals(listOf('0', '1'), steps[0].glyphs)
+        assertEquals(listOf("control", "watch.bones", "watch.figures"), steps.take(3).map { it.id })
+        assertEquals(listOf('0', '1'), steps[1].glyphs)
         val dated = plan(Ethos(uses = listOf("watch-face"), useOptions = mapOf("watch-face.date" to "date")))
-        assertEquals(listOf("watch.bones", "watch.figures", "watch.capitals", "watch.date"), dated.take(4).map { it.id })
+        assertEquals(listOf("control", "watch.bones", "watch.figures", "watch.date"), dated.take(4).map { it.id })
+        // H and O are already in the control set, so the capitals step keeps only what is new.
         assertTrue(DATE_CAPITALS.all { c -> dated.take(4).any { c in it.glyphs } })
     }
 

@@ -29,12 +29,23 @@ class WrapUpTest {
     }
 
     @Test
+    fun theControlSetIsAlwaysDrawnFirstWhateverTheDoorOrUse() {
+        val model = resolveBrief(Ethos(uses = listOf("watch-face")), FIXTURE_ATLAS)
+        for (door in Door.entries) {
+            assertEquals(listOf('n', 'o', 'H', 'O'), assertNotNull(wrapUp(door, model).drawFirst).glyphs, door.name)
+        }
+        val deco = wrapUp(Door.STYLE, resolveBrief(lowWaistedDeco, FIXTURE_ATLAS))
+        assertEquals("art deco", deco.thenGenre?.genreName)
+        assertEquals("A E M R S 0 8", deco.thenGenre?.letters)
+    }
+
+    @Test
     fun drawnLettersMoveTheFirstStepOn() {
         val model = resolveBrief(Ethos(uses = listOf("watch-face")), FIXTURE_ATLAS)
-        assertEquals(listOf('0', '1'), wrapUp(Door.USE, model).drawFirst?.glyphs)
-        val font = FontView(1000, mapOf('0' to ringGlyph("zero", 600, 500, 80), '1' to barGlyph("one", 400, 80, 500)))
-        val drawn = wrapUp(Door.USE, model, Drawing(font, Drawing.EMPTY.measurement))
-        assertTrue('0' !in assertNotNull(drawn.drawFirst).glyphs)
+        val control = FontView(1000, "noHO".associate { it to ringGlyph("g$it", 600, 500, 80) })
+        val drawn = wrapUp(Door.USE, model, Drawing(control, Drawing.EMPTY.measurement))
+        assertEquals(listOf('0', '1'), assertNotNull(drawn.drawFirst).glyphs)
+        assertEquals(null, drawn.thenGenre, "the genre's letters are named only while the control set is still to draw")
     }
 
     @Test

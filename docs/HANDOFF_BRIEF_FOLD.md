@@ -1,3 +1,5 @@
+> **Amended 19 Oct 2026: see `docs/HANDOFF_BRIEF_AMENDMENT_1.md`.** The explorer wins on look, and the deck is live and meaningful.
+
 # Handoff: fold the declared brief into the Brief
 
 > **Amended 19 Oct 2026:** see `docs/HANDOFF_BRIEF_AMENDMENT_1.md`, which applies on top of PR #6 and supersedes this file where they differ.

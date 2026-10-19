@@ -156,7 +156,7 @@ class BriefScreenStateTest {
         state.toggleUse("watch-face")
         state.skipToTheEnd()
         val wrap = assertNotNull(state.wrapUp())
-        assertEquals(listOf('0', '1'), assertNotNull(wrap.drawFirst).glyphs)
+        assertEquals("noHO".toList(), assertNotNull(wrap.drawFirst).glyphs)
         assertTrue(wrap.moreQuestions > 0)
 
         state.askMore()
@@ -199,6 +199,140 @@ class BriefScreenStateTest {
     @Test
     fun aBriefWithAnswersOpensOnTheGuide() {
         assertEquals(BriefScreenTab.GUIDE, BriefScreenUiState(initialEthos = Ethos(genre = "sans-geometric")).tab)
+    }
+
+    @Test
+    fun withNoProjectConfirmingAStyleClassIsANoOp() {
+        val state = BriefScreenUiState()
+        state.confirmStyleClass("slab")
+        assertNull(state.confirmedStyleClass)
+    }
+
+    @Test
+    fun withAProjectConfirmingAStyleClassSavesItAndUnconfirmingClearsIt() {
+        val saved = mutableListOf<String?>()
+        val state =
+            BriefScreenUiState(persistConfirmedStyleClass = {
+                saved += it
+                true
+            })
+        assertNull(state.confirmedStyleClass)
+
+        state.confirmStyleClass("slab")
+        assertEquals("slab", state.confirmedStyleClass)
+        assertEquals(listOf<String?>("slab"), saved)
+
+        state.confirmStyleClass(null)
+        assertNull(state.confirmedStyleClass)
+        assertEquals(listOf("slab", null), saved)
+    }
+
+    @Test
+    fun aProjectThatRefusesAConfirmationLeavesItUnconfirmed() {
+        val state = BriefScreenUiState(persistConfirmedStyleClass = { false })
+        state.confirmStyleClass("slab")
+        assertNull(state.confirmedStyleClass)
+    }
+
+    @Test
+    fun aBriefOpensWithItsProjectsOwnConfirmedStyleClass() {
+        assertEquals("slab", BriefScreenUiState(initialConfirmedStyleClass = "slab").confirmedStyleClass)
+    }
+
+    @Test
+    fun theSubtitleSaysWhereInTheBriefThePersonIs() {
+        val state = BriefScreenUiState(atlas = null)
+        assertEquals("Six ways in", state.subtitle)
+
+        state.chooseDoor(Door.STYLE)
+        assertEquals("${Door.STYLE.label} · question 1", state.subtitle)
+        state.skip(assertNotNull(state.askPosition()?.step))
+        assertEquals("${Door.STYLE.label} · question 2", state.subtitle)
+
+        state.askAbout(Dimension.ROUNDNESS)
+        assertEquals("Changing one answer · the others stay", state.subtitle)
+        state.leaveFocus()
+
+        state.selectTab(BriefScreenTab.BRIEF)
+        assertEquals("What your answers add up to", state.subtitle)
+        state.selectTab(BriefScreenTab.GUIDE)
+        assertEquals("What to draw, and why", state.subtitle)
+    }
+
+    @Test
+    fun backLeavesAFocusedQuestionThenAnotherTabThenTheLastQuestionThenTheDoors() {
+        val state = BriefScreenUiState(initialDoor = Door.STYLE, initialTab = BriefScreenTab.GUIDE)
+        state.askAbout(Dimension.ROUNDNESS)
+        assertTrue(state.back())
+        assertNull(state.focus)
+
+        // From another tab, Back returns to Ask first.
+        state.selectTab(BriefScreenTab.BRIEF)
+        assertTrue(state.back())
+        assertEquals(BriefScreenTab.ASK, state.tab)
+
+        // Then the last question answered, and at the first question the doors.
+        state.skip(assertNotNull(state.askPosition()?.step))
+        assertTrue(state.back())
+        assertEquals(0, state.askPosition()?.answered)
+        assertTrue(state.back())
+        assertNull(state.door)
+
+        // At the doors there is nowhere left inside the Brief.
+        assertFalse(state.back())
+    }
+
+    @Test
+    fun theNewProjectStepSaysItIsStepTwoAndEndsInTheGuideOrTheDoors() {
+        val state = BriefScreenUiState(atlas = null)
+        state.beginNewProject()
+        assertTrue(state.newProject)
+        assertEquals("Step 2 of 3 · the brief", state.subtitle)
+        assertFalse(state.back(), "the deck's left circle is Close here")
+
+        state.finishNewProject()
+        assertFalse(state.newProject)
+        assertEquals(BriefScreenTab.ASK, state.tab, "nothing answered: the doors")
+
+        state.beginNewProject()
+        state.chooseGenre("display-artdeco")
+        state.finishNewProject()
+        assertEquals(BriefScreenTab.GUIDE, state.tab)
+    }
+
+    @Test
+    fun notSureLeavesTheBoardForTheDoorsAndKeepsTheAnswers() {
+        val state = BriefScreenUiState(initialEthos = Ethos(uses = listOf("headline")), atlas = null)
+        state.beginNewProject()
+        state.notSure()
+        assertFalse(state.newProject)
+        assertNull(state.door)
+        assertEquals(BriefScreenTab.ASK, state.tab)
+        assertEquals(listOf("headline"), state.ethos.uses)
+    }
+
+    @Test
+    fun theIntentChipsWriteTheEthosAndTheModelAndUseAreReadBackFromIt() {
+        val state = BriefScreenUiState(atlas = null)
+        state.beginNewProject()
+        state.chooseIntentUse(com.asoc.typewright.project.Use.DISPLAY)
+        assertEquals(listOf("headline"), state.ethos.uses)
+        assertEquals(com.asoc.typewright.project.Use.DISPLAY, state.implied.use)
+
+        state.chooseGenre("sans-geometric")
+        assertEquals(com.asoc.typewright.project.ContrastModel.SANS, state.implied.model)
+        assertEquals("sans-geometric", state.implied.styleClass.declared)
+    }
+
+    @Test
+    fun theSerifSansChipFiltersTheClassesWithoutWritingASecondCopy() {
+        val state = BriefScreenUiState(atlas = null)
+        state.beginNewProject()
+        state.chooseIntentModel(com.asoc.typewright.project.ContrastModel.SERIF)
+        assertEquals(com.asoc.typewright.project.ContrastModel.SERIF, state.intentModel)
+        assertTrue(state.ethos.isEmpty)
+        state.chooseIntentModel(com.asoc.typewright.project.ContrastModel.SERIF)
+        assertNull(state.intentModel)
     }
 
     @Test

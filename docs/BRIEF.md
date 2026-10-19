@@ -58,6 +58,33 @@ chosen to keep) and the ids of steps answered or skipped. It stores choices only
 are derived from the atlas each time they are shown, so a regenerated atlas never leaves a stale
 number in a project.
 
+## One record
+
+Before the Brief, S02's declared brief (TYPEWRIGHT_BUILD_BRIEF.md 8.4's "declare, infer,
+confirm") asked the same thing in its own three fields: `model` (serif/sans), `use`
+(text/display) and `styleClass.declared`, set directly from S02's chips. With the Brief in
+place, those fields are no longer a second copy the person could set independently of their
+answers here (decision D18): `Brief.withEthos` (`brief`) re-derives all three from `ethos` on
+every write, and every write goes through it (`BriefScreenUiState.persist`).
+
+- `model` comes from the serifs answer when one is given (no serifs -> sans, any serif style ->
+  serif), else the chosen genre's own group (sans or serif group -> that model, any other group
+  -> null — a display, script or mono genre answers neither chip).
+- `use` comes from the first (most important) use chosen: `body-text` -> text; `headline`,
+  `signage`, `wordmark` or `watch-face` -> display; any other use, or none, -> null.
+- `styleClass.declared` is the chosen genre when it is one of the ten node-economy classes, else
+  null — a genre outside that set has no Economy box to declare.
+
+`styleClass.confirmed` is different: it is never derived, only set by a person's own tap on
+"This is it" under a reading (in the Mirror door, or on the Brief tab once letters exist), through
+`Brief.withConfirmedStyleClass`. The style is never confirmed silently (TYPEWRIGHT_BUILD_BRIEF.md
+8.4's third layer, "the user confirms").
+
+A project declared under the old S02 flow, with `styleClass.declared` set and no ethos at all,
+opens with `Ethos(genre = declared)` as a starting point (`ProjectManifestCodec`'s own
+migration) rather than an empty brief; a project that never touched either flow still decodes
+with no ethos, byte-for-byte as before this migration existed.
+
 ## Dimensions and answers
 
 Each dimension (contrast, stress, serifs, bracketing, apertures, a- and g-storeys, terminals,
@@ -92,6 +119,14 @@ scales taken from the corpus interquartile ranges) and votes for a genre. Left-o
 on the atlas is printed by `ReadingAccuracyTest`: 52% top-1 and 83% top-3 among the ten corpus
 classes, 40% and 69% across all 23. The app shows the neighbours, not just the verdict, because
 that is what the number is really made of.
+
+`readAs` is the Brief's only reader (docs/HANDOFF_BRIEF_FOLD.md "one reader"). `qa:corpus`'s
+older `StyleScorer.rankStyleClasses` (TYPEWRIGHT_BUILD_BRIEF.md 8.4's "small hand-written scorer")
+reads left one out on the same 242 corpus faces at 36% top-1 / 76% top-3 -- markedly behind
+`readAs`'s 52% / 83% on the same faces -- and no V1 screen calls it (`docs/V1_TRIAGE.md` item 19).
+It is `@Deprecated` with a pointer to `readAs`, not removed: it needs no style atlas to vote
+against, only its own ten-class heuristic, so a caller outside the Brief with no atlas available
+could still reach for it.
 
 ## Drift
 
@@ -129,3 +164,28 @@ can be tried end to end. The prototype keeps answers in the page only.
 `qa/corpus` (`StyleAtlas`, `StyleMeasurement`), `data/style-atlas-latin.json` with its generator
 (`data/scripts/fetch_style_atlas_fonts.py`, `StyleAtlasGeneratorTest`), `data/brief-cues/` with
 `data/scripts/build_brief_cues.py`.
+
+## Sources
+
+What the Brief is built from, by pack-1 document and section: `ui/typewright-explorer.html` (each
+screen's Notes) and `UI_SPEC.md` for the look; `TYPEWRIGHT_BUILD_BRIEF.md` §2, §4–§6 and §8–§9 for
+the principles, the glass and the declared brief (§8.4); `docs/TYPEWRIGHT_HANDOFF.md` M4–M6 for
+Overlay, the workbook and Task 1; `docs/KNOWLEDGE.md` F1–F4 for what "on target" does not mean
+and for asking what good means before building; `docs/RESEARCH_font_quality.md` "Anatomy,
+critique and sequence" for drawing the control set first; `docs/SCREENS_V1.md` §2 for the deck.
+
+## What the pack asks of the Brief
+
+- **Draw n o H O first.** The wrap-up and the plan always begin with the control set, whatever the
+  door or the use, with the genre's own letters on a second line ("then what makes it art deco:
+  A E M R S 0 8"). Draw next follows: control set, what the use needs, the n- and o-families (the H-
+  and O-families for a sign or headline), the genre's distinctive letters, then the rest.
+- **Say what a reviewer checks.** The wrap-up and the Brief tab each name the class's node-economy
+  box, with the number of measured families behind it, and Google Fonts' packaging rules.
+- **Name the ranking.** Every best-first list says which ranking it uses: the starting references
+  are listed, not ranked; suggestions and the faces that already fit are closest to the targets
+  first; search is best name match first.
+- **One face per genre.** The cue faces for geometric, humanist and didone are Jost, Source Sans 3
+  and Playfair Display, built by `data/scripts/build_brief_cues.py`.
+- **Not built yet** (`docs/OPEN_QUESTIONS.md` 142): targets as box-plot rows, the Brief tab as
+  workbook Task 1, Read the reference in Overlay, and the stress dial.

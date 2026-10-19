@@ -92,10 +92,16 @@ def style_atlas_shim() -> str:
 
 
 def ethos_shim() -> str:
+    """project/Model.kt's declared-brief types without the rest of the project model: BriefSource,
+    ContrastModel, Use, Brief and StyleClass (Ethos's own siblings, one contiguous block in
+    Model.kt) alongside Ethos itself. brief/BriefEdits.kt's Brief.withEthos/withConfirmedStyleClass
+    need all of them to compile here, even though the prototype itself only ever touches Ethos
+    directly -- dead code elimination (-Xir-dce) drops the unused ones from the built page."""
     text = (ROOT / "project/src/commonMain/kotlin/com/asoc/typewright/project/Model.kt").read_text(encoding="utf-8")
-    start = text.index("data class Ethos(")
-    end = text.index("\n}\n", start) + 3
-    return "package com.asoc.typewright.project\n\n" + text[start:end]
+    start = text.index("enum class BriefSource")
+    start = text.rfind("/**", 0, start)
+    end = text.index("\ndata class WorkbookRecord(")
+    return "package com.asoc.typewright.project\n\n" + text[start:end].rstrip() + "\n"
 
 
 def compile_engine(home: Path) -> str:
@@ -145,6 +151,26 @@ def cue_font_faces() -> str:
     return "\n".join(rules)
 
 
+# The canvas's type (ui/v1-screens/README.md): IBM Plex Sans and Mono, the originals as downloaded
+# from IBM/plex, so embedding them is redistribution of the Original Version (OFL-1.1, THIRD_PARTY.md).
+PLEX_FILES = [
+    ("IBM Plex Sans", 400, "IBMPlexSans-Regular.ttf"),
+    ("IBM Plex Sans", 500, "IBMPlexSans-Medium.ttf"),
+    ("IBM Plex Sans", 600, "IBMPlexSans-SemiBold.ttf"),
+    ("IBM Plex Mono", 400, "IBMPlexMono-Regular.ttf"),
+    ("IBM Plex Mono", 500, "IBMPlexMono-Medium.ttf"),
+    ("IBM Plex Mono", 600, "IBMPlexMono-SemiBold.ttf"),
+]
+
+
+def plex_font_faces() -> str:
+    rules = []
+    for family, weight, name in PLEX_FILES:
+        data = base64.b64encode((ROOT / "ui/v1-screens/fonts" / name).read_bytes()).decode("ascii")
+        rules.append(f"@font-face{{font-family:'{family}';font-weight:{weight};src:url(data:font/ttf;base64,{data}) format('truetype');font-display:block}}")
+    return "\n".join(rules)
+
+
 def safe_script(text: str) -> str:
     return text.replace("</", "<\\/")
 
@@ -156,6 +182,7 @@ def main() -> None:
     page = (HERE / "prototype.html").read_text(encoding="utf-8")
     atlas = (ROOT / "data/style-atlas-latin.json").read_text(encoding="utf-8")
     example = base64.b64encode((ROOT / "fonts/HyleDeco-Regular.ttf").read_bytes()).decode("ascii")
+    page = page.replace("/*@PLEX_FONTS@*/", plex_font_faces())
     page = page.replace("/*@CUE_FONTS@*/", cue_font_faces())
     page = page.replace("<!--@ATLAS@-->", f'<script type="application/json" id="atlas">{safe_script(atlas)}</script>')
     page = page.replace("<!--@EXAMPLE_FONT@-->", f'<script type="text/plain" id="example-font">{example}</script>')

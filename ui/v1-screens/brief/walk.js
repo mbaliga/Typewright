@@ -11,6 +11,8 @@ const page_url = "file://" + process.argv[2];
 const shots = path.join(__dirname, "build", "shots");
 fs.mkdirSync(shots, { recursive: true });
 
+// An answer is a row of type (.choice) or, for short mono answers, a canvas chip (.chip).
+const ANSWER = ".choice, .chip";
 const DOORS = ["I know the style", "I know what it's for", "I know fonts I like", "I know the feeling", "I've drawn some letters", "I don't know yet"];
 
 async function run() {
@@ -40,16 +42,16 @@ async function run() {
         const prompt = (await page.textContent(".prompt")).trim();
         prompts.push(prompt);
         if (steps === 0) await page.screenshot({ path: `${shots}/${tag}-1-first.png`, fullPage: false });
-        const forward = await page.$$('.choice, button:has-text("Skip"), button:has-text("Done"), button:has-text("Set wordmark"), button:has-text("Use these answers")');
+        const forward = await page.$$('.choice, .chip, button:has-text("Skip"), .dk[aria-label="Done"], .dk[aria-label="Set"], .dk[aria-label="Use these answers"]');
         if (!forward.length) { problems.push(`${tag}: no way forward at "${prompt}"`); break; }
         if (prompt === "What is it for?") {
-          if (di === 1) await page.click('.choice:has-text("Watch face")').catch(() => page.click(".choice"));
-          await page.click('button:has-text("Done")');
+          if (di === 1) await page.click('.chip:has-text("Watch face")').catch(() => page.click(ANSWER));
+          await page.click('.dk[aria-label="Done"]');
         } else if (prompt === "What should it feel like?") {
-          const c = await page.$$(".choice");
+          const c = await page.$$(ANSWER);
           await c[0].click();
-          await (await page.$$(".choice"))[1].click();
-          await page.click('button:has-text("Done")');
+          await (await page.$$(ANSWER))[1].click();
+          await page.click('.dk[aria-label="Done"]');
         } else if (prompt === "Which fonts do you like?") {
           const before = await page.$$eval(".choice", (els) => els.map((e) => e.textContent));
           if (steps === 0 && di === 2) {
@@ -61,28 +63,30 @@ async function run() {
             await page.screenshot({ path: `${shots}/${tag}-1b-search.png` });
           }
           await page.click(".choice");
-          await page.click('button:has-text("Done")');
+          await page.click('.dk[aria-label="Done"]');
         } else if (prompt === "What does the wordmark say?") {
           await page.fill("#wordmark", "Typewright");
-          await page.click('button:has-text("Set wordmark")');
+          await page.click('.dk[aria-label="Set"]');
         } else if (prompt === "What do your letters already say?") {
           const ex = await page.$('button:has-text("Try the example letters")');
           if (!ex) { problems.push(`${tag}: mirror without letters offers no example`); }
           await page.screenshot({ path: `${shots}/${tag}-1a-mirror-empty.png` });
           await ex.click();
           await page.screenshot({ path: `${shots}/${tag}-1b-mirror-read.png`, fullPage: true });
-          await page.click('button:has-text("Use these answers")');
+          await page.click('.dk[aria-label="Use these answers"]');
         } else {
-          const c = await page.$(".choice");
+          const c = await page.$(ANSWER);
           if (c) await c.click(); else await page.click('button:has-text("Skip")');
         }
       }
       if (steps >= 60) problems.push(`${tag}: still asking after 60 steps`);
       const sentence = (await page.textContent(".sentence")).trim();
       await page.screenshot({ path: `${shots}/${tag}-2-wrap.png`, fullPage: true });
-      for (const need of ["See your guide", "Read the brief", "Try another door"]) {
-        if (!(await page.$(`button:has-text("${need}")`))) problems.push(`${tag}: wrap-up has no "${need}"`);
+      // The deck carries the way on: Draw first on the right, the three views on the arc, Back on the left.
+      for (const need of ['.dk[aria-label="Draw first"], .dk[aria-label="Draw next"]', '.dk[aria-label="Brief"]', '.dk[aria-label="Guide"]', '.dk[aria-label="Back"]']) {
+        if (!(await page.$(need))) problems.push(`${tag}: wrap-up deck has no ${need}`);
       }
+      if (!(await page.$('button:has-text("Try another door")'))) problems.push(`${tag}: wrap-up has no "Try another door"`);
       const settle = await page.$$eval(".tension .t", (els) => els.map((e) => e.textContent));
       const drawFirst = await page.$('.label:text-matches("^Draw (first|next)$") + .glyphs');
       const first = drawFirst ? (await drawFirst.textContent()).trim() : null;
@@ -96,28 +100,35 @@ async function run() {
         const focusedPrompt = (await page.textContent(".prompt")).trim();
         report.push(`${tag} settle → asks "${focusedPrompt}"`);
         await page.screenshot({ path: `${shots}/${tag}-2b-settle.png` });
-        await page.click(".choice");
+        await page.click(ANSWER);
       }
       // Ask more, then back to the wrap-up.
       if (more && di === 5) {
         await more.click();
         let extra = 0;
-        while (!(await page.$('.label:text-is("Your brief")')) && extra < 20) { await page.click(".choice"); extra++; }
+        while (!(await page.$('.label:text-is("Your brief")')) && extra < 20) { await page.click(ANSWER); extra++; }
         report.push(`${tag} ask more → ${extra} more questions, then the wrap-up again`);
       }
-      await page.click('button:has-text("Read the brief")');
+      await page.click('.dk[aria-label="Brief"]');
       await page.screenshot({ path: `${shots}/${tag}-3-brief.png`, fullPage: true });
       const faces = await page.$$eval(".face .t", (els) => els.map((e) => e.textContent));
-      if (!(await page.$('button:has-text("See your guide")'))) problems.push(`${tag}: Brief tab does not lead to the guide`);
-      await page.click('button:has-text("See your guide")');
+      if (!(await page.$('.dk[aria-label="Guide"]'))) problems.push(`${tag}: Brief tab does not lead to the guide`);
+      await page.click('.dk[aria-label="Guide"]');
       await page.screenshot({ path: `${shots}/${tag}-4-guide.png`, fullPage: true });
-      const startDrawing = await page.$$('button:has-text("Start drawing")');
-      if (!startDrawing.length) problems.push(`${tag}: guide has no Start drawing`);
+      const startDrawing = await page.$$('.dk[aria-label="Start drawing"]');
+      if (!startDrawing.length) problems.push(`${tag}: guide has no Start drawing on the deck`);
+      if (await page.$('.btn:has-text("Start drawing"), .btn:has-text("Draw first")')) problems.push(`${tag}: Start drawing is on the page as well as the deck`);
       await startDrawing[startDrawing.length - 1].click();
       const handoff = await page.$('.label:text-is("Draw opens with")');
       if (!handoff) problems.push(`${tag}: Start drawing does not hand off`);
       await page.screenshot({ path: `${shots}/${tag}-5-handoff.png` });
       await page.click('button:has-text("Use the example letters")');
+      // Every section label on the arc answers a tap (the app goes there; the prototype says so).
+      for (const section of ["Capture", "Trace", "Home"]) {
+        if (!(await page.$(`.dk[aria-label="${section}"]`))) continue;
+        await page.click(`.dk[aria-label="${section}"]`);
+        if (!(await page.$(".toast"))) problems.push(`${tag}: a tap on ${section} did nothing`);
+      }
       const drift = await page.$$eval(".label", (els) => els.map((e) => e.textContent));
       const driftItems = await page.$$eval(".item .t", (els) => els.map((e) => e.textContent).filter((t) => /off target|close|on target/.test(t)));
       await page.screenshot({ path: `${shots}/${tag}-6-guide-measured.png`, fullPage: true });

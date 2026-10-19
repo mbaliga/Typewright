@@ -57,10 +57,23 @@ canvas dissolves behind it.
 - The current section sits at the apex as an ink block with paper text (§5.4 of the brief).
   Its neighbours are plain ink text, fading with distance along the arc (100 / 70 / 40 %).
   About five labels show at once. Labels follow the arc's tangent.
-- **Swipe along the arc** to rotate it. On release it settles, and the section at the apex
-  opens (600 ms camera pan, the brief's curve). **Tap** a label to go there. **Long-press**
-  opens the Map (S24).
-- Keyboard: ← → move by section (unless the canvas has focus), M opens the Map.
+- **The arc is live.** Each label is a hit target at least 44 dp tall that a screen reader
+  names, and the current one is announced as the current page. **Swipe along the arc** to
+  rotate it. On release it settles, and the section at the apex opens (600 ms camera pan, the
+  brief's curve). **Tap** a label to go there. **Long-press** opens the Map (S24).
+- Each label carries its station's status shape from the Home stations (● to refit, ○ not
+  started, ✓ done), so this level also tells you where the work is.
+- Keyboard: ← → step between sections, digits 1–9 jump straight to one, M opens the Map. They
+  are ignored while a text field, a list or a radio group has focus, or anything else that
+  uses the arrows itself, so the deck never steals a key; Esc always leaves, as the left
+  circle does.
+- On Android rotation ticks lightly at each section and more firmly when it settles. Reduced
+  motion settles instantly.
+- **The Brief sits under the section it was opened from**: Home, or Workbook when opened from
+  Task 1. That section is current and live, not dimmed.
+- Sections are dimmed only in a flow that commits nothing until it finishes (S02, new
+  project). A tap on a dimmed section says why in one line on the glass ("Finish or close the
+  new project first"); it never silently does nothing.
 - Draw and Space are regions of one sheet, so switching between them pans the sheet rather
   than changing screens.
 
@@ -69,7 +82,7 @@ canvas dissolves behind it.
 | State | Look | Used when | Does |
 |---|---|---|---|
 | **Back** | ink ring, ‹ glyph | the default | Goes up one level: a sub-view → its section. A section → Home. Home → Projects. Nothing is lost, because everything autosaves. |
-| **Close** | red fill, white ✕ | a modal state, a flow that commits nothing until finished (new project, import audit, camera, theme editor with unsaved changes), or an edit mode | Leaves without committing. If there's something to lose, an ink-block confirmation appears on the glass first ("Discard 3 captured sheets?"), as §4.5 of the brief allows. |
+| **Close** | red fill, white ✕ | only where leaving discards something: a flow that commits nothing until finished (new project, import audit, camera, theme editor with unsaved changes), or an edit mode. Not the Brief, whose answers autosave: its left circle is Back, at the doors too. | Leaves without committing. If there's something to lose, an ink-block confirmation appears on the glass first ("Discard 3 captured sheets?"), as §4.5 of the brief allows. |
 | hidden | — | Projects (the root) | — |
 
 System back (Android back, Esc, browser back) always does what the left circle does.
@@ -85,6 +98,12 @@ System back (Android back, Esc, browser back) always does what the left circle d
 |---|---|
 | Projects | **+** new project |
 | New project | **→** next / **✓** create |
+| Brief: doors, a single-choice question, revisiting one answer, the Brief tab | **⋯** |
+| Brief: a several-choice question (uses, feelings, references) | **✓** done |
+| Brief: the wordmark | **✓** set |
+| Brief: the Mirror, after a reading | **✓** use these answers |
+| Brief: the Mirror with nothing drawn, and the Guide | **→** start drawing |
+| Brief: the wrap-up | **→** draw first (draw next once letters exist) |
 | Capture (sheets) | **+** add sheet (camera, gallery or file) |
 | Camera | **shutter** (a filled ink ring). It arms itself once all four fiducials lock. |
 | Trace | **✓** accept glyph, then go to the next one |
@@ -93,14 +112,27 @@ System back (Android back, Esc, browser back) always does what the left circle d
 | Theme editor | **✓** save theme |
 | everything else | **⋯** |
 
+The primary action is removed from the page, so it has one place. The ⋯ menu's first item is
+always "Command…"; for the Brief it goes on to Try another door, Start over (an ink-block
+confirmation first), Read the brief and See your guide. A circle with no job is hidden, never
+drawn as a button that does nothing.
+
 The primary-action circle is filled ink with a paper glyph. The ⋯ circle is an ink ring. A
 circle whose action is unavailable (Ship blocked by fails) stays visible at 35% and
 explains itself on tap.
 
-### 2.4 Toggle arc: page-level toggles only
+### 2.4 Toggle arc: views of this page
 
-- It holds only switches that change **how the whole page shows**. Never navigation, the
-  heading, or one-off actions.
+- It holds the **views this page already has**, and nothing else, and every seat does one of
+  three things: it switches a view, it scrolls to a section the page has (then moves focus to
+  that section's heading), or it opens another page, shown as a seat that visibly goes
+  somewhere (a trailing ›). Going to another page by any other seat is not allowed. One
+  module, `ui/deck/DeckSeats.kt`, says for each page and state which seats show and what the
+  two circles are.
+- Labels are at most 10 characters, the first seat is the default, each page remembers its
+  last seat (and drops one it no longer has), and a page in a state no seat names shows none
+  pressed. A page's own controls and the arc stay in step both ways.
+- A seat that cannot be chosen yet shows at 35% and says why on tap.
 - A segmented group has 2–4 options, the selected one as an ink block. A binary switch is a
   word that becomes an ink block when on. Two groups at most, separated by a gap.
 - If a page has no toggles, the arc shows as an empty hairline, so the deck's shape never
@@ -118,7 +150,8 @@ explains itself on tap.
 | Ship | Google Fonts · Own licence |
 | Learn | Lineages · Overlay · Lens · Scrapbook |
 | Workbook | This task · All tasks |
-| Brief | Ask · Brief · Guide |
+| Brief | Ask · Brief · Guide, always, at the doors too (Ask pressed) |
+| New project | Source · Brief · Metrics (a later step once the earlier ones are valid) |
 | Settings, About, Font info | (empty) |
 | Theme editor | Light · Dark preview |
 
@@ -275,16 +308,25 @@ defaults from §2.
   empty; right **→** on steps 1–2, **✓** on step 3.
 - **Content:**
   1. *Source:* Draw on paper · Open a font · Start blank.
-  2. *Brief:* name; scripts (Latin, plus Kana · Devanagari · Naskh marked Preview); intent
-     (serif / sans · text / display); the closest class as chips with their corpus n
-     ("geometric sans · n 30"); an optional one-line note.
+  2. *Brief:* drawn on the canvas as `NewProject` (`ui/v1-screens/NewProject.dc.html`): a step
+     strip, **Name**, **Scripts** (Latin, plus Kana · Devanagari · Naskh marked Preview),
+     **Intent** (Serif · Sans, Text · Display), **Closest class · what you will be measured
+     against** (each class with its corpus count, as in *Art deco · n 8*, then *Not sure*), a
+     line under them, and **One line about it**, optional. These are the Brief's own Style and
+     Use doors asked the short way (docs/HANDOFF_BRIEF_FOLD.md, decision D18: one record, one
+     reader): a class chip sets the ethos's genre, Text and Display set its main use, and Serif
+     and Sans narrow which classes are offered. *Not sure* leaves for the other doors (S25).
+     There is no separate intent or class picker. The canvas's in-page step tabs (Source · Brief ·
+     Metrics) are the toggle arc's seats instead (§2.4); a later step opens once the earlier
+     ones are valid, and there is no in-page tab row.
   3. *Metrics:* UPM 1000; x-height, cap, ascender and descender prefilled from the class
-     median, each editable and each showing that median; the folder location.
+     median, each editable and each showing that median (not yet built: the atlas carries no
+     absolute metric to prefill from, OPEN_QUESTIONS 138); the folder location.
 - **States:** a name clash; a folder that isn't writable.
 - **Data:** writes `<name>/` with `<name>-Regular.ufo`, `typewright.json` (the declared
   style) and empty `scrapbook/`, `lessons/` and `comparisons/` folders.
 - **Done when:** the UFO passes ufoLib validation and the project opens on Capture (paper),
-  S03 (a font) or Draw (blank).
+  S03 (a font) or the Brief's doors (blank).
 
 ### S03 Import audit (modal ink block)
 - **Purpose:** the licence and attribution check on import (§4.5 of the brief). One of

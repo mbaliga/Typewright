@@ -2,7 +2,10 @@
 
 package com.asoc.typewright.brief
 
+import com.asoc.typewright.project.Brief
+import com.asoc.typewright.project.BriefSource
 import com.asoc.typewright.project.Ethos
+import com.asoc.typewright.project.Use
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -85,5 +88,24 @@ class EthosEditsTest {
     @Test
     fun aBlankWordmarkClearsIt() {
         assertNull(Ethos(wordmark = "x").withWordmark("  ").wordmark)
+    }
+
+    @Test
+    fun theIntentChipsPutTheirUseFirstAndSwapEachOther() {
+        val display = Ethos().withUseToggled("watch-face").withIntentUse(Use.DISPLAY)
+        assertEquals(listOf("headline", "watch-face"), display.uses)
+
+        val text = display.withIntentUse(Use.TEXT)
+        assertEquals(listOf("body-text", "watch-face"), text.uses)
+        assertEquals(Use.TEXT, Brief(BriefSource.BLANK).withEthos(text).use)
+
+        assertEquals(listOf("watch-face"), text.withIntentUse(null).uses)
+        assertEquals(display, display.withIntentUse(Use.DISPLAY))
+    }
+
+    @Test
+    fun anIntentChipMovesAnExistingUseToTheFront() {
+        val e = Ethos().withUseToggled("watch-face").withUseToggled("headline").withIntentUse(Use.DISPLAY)
+        assertEquals(listOf("headline", "watch-face"), e.uses)
     }
 }

@@ -1,0 +1,93 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>New project</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+@font-face { font-family: "Hyle Deco"; src: url(/_blob/87ef2c1f7693e8b7acd70e03d6088e45) format("truetype"); }
+body { margin: 0; background: #EFE9DC; }
+.m { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+.chip { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; padding: 6px 9px; border: 0; background: transparent; color: #17150F; }
+.on { background: #17150F; color: #EFE9DC; }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #EFE9DC; color: #17150F; font-family: 'IBM Plex Sans', system-ui, sans-serif">
+<svg width="390" height="844" style="position: absolute; left: 0; top: 0; opacity: 0.55; mix-blend-mode: multiply; pointer-events: none" aria-hidden="true"><filter id="gr"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"></feTurbulence><feColorMatrix values="0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.22 0 0 0 0.26 0"></feColorMatrix></filter><rect width="390" height="844" filter="url(#gr)"></rect></svg>
+
+<div style="position: absolute; left: 22px; top: 56px; right: 22px; display: flex; flex-direction: column; gap: 3px">
+<div style="font-size: 15px; font-weight: 600">New project</div>
+<div class="m" style="color: #6F6A5E; font-size: 9.5px">Step 2 of 3 · the brief</div>
+</div>
+
+<div style="position: absolute; left: 22px; top: 118px; right: 22px; display: flex; flex-direction: column; gap: 22px">
+
+<div style="display: flex; gap: 14px" class="m">
+<span style="opacity: 0.45">1 Source · paper</span>
+<span style="background: #17150F; color: #EFE9DC; padding: 2px 6px">2 Brief</span>
+<span style="opacity: 0.45">3 Metrics</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="pname" class="m" style="color: #6F6A5E; font-size: 9.5px">Name</label>
+<input id="pname" value="Hyle Deco Redraw" style="font-family: 'IBM Plex Sans', sans-serif; font-size: 20px; font-weight: 500; border: 0; border-bottom: 1px solid rgba(23,21,15,0.35); background: transparent; color: #17150F; padding: 4px 0; outline: none">
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div class="m" style="color: #6F6A5E; font-size: 9.5px">Scripts</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<button class="chip on">Latin · 120</button>
+<button class="chip">Kana · 112 · preview</button>
+<button class="chip">Devanagari · 68 · preview</button>
+<button class="chip">Naskh · 49 · preview</button>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div class="m" style="color: #6F6A5E; font-size: 9.5px">Intent</div>
+<div style="display: flex; gap: 18px">
+<div style="display: flex; gap: 4px"><button class="chip">Serif</button><button class="chip on">Sans</button></div>
+<div style="display: flex; gap: 4px"><button class="chip">Text</button><button class="chip on">Display</button></div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div class="m" style="color: #6F6A5E; font-size: 9.5px">Closest class · what you will be measured against</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<button class="chip on">Art deco · n 8</button>
+<button class="chip">Geometric sans · n 30</button>
+<button class="chip">Grotesque · n 30</button>
+<button class="chip">Humanist sans · n 30</button>
+<button class="chip">Not sure</button>
+</div>
+<div style="font-size: 12.5px; line-height: 1.45; color: #6F6A5E; max-width: 330px">Only 8 art deco families on Google Fonts qualify, so its boxes are wide. Typewright will also infer a class from your letters, show its evidence, and ask you to confirm.</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="pnote" class="m" style="color: #6F6A5E; font-size: 9.5px">One line about it · optional</label>
+<input id="pnote" placeholder="A monolinear deco for headlines" style="font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; border: 0; border-bottom: 1px solid rgba(23,21,15,0.35); background: transparent; color: #17150F; padding: 4px 0; outline: none">
+</div>
+
+</div>
+
+<div style="position: absolute; left: 0; top: 672px; width: 390px; height: 172px">
+<dc-import name="Deck" section="Home" left="close" right="next" toggles="" dim-sections="true" hint-size="390px,172px"></dc-import>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
