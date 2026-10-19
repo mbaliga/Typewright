@@ -36,6 +36,7 @@ import com.asoc.typewright.scripts.kana.HIRAGANA_GLYPH_INVENTORY
 import com.asoc.typewright.scripts.kana.KATAKANA_GLYPH_INVENTORY
 import com.asoc.typewright.ui.deck.ownsDeckKeys
 import com.asoc.typewright.ui.tokens.CanvasTexture
+import com.asoc.typewright.ui.tokens.MeaningColors
 import com.asoc.typewright.ui.tokens.toColor
 
 /**
@@ -70,7 +71,7 @@ internal fun NewProjectStep(
         Field(label = "Scripts", texture = texture) {
             Chips {
                 for (choice in SCRIPT_CHOICES) {
-                    Chip(label = choice.chipLabel, on = draft.has(choice), texture = texture) { draft.toggle(choice) }
+                    Chip(label = choice.chipLabel(draft.has(choice)), on = draft.has(choice), texture = texture) { draft.toggle(choice) }
                 }
             }
         }
@@ -110,13 +111,15 @@ internal fun NewProjectStep(
                             ?.get(genre.key)
                             ?.n
                     Chip(
-                        label = if (count == null) genre.name else "${genre.name} · n $count",
+                        label = genre.name,
                         on = state.ethos.genre == genre.key,
                         texture = texture,
+                        count = count?.toString(),
                     ) { state.chooseGenre(if (state.ethos.genre == genre.key) null else genre.key) }
                 }
                 Chip(label = "Not sure", on = false, texture = texture, onClick = state::notSure)
             }
+            Small(text = "The number is how many measured families are behind each class.", texture = texture)
             val chosen = genreByKey(state.ethos.genre)?.takeIf { it.corpus }
             BasicText(
                 text =
@@ -178,7 +181,7 @@ private fun UnderlineField(
 ) {
     val fg = texture.fg.toColor()
     var focused by remember { mutableStateOf(false) }
-    Box(modifier = Modifier.fillMaxWidth().underline(texture.ink.toColor()).padding(vertical = 4.dp)) {
+    Box(modifier = Modifier.fillMaxWidth().fieldFocus(MeaningColors.VIOLET.forTexture(texture.id).toColor()).padding(vertical = 4.dp)) {
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
@@ -279,9 +282,12 @@ internal val SCRIPT_CHOICES: List<ScriptChoice> =
         ScriptChoice("Naskh", listOf(WritingScript.ARABIC_NASKH.isoCode), ArabicGlyphInventory.build().glyphs.size, preview = true),
     )
 
-/** The chip's text: the script, its glyph count where there is one, and "preview" where it is one. */
-internal val ScriptChoice.chipLabel: String
-    get() = listOfNotNull(label, glyphs?.toString(), "preview".takeIf { preview }).joinToString(" · ")
+/**
+ * The chip's text, as the explorer's Home `.schips` set it: a shape (● in the project, ○ not), the
+ * script, the glyphs the app holds for it where there is a count, and "preview" where it is one.
+ */
+internal fun ScriptChoice.chipLabel(inProject: Boolean): String =
+    listOfNotNull(if (inProject) "●" else "○", label, glyphs?.toString(), "preview".takeIf { preview }).joinToString(" ")
 
 /**
  * The board's fields that are not the Brief's own answers: the project's name, its scripts and a

@@ -51,9 +51,9 @@ class NewProjectStepTest {
 
     @Test
     fun theScriptChipsCarryTheCountsTheAppReallyHolds() {
-        val labels = SCRIPT_CHOICES.map { it.chipLabel }
-        assertEquals("Latin", labels.first())
-        assertTrue(labels.drop(1).all { it.endsWith("· preview") && Regex("\\d+").containsMatchIn(it) }, labels.toString())
+        val labels = SCRIPT_CHOICES.map { it.chipLabel(inProject = false) }
+        assertTrue(labels.first().endsWith("Latin"))
+        assertTrue(labels.drop(1).all { it.endsWith(" preview") && Regex("\\d+").containsMatchIn(it) }, labels.toString())
     }
 
     @Test

@@ -145,6 +145,23 @@ class BriefScreenScreenshotTest {
     }
 
     @Test
+    fun rendersTheDoorsAndAQuestionOnEveryTexture() {
+        for (texture in CanvasTextures.ALL) {
+            val id = texture.id.name.lowercase()
+            val doors =
+                ScreenshotHarness.capture(name = "brief-screen-texture-$id-doors", width = 780, height = 1688, density = 2f) {
+                    BriefScreen(texture = texture, state = stateOn(BriefScreenTab.ASK))
+                }
+            assertTrue(doors.file.length() > 0, id)
+            val question =
+                ScreenshotHarness.capture(name = "brief-screen-texture-$id-question", width = 780, height = 1688, density = 2f) {
+                    BriefScreen(texture = texture, state = stateOn(BriefScreenTab.ASK, door = Door.FEELING))
+                }
+            assertTrue(question.file.length() > 0, id)
+        }
+    }
+
+    @Test
     fun rendersTheBriefTab() {
         val shot =
             ScreenshotHarness.capture(name = "brief-screen-brief", width = 780, height = 1688, density = 2f) {

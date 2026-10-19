@@ -39,9 +39,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -651,7 +653,7 @@ private fun SectionLabel(
 
 /** A line of muted text under a prompt or beside a control (12.5 sp, 330 wide at most). */
 @Composable
-private fun Small(
+internal fun Small(
     text: String,
     texture: CanvasTexture,
 ) {
@@ -669,7 +671,10 @@ private fun NoteMono(
 
 private const val READING_WIDTH = 330
 
-/** A square, flat button: an ink outline, or an ink block with paper text when [filled]. */
+/**
+ * The explorer's buttons: [filled] is `.btn.primary`, an ink block, square, sans 12.5 semibold;
+ * otherwise `.btn`, violet text, semibold. No outline and no mono or upper case on a button.
+ */
 @Composable
 private fun ActionButton(
     label: String,
@@ -677,20 +682,19 @@ private fun ActionButton(
     onClick: () -> Unit,
     filled: Boolean = false,
 ) {
-    val ink = texture.ink.toColor()
-    val canvas = texture.canvas.toColor()
-    Box(
+    val violet = MeaningColors.VIOLET.forTexture(texture.id).toColor()
+    BasicText(
+        text = label,
+        style = bodyStyle(if (filled) texture.canvas.toColor() else violet, weight = FontWeight.SemiBold),
         modifier =
             Modifier
-                .let { if (filled) it.background(ink) else it.border(1.dp, ink) }
+                .let { if (filled) it.background(texture.ink.toColor()) else it }
                 .clickable(onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 11.dp),
-    ) {
-        BasicText(text = label.uppercase(), style = monoStyle(if (filled) canvas else ink, sizeSp = 10.0))
-    }
+                .padding(horizontal = 12.dp, vertical = 7.dp),
+    )
 }
 
-/** The tertiary action: the canvas's violet link, sans, semibold, with a trailing ›. */
+/** `.btn.quiet`: muted text, for the way out of a step that is not the way on. */
 @Composable
 private fun ActionLink(
     label: String,
@@ -698,9 +702,9 @@ private fun ActionLink(
     onClick: () -> Unit,
 ) {
     BasicText(
-        text = "$label ›",
-        style = bodyStyle(MeaningColors.VIOLET.forTexture(texture.id).toColor(), weight = FontWeight.SemiBold),
-        modifier = Modifier.clickable(onClick = onClick).padding(horizontal = 2.dp, vertical = 4.dp),
+        text = label,
+        style = bodyStyle(texture.muted.toColor(), weight = FontWeight.SemiBold),
+        modifier = Modifier.clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 7.dp),
     )
 }
 
@@ -719,26 +723,36 @@ private fun ButtonRow(
     ) { content() }
 }
 
-/** A chip: mono, no border; the chosen one is an ink block with paper text. */
+/**
+ * The explorer's `.seg` / `.styles` choice: sans 12, muted; the chosen one is an ink block with paper
+ * text, semibold. A [count] is a muted small after the label, paper-coloured at 70% when chosen.
+ */
 @Composable
 internal fun Chip(
     label: String,
     on: Boolean,
     texture: CanvasTexture,
+    count: String? = null,
     onClick: () -> Unit,
 ) {
-    val ink = texture.ink.toColor()
-    Box(
+    val paper = texture.canvas.toColor()
+    val muted = texture.muted.toColor()
+    Row(
         modifier =
             Modifier
-                .let { if (on) it.background(ink) else it }
+                .let { if (on) it.background(texture.ink.toColor()) else it }
                 .clickable(onClick = onClick)
-                .padding(horizontal = 9.dp, vertical = 6.dp),
+                .padding(horizontal = 6.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.Bottom,
     ) {
         BasicText(
-            text = label.uppercase(),
-            style = monoStyle(if (on) texture.canvas.toColor() else ink, sizeSp = 10.0).copy(letterSpacing = 0.12.em),
+            text = label,
+            style = bodyStyle(if (on) paper else muted, sizeSp = 12.0, weight = if (on) FontWeight.SemiBold else FontWeight.Normal),
         )
+        if (count != null) {
+            BasicText(text = count, style = bodyStyle(if (on) paper.copy(alpha = 0.7f) else muted, sizeSp = 11.0))
+        }
     }
 }
 
@@ -746,7 +760,7 @@ internal fun Chip(
 @Composable
 internal fun Chips(content: @Composable () -> Unit) {
     @OptIn(ExperimentalLayoutApi::class)
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { content() }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
 }
 
 /** The note a chosen chip leaves under the row: its name in bold, then what it means. */
@@ -885,19 +899,14 @@ private const val SPECIMEN_COLUMN = 76
 /** How strongly muted text shows on an ink block. */
 private const val ON_INK_MUTED_ALPHA = 0.72f
 
-/** A rule down the left edge: a tension reads as one thing to decide, without a box around it. */
-private fun Modifier.leftRule(color: Color): Modifier =
-    drawBehind { drawRect(color = color, size = Size(LEFT_RULE_WIDTH.dp.toPx(), size.height)) }
-
-/** A text field's underline (ink at 35%), in place of a box. */
-internal fun Modifier.underline(color: Color): Modifier =
-    drawBehind {
-        val stroke = 1.dp.toPx()
-        drawRect(color = color.copy(alpha = FIELD_LINE_ALPHA), topLeft = Offset(0f, size.height - stroke), size = Size(size.width, stroke))
+/** The explorer's `.fld`: no box and no rule, and the 2 px violet outline while it has focus. */
+internal fun Modifier.fieldFocus(violet: Color): Modifier =
+    composed {
+        var focused by remember { mutableStateOf(false) }
+        onFocusChanged { focused = it.hasFocus }.then(if (focused) Modifier.border(FOCUS_OUTLINE.dp, violet) else Modifier)
     }
 
-private const val FIELD_LINE_ALPHA = 0.35f
-private const val LEFT_RULE_WIDTH = 2
+private const val FOCUS_OUTLINE = 2
 
 private fun sourceLine(source: Source): String = "${source.kind.label} · ${source.citation}"
 
@@ -945,35 +954,31 @@ private fun TensionCard(
 ) {
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(vertical = 6.dp)
-                .leftRule(texture.ink.toColor())
-                .padding(start = 14.dp, top = 2.dp, bottom = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        BasicText(text = title, style = bodyStyle(fg, sizeSp = 13.0, weight = FontWeight.SemiBold))
-        BasicText(text = body, style = bodyStyle(fg))
-        if (source != null) SourceLine(text = sourceLine(source), muted = muted)
-        if (signature != null || dimension != null) {
-            ButtonRow(modifier = Modifier.padding(top = 4.dp)) {
-                if (signature != null) {
-                    val kept = signature in state.model.signatures
-                    ActionButton(
-                        label = if (kept) "Signature kept" else "Keep as signature",
-                        texture = texture,
-                        onClick = { state.toggleSignature(signature) },
-                        filled = kept,
-                    )
-                }
-                if (dimension != null) {
-                    ActionButton(
-                        label = if (state.model.answer(dimension) == null) "Answer it" else "Change answer",
-                        texture = texture,
-                        onClick = { state.askAbout(dimension) },
-                    )
+    // A Check report item: an 11 dp severity shape (○, info, for a tension), a mono title, one
+    // sentence, then violet actions. No rule and no box.
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        BasicText(text = "○", style = bodyStyle(fg, sizeSp = 11.0), modifier = Modifier.padding(top = 2.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            BasicText(text = title, style = monoStyle(fg, sizeSp = 12.0).copy(letterSpacing = 0.sp))
+            BasicText(text = body, style = bodyStyle(fg))
+            if (source != null) SourceLine(text = sourceLine(source), muted = muted)
+            if (signature != null || dimension != null) {
+                ButtonRow {
+                    if (signature != null) {
+                        val kept = signature in state.model.signatures
+                        ActionButton(
+                            label = if (kept) "Signature kept ›" else "Keep as signature ›",
+                            texture = texture,
+                            onClick = { state.toggleSignature(signature) },
+                        )
+                    }
+                    if (dimension != null) {
+                        ActionButton(
+                            label = if (state.model.answer(dimension) == null) "Answer it ›" else "Change answer ›",
+                            texture = texture,
+                            onClick = { state.askAbout(dimension) },
+                        )
+                    }
                 }
             }
         }
@@ -1342,7 +1347,7 @@ private fun WordmarkView(
 ) {
     val fg = texture.fg.toColor()
     StepPrompt(step = step, texture = texture)
-    Box(modifier = Modifier.fillMaxWidth().underline(texture.ink.toColor()).padding(vertical = 4.dp)) {
+    Box(modifier = Modifier.fillMaxWidth().fieldFocus(MeaningColors.VIOLET.forTexture(texture.id).toColor()).padding(vertical = 4.dp)) {
         BasicTextField(
             value = draft,
             onValueChange = onDraft,
@@ -1528,7 +1533,14 @@ private fun SearchField(
 ) {
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()
-    Box(modifier = Modifier.fillMaxWidth().underline(texture.ink.toColor()).padding(top = 18.dp, bottom = 4.dp)) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .fieldFocus(
+                    MeaningColors.VIOLET.forTexture(texture.id).toColor(),
+                ).padding(top = 18.dp, bottom = 4.dp),
+    ) {
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
@@ -1573,13 +1585,7 @@ private fun ReadDrawingView(
     }
     val reading = step.reading
     if (reading != null) {
-        SectionLabel(text = "Reads as", texture = texture)
-        for (vote in reading.genres) {
-            BasicText(
-                text = "${vote.genre.name}: ${vote.votes} of the ${reading.k} nearest faces",
-                style = bodyStyle(fg),
-            )
-        }
+        ReadsAs(reading = reading, measured = step.levels.values.map { it.phrase }, texture = texture)
         ConfirmStyleClassAction(reading = reading, state = state, texture = texture)
     }
     if (step.levels.isNotEmpty()) {
@@ -1693,11 +1699,33 @@ private fun ReadingSection(
     val atlas = state.atlas ?: return
     val reading = remember(state.drawing, atlas) { readAs(state.drawing.measurement, atlas) } ?: return
     val fg = texture.fg.toColor()
-    SectionLabel(text = "Your letters read as", texture = texture)
-    for (vote in reading.genres) {
-        BasicText(text = "${vote.genre.name}: ${vote.votes} of the ${reading.k} nearest faces", style = bodyStyle(fg))
-    }
+    SectionLabel(text = "Your letters", texture = texture)
+    ReadsAs(reading = reading, measured = emptyList(), texture = texture)
     ButtonRow { ConfirmStyleClassAction(reading = reading, state = state, texture = texture) }
+}
+
+/**
+ * The explorer's Economy `.reads`: "Reads as <genre>" as an ink block, how sure it is in muted
+ * 11.5 (the votes among the nearest measured faces, with the runners-up), then what was measured.
+ */
+@Composable
+private fun ReadsAs(
+    reading: Reading,
+    measured: List<String>,
+    texture: CanvasTexture,
+) {
+    val top = reading.genres.firstOrNull() ?: return
+    val muted = texture.muted.toColor()
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        BasicText(
+            text = "Reads as ${top.genre.name}",
+            style = bodyStyle(texture.canvas.toColor(), sizeSp = 12.5, weight = FontWeight.SemiBold),
+            modifier = Modifier.background(texture.ink.toColor()).padding(horizontal = 6.dp, vertical = 2.dp),
+        )
+        val others = reading.genres.drop(1).joinToString("") { " · ${it.genre.name.lowercase()} ${it.votes}" }
+        BasicText(text = "${top.votes} of the ${reading.k} nearest faces$others", style = bodyStyle(muted, sizeSp = 11.5))
+        if (measured.isNotEmpty()) BasicText(text = "measured: ${measured.joinToString(" · ")}", style = bodyStyle(muted, sizeSp = 11.5))
+    }
 }
 
 @Composable
