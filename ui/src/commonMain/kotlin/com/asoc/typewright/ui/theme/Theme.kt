@@ -127,3 +127,6 @@ object Themes {
             ThemeRole.COMPARISON_4 to texture.muted,
         )
 }
+
+/** The colour of [role] on this texture: the theme's own, or the built-in default for the texture. */
+fun CanvasTexture.colorOf(role: ThemeRole): Argb = roles[role] ?: Themes.defaultRoles(this).getValue(role)

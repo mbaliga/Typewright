@@ -32,14 +32,20 @@ import com.asoc.typewright.ui.learn.LearnScreen
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.project.LocalZipTransferSupported
 import com.asoc.typewright.ui.project.rememberProjectWorkspace
+import com.asoc.typewright.ui.settings.AboutScreen
+import com.asoc.typewright.ui.settings.SettingsScreen
+import com.asoc.typewright.ui.settings.ThemeEditorScreen
+import com.asoc.typewright.ui.settings.ThemeEditorState
 import com.asoc.typewright.ui.sheet.TypewrightSheet
 import com.asoc.typewright.ui.shell.HomeScreen
+import com.asoc.typewright.ui.shell.LocalOpenSettings
 import com.asoc.typewright.ui.shell.LocalSectionNav
 import com.asoc.typewright.ui.shell.MapScreen
 import com.asoc.typewright.ui.shell.SectionNav
 import com.asoc.typewright.ui.shell.StubSection
 import com.asoc.typewright.ui.theme.AppearanceState
 import com.asoc.typewright.ui.theme.LocalAppearance
+import com.asoc.typewright.ui.theme.Theme
 import com.asoc.typewright.ui.workbook.WorkbookScreen
 import com.asoc.typewright.ui.workbook.rememberWorkbookScreenUiState
 
@@ -91,6 +97,7 @@ fun TypewrightApp(
         LocalOpenNewProjectBrief provides navState::openNewProjectBrief,
         LocalSectionNav provides nav,
         LocalAppearance provides appearance,
+        LocalOpenSettings provides navState::openSettings,
         LocalDensity provides Density(density.density, density.fontScale * appearance.settings.textScale.toFloat()),
     ) {
         Box(modifier = modifier.fillMaxSize()) {
@@ -103,6 +110,49 @@ fun TypewrightApp(
                 deckVisible = onSheet && !navState.showBrief && !navState.mapOpen,
             )
             when {
+                navState.overlay == AppOverlay.SETTINGS -> {
+                    SettingsScreen(
+                        appearance = appearance,
+                        texture = texture,
+                        section = navState.section,
+                        onBack = navState::closeOverlay,
+                        onCustomTheme = navState::openThemeEditor,
+                        onAbout = navState::openAbout,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+
+                navState.overlay == AppOverlay.THEME_EDITOR && navState.editorBase != null -> {
+                    val base = navState.editorBase!!
+                    val editor =
+                        remember(navState.editorToken) {
+                            ThemeEditorState(
+                                base,
+                                appearance.freshId(navState.editorExisting?.name ?: "${base.name} copy"),
+                                navState.editorExisting,
+                            )
+                        }
+                    ThemeEditorScreen(
+                        state = editor,
+                        section = navState.section,
+                        onSave = {
+                            appearance.saveTheme(it)
+                            navState.closeOverlay()
+                        },
+                        onLeave = navState::closeOverlay,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+
+                navState.overlay == AppOverlay.ABOUT -> {
+                    AboutScreen(
+                        texture = texture,
+                        section = navState.section,
+                        onBack = navState::closeOverlay,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+
                 navState.mapOpen -> {
                     MapScreen(
                         texture = texture,
@@ -175,6 +225,9 @@ fun TypewrightApp(
     }
 }
 
+/** The states that sit under a section (SCREENS_V1 S21–S23). */
+enum class AppOverlay { SETTINGS, THEME_EDITOR, ABOUT }
+
 /**
  * The router's state: the current [section], whether the [Map][mapOpen] is open, and whether the
  * Brief is open over the section it was opened from ([briefFrom]). A plain class over Compose state,
@@ -203,6 +256,41 @@ class TypewrightAppNavState(
     /** True while the Map (S24) covers the screen. */
     var mapOpen: Boolean by mutableStateOf(false)
 
+    /** A state that sits under the current section, which stays current but dimmed and inert: Settings, the theme editor or About. */
+    var overlay: AppOverlay? by mutableStateOf(null)
+        internal set
+
+    /** The theme the editor opened with, and the custom theme it is editing (null for a new one); [editorToken] changes on each open so its state starts fresh. */
+    var editorBase: Theme? by mutableStateOf(null)
+        private set
+    var editorExisting: Theme? by mutableStateOf(null)
+        private set
+    var editorToken: Int by mutableStateOf(0)
+        private set
+
+    fun openSettings() {
+        overlay = AppOverlay.SETTINGS
+    }
+
+    fun openAbout() {
+        overlay = AppOverlay.ABOUT
+    }
+
+    fun openThemeEditor(
+        base: Theme,
+        existing: Theme? = null,
+    ) {
+        editorBase = base
+        editorExisting = existing
+        editorToken += 1
+        overlay = AppOverlay.THEME_EDITOR
+    }
+
+    /** Back from an overlay: the editor and About go back to Settings, and Settings goes back to the screen under it. */
+    fun closeOverlay() {
+        overlay = if (overlay == AppOverlay.SETTINGS) null else AppOverlay.SETTINGS
+    }
+
     val showLearn: Boolean get() = section == DeckSection.LEARN && !showBrief
     val showWorkbook: Boolean get() = section == DeckSection.WORKBOOK && !showBrief
 
@@ -225,6 +313,7 @@ class TypewrightAppNavState(
     fun goToSection(target: DeckSection) {
         showBrief = false
         mapOpen = false
+        overlay = null
         section = target
     }
 

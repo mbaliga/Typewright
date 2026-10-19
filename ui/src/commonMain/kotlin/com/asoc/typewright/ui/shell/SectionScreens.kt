@@ -43,6 +43,9 @@ import com.asoc.typewright.ui.tokens.toColor
 import com.asoc.typewright.ui.workbook.WorkbookCampaignSnapshot
 import com.asoc.typewright.ui.workbook.loadWorkbookCampaignSnapshot
 
+/** Opens Settings (S21) over the current section; null where nothing provided it. */
+val LocalOpenSettings = androidx.compose.runtime.staticCompositionLocalOf<(() -> Unit)?> { null }
+
 /**
  * A station that is not built yet, shown inside the real deck (law 4): what it will do, and that it
  * is not built. Never hidden, never faked.
@@ -133,6 +136,7 @@ fun HomeScreen(
         menuItems =
             listOfNotNull(
                 openBrief?.let { open -> PageMenuItem("Brief", "Find the visual language") { open(null, DeckSection.HOME) } },
+                LocalOpenSettings.current?.let { open -> PageMenuItem("Settings", "Theme, text size, haptics", open) },
             ),
     ) {
         Column(

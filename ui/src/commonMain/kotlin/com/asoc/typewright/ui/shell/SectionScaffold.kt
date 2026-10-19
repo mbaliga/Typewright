@@ -10,12 +10,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
@@ -77,6 +79,16 @@ fun SectionScaffold(
     left: DeckLeft = DeckLeft.BACK,
     onBack: () -> Unit = {},
     menuItems: List<PageMenuItem> = emptyList(),
+    /** The right circle: ⋯ (the page menu) by default, or a primary action ([onRight] runs it; [rightDimmed] says it cannot yet). */
+    right: DeckRight = DeckRight.MENU,
+    onRight: (() -> Unit)? = null,
+    rightDimmed: Boolean = false,
+    rightLabel: String? = null,
+    /** What a tap on a dimmed right circle says. */
+    rightExplanation: String? = null,
+    /** Dims the section arc and makes it inert, saying [dimReason] on a tap: for a state that sits under a section. */
+    dimSections: Boolean = false,
+    dimReason: String = "",
     content: @Composable BoxScope.() -> Unit,
 ) {
     val nav = LocalSectionNav.current
@@ -97,7 +109,10 @@ fun SectionScaffold(
     }
 
     fun goTo(target: DeckSection) {
-        if (target != section) nav?.goTo?.invoke(target)
+        when {
+            dimSections -> toast = dimReason
+            target != section -> nav?.goTo?.invoke(target)
+        }
     }
     SystemBackHandler(enabled = left != DeckLeft.NONE) { leave() }
     Box(
@@ -125,11 +140,20 @@ fun SectionScaffold(
             modifier = Modifier.align(Alignment.BottomCenter),
             section = section,
             left = left,
-            right = DeckRight.MENU,
+            right = right,
+            rightDimmed = rightDimmed,
+            rightLabel = rightLabel,
+            dimSections = dimSections,
             toggles = toggles,
             sectionStatus = nav?.statusOf ?: { null },
             onLeft = ::leave,
-            onRight = { menuOpen = !menuOpen },
+            onRight = {
+                when {
+                    onRight == null -> menuOpen = !menuOpen
+                    rightDimmed -> toast = rightExplanation ?: "Not available yet"
+                    else -> onRight()
+                }
+            },
             onToggle = { index -> toggles.getOrNull(index)?.let { if (it.enabled) onToggle(index) else toast = it.why } },
             onSection = if (nav == null) null else ::goTo,
             onMap = nav?.openMap,
@@ -250,4 +274,52 @@ fun SectionToast(
                 .background(texture.ink.toColor())
                 .padding(horizontal = 13.dp, vertical = 10.dp),
     )
+}
+
+/** An ink block on the glass that asks before something is lost (build brief §4.5): the message, then two text buttons. */
+@Composable
+fun ConfirmBlock(
+    texture: CanvasTexture,
+    message: String,
+    confirmLabel: String,
+    cancelLabel: String,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val onInk = texture.canvas.toColor()
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onCancel),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .padding(horizontal = 18.dp)
+                    .widthIn(max = 340.dp)
+                    .background(texture.ink.toColor())
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+                    .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            BasicText(
+                text = message,
+                style = TextStyle(fontFamily = FontFamily.Default, fontSize = 13.sp, lineHeight = 18.sp, color = onInk),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                BasicText(
+                    text = confirmLabel,
+                    style = TextStyle(fontFamily = FontFamily.Default, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = onInk),
+                    modifier = Modifier.clickable(onClick = onConfirm).padding(vertical = 8.dp),
+                )
+                BasicText(
+                    text = cancelLabel,
+                    style = TextStyle(fontFamily = FontFamily.Default, fontSize = 12.5.sp, color = onInk.copy(alpha = 0.72f)),
+                    modifier = Modifier.clickable(onClick = onCancel).padding(vertical = 8.dp),
+                )
+            }
+        }
+    }
 }
