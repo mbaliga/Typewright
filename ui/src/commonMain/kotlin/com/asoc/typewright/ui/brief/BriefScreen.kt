@@ -682,7 +682,7 @@ private fun ActionButton(
     onClick: () -> Unit,
     filled: Boolean = false,
 ) {
-    val violet = MeaningColors.VIOLET.forTexture(texture.id).toColor()
+    val violet = MeaningColors.VIOLET.forTexture(texture).toColor()
     BasicText(
         text = label,
         style = bodyStyle(if (filled) texture.canvas.toColor() else violet, weight = FontWeight.SemiBold),
@@ -1349,7 +1349,7 @@ private fun WordmarkView(
 ) {
     val fg = texture.fg.toColor()
     StepPrompt(step = step, texture = texture)
-    Box(modifier = Modifier.fillMaxWidth().fieldFocus(MeaningColors.VIOLET.forTexture(texture.id).toColor()).padding(vertical = 4.dp)) {
+    Box(modifier = Modifier.fillMaxWidth().fieldFocus(MeaningColors.VIOLET.forTexture(texture).toColor()).padding(vertical = 4.dp)) {
         BasicTextField(
             value = draft,
             onValueChange = onDraft,
@@ -1540,7 +1540,7 @@ private fun SearchField(
             Modifier
                 .fillMaxWidth()
                 .fieldFocus(
-                    MeaningColors.VIOLET.forTexture(texture.id).toColor(),
+                    MeaningColors.VIOLET.forTexture(texture).toColor(),
                 ).padding(top = 18.dp, bottom = 4.dp),
     ) {
         BasicTextField(

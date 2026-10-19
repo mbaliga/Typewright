@@ -53,8 +53,9 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.asoc.typewright.ui.theme.LocalAppearance
 import com.asoc.typewright.ui.tokens.CanvasTexture
-import com.asoc.typewright.ui.tokens.TextureId
+import com.asoc.typewright.ui.tokens.CloseToken
 import com.asoc.typewright.ui.tokens.toColor
 import kotlin.math.PI
 import kotlin.math.cos
@@ -99,6 +100,7 @@ fun ControlDeck(
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val haptics = LocalHapticFeedback.current
+    val hapticsOn = LocalAppearance.current?.settings?.haptics ?: true
     var dragged by remember { mutableStateOf(0.0) }
     val turned = if (onSection == null) 0.0 else DeckKeys.turned(dragged)
     val sectionLabels = DeckGeometry.sectionLabels(section, shift = turned, status = sectionStatus)
@@ -123,7 +125,7 @@ fun ControlDeck(
                             val to = DeckKeys.settle(section, dragged)
                             dragged = 0.0
                             if (to != section) {
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                if (hapticsOn) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onSection(to)
                             }
                         }
@@ -139,7 +141,7 @@ fun ControlDeck(
                     val apex = DeckKeys.settle(section, dragged)
                     if (apex != lastApex) {
                         lastApex = apex
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        if (hapticsOn) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     }
                 }
             },
@@ -275,27 +277,10 @@ private fun DrawScope.drawBloom(texture: CanvasTexture) {
     drawRect(Brush.verticalGradient(0f to paper.copy(alpha = 0f), 0.4f to paper))
 }
 
-private fun lineColor(texture: CanvasTexture): Color =
-    texture.ink.toColor().copy(
-        alpha =
-            if (texture.id ==
-                TextureId.BLACK
-            ) {
-                0.24f
-            } else {
-                0.22f
-            },
-    )
+private fun lineColor(texture: CanvasTexture): Color = texture.ink.toColor().copy(alpha = if (texture.dark) 0.24f else 0.22f)
 
-/** The close circle's red: #D0342C on light grounds, #FF5A4E on dark (CLAUDE.md law 8: its only use). */
-private fun closeRed(texture: CanvasTexture): Color =
-    if (texture.id == TextureId.BLACK ||
-        texture.id == TextureId.BLUEPRINT
-    ) {
-        Color(0xFFFF5A4E)
-    } else {
-        Color(0xFFD0342C)
-    }
+/** The close circle's red: the dark-ground red on a dark ground (CLAUDE.md law 8: its only use). */
+private fun closeRed(texture: CanvasTexture): Color = CloseToken.red(texture.dark).toColor()
 
 /** Draws the deck in its own 390 × 172 space (the caller has already moved and scaled the canvas to it). */
 private fun DrawScope.drawDeck(
@@ -410,7 +395,7 @@ private fun DrawScope.drawDeck(
                         at.y + 7,
                     )
                 },
-                Color.White,
+                CloseToken.CROSS.toColor(),
                 2.4f,
             )
         }

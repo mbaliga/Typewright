@@ -349,7 +349,7 @@ internal fun NoteDraftRow(
 ) {
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()
-    val violet = MeaningColors.VIOLET.forTexture(texture.id).toColor()
+    val violet = MeaningColors.VIOLET.forTexture(texture).toColor()
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -490,7 +490,7 @@ internal fun PinMark(
     texture: CanvasTexture,
     modifier: Modifier = Modifier,
 ) {
-    val violet = MeaningColors.VIOLET.forTexture(texture.id).toColor()
+    val violet = MeaningColors.VIOLET.forTexture(texture).toColor()
     Box(modifier = modifier.size(7.dp).background(color = violet, shape = CircleShape))
 }
 

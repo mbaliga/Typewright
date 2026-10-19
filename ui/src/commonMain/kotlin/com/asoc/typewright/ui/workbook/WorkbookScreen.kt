@@ -276,7 +276,7 @@ private fun WorkbookProgressStrip(
     modifier: Modifier = Modifier,
 ) {
     val done = texture.fg.toColor()
-    val current = MeaningColors.VIOLET.forTexture(texture.id).toColor()
+    val current = MeaningColors.VIOLET.forTexture(texture).toColor()
     val todo = texture.ink.toColor().copy(alpha = 0.12f)
 
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -492,7 +492,7 @@ private fun PickInTheBriefAction(
                 .mono(
                     sizeSp = 10.5,
                     weight = FontWeight.SemiBold,
-                ).copy(color = MeaningColors.VIOLET.forTexture(texture.id).toColor()),
+                ).copy(color = MeaningColors.VIOLET.forTexture(texture).toColor()),
         modifier = modifier.padding(top = 8.dp).clickable { openBrief(Door.REFERENCES, DeckSection.WORKBOOK) },
     )
 }
@@ -533,7 +533,7 @@ private fun WorkbookGateSection(
                         fontFamily = FontFamily.Default,
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = MeaningColors.VIOLET.forTexture(texture.id).toColor(),
+                        color = MeaningColors.VIOLET.forTexture(texture).toColor(),
                     ),
                 // Deliberately no `clickable` -- see this file's own top KDoc: no real Trace
                 // screen composable exists yet to navigate to.
@@ -650,7 +650,7 @@ private fun WorkbookReflectionSection(
     var nextSeq by remember(task.index, session) { mutableStateOf(1) }
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()
-    val violet = MeaningColors.VIOLET.forTexture(texture.id).toColor()
+    val violet = MeaningColors.VIOLET.forTexture(texture).toColor()
 
     // With a project open, the real, persisted reflections for this task replace the local
     // remember-only list above (see this file's own top KDoc, "The Reflection section...").

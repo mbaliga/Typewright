@@ -2,6 +2,7 @@
 
 package com.asoc.typewright.ui
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -10,10 +11,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import com.asoc.typewright.brief.Door
 import com.asoc.typewright.project.ProjectWorkspace
 import com.asoc.typewright.ui.brief.BriefScreen
@@ -34,7 +38,8 @@ import com.asoc.typewright.ui.shell.LocalSectionNav
 import com.asoc.typewright.ui.shell.MapScreen
 import com.asoc.typewright.ui.shell.SectionNav
 import com.asoc.typewright.ui.shell.StubSection
-import com.asoc.typewright.ui.tokens.CanvasTextures
+import com.asoc.typewright.ui.theme.AppearanceState
+import com.asoc.typewright.ui.theme.LocalAppearance
 import com.asoc.typewright.ui.workbook.WorkbookScreen
 import com.asoc.typewright.ui.workbook.rememberWorkbookScreenUiState
 
@@ -67,7 +72,11 @@ fun TypewrightApp(
     // must not have it silently replaced by whatever the workspace would reopen from disk.
     LaunchedEffect(workspace) { if (workspace.current.value == null) workspace.reopenLast() }
     val briefKeeper = rememberBriefStateKeeper()
-    val texture = CanvasTextures.DEFAULT
+    val scope = rememberCoroutineScope()
+    val appearance = remember(workspace) { AppearanceState(workspace.appConfig, scope) }
+    LaunchedEffect(appearance) { appearance.load() }
+    val texture = appearance.resolve(isSystemInDarkTheme()).toTexture()
+    val density = LocalDensity.current
     val nav =
         SectionNav(
             current = navState.section,
@@ -81,11 +90,14 @@ fun TypewrightApp(
         LocalSystemBack provides systemBack,
         LocalOpenNewProjectBrief provides navState::openNewProjectBrief,
         LocalSectionNav provides nav,
+        LocalAppearance provides appearance,
+        LocalDensity provides Density(density.density, density.fontScale * appearance.settings.textScale.toFloat()),
     ) {
         Box(modifier = modifier.fillMaxSize()) {
             val onSheet = navState.section == DeckSection.DRAW || navState.section == DeckSection.SPACE
             TypewrightSheet(
                 modifier = Modifier.fillMaxSize(),
+                initialTexture = texture,
                 section = if (onSheet) navState.section else DeckSection.DRAW,
                 onSectionChanged = { if (onSheet && !navState.showBrief) navState.section = it },
                 deckVisible = onSheet && !navState.showBrief && !navState.mapOpen,

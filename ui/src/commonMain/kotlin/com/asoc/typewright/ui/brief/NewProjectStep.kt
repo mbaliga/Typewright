@@ -181,7 +181,7 @@ private fun UnderlineField(
 ) {
     val fg = texture.fg.toColor()
     var focused by remember { mutableStateOf(false) }
-    Box(modifier = Modifier.fillMaxWidth().fieldFocus(MeaningColors.VIOLET.forTexture(texture.id).toColor()).padding(vertical = 4.dp)) {
+    Box(modifier = Modifier.fillMaxWidth().fieldFocus(MeaningColors.VIOLET.forTexture(texture).toColor()).padding(vertical = 4.dp)) {
         BasicTextField(
             value = value,
             onValueChange = onValueChange,

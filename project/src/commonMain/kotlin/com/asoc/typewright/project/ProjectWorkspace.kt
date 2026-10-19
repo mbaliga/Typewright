@@ -44,6 +44,9 @@ class ProjectWorkspace(
     private val config: AppConfigStore,
     private val env: () -> SessionEnvironment,
 ) {
+    /** The app's own small config files (recent projects, settings, themes), outside any project. */
+    val appConfig: AppConfigStore get() = config
+
     private val currentFlow = MutableStateFlow<ProjectSession?>(null)
     val current: StateFlow<ProjectSession?> = currentFlow.asStateFlow()
 
