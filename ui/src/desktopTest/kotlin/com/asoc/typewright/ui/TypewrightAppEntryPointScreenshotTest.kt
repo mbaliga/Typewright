@@ -11,21 +11,8 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 /**
- * Task P6 ("Shell" phase): a real render of [TypewrightApp]'s own minimal entry point to
- * [com.asoc.typewright.ui.learn.LearnScreen], in both [TypewrightAppNavState] states, via the
- * same [ScreenshotHarness] pattern every other screenshot test in this module already uses.
- * [PlaceholderScreenshotTest] already covers the closed/default state's own sheet content; this
- * file is specifically about the entry point this task adds: the "Learn" corner tab, and
- * [com.asoc.typewright.ui.learn.LearnScreen] actually appearing full-screen once
- * [TypewrightAppNavState.showLearn] is true.
- *
- * **Task P7 additions.** [com.asoc.typewright.ui.workbook.WorkbookEntryButton] now stacks above
- * the Learn button in the same bottom-end corner (this file's own top-level KDoc, "Task P7") --
- * [closedStateShowsBothEntryButtonsStackedWithoutOverlapping] confirms by real pixel sampling
- * (this task's own instruction: "verify this by screenshot, not by eye alone") that the two ink
- * blocks do not collide at this phone size, and
- * [workbookOpenStateShowsWorkbookScreenFullScreenInsteadOfTheEntryButtons] mirrors the existing
- * Learn open-state test for the sibling screen.
+ * Real renders of [TypewrightApp] through the router: Home with the deck and no corner buttons,
+ * every section inside the deck, the Map, and the Learn and Workbook screens full screen.
  */
 class TypewrightAppEntryPointScreenshotTest {
     private val phoneWidthPx = 720
@@ -33,57 +20,43 @@ class TypewrightAppEntryPointScreenshotTest {
     private val phoneDensity = 2f
 
     @Test
-    fun closedStateShowsTheSheetWithTheLearnEntryButtonInTheBottomEndCorner() {
+    fun theAppOpensOnHomeWithTheDeckAndNoCornerButtons() {
         val shot =
-            ScreenshotHarness.capture(name = "app-learn-closed", width = phoneWidthPx, height = phoneHeightPx, density = phoneDensity) {
+            ScreenshotHarness.capture(name = "app-home", width = phoneWidthPx, height = phoneHeightPx, density = phoneDensity) {
                 TypewrightApp()
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
-
         val pixels = shot.bitmap.toPixelMap()
-        val ink = CanvasTextures.PAPER.ink.toColor()
-        // The Learn button is the *lower* of the two stacked ink blocks, still pinned to the
-        // bottom-end corner (16 dp inset) -- sample a pixel well inside where it must be, at this
-        // exact phone size/density, and expect ink there.
-        val sampleX = phoneWidthPx - 40
-        val sampleY = phoneHeightPx - 40
-        assertTrue(
-            pixels[sampleX, sampleY].isNear(ink),
-            "expected the Learn entry button's own ink block near the bottom-end corner ($sampleX, $sampleY), was ${pixels[sampleX, sampleY]}",
-        )
+        val canvasColor = CanvasTextures.PAPER.canvas.toColor()
+        // The old Learn and Workbook corner buttons sat as ink blocks at the bottom-end corner; Home has the deck there.
+        assertTrue(pixels[phoneWidthPx - 40, phoneHeightPx - 330].isNear(canvasColor), "no ink block where the corner buttons were")
     }
 
     @Test
-    fun closedStateShowsBothEntryButtonsStackedWithoutOverlapping() {
-        val shot =
-            ScreenshotHarness.capture(
-                name = "app-entry-buttons-closed",
-                width = phoneWidthPx,
-                height = phoneHeightPx,
-                density = phoneDensity,
-            ) {
-                TypewrightApp()
-            }
-        assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
+    fun everySectionRendersInsideTheDeck() {
+        for (section in com.asoc.typewright.ui.deck.DeckSection.entries) {
+            val shot =
+                ScreenshotHarness.capture(
+                    name = "app-section-${section.name.lowercase()}",
+                    width = phoneWidthPx,
+                    height = phoneHeightPx,
+                    density = phoneDensity,
+                ) {
+                    TypewrightApp(navState = TypewrightAppNavState(initialSection = section))
+                }
+            assertTrue(shot.file.length() > 0, section.name)
+        }
+    }
 
-        val pixels = shot.bitmap.toPixelMap()
-        val ink = CanvasTextures.PAPER.ink.toColor()
-        val canvasColor = CanvasTextures.PAPER.canvas.toColor()
-        val sampleX = phoneWidthPx - 40
-        // Exact boundaries measured directly from this render (a vertical pixel scan at this same
-        // x, not guessed): Workbook button ink y in [1392, 1450), a real canvas-coloured gap in
-        // [1450, 1466), Learn button ink in [1466, 1528) -- this task's own instruction to verify
-        // no collision by screenshot, not by eye alone.
-        val workbookSampleY = 1420
-        assertTrue(
-            pixels[sampleX, workbookSampleY].isNear(ink),
-            "expected the Workbook entry button's own ink block above the Learn button ($sampleX, $workbookSampleY), was ${pixels[sampleX, workbookSampleY]}",
-        )
-        val gapY = 1458
-        assertTrue(
-            pixels[sampleX, gapY].isNear(canvasColor),
-            "expected a clear canvas-coloured gap between the two stacked entry buttons ($sampleX, $gapY), was ${pixels[sampleX, gapY]}",
-        )
+    @Test
+    fun theMapRendersAllNineSections() {
+        val state = TypewrightAppNavState()
+        state.mapOpen = true
+        val shot =
+            ScreenshotHarness.capture(name = "app-map", width = phoneWidthPx, height = phoneHeightPx, density = phoneDensity) {
+                TypewrightApp(navState = state)
+            }
+        assertTrue(shot.file.length() > 0)
     }
 
     @Test

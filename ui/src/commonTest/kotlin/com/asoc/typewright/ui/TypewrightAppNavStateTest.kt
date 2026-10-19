@@ -3,6 +3,7 @@
 package com.asoc.typewright.ui
 
 import com.asoc.typewright.brief.Door
+import com.asoc.typewright.ui.deck.DeckSection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -90,10 +91,50 @@ class TypewrightAppNavStateTest {
     }
 
     @Test
-    fun closingOneScreenNeverAffectsTheOther() {
+    fun backFromASectionGoesUpToHome() {
         val state = TypewrightAppNavState(initialShowLearn = true)
         state.closeWorkbook()
-        assertTrue(state.showLearn, "closing the workbook (never open) must not close Learn")
+        assertEquals(DeckSection.HOME, state.section, "Back goes up one level: a section to Home")
+        assertFalse(state.showLearn)
+    }
+
+    @Test
+    fun theAppStartsOnHome() {
+        assertEquals(DeckSection.HOME, TypewrightAppNavState().section)
+    }
+
+    @Test
+    fun anySectionIsReachableFromAnyOtherAndLeavesTheBriefAndTheMap() {
+        val state = TypewrightAppNavState()
+        state.openBrief()
+        state.mapOpen = true
+        for (target in DeckSection.entries) {
+            state.goToSection(target)
+            assertEquals(target, state.section)
+            assertFalse(state.showBrief)
+            assertFalse(state.mapOpen)
+        }
+    }
+
+    @Test
+    fun theBriefSitsUnderTheSectionItWasOpenedFrom() {
+        val state = TypewrightAppNavState()
+        state.openBrief(com.asoc.typewright.brief.Door.REFERENCES, DeckSection.WORKBOOK)
+        assertEquals(DeckSection.WORKBOOK, state.section)
+        assertEquals(DeckSection.WORKBOOK, state.briefFrom)
+        assertTrue(state.showBrief)
+        state.closeBrief()
+        assertEquals(DeckSection.WORKBOOK, state.section, "closing the Brief returns to the section it was opened from")
+    }
+
+    @Test
+    fun theRouterSurvivesTheProcessBeingRecreated() {
+        val state = TypewrightAppNavState()
+        state.openBrief(null, DeckSection.WORKBOOK)
+        val restored = TypewrightAppNavState.restore(state.save())
+        assertEquals(DeckSection.WORKBOOK, restored?.section)
+        assertTrue(restored?.showBrief == true)
+        assertEquals(DeckSection.WORKBOOK, restored?.briefFrom)
     }
 
     @Test

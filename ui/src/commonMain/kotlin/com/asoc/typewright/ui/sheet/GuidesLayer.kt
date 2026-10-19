@@ -80,7 +80,10 @@ fun WorldGuidesPass(
                 modifier =
                     Modifier.offset {
                         val screen = cameraState.camera.worldToScreenFontUp(anchorWorld)
-                        IntOffset(screen.x.dp.roundToPx() + 6, screen.y.dp.roundToPx() - 14)
+                        // A vertical guide has no y of its own, so its label would sit on top of any other
+                        // guide's label anchored at the baseline; it drops below them instead.
+                        val dropBelow = if (guideline.y == null) VERTICAL_LABEL_DROP_DP.dp.roundToPx() else 0
+                        IntOffset(screen.x.dp.roundToPx() + 6, screen.y.dp.roundToPx() - 14 + dropBelow)
                     },
             ) {
                 BasicText(
@@ -92,6 +95,8 @@ fun WorldGuidesPass(
         }
     }
 }
+
+private const val VERTICAL_LABEL_DROP_DP = 28
 
 /** How far a guide's drawn segment extends past its own anchor, each direction, in font units -- long enough to cross any on-screen viewport this app's zoom range ([-0.05, 8]) reaches. */
 private const val GUIDE_HALF_LENGTH_UNITS = 200_000.0

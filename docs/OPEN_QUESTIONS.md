@@ -3378,3 +3378,17 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     Ship). No UI sounds, and the off-by-default tick setting is not built. S02's steps are on the
     toggle arc; Source and Metrics are seats that are off (Source was chosen when the project was
     made, Metrics is not built). Owner: Madhav.
+
+147. **The shell is built; the rest of the deck prompt is not (P13).** Built: one router with
+    saved state (Home is where the app starts), the deck on every screen, Draw and Space as regions
+    of one sheet, Learn's tabs and Workbook's This task · All tasks on the toggle arc, Home with
+    Specimen and Glyphs from the open project only, the Map, and law-4 stubs for Capture, Trace,
+    Check and Ship. The two corner buttons, the header room chip and the edge marks are gone. Not
+    built: the theme system (theme JSON, Settings, the custom theme editor and its guardrails, and
+    the test that fails on a hard-coded colour; every screen still reads CanvasTextures.DEFAULT),
+    S01 Projects (so Home has no Back), the hero word and the points and outlier counts on Home (they
+    need the user's font to be openable, P12), Draw's Outline · Fill and Space's Spacing · Kerning
+    (neither is a separate view yet, so they are not shown as seats that do nothing), Home's ⋯ items
+    other than Brief (Font info, Templates, Export UFO, Project folder and Settings are not built),
+    the 600 ms pan on a section change, and screenshot comparison against the mockups at desktop
+    width. Closes the room-chip and corner-button parts of OQ 56, 82 and 89. Owner: Madhav.

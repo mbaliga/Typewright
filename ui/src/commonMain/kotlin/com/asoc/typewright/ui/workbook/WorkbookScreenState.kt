@@ -31,6 +31,9 @@ class WorkbookScreenUiState(
 ) {
     var taskIndex: Int by mutableStateOf((initialTaskIndex ?: defaultTaskIndexFor(snapshot)).coerceIn(1, WORKBOOK_TASK_COUNT))
         internal set
+
+    /** True while the deck's "All tasks" view is showing: the twelve tasks as a list, instead of the one task. */
+    var allTasks: Boolean by mutableStateOf(false)
 }
 
 /** [WorkbookCampaignSnapshot.Loaded.currentTaskIndex] when real data loaded; task 1 (the workbook's own first task) when it did not -- there is no real "current task" fact left to show, so this falls back to where the workbook itself starts rather than a task chosen for looks. */

@@ -49,8 +49,10 @@ import com.asoc.typewright.project.scrapbook.stablePinRotationDegrees
 import com.asoc.typewright.qa.NodeEconomyReport
 import com.asoc.typewright.ui.brief.LocalOpenBrief
 import com.asoc.typewright.ui.deck.DeckSection
+import com.asoc.typewright.ui.deck.DeckToggle
 import com.asoc.typewright.ui.learn.hyleDecoFontFamily
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
+import com.asoc.typewright.ui.shell.SectionScaffold
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.CanvasTextures
 import com.asoc.typewright.ui.tokens.MeaningColors
@@ -117,60 +119,78 @@ public fun WorkbookScreen(
     onBack: () -> Unit = {},
     uiState: WorkbookScreenUiState = rememberWorkbookScreenUiState(),
 ) {
-    Column(modifier = modifier.fillMaxSize().background(texture.canvas.toColor())) {
-        WorkbookHeaderBar(texture = texture, onBack = onBack)
+    SectionScaffold(
+        texture = texture,
+        section = DeckSection.WORKBOOK,
+        title = "Workbook · Latin",
+        subtitle = "$WORKBOOK_TASK_COUNT tasks · a submission-ready font at the end",
+        modifier = modifier,
+        toggles = listOf(DeckToggle("This task", on = !uiState.allTasks), DeckToggle("All tasks", on = uiState.allTasks)),
+        onToggle = { uiState.allTasks = it == 1 },
+        onBack = onBack,
+    ) {
         when (val snapshot = uiState.snapshot) {
             is WorkbookCampaignSnapshot.Unavailable -> {
-                WorkbookUnavailableBody(texture = texture, reason = snapshot.reason, modifier = Modifier.weight(1f))
+                WorkbookUnavailableBody(texture = texture, reason = snapshot.reason, modifier = Modifier.fillMaxSize())
             }
 
             is WorkbookCampaignSnapshot.Loaded -> {
-                val progress = snapshot.progress.firstOrNull { it.task.index == uiState.taskIndex } ?: snapshot.progress.first()
-                WorkbookBody(texture = texture, snapshot = snapshot, progress = progress, modifier = Modifier.weight(1f))
+                if (uiState.allTasks) {
+                    WorkbookAllTasks(
+                        texture = texture,
+                        snapshot = snapshot,
+                        current = uiState.taskIndex,
+                        onPick = {
+                            uiState.taskIndex = it
+                            uiState.allTasks = false
+                        },
+                    )
+                } else {
+                    val progress = snapshot.progress.firstOrNull { it.task.index == uiState.taskIndex } ?: snapshot.progress.first()
+                    WorkbookBody(texture = texture, snapshot = snapshot, progress = progress, modifier = Modifier.fillMaxSize())
+                }
             }
         }
     }
 }
 
-/** `#s-workbook .bar`: back button, "Workbook · Latin" / "12 tasks · a submission-ready font at the end", unwired commands button -- same shape and sizes as [com.asoc.typewright.ui.learn.LearnScreen]'s own `LearnHeaderBar`. */
+/** The "All tasks" view: the twelve tasks as rows of type, the one you are on an ink block; a tap opens that task. */
 @Composable
-private fun WorkbookHeaderBar(
+private fun WorkbookAllTasks(
     texture: CanvasTexture,
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier,
+    snapshot: WorkbookCampaignSnapshot.Loaded,
+    current: Int,
+    onPick: (Int) -> Unit,
 ) {
-    val fg = texture.fg.toColor()
-    val muted = texture.muted.toColor()
-
-    Row(
-        modifier = modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    Column(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(start = SpacingTokens.GUTTER_DP.dp, end = SpacingTokens.GUTTER_DP.dp, bottom = 200.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Box(modifier = Modifier.size(34.dp).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
-            BasicText(text = "‹", style = TextStyle(fontFamily = FontFamily.Default, fontSize = 16.sp, color = fg))
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            BasicText(
-                text = "Workbook · Latin",
-                style = TextStyle(fontFamily = FontFamily.Default, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = fg),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            BasicText(
-                text = "$WORKBOOK_TASK_COUNT tasks · a submission-ready font at the end",
-                style = Typography.mono(sizeSp = 11.0).copy(color = muted),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Box(modifier = Modifier.size(34.dp), contentAlignment = Alignment.Center) {
-            // Deliberately no `clickable` -- see this file's own top KDoc ("commands button"), the
-            // exact convention LearnHeaderBar already established.
-            BasicText(
-                text = "›_",
-                style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, letterSpacing = (-0.02).em, color = muted),
-            )
+        for (task in snapshot.tasks) {
+            val on = task.index == current
+            val fg = if (on) texture.canvas.toColor() else texture.fg.toColor()
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .let { if (on) it.background(texture.ink.toColor()) else it }
+                        .clickable { onPick(task.index) }
+                        .padding(horizontal = 8.dp, vertical = 9.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                BasicText(
+                    text = task.index.toString().padStart(2, '0'),
+                    style = Typography.mono(sizeSp = 11.0).copy(color = if (on) fg.copy(alpha = 0.72f) else texture.muted.toColor()),
+                )
+                BasicText(
+                    text = task.title,
+                    style = Typography.sentence.copy(color = fg, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal),
+                )
+            }
         }
     }
 }
