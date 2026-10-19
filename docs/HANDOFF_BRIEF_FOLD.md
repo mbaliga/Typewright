@@ -24,6 +24,23 @@ What the canvas fixes, which the Brief currently gets wrong:
 
 **What the canvas does not show.** The doors, the questions, the wrap-up, the Brief tab and the Guide (S25–S27) have no board. Law 6 says to stop rather than invent: the prototype in `ui/v1-screens/brief/` stays their interaction source, but it is restyled to the canvas's tokens and components (WP0). Record in `OPEN_QUESTIONS.md` that S25–S27 need boards on the canvas, and ask the owner to approve the restyled screenshots before the PR merges.
 
+## The build pack's canon, which the Brief also missed
+
+Pack 1 (the original `TYPEWRIGHT_BUILD_BRIEF.md`, `UI_SPEC.md`, `docs/TYPEWRIGHT_HANDOFF.md`, `docs/KNOWLEDGE.md`, `docs/LESSONS_SCAFFOLD.md`, `docs/RESEARCH_font_quality.md`, `data/exemplars.json` and the explorer) is still in the repo, and `docs/BRIEF.md` cites none of it. Where these documents and the Brief differ, they win:
+
+1. **The letters to draw first.** The research's strongest consensus (RESEARCH "Anatomy, critique and sequence"; handoff M5 Task 4) is the control set **n o H O** first, then the n- and o-families, and only then the distinctive letters. The wrap-up's "Draw first" shows each genre's distinctive letters instead (geometric: "a A M"). Fix: **Draw first** is always `n o H O`; the genre's letters move to a second line, "Then what makes it <genre>: a A M". `Draw next` follows the same order (control set, families, distinctive letters, the rest).
+2. **Ask what good means before building** (KNOWLEDGE F4: the workbook's first task is this question). The wrap-up and the Brief tab gain one line that names what a reviewer will check for this class: its node-economy box (with n) and the Google Fonts packaging rules. It is a link to Check, not new copy.
+3. **Targets are distributions** (build brief §2.9 and §8.3; law 5). The Guide's drift items read "on target / close / off target" in words. Each one also gets the shrunk box plot used in the trace header (box, whiskers, median, the user's value as a violet point with a paper ring, n). "On target" never stands in for quality (KNOWLEDGE F1).
+4. **One face per genre, app-wide.** Learn and the explorer show each class in `data/exemplars.json`'s face. The Brief's cue faces disagree for three classes: geometric is Poppins (exemplar: Jost), humanist is Open Sans (Source Sans 3), and didone is Libre Bodoni (Playfair Display). Use the exemplar wherever one exists, so a class looks the same in the Brief and in Lineages. The extra cue faces (deco airy, techno and so on) stay.
+5. **Read the reference** (handoff M5 Task 2, M4). A reference picked in the References door opens in the comparison overlay against two neighbours from its genre, with the anatomy lens available. Both are drawn as the explorer draws them (law 6). The Brief's sentence, the chosen references and the reflection ("three sentences on what makes it itself") save to the project scrapbook. Every workbook task saves its reflection there.
+6. **Identifying your own font is the exam** (§8.4). The Mirror reading's evidence uses the Lineages lesson's feature words (contrast, stress, aperture, storeys, terminals) and links each one to its scene. It also explains "gothic" where it comes up (sans in American usage, blackletter in European).
+7. **Ranking is stated** (§8.1). Wherever the Brief lists faces "best first" (starting references, a genre's faces), say which ranking it uses: Google's Quality/Drawing score by default.
+8. **Per-glyph targets are classified by construction** (§8.5). If the Brief or the Guide quotes a node target for a letter, it names the construction (elliptical, superelliptical, rounded-rect or polygonal) first. Today it quotes none; keep it that way unless that is done.
+
+`data/families.csv`, Google's tag file, is in pack 1 but not in the repo. The corpus scripts fetch it fresh from the pinned google/fonts commit, so it does not need checking in.
+
+These items are WP7, below.
+
 ## Where things stand
 
 - **Start from `feature/brief` (PR #5), not `main`.** It holds the Brief: the `:brief` engine, the Compose screen, the prototype in `ui/v1-screens/brief/`, and the docs. CI is green at `a6a9eb8`. Open a new branch from it, and a PR into `feature/brief` (or into `main` once PR #5 merges).
@@ -118,6 +135,11 @@ Each WP is one commit, with tests. Stop and report rather than guess (CLAUDE.md 
 - Workbook Task 1 gains an action, **Pick in the Brief**, which opens the References door.
 - A reference chosen there can be added to the scrapbook with one tap, as a note naming it and its `describeFace` line.
 - The gate stays manual; its "no automated check yet" wording stays honest.
+
+**WP7. The build pack's canon.**
+- Carry out items 1–8 of "The build pack's canon" above, each with a test. Item 1 is engine-side (`Genres.drawFirst`, `WrapUp`, the Guide), so `WrapUpTest` and `FlowCompletenessTest` assert that `n o H O` comes first for every door. Item 4 swaps three files in `data/brief-cues/` through its generator script, never by hand.
+- If item 5 needs an overlay or lens that isn't built yet, link to the Learn tab that has it and file an OQ. Don't draw a new one.
+- `docs/BRIEF.md`: a "Sources" section citing these documents by section.
 
 **WP6. Docs.**
 - `SCREENS_V1` S02: step 2 becomes "the Brief's Style and Use doors", pointing at the `NewProject` board; S25–S27 point at the prototype until they have boards.
