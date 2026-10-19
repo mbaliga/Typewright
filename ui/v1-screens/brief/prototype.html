@@ -263,7 +263,7 @@ p { margin: 0 0 10px; }
         break;
       case "wordmark":
         html += `<input class="field" id="wordmark" value="${esc(s.value)}" placeholder="The name, as it will be set" autocomplete="off">` +
-          `<div class="row">${btn("Set wordmark", { type: "_wordmark" }, "primary")}</div>`;
+          ``;
         break;
       case "references":
         html += `<div class="label">${esc(s.count)}</div>`;
@@ -276,14 +276,14 @@ p { margin: 0 0 10px; }
           html += `<p>Draw some letters and the guide will measure them.</p>` +
             `<div class="label">Still to draw for a surer reading</div><div class="glyphs">${esc(s.toDraw)}</div>` +
             `<p class="small">Draw them, then come back: this question waits. Or skip it and answer by eye.</p>` +
-            `<div class="row">${btn("Start drawing", { type: "startDrawing" }, "primary")}${btn("Try the example letters", { type: "example", on: true })}</div>`;
+            `<div class="row">${btn("Try the example letters", { type: "example", on: true })}</div>`;
         } else {
           html += `<p class="small">Measuring Hyle Deco, this project's test font, as if you had drawn it.</p>`;
           html += `<div class="label">Reads as</div>` + s.reading.map((r) => `<p>${esc(r)}</p>`).join("");
           if (s.levels.length) {
             html += `<div class="label">What each measures as</div>` +
               s.levels.map((o) => `<div class="face">${specimen(o.cue)}<div><div class="t" style="font-weight:600">${esc(o.title)}</div><div class="d">${esc(o.detail)}</div></div></div>`).join("") +
-              `<div class="row">${btn("Use these answers", { type: "adopt" }, "primary")}</div>`;
+              ``;
           }
         }
         break;
@@ -295,7 +295,6 @@ p { margin: 0 0 10px; }
     const b = ask.buttons;
     const first = [];
     if (b.back) first.push(btn("Back", { type: "back" }));
-    if (b.done) first.push(btn("Done", { type: "confirm" }, "primary"));
     const second = [];
     if (b.keep) second.push(btn("Keep my answer", { type: "skip" }));
     if (b.notSure) second.push(btn("I'm not sure", { type: "skip" }));
@@ -310,7 +309,6 @@ p { margin: 0 0 10px; }
       html += `<div class="label">${esc(w.drawLabel)}</div><div class="glyphs" style="${genreFace()}">${esc(w.drawFirst.glyphs)}</div>` +
         `<div class="item" style="margin-top:0"><div class="t">${esc(w.drawFirst.title)}</div><p>${esc(w.drawFirst.why)}</p></div>`;
     }
-    html += `<div class="row">${btn("See your guide", { type: "tab", id: "guide" }, "primary")}${btn("Read the brief", { type: "tab", id: "brief" })}</div>`;
     if (w.toSettle.length) {
       html += `<div class="label">To settle, now or later</div>` + w.toSettle.map(tension).join("");
       if (w.moreInBrief > 0) html += `<p class="small">${w.moreInBrief} more in the Brief.</p>`;
@@ -354,7 +352,6 @@ p { margin: 0 0 10px; }
           (it.glyphs ? `<div class="glyphs" style="${genreFace()}">${esc(it.glyphs)}</div>` : "") +
           `<p>${esc(it.body)}</p>` + (it.check ? `<div class="note-mono">${esc(it.check)}</div>` : "") +
           (it.source ? `<div class="src">${esc(it.source)}</div>` : "");
-        if (it.action === "draw") html += `<div class="row">${btn("Start drawing", { type: "startDrawing" }, "primary")}</div>`;
         if (it.action === "change") html += `<div class="row">${btn("Or change the brief", { type: "askAbout", dim: it.dim })}</div>`;
         if (it.action === "learn") html += `<div class="row">${btn("Open Learn", { type: "_learn" })}</div>`;
         html += `</div>`;
@@ -366,7 +363,7 @@ p { margin: 0 0 10px; }
       (p.glyphs ? `<div class="glyphs" style="${genreFace()};font-size:30px">${esc(p.glyphs)}</div>` : "") +
       `<div class="note-mono" style="margin:4px 0">${esc(p.status)}</div><p>${esc(p.why)}</p><div class="src">${esc(p.source)}</div></div>`).join("");
     html += `<p class="small" style="margin-top:28px">Draw opens on the sheet. Come back any time: the guide measures your letters as you draw.</p>` +
-      `<div class="row">${btn("Start drawing", { type: "startDrawing" }, "primary")}</div>`;
+      ``;
     return html;
   }
 
@@ -387,17 +384,39 @@ p { margin: 0 0 10px; }
   // (350, 71) of r 25 (26 filled), neighbours at 0.72 and 0.38 opacity.
   const L1 = 441.5;
   const L2 = 245.0;
-  const RIGHT_NAMES = { menu: "More", next: "Next", none: "" };
+  const RIGHT_NAMES = { menu: "More", next: "Next", check: "Done", none: "" };
+  const sectionArcPoint = (s) => {
+    const phi = -Math.asin(212.7 / 527) + s / 527;
+    return [195 + 527 * Math.sin(phi), 635.02 - 527 * Math.cos(phi)];
+  };
   const toggleArcPoint = (s) => {
     const phi = -Math.asin(121.6 / 585) + s / 585;
     return [195 + 585 * Math.sin(phi), 635.02 - 585 * Math.cos(phi)];
   };
 
+  // What the right circle does on this page (the Kotlin DeckSeats table): the page's one dominant action, or the ⋯ menu.
+  function rightAction() {
+    if (!view || view.handoff) return null;
+    if (view.tab === "guide") return { name: "Start drawing", glyph: "next", action: { type: "startDrawing" } };
+    if (view.tab === "brief") return null;
+    const ask = view.ask;
+    if (ask.mode === "doors" || (ask.header && ask.header.focused)) return null;
+    if (ask.mode === "wrap") return { name: ask.wrap.drawLabel, glyph: "next", action: { type: "startDrawing" } };
+    const st = ask.step;
+    if (st.kind === "wordmark") return { name: "Set", glyph: "check", action: { type: "_wordmark" } };
+    if (st.kind === "mirror") {
+      if (st.nothingDrawn) return { name: "Start drawing", glyph: "next", action: { type: "startDrawing" } };
+      return st.levels.length ? { name: "Use these answers", glyph: "check", action: { type: "adopt" } } : null;
+    }
+    return ask.buttons.done ? { name: "Done", glyph: "check", action: { type: "confirm" } } : null;
+  }
+
+  // The toggle arc always holds the Brief's three views, at the doors too; the left circle is Back; the sections stay live.
   function deckConfig() {
     if (view && view.handoff) return { section: "Draw", left: "back", right: "menu", toggles: "Outline*|Fill||Construction*", dim: false };
-    if (view && view.tab === "ask" && view.ask.mode === "doors") return { section: "Home", left: "close", right: "next", toggles: "", dim: true };
     const on = (id, label) => (view && view.tab === id ? label + "*" : label);
-    return { section: "Home", left: "back", right: "menu", toggles: `${on("ask", "Ask")}|${on("brief", "Brief")}|${on("guide", "Guide")}`, dim: true };
+    const act = rightAction();
+    return { section: "Home", left: "back", right: act ? act.glyph : "menu", act, toggles: `${on("ask", "Ask")}|${on("brief", "Brief")}|${on("guide", "Guide")}`, dim: false };
   }
 
   function drawDeck() {
@@ -457,16 +476,25 @@ p { margin: 0 0 10px; }
       `<g style="opacity:${o(R === "menu")}"><circle r="25" style="fill:var(--canvas);stroke:var(--ink);stroke-width:1.5"/>` +
       `<circle cx="-8" r="2.2" style="fill:var(--ink)"/><circle r="2.2" style="fill:var(--ink)"/><circle cx="8" r="2.2" style="fill:var(--ink)"/></g>` +
       `<g style="opacity:${o(R === "next")}"><circle r="26" style="fill:var(--ink)"/>` +
-      `<path d="M -8 0 H 7 M 2 -6 L 8 0 L 2 6" fill="none" style="stroke:var(--canvas);stroke-width:2.2"/></g></g></svg>`;
+      `<path d="M -8 0 H 7 M 2 -6 L 8 0 L 2 6" fill="none" style="stroke:var(--canvas);stroke-width:2.2"/></g>` +
+      `<g style="opacity:${o(R === "check")}"><circle r="26" style="fill:var(--ink)"/>` +
+      `<path d="M -8 1 L -2 7 L 9 -7" fill="none" style="stroke:var(--canvas);stroke-width:2.4"/></g></g></svg>`;
 
     let html = svg;
     html += `<button class="dk" aria-label="${L === "close" ? "Close" : "Back"}" style="left:14px;top:45px;width:52px;height:52px;border-radius:26px" data-a="${a({ type: L === "close" ? "_close" : "_back" })}"></button>`;
-    if (R !== "none") html += `<button class="dk" aria-label="${RIGHT_NAMES[R]}" style="left:324px;top:45px;width:52px;height:52px;border-radius:26px" data-a="${a({ type: R === "menu" ? "_menu" : "_next" })}"></button>`;
+    if (R !== "none") html += `<button class="dk" aria-label="${cfg.act ? esc(cfg.act.name) : RIGHT_NAMES[R]}" data-long="1" style="left:324px;top:45px;width:52px;height:52px;border-radius:26px" data-a="${a(cfg.act ? cfg.act.action : { type: "_menu" })}"></button>`;
+    // Each section label is a hit target at least 44 px tall; the current one is announced as the current page.
+    for (const t of secs) {
+      if (!t.label) continue;
+      const [px, py] = sectionArcPoint(Number(t.off));
+      const w = Math.max(44, t.label.length * 7.6 + 24);
+      html += `<button class="dk" aria-label="${esc(t.label[0] + t.label.slice(1).toLowerCase())}"${t.fill === "var(--canvas)" ? ' aria-current="page"' : ""} style="left:${(px - w / 2).toFixed(1)}px;top:${(py - 22).toFixed(1)}px;width:${w.toFixed(1)}px;height:44px" data-a="${a({ type: "_section", name: t.label })}"></button>`;
+    }
     for (const t of tg) {
       if (!t.label) continue;
       const [px, py] = toggleArcPoint(t.mid);
       const action = view && view.handoff ? { type: "_drawToggle" } : { type: "tab", id: t.id };
-      html += `<button class="dk" aria-label="${esc(t.label)}" aria-pressed="${t.fill === "var(--canvas)"}" style="left:${(px - t.w / 2).toFixed(1)}px;top:${(py - 12).toFixed(1)}px;width:${t.w.toFixed(1)}px;height:24px" data-a="${a(action)}"></button>`;
+      html += `<button class="dk" aria-label="${esc(t.label[0] + t.label.slice(1).toLowerCase())}" aria-pressed="${t.fill === "var(--canvas)"}" style="left:${(px - t.w / 2).toFixed(1)}px;top:${(py - 22).toFixed(1)}px;width:${t.w.toFixed(1)}px;height:44px" data-a="${a(action)}"></button>`;
     }
     deck.innerHTML = html;
     const k = Math.min(1, window.innerWidth / 390);
@@ -477,7 +505,10 @@ p { margin: 0 0 10px; }
     const items = [
       ["Command…", "In the app: Ctrl or ⌘ K", "_command"],
       [view.exampleOn ? "Clear the example letters" : "Use the example letters", "Hyle Deco stands in for your drawing", "_toggleExample"],
+      ["Try another door", "Go back to the six doors", "_doors"],
       ["Start over", "Clear every answer", "_startOverMenu"],
+      ["Read the brief", "What your answers add up to", "_readBrief"],
+      ["See your guide", "What to draw, and why", "_guide"],
       ["About this prototype", "What runs here", "_about"],
     ];
     menu.innerHTML = items.map(([t, k, type]) => `<button data-a="${a({ type })}">${esc(t)}<span class="k">${esc(k)}</span></button>`).join("");
@@ -525,6 +556,10 @@ p { margin: 0 0 10px; }
       case "_about": say("The real Brief engine, compiled to JavaScript, with the real style atlas. Nothing leaves this page."); return;
       case "_close": say("In the app, Close leaves the Brief and returns to where you came from; nothing is lost until you create the project."); return;
       case "_next": say("In the app, Next on the doors goes on to the guide once there is an answer."); return;
+      case "_doors": send({ type: "tab", id: "ask" }); send({ type: "door", id: null }); return;
+      case "_readBrief": send({ type: "tab", id: "brief" }); return;
+      case "_guide": send({ type: "tab", id: "guide" }); return;
+      case "_section": say(action.name[0] + action.name.slice(1).toLowerCase() + " is another section: in the app a tap, a swipe along the arc, the arrow keys or a digit goes there."); return;
       case "_menu": if (menu.hidden) openMenu(); else menu.hidden = true; return;
       case "_back": {
         const before = JSON.stringify(view);
@@ -537,6 +572,9 @@ p { margin: 0 0 10px; }
     send(action);
   }
 
+  document.addEventListener("contextmenu", (e) => {
+    if (e.target.closest("[data-long]")) { e.preventDefault(); openMenu(); }
+  });
   document.addEventListener("click", (e) => {
     const el = e.target.closest("[data-a]");
     if (!menu.hidden && !e.target.closest("#menu")) menu.hidden = true;
