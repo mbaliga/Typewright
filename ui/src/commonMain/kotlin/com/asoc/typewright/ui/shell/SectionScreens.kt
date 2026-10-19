@@ -110,6 +110,7 @@ fun HomeScreen(
 ) {
     var glyphsView by remember { mutableStateOf(false) }
     val openBrief = LocalOpenBrief.current
+    val openProjects = LocalOpenProjects.current
     val session =
         LocalProjectWorkspace.current
             ?.current
@@ -132,7 +133,7 @@ fun HomeScreen(
         modifier = modifier,
         toggles = listOf(DeckToggle("Specimen", on = !glyphsView), DeckToggle("Glyphs", on = glyphsView)),
         onToggle = { glyphsView = it == 1 },
-        left = DeckLeft.NONE,
+        onBack = { openProjects?.invoke() },
         menuItems =
             listOfNotNull(
                 openBrief?.let { open -> PageMenuItem("Brief", "Find the visual language") { open(null, DeckSection.HOME) } },

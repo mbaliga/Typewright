@@ -27,7 +27,7 @@ enum class DeckSection(
 enum class DeckLeft { BACK, CLOSE, NONE }
 
 /** The right circle: the page menu, or the one primary action Next (filled), or nothing. */
-enum class DeckRight { MENU, NEXT, CHECK, NONE }
+enum class DeckRight { MENU, NEXT, CHECK, PLUS, NONE }
 
 /** How far along a station's work is, drawn beside its label on the section arc (the explorer's Home stations). */
 enum class StationStatus(

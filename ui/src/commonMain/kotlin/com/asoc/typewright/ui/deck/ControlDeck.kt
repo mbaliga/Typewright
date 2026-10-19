@@ -174,7 +174,14 @@ fun ControlDeck(
         }
         if (right != DeckRight.NONE) {
             HitArea(
-                description = rightLabel ?: if (right == DeckRight.MENU) "More" else "Next",
+                description =
+                    rightLabel ?: if (right == DeckRight.MENU) {
+                        "More"
+                    } else if (right == DeckRight.PLUS) {
+                        "New project"
+                    } else {
+                        "Next"
+                    },
                 x = originX + 324.dp * k,
                 y = originY + 45.dp * k,
                 w = 52.dp * k,
@@ -435,6 +442,20 @@ private fun DrawScope.drawDeck(
                     moveTo(rightAt.x - 8, rightAt.y + 1)
                     lineTo(rightAt.x - 2, rightAt.y + 7)
                     lineTo(rightAt.x + 9, rightAt.y - 7)
+                },
+                paper.copy(alpha = paper.alpha * rightAlpha),
+                2.4f,
+            )
+        }
+
+        DeckRight.PLUS -> {
+            drawCircle(ink, DeckGeometry.FILLED_CIRCLE_RADIUS.toFloat(), rightAt, alpha = rightAlpha)
+            stroke(
+                Path().apply {
+                    moveTo(rightAt.x - 9, rightAt.y)
+                    lineTo(rightAt.x + 9, rightAt.y)
+                    moveTo(rightAt.x, rightAt.y - 9)
+                    lineTo(rightAt.x, rightAt.y + 9)
                 },
                 paper.copy(alpha = paper.alpha * rightAlpha),
                 2.4f,

@@ -20,3 +20,6 @@ class SectionNav(
 )
 
 val LocalSectionNav = staticCompositionLocalOf<SectionNav?> { null }
+
+/** Goes up from Home to Projects (S01), the app's root; null where nothing provided it. */
+val LocalOpenProjects = staticCompositionLocalOf<(() -> Unit)?> { null }

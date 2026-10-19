@@ -174,4 +174,37 @@ class TypewrightAppNavStateTest {
         assertTrue(state.showBrief)
         assertEquals(Door.REFERENCES, state.pendingBriefDoor)
     }
+
+    @Test
+    fun projectsIsTheRootAndAnySectionLeavesIt() {
+        val state = TypewrightAppNavState()
+        state.openProjects()
+        assertTrue(state.showProjects)
+        state.goToSection(DeckSection.HOME)
+        assertFalse(state.showProjects)
+    }
+
+    @Test
+    fun settingsAboutAndTheEditorStackAndBackUnwindsThem() {
+        val state = TypewrightAppNavState()
+        state.openSettings()
+        state.openThemeEditor(com.asoc.typewright.ui.theme.Themes.PAPER)
+        assertEquals(AppOverlay.THEME_EDITOR, state.overlay)
+        state.closeOverlay()
+        assertEquals(AppOverlay.SETTINGS, state.overlay)
+        state.openAbout()
+        state.closeOverlay()
+        assertEquals(AppOverlay.SETTINGS, state.overlay)
+        state.closeOverlay()
+        assertEquals(null, state.overlay)
+        assertEquals(DeckSection.HOME, state.section, "the section underneath was never left")
+    }
+
+    @Test
+    fun leavingForASectionDropsAnyOverlay() {
+        val state = TypewrightAppNavState()
+        state.openSettings()
+        state.goToSection(DeckSection.LEARN)
+        assertEquals(null, state.overlay)
+    }
 }

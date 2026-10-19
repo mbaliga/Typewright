@@ -38,9 +38,11 @@ import com.asoc.typewright.ui.settings.ThemeEditorScreen
 import com.asoc.typewright.ui.settings.ThemeEditorState
 import com.asoc.typewright.ui.sheet.TypewrightSheet
 import com.asoc.typewright.ui.shell.HomeScreen
+import com.asoc.typewright.ui.shell.LocalOpenProjects
 import com.asoc.typewright.ui.shell.LocalOpenSettings
 import com.asoc.typewright.ui.shell.LocalSectionNav
 import com.asoc.typewright.ui.shell.MapScreen
+import com.asoc.typewright.ui.shell.ProjectsScreen
 import com.asoc.typewright.ui.shell.SectionNav
 import com.asoc.typewright.ui.shell.StubSection
 import com.asoc.typewright.ui.theme.AppearanceState
@@ -76,7 +78,11 @@ fun TypewrightApp(
 ) {
     // Guarded: a caller that already holds a live session across this composable's own recreate
     // must not have it silently replaced by whatever the workspace would reopen from disk.
-    LaunchedEffect(workspace) { if (workspace.current.value == null) workspace.reopenLast() }
+    LaunchedEffect(workspace) {
+        if (workspace.current.value == null) workspace.reopenLast()
+        // First launch, or nothing to reopen: the app's root is Projects.
+        if (workspace.current.value == null) navState.openProjects()
+    }
     val briefKeeper = rememberBriefStateKeeper()
     val scope = rememberCoroutineScope()
     val appearance = remember(workspace) { AppearanceState(workspace.appConfig, scope) }
@@ -98,6 +104,7 @@ fun TypewrightApp(
         LocalSectionNav provides nav,
         LocalAppearance provides appearance,
         LocalOpenSettings provides navState::openSettings,
+        LocalOpenProjects provides navState::openProjects,
         LocalDensity provides Density(density.density, density.fontScale * appearance.settings.textScale.toFloat()),
     ) {
         Box(modifier = modifier.fillMaxSize()) {
@@ -110,6 +117,10 @@ fun TypewrightApp(
                 deckVisible = onSheet && !navState.showBrief && !navState.mapOpen,
             )
             when {
+                navState.showProjects -> {
+                    ProjectsScreen(texture = texture, onOpened = navState::goToSection, modifier = Modifier.fillMaxSize())
+                }
+
                 navState.overlay == AppOverlay.SETTINGS -> {
                     SettingsScreen(
                         appearance = appearance,
@@ -256,6 +267,17 @@ class TypewrightAppNavState(
     /** True while the Map (S24) covers the screen. */
     var mapOpen: Boolean by mutableStateOf(false)
 
+    /** True while Projects (S01), the app's root, covers the screen. */
+    var showProjects: Boolean by mutableStateOf(false)
+        internal set
+
+    fun openProjects() {
+        showBrief = false
+        mapOpen = false
+        overlay = null
+        showProjects = true
+    }
+
     /** A state that sits under the current section, which stays current but dimmed and inert: Settings, the theme editor or About. */
     var overlay: AppOverlay? by mutableStateOf(null)
         internal set
@@ -314,6 +336,7 @@ class TypewrightAppNavState(
         showBrief = false
         mapOpen = false
         overlay = null
+        showProjects = false
         section = target
     }
 

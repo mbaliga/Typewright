@@ -3379,16 +3379,32 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     toggle arc; Source and Metrics are seats that are off (Source was chosen when the project was
     made, Metrics is not built). Owner: Madhav.
 
-147. **The shell is built; the rest of the deck prompt is not (P13).** Built: one router with
-    saved state (Home is where the app starts), the deck on every screen, Draw and Space as regions
-    of one sheet, Learn's tabs and Workbook's This task · All tasks on the toggle arc, Home with
-    Specimen and Glyphs from the open project only, the Map, and law-4 stubs for Capture, Trace,
-    Check and Ship. The two corner buttons, the header room chip and the edge marks are gone. Not
-    built: the theme system (theme JSON, Settings, the custom theme editor and its guardrails, and
-    the test that fails on a hard-coded colour; every screen still reads CanvasTextures.DEFAULT),
-    S01 Projects (so Home has no Back), the hero word and the points and outlier counts on Home (they
-    need the user's font to be openable, P12), Draw's Outline · Fill and Space's Spacing · Kerning
-    (neither is a separate view yet, so they are not shown as seats that do nothing), Home's ⋯ items
-    other than Brief (Font info, Templates, Export UFO, Project folder and Settings are not built),
-    the 600 ms pan on a section change, and screenshot comparison against the mockups at desktop
-    width. Closes the room-chip and corner-button parts of OQ 56, 82 and 89. Owner: Madhav.
+147. **What the deck prompt still lacks after the shell, the theme system and S01 (P13).** Built:
+    one router with saved state, the deck on every screen, Draw and Space as one sheet, Learn's views and
+    Workbook's This task · All tasks on the toggle arc, Home, the Map, Projects (S01), Settings (S21),
+    the theme editor (S22), About (S23), the theme system, and a test that fails on a colour literal
+    outside `tokens/` and `theme/`. Not built: Settings' Input rows other than haptics (hold delay,
+    finger loupe, stylus hover snapping), Motion (reduced motion has no animation to reduce yet; ambient
+    tone is a scaffold), Building (no compile runtime to report, P14) and Storage; Settings'
+    Export/Import settings in ⋯; S01's specimen strip in each project's own font, Locate… for a missing
+    folder, Reveal, Duplicate and Delete from disk (Remove from list is built), the Open a font and Try
+    the sample choices, and Settings from the + long-press; Home's hero word, points and outlier counts
+    (they need the user's font to open, P12) and ⋯ items other than Brief and Settings; Draw's Outline ·
+    Fill and Space's Spacing · Kerning; About's support link (no address yet); the 600 ms pan; and
+    screenshot comparison against the mockups at desktop width. Owner: Madhav.
+
+148. **Themes are stored as one file, and export and import go through the clipboard (P13).**
+    SCREENS_V1 §3.1 says `themes/<name>.json` in the app's config. The config store has no directory
+    listing, so the custom themes are one `themes.json` array, and a single theme is exported as its own
+    JSON (copy) and imported (paste), which is how it is shared; a file picker would need a platform
+    picker each. Node, line and comparison roles are saved, edited and previewed, and the accent, snap
+    target and comparison layers 1 and 2 recolour the app today through `MeaningColor.forTexture`; the
+    rest (node colours, guides, construction and grid roles, layers 3 and 4) are read by the preview only,
+    because the renderers still draw with ink and muted. Owner: Madhav.
+
+149. **The built-in themes fail two of their own guardrails (P13).** On Paper the snap target is 2.7:1
+    and muted 4.4:1; on Vellum muted is 3.7:1, snap target 2.4:1 and comparison layer 1 2.6:1 (all under
+    the 4.5:1 and 3:1 floors of SCREENS_V1 §3.2). They are UI_SPEC §2's own values, so they are not
+    changed here; `ThemeTest` holds them where they are, and a duplicate of Paper or Vellum cannot be
+    saved until those roles are adjusted. ΔE is CIE76 in CIELAB (OKLab × 100 would call a warm grey
+    "within 20" of the close red). Owner: Madhav.
