@@ -95,6 +95,7 @@ import com.asoc.typewright.ui.puck.rememberPuckUiState
 import com.asoc.typewright.ui.puck.viewCentreFontUnits
 import com.asoc.typewright.ui.shell.LocalSectionNav
 import com.asoc.typewright.ui.shell.ScreenHeader
+import com.asoc.typewright.ui.space.SpaceRoom
 import com.asoc.typewright.ui.theme.LocalAppearance
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.CanvasTextures
@@ -439,12 +440,15 @@ fun TypewrightSheet(
             )
         }
 
-        // The Space room's own glass content; top-centre, clear of the room's placeholder ink at screen centre.
-        SpaceRoomGlass(
-            room = currentRoom,
+        // The Space page: its own header, string, inspector and deck, over the sheet while the router is on Space.
+        SpaceRoom(
+            active = deckVisible && section == DeckSection.SPACE,
             texture = texture,
-            kerning = sampleKerning(),
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = LayersPanelTopPaddingDp.dp),
+            onOpenPalette = {
+                paletteGoTo = false
+                paletteOpen = true
+            },
+            paletteOpen = paletteOpen,
         )
 
         if (section == DeckSection.DRAW && controller != null && glyph != null) {
@@ -536,7 +540,8 @@ fun TypewrightSheet(
         }
         if (shortcutsOpen) DrawShortcutSheet(controller = controller, texture = texture, onClose = { shortcutsOpen = false })
 
-        if (deckVisible) {
+        // Space draws its own deck (its seats and menu are Space's), so the sheet's is for Draw alone.
+        if (deckVisible && section != DeckSection.SPACE) {
             ControlDeck(
                 texture = texture,
                 modifier =
