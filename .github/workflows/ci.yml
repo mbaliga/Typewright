@@ -133,11 +133,26 @@ jobs:
           cache-provider: basic
       - name: Android SDK packages the build needs
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
+      # Steps 4 (Check) and 5 (Compile) run the real fontmake and the real Fontbakery, so this job
+      # needs a Python that has them. A virtualenv keeps the runner's own Python untouched, and
+      # TYPEWRIGHT_PYTHON is how the app (and the golden path's direct Fontbakery run) finds it.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Fontmake and Fontbakery
+        run: |
+          python -m venv "$RUNNER_TEMP/typewright-python"
+          "$RUNNER_TEMP/typewright-python/bin/python" -m pip install -r tools/requirements-golden-path.txt
+          echo "TYPEWRIGHT_PYTHON=$RUNNER_TEMP/typewright-python/bin/python" >> "$GITHUB_ENV"
       # goldenPath prints the pass count and never fails on step results; goldenPathRatchet fails
       # the build the moment a step listed in golden-path/passing-steps.txt stops passing, or a
       # passing step goes unlisted (see that file's own header, and golden-path/README.md).
       - name: Golden path pass count and ratchet
         run: ./gradlew :golden-path:goldenPath :golden-path:goldenPathRatchet
+      # The tests that call the same tools through the backends' own code paths. They are separate
+      # tasks because the core and android jobs have no Python with these tools.
+      - name: Compile and Check against the real tools
+        run: ./gradlew :compile:pythonIntegrationTest :qa:pythonIntegrationTest
       - name: Golden path summary
         if: always()
         run: cat golden-path/build/golden-path/summary.txt >> "$GITHUB_STEP_SUMMARY"
