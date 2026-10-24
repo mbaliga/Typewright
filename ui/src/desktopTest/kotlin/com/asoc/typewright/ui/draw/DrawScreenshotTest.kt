@@ -5,19 +5,22 @@ package com.asoc.typewright.ui.draw
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.input.pointer.PointerType
 import com.asoc.typewright.core.geometry.Contour
 import com.asoc.typewright.core.geometry.ContourPoint
 import com.asoc.typewright.core.geometry.CurveFormat
 import com.asoc.typewright.core.geometry.Glyph
 import com.asoc.typewright.core.geometry.Point
 import com.asoc.typewright.core.geometry.Vec2
+import com.asoc.typewright.core.geometry.brokenSmoothNodes
 import com.asoc.typewright.core.geometry.reverse
-import com.asoc.typewright.project.PointRef
-import com.asoc.typewright.ui.puck.Tool
+import com.asoc.typewright.ui.puck.PuckEdge
+import com.asoc.typewright.ui.sheet.SheetLayout
 import com.asoc.typewright.ui.tokens.CanvasTextures
 import com.asoc.typewright.ui.tokens.toColor
 import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -63,6 +66,33 @@ class DrawScreenshotTest {
     }
 
     private val selectedColour: Color get() = texture.drawColors().selected
+
+    /** [countNear] over the pixels more than [radiusDp] from [centreDp] (dp at the phone's density), i.e. outside a ring drawn there. */
+    private fun countNearOutside(
+        image: org.jetbrains.skia.Image,
+        color: Color,
+        centreDp: Vec2,
+        radiusDp: Float,
+        tolerance: Float = 0.1f,
+    ): Int {
+        val pixels = image.toComposeImageBitmap().toPixelMap()
+        val cx = centreDp.x.toFloat() * PHONE_DENSITY
+        val cy = centreDp.y.toFloat() * PHONE_DENSITY
+        val r = radiusDp * PHONE_DENSITY
+        var n = 0
+        for (y in 0 until pixels.height) {
+            for (x in 0 until pixels.width) {
+                if ((x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r) continue
+                val c = pixels[x, y]
+                if (abs(c.red - color.red) < tolerance && abs(c.green - color.green) < tolerance &&
+                    abs(c.blue - color.blue) < tolerance
+                ) {
+                    n++
+                }
+            }
+        }
+        return n
+    }
 
     // ---- the real letters, phone ---------------------------------------------------------------
 
@@ -164,6 +194,22 @@ class DrawScreenshotTest {
         }
 
     @Test
+    fun phoneSmoothNodeDraggedUpTurnsItsCornerHandleOntoTheSlantedSideAndStaysSmooth() =
+        withDrawSheet(DrawTestProjects.small(roundedO()), "o", PHONE_W, PHONE_H, PHONE_DENSITY) {
+            val node = screenOf(0, 3)
+            press(node, type = PointerType.Touch)
+            // A drag, not a hold: the finger is on its way before the hold timer fires.
+            for (step in 1..8) move(Vec2(node.x, node.y - 5.0 * step), type = PointerType.Touch)
+            frames(2)
+            val dragged = controller.glyph!!.contours[0]
+            assertTrue(dragged.points[3].point.y > 0, "the node followed the finger up")
+            assertEquals(emptyList(), dragged.brokenSmoothNodes(), "mid-drag, every smooth node is still in line with its handles")
+            assertTrue(dragged.points[3].smooth)
+            snapshot("draw-smooth-node-dragged-phone")
+            release(Vec2(node.x, node.y - 40.0), type = PointerType.Touch)
+        }
+
+    @Test
     fun desktopRoundedOWithHandles() =
         withDrawSheet(DrawTestProjects.small(roundedO()), "o", DESKTOP_W, DESKTOP_H, 1f) {
             select(0, 3)
@@ -172,50 +218,74 @@ class DrawScreenshotTest {
 
     // ---- the radial and the rich menu ----------------------------------------------------------
 
+    /**
+     * A finger held on the node, through the pointer layer and the frame the sheet itself builds (its top
+     * inset, its glass at the foot), as the real gesture path does: the hold is timed on the clock, so the
+     * test waits it out.
+     */
+    private fun DrawSheetRig.holdFingerOn(node: Vec2) {
+        press(node, type = PointerType.Touch)
+        Thread.sleep(HOLD_WAIT_MS)
+        frames(2)
+    }
+
+    /** The lowest screen row, in dp, that the glass at the foot of a phone leaves free: the ring must stay above it. */
+    private fun phoneGlassTopDp(): Double {
+        val layout = SheetLayout.of(Vec2(PHONE_W / PHONE_DENSITY.toDouble(), PHONE_H / PHONE_DENSITY.toDouble()), 0.0, PuckEdge.LEFT)
+        return PHONE_H / PHONE_DENSITY.toDouble() - layout.free.bottom
+    }
+
     @Test
     fun phoneRadialSweepingOnANode() =
         withDrawSheet(DrawTestProjects.small(roundedO()), "o", PHONE_W, PHONE_H, PHONE_DENSITY) {
-            select(0, 3)
             val node = screenOf(0, 3)
-            val frame =
-                DrawFrame(
-                    space = room.space(),
-                    canvasWidthDp = PHONE_W / PHONE_DENSITY.toDouble(),
-                    canvasHeightDp = PHONE_H / PHONE_DENSITY.toDouble(),
-                    topInsetDp = 62.0,
-                    deckHeightDp = 160.0,
-                    pointer = PointerKind.TOUCH,
-                    tool = Tool.SELECT,
-                )
-            controller.onOutput(CanvasOutput.HoldOpened(Hit.OnPoint(PointRef(0, 3), onCurve = true, distanceDp = 0.0), node), frame)
+            holdFingerOn(node)
             // The thumb sweeps down and to the right, which chooses the sector across the hub.
-            controller.onOutput(CanvasOutput.HeldMoved(Vec2(node.x + 40.0, node.y + 48.0)), frame)
+            move(Vec2(node.x + 40.0, node.y + 48.0), type = PointerType.Touch)
             frames(2)
-            val ui = assertNotNull(controller.radial)
+            val ui = assertNotNull(controller.radial, "the hold opened the ring")
             assertTrue(ui.state is RadialState.Sweeping)
+            assertTrue(
+                ui.center.y + RadialGeometry.OUTER_DP <= phoneGlassTopDp() + 0.5,
+                "the ring clears the inspector row and the deck: it ends at ${ui.center.y + RadialGeometry.OUTER_DP}, the glass starts at ${phoneGlassTopDp()}",
+            )
+            assertTrue(ui.center.y - RadialGeometry.OUTER_DP >= 0.0, "and does not leave the top of the screen")
             snapshot("draw-radial-sweep-phone")
+            release(Vec2(node.x + 40.0, node.y + 48.0), type = PointerType.Touch)
         }
 
     @Test
     fun phoneRadialLiftedOnANode() =
         withDrawSheet(DrawTestProjects.small(roundedO()), "o", PHONE_W, PHONE_H, PHONE_DENSITY) {
-            select(0, 3)
             val node = screenOf(0, 3)
-            val frame =
-                DrawFrame(
-                    space = room.space(),
-                    canvasWidthDp = PHONE_W / PHONE_DENSITY.toDouble(),
-                    canvasHeightDp = PHONE_H / PHONE_DENSITY.toDouble(),
-                    topInsetDp = 62.0,
-                    deckHeightDp = 160.0,
-                    pointer = PointerKind.TOUCH,
-                    tool = Tool.SELECT,
-                )
-            controller.onOutput(CanvasOutput.HoldOpened(Hit.OnPoint(PointRef(0, 3), onCurve = true, distanceDp = 0.0), node), frame)
-            controller.onOutput(CanvasOutput.HeldReleased(node), frame)
+            holdFingerOn(node)
+            release(node, type = PointerType.Touch)
             frames(2)
-            assertTrue(controller.radial?.state is RadialState.Lifted)
+            val ui = assertNotNull(controller.radial)
+            assertTrue(ui.state is RadialState.Lifted)
+            assertTrue(ui.center.y + RadialGeometry.OUTER_DP <= phoneGlassTopDp() + 0.5, "the waiting ring clears the glass too")
             snapshot("draw-radial-lifted-phone")
+        }
+
+    @Test
+    fun theGlyphStepsBackToThirtyPercentWhileTheRadialIsOpenAndTheMetricLinesDoNot() =
+        withDrawSheet(DrawTestProjects.small(roundedO()), "o", PHONE_W, PHONE_H, PHONE_DENSITY) {
+            val before = snapshot("draw-radial-dim-before")
+            val inkBefore = countNear(before, texture.ink.toColor(), 0.1f)
+            val node = screenOf(0, 3)
+            holdFingerOn(node)
+            val during = snapshot("draw-radial-dim-during")
+            val inkDuring = countNear(during, texture.ink.toColor(), 0.1f)
+            // The ring itself is drawn in ink, so the glyph's share can only be read from what is left outside the ring's reach.
+            val ring = assertNotNull(controller.radial)
+            assertTrue(ring.state is RadialState.Sweeping)
+            val outsideRing = countNearOutside(during, texture.ink.toColor(), ring.center, RadialGeometry.OUTER_DP.toFloat() + 6f)
+            val outsideRingBefore = countNearOutside(before, texture.ink.toColor(), ring.center, RadialGeometry.OUTER_DP.toFloat() + 6f)
+            assertTrue(
+                outsideRing < outsideRingBefore * 0.6,
+                "the glyph away from the ring is much fainter while it is open: $outsideRingBefore -> $outsideRing (ring pixels $inkBefore -> $inkDuring)",
+            )
+            release(node, type = PointerType.Touch)
         }
 
     @Test
@@ -353,6 +423,7 @@ class DrawScreenshotTest {
         const val DESKTOP_W = 1100
         const val DESKTOP_H = 700
         const val FRAME_NS = 16_000_000L
+        const val HOLD_WAIT_MS = 520L
         const val MIN_INK_PIXELS = 400
         const val MIN_SELECTED_PIXELS = 20
         const val KAPPA = 0.5523

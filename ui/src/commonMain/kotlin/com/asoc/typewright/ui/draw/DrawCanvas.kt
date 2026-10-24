@@ -3,8 +3,10 @@
 package com.asoc.typewright.ui.draw
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.PathFillType
@@ -49,6 +51,11 @@ class DrawScene(
     val snaps: List<SnapTarget>,
     val sweep: SweepShape?,
     val pen: List<Vec2>,
+    /**
+     * How strongly the glyph itself (its body, handles and nodes) is drawn: 1 normally, 0.3 while a radial ring
+     * is open over it (S12). The metric lines, guidelines, snap targets and the selection stay at full strength (C4).
+     */
+    val glyphAlpha: Float = 1f,
 )
 
 /**
@@ -74,10 +81,15 @@ fun DrawScope.drawDrawRoom(
     if (scene.construction) drawGuidelines(scene.guidelines, space, colors)
     val glyph = scene.glyph
     if (glyph != null) {
-        drawGlyphBody(glyph, space, colors, scene.fill, scene.locked)
-        drawHandles(glyph, space, colors, scene.selection, scene.fill)
-        drawNodes(glyph, space, colors, scene.selection)
-        drawSelection(glyph, space, colors, scene.selection)
+        // A locked glyph refuses the edit a mark invites, so it shows none.
+        val marks = if (scene.locked) emptyList() else RetractedHandles.marks(glyph, space, scene.selection)
+        withGroupAlpha(scene.glyphAlpha) {
+            drawGlyphBody(glyph, space, colors, scene.fill, scene.locked)
+            drawHandles(glyph, space, colors, scene.selection, scene.fill)
+            drawRetractedMarks(marks, space, colors, scene.selection)
+            drawNodes(glyph, space, colors, scene.selection)
+        }
+        drawSelection(glyph, space, colors, scene.selection, marks)
         scene.hover?.let { drawHover(glyph, space, colors, it) }
     }
     drawSnapTargets(scene.snaps, space, colors)
@@ -86,6 +98,21 @@ fun DrawScope.drawDrawRoom(
 }
 
 private fun DrawScope.px(v: Vec2): Offset = Offset(v.x.dp.toPx(), v.y.dp.toPx())
+
+/** Draws [block] as one layer at [alpha], so overlapping strokes dim together instead of showing through each other. */
+private inline fun DrawScope.withGroupAlpha(
+    alpha: Float,
+    block: () -> Unit,
+) {
+    if (alpha >= 1f) {
+        block()
+        return
+    }
+    val canvas = drawContext.canvas
+    canvas.saveLayer(Rect(Offset.Zero, size), Paint().apply { this.alpha = alpha })
+    block()
+    canvas.restore()
+}
 
 private fun DrawScope.screenOf(
     space: DrawSpace,
@@ -296,6 +323,37 @@ private fun DrawScope.drawHandles(
     }
 }
 
+/**
+ * The mark of each retracted handle of what is selected: a small hollow diamond (a handle is a circle, so the
+ * shape says "pull me out" and not "I am a handle") on a short dotted stub from its node.
+ */
+private fun DrawScope.drawRetractedMarks(
+    marks: List<RetractedMark>,
+    space: DrawSpace,
+    colors: DrawColors,
+    selection: DrawSelection,
+) {
+    val half = RETRACTED_MARK_HALF.dp.toPx()
+    val dash = PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 2.dp.toPx()))
+    for (mark in marks) {
+        val from = screenOf(space, mark.at - mark.offset)
+        val at = screenOf(space, mark.at)
+        val active = mark.ref in selection.points
+        val tint = if (active) colors.selected else colors.offCurve
+        drawLine(if (active) colors.selected else colors.handleLine, from, at, strokeWidth = 1.dp.toPx(), pathEffect = dash)
+        val diamond =
+            Path().apply {
+                moveTo(at.x, at.y - half)
+                lineTo(at.x + half, at.y)
+                lineTo(at.x, at.y + half)
+                lineTo(at.x - half, at.y)
+                close()
+            }
+        drawPath(diamond, colors.canvas)
+        drawPath(diamond, tint, style = Stroke(width = 1.2.dp.toPx()))
+    }
+}
+
 private fun ownerSelected(
     contour: Contour,
     handle: Int,
@@ -372,6 +430,7 @@ private fun DrawScope.drawSelection(
     space: DrawSpace,
     colors: DrawColors,
     selection: DrawSelection,
+    marks: List<RetractedMark>,
 ) {
     for (ref in selection.points) {
         val point =
@@ -379,7 +438,8 @@ private fun DrawScope.drawSelection(
                 .getOrNull(ref.contour)
                 ?.points
                 ?.getOrNull(ref.point) ?: continue
-        val at = screenOf(space, point.point.toVec2())
+        // A retracted handle is selected at its mark, not under its node.
+        val at = screenOf(space, marks.firstOrNull { it.ref == ref }?.at ?: point.point.toVec2())
         if (point.onCurve) {
             drawCircle(colors.selected, SELECT_RING_RADIUS.dp.toPx(), at, style = Stroke(width = 1.2.dp.toPx()))
             drawCircle(colors.selected, SELECT_DOT_RADIUS.dp.toPx(), at)
@@ -416,7 +476,7 @@ private fun DrawScope.drawHover(
                     .getOrNull(hover.ref.contour)
                     ?.points
                     ?.getOrNull(hover.ref.point) ?: return
-            val at = screenOf(space, point.point.toVec2())
+            val at = screenOf(space, point.point.toVec2() + (hover.markOffset ?: Vec2(0.0, 0.0)))
             drawCircle(colors.muted, HOVER_RING_RADIUS.dp.toPx(), at, style = Stroke(width = 1.dp.toPx()))
         }
 
@@ -520,6 +580,7 @@ private const val DIRECTION_PROBE_T = 0.05
 private const val SELECT_RING_RADIUS = 7.5
 private const val SELECT_DOT_RADIUS = 4.2
 private const val HANDLE_SELECT_RING = 5.0
+private const val RETRACTED_MARK_HALF = 3.2
 private const val HOVER_RING_RADIUS = 9.0
 private const val SEGMENT_SAMPLES = 24
 private const val SNAP_ARM = 12.0

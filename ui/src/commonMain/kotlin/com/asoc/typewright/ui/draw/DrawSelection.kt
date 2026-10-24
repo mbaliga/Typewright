@@ -6,6 +6,7 @@ import com.asoc.typewright.core.geometry.Contour
 import com.asoc.typewright.core.geometry.Glyph
 import com.asoc.typewright.core.geometry.Vec2
 import com.asoc.typewright.core.geometry.pointAt
+import com.asoc.typewright.core.geometry.segmentLayout
 import com.asoc.typewright.core.geometry.segments
 import com.asoc.typewright.core.geometry.writtenCount
 import com.asoc.typewright.project.PointRef
@@ -72,13 +73,29 @@ data class DrawSelection(
     fun all(glyph: Glyph): DrawSelection =
         DrawSelection(glyph.contours.flatMapIndexed { c, contour -> contour.points.indices.map { PointRef(c, it) } }.toSet())
 
-    /** This selection with anything that no longer exists in [glyph] dropped (after an edit that removed points). */
-    fun clippedTo(glyph: Glyph): DrawSelection =
-        DrawSelection(
-            points.filter { it.contour in glyph.contours.indices && it.point in glyph.contours[it.contour].points.indices }.toSet(),
-            segment?.takeIf { it.contour in glyph.contours.indices },
-            segmentT,
-        )
+    /**
+     * This selection with anything that no longer exists in [glyph] dropped: points past the end of their
+     * contour and a segment whose contour, or whose index within it, is gone. An undo, a redo or an edit
+     * made in another room changes the outline under a selection, so the selection is clipped to the outline
+     * it is read against; this selection itself when nothing needed clipping.
+     */
+    fun clippedTo(glyph: Glyph): DrawSelection {
+        fun pointCount(contour: Int) =
+            glyph.contours
+                .getOrNull(contour)
+                ?.points
+                ?.size ?: 0
+
+        fun segmentCount(contour: Int) =
+            glyph.contours
+                .getOrNull(contour)
+                ?.segmentLayout()
+                ?.size ?: 0
+        val keptPoints = points.filterTo(mutableSetOf()) { it.point in 0 until pointCount(it.contour) }
+        val keptSegment = segment?.takeIf { it.segment in 0 until segmentCount(it.contour) }
+        if (keptPoints.size == points.size && keptSegment == segment) return this
+        return DrawSelection(keptPoints, keptSegment, segmentT)
+    }
 
     /** The selected on-curve nodes of [glyph], in contour then point order. */
     fun nodes(glyph: Glyph): List<PointRef> =
@@ -115,8 +132,9 @@ data class DrawSelection(
 object DrawSubject {
     fun describe(
         glyph: Glyph,
-        selection: DrawSelection,
+        asked: DrawSelection,
     ): String {
+        val selection = asked.clippedTo(glyph)
         val nodes = selection.nodes(glyph)
         val handles = selection.handles(glyph)
         return when {
@@ -150,8 +168,9 @@ object DrawSubject {
      */
     fun headerLine(
         glyph: Glyph,
-        selection: DrawSelection,
+        asked: DrawSelection,
     ): String {
+        val selection = asked.clippedTo(glyph)
         val only = selection.points.singleOrNull()
         val point =
             only?.let {

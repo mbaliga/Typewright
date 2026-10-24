@@ -60,8 +60,15 @@ object DrawTestProjects {
             glyphs.toList(),
         )
 
-    /** A session over [ufo], autosave off so a test decides when anything is written. */
-    fun session(ufo: UfoProject): ProjectSession =
+    /**
+     * A session over [ufo], autosave off so a test decides when anything is written. A [coalesceWindowMillis] of 0
+     * turns the session's merging of quick repeated edits off, so a test can tell one undo step made by construction
+     * from one made by the clock.
+     */
+    fun session(
+        ufo: UfoProject,
+        coalesceWindowMillis: Long = DEFAULT_COALESCE_MILLIS,
+    ): ProjectSession =
         runBlocking {
             val spec =
                 NewProjectSpec(
@@ -75,9 +82,12 @@ object DrawTestProjects {
                     scope = CoroutineScope(Dispatchers.Unconfined),
                     io = Dispatchers.Unconfined,
                     autosave = AutosavePolicy(enabled = false),
+                    coalesceWindowMillis = coalesceWindowMillis,
                 )
             (ProjectSession.create(InMemoryProjectStore("Draw Test"), spec, env) as CreateResult.Created).session
         }
+
+    private const val DEFAULT_COALESCE_MILLIS = 1_000L
 
     fun editor(
         session: ProjectSession,

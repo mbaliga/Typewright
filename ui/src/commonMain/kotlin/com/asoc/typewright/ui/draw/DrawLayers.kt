@@ -111,6 +111,8 @@ fun DrawInkLayer(
     labelBand: ClosedFloatingPointRange<Double>? = null,
     /** How far in from the right edge the names stop, in dp: a column of glass on the right would otherwise cover them. */
     labelEndInsetDp: Double = 0.0,
+    /** How strongly the glyph is drawn: 0.3 while a radial ring is open over it (S12). */
+    glyphAlpha: Float = 1f,
 ) {
     val colors = remember(texture) { texture.drawColors() }
     val controller = room.controller
@@ -137,6 +139,7 @@ fun DrawInkLayer(
                     snaps = controller?.snaps.orEmpty(),
                     sweep = controller?.sweep,
                     pen = controller?.penPoints.orEmpty(),
+                    glyphAlpha = glyphAlpha,
                 )
             drawDrawRoom(scene, DrawSpace.of(cameraState.camera), colors)
         }
@@ -290,7 +293,7 @@ private suspend fun PointerInputScope.gestureLoop(
             if (glyph == null) {
                 Hit.Nothing
             } else {
-                DrawHit.hit(glyph, frame.space, position, toleranceFor(kind))
+                DrawHit.hit(glyph, frame.space, position, toleranceFor(kind), controller.selectionForMarks())
             }
         down.consume()
         var holdArmed = kind != PointerKind.MOUSE
@@ -422,6 +425,7 @@ private suspend fun PointerInputScope.hoverAndWheelLoop(
                                         frame.space,
                                         change.position.toVec2(density),
                                         HitTolerance.MOUSE,
+                                        controller.selectionForMarks(),
                                     )
                                 }?.takeIf { it !is Hit.Nothing }
                     }

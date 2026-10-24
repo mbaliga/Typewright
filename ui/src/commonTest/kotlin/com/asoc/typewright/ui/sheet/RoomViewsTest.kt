@@ -38,6 +38,16 @@ class RoomViewsTest {
     }
 
     @Test
+    fun aFlightToTheRoomTheCameraIsAlreadyInGoesNowhere() {
+        val inDraw = SheetCamera(Vec2(Room.DRAW.worldBounds().left + 40.0, -210.0), zoom = 1.8)
+        val state = SheetCameraState(inDraw)
+        assertEquals(Room.DRAW, state.currentRoom)
+        assertEquals(null, state.flightTarget(Room.DRAW), "a flick or an arrow key at the end of the line asks for the room it is in")
+        val toSpace = state.flightTarget(Room.SPACE)
+        assertEquals(RoomViews.firstView(Room.SPACE, inDraw), toSpace, "any other room is a real flight")
+    }
+
+    @Test
     fun zoomIsHeldToTheRangeTheSheetAllows() {
         val state = SheetCameraState(SheetCamera(Vec2(0.0, 0.0), zoom = 1.0))
         repeat(50) { state.zoomBy(2.0, Vec2(100.0, 100.0)) }

@@ -219,6 +219,8 @@ fun InspectorColumn(
     edit: InspectorEdit?,
     onEditingChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    /** Changes to put away an open field without committing it (the deck's Close circle). */
+    cancelEditing: Int = 0,
 ) {
     val panel = panelColor(texture)
     val muted = texture.muted.toColor()
@@ -243,6 +245,7 @@ fun InspectorColumn(
                     horizontalPaddingDp = 0.0,
                     gapDp = COLUMN_GAP_DP,
                     onEditingChanged = onEditingChanged,
+                    cancelEditing = cancelEditing,
                 )
             }
         }

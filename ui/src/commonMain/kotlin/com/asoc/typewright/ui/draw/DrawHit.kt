@@ -30,11 +30,16 @@ data class HitTolerance(
 
 /** What is under a pointer. */
 sealed interface Hit {
-    /** A point of the outline: [onCurve] says node or handle. */
+    /**
+     * A point of the outline: [onCurve] says node or handle. A retracted handle is picked at its mark, a
+     * little way from its node ([markOffset], from the handle's own place to where it was picked, in font
+     * units); every other point has none.
+     */
     data class OnPoint(
         val ref: PointRef,
         val onCurve: Boolean,
         val distanceDp: Double,
+        val markOffset: Vec2? = null,
     ) : Hit
 
     /** A curve between nodes, at parameter [t], where it is nearest the pointer ([at], in font units). */
@@ -52,15 +57,18 @@ sealed interface Hit {
 /** Hit-testing the pointer against a glyph's outline, in screen dp through a [DrawSpace]. */
 object DrawHit {
     /**
-     * The nearest point of [glyph] within [tolerance] of [screen] (handles that sit on their node are
-     * skipped: there is nothing to grab), else the nearest curve within the segment tolerance, else
-     * [Hit.Nothing]. A point always wins over a curve it lies on.
+     * The nearest point of [glyph] within [tolerance] of [screen], else the nearest curve within the segment
+     * tolerance, else [Hit.Nothing]. A point always wins over a curve it lies on. A handle that sits on its
+     * node has nothing to grab where it is, so the node wins there; but the retracted handles of what is in
+     * [selection] are pickable at their marks ([RetractedHandles]), which is how a straight side is pulled
+     * into a curve.
      */
     fun hit(
         glyph: Glyph,
         space: DrawSpace,
         screen: Vec2,
         tolerance: HitTolerance,
+        selection: DrawSelection = DrawSelection.EMPTY,
     ): Hit {
         var best: Hit.OnPoint? = null
         for ((ci, contour) in glyph.contours.withIndex()) {
@@ -69,6 +77,10 @@ object DrawHit {
                 val d = (space.toScreen(point.point.toVec2()) - screen).length()
                 if (d <= tolerance.pointDp && (best == null || d < best.distanceDp)) best = Hit.OnPoint(PointRef(ci, pi), point.onCurve, d)
             }
+        }
+        for (mark in RetractedHandles.marks(glyph, space, selection)) {
+            val d = (space.toScreen(mark.at) - screen).length()
+            if (d <= tolerance.pointDp && (best == null || d < best.distanceDp)) best = Hit.OnPoint(mark.ref, false, d, mark.offset)
         }
         best?.let { return it }
         val font = space.toFont(screen)

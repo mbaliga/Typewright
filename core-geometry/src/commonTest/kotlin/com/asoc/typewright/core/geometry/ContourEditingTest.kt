@@ -264,11 +264,22 @@ class ContourEditingTest {
     }
 
     @Test
-    fun smoothingANodeWithNoHandlesTakesTheFlagAndMovesNothing() {
-        val c = rectangleLines().withSmooth(0, true)
-        assertTrue(c.points[0].smooth)
-        assertEquals(rectangleLines().points.map { it.point }, c.points.map { it.point })
-        assertEquals(c, c.withSmooth(0, true))
+    fun smoothingANodeBetweenTwoStraightSidesThatRunOnAsOneLineTakesTheFlagAndMovesNothing() {
+        // A node on the middle of a rectangle's bottom side has no handle and a straight side either way: it is already in line.
+        val withMiddleNode = rectangleLines().withNodeInserted(0, 0.5).contour
+        val middle = 3
+        val c = withMiddleNode.withSmooth(middle, true)
+        assertTrue(c.points[middle].smooth)
+        assertEquals(withMiddleNode.points.map { it.point }, c.points.map { it.point })
+        assertEquals(c, c.withSmooth(middle, true))
+    }
+
+    @Test
+    fun aCornerBetweenTwoStraightSidesCannotBeMadeSmoothSoTheFlagIsNotSet() {
+        // Setting smooth on a right-angle corner of a rectangle would write a flag the outline contradicts.
+        val rectangle = rectangleLines()
+        assertEquals(rectangle, rectangle.withSmooth(0, true))
+        assertTrue(rectangle.withSmooth(0, true).brokenSmoothNodes().isEmpty())
     }
 
     // ---- inserting -------------------------------------------------------------------------

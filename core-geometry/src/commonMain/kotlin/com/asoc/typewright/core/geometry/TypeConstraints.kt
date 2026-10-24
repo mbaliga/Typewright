@@ -367,10 +367,11 @@ internal fun snapPointsToMetricLines(
         val hasCurvedNeighbor = !previousSegment.isEffectivelyStraight() || !nextSegment.isEffectivelyStraight()
         val preserveAsOvershoot = !isFlatRun && hasCurvedNeighbor
         if (!preserveAsOvershoot) {
-            newPoints[anchorIndex] = ContourPoint(Point(anchor.x, nearestLine), onCurve = true)
+            newPoints[anchorIndex] = ContourPoint(Point(anchor.x, nearestLine), onCurve = true, smooth = points[anchorIndex].smooth)
         }
     }
-    return Contour(newPoints, contour.format)
+    // A node moved on its own (its handles stay) can leave a smooth flag the outline contradicts; keep it true.
+    return Contour(newPoints, contour.format).withSmoothKept(contour)
 }
 
 // -------------------------------------------------------------------------------------------

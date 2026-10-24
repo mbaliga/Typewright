@@ -4,6 +4,7 @@ package com.asoc.typewright.ui.draw
 
 import com.asoc.typewright.core.geometry.Contour
 import com.asoc.typewright.core.geometry.Glyph
+import com.asoc.typewright.core.geometry.Vec2
 import com.asoc.typewright.core.geometry.withHandleMoved
 import com.asoc.typewright.core.geometry.withSegmentBent
 import com.asoc.typewright.core.geometry.withSelectionMoved
@@ -17,10 +18,15 @@ sealed interface DragOp {
         val points: Set<PointRef>,
     ) : DragOp
 
-    /** Moves one handle; a smooth node swings its other handle to stay in line unless [breakSymmetry] (Alt). */
+    /**
+     * Moves one handle; a smooth node swings its other handle to stay in line unless [breakSymmetry] (Alt).
+     * A handle picked at its mark ([lead], font units from where it is to the mark) first jumps to the
+     * mark, so it lands under the pointer that pulled it out.
+     */
     data class MoveHandle(
         val handle: PointRef,
         val breakSymmetry: Boolean = false,
+        val lead: Vec2 = Vec2(0.0, 0.0),
     ) : DragOp
 
     /** Pulls segment [key] at parameter [t]: handle lengths change, their angles stay. */
@@ -68,7 +74,12 @@ object DragPlan {
 
             is DragOp.MoveHandle -> {
                 contours[op.handle.contour] =
-                    contours[op.handle.contour].withHandleMoved(op.handle.point, dx, dy, keepSmooth = !op.breakSymmetry)
+                    contours[op.handle.contour].withHandleMoved(
+                        op.handle.point,
+                        roundUnits(dxUnits + op.lead.x),
+                        roundUnits(dyUnits + op.lead.y),
+                        keepSmooth = !op.breakSymmetry,
+                    )
             }
 
             is DragOp.BendSegment -> {

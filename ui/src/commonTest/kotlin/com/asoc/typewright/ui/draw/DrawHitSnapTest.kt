@@ -13,6 +13,7 @@ import com.asoc.typewright.core.geometry.Point
 import com.asoc.typewright.core.geometry.Vec2
 import com.asoc.typewright.core.geometry.pointAt
 import com.asoc.typewright.core.geometry.segments
+import com.asoc.typewright.core.geometry.withHandleMoved
 import com.asoc.typewright.project.PointRef
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -58,12 +59,17 @@ class DrawHitTest {
     }
 
     @Test
-    fun aFingerReachesFurtherThanAMouse() {
+    fun aFingerReachesFurtherThanAMouseFromTheSameSpot() {
         val glyph = bowl()
+        // 15 dp from node 0 and further than a mouse's segment reach from either curve: only the larger tolerance gets there.
         val nearish = Vec2(100.0 + 15.0, 500.0)
-        assertIs<Hit.Nothing>(DrawHit.hit(glyph, unitSpace, nearish.copy(y = 700.0), HitTolerance.MOUSE))
-        assertIs<Hit.OnPoint>(DrawHit.hit(glyph, unitSpace, nearish, HitTolerance.FINGER))
+        assertIs<Hit.Nothing>(DrawHit.hit(glyph, unitSpace, nearish, HitTolerance.MOUSE), "a mouse is exact")
+        val finger = DrawHit.hit(glyph, unitSpace, nearish, HitTolerance.FINGER)
+        assertIs<Hit.OnPoint>(finger)
+        assertEquals(PointRef(0, 0), finger.ref)
+        assertEquals(15.0, finger.distanceDp, 1e-9)
         assertTrue(HitTolerance.FINGER.pointDp * 2 >= 44.0, "a finger target is at least 44 dp across")
+        assertTrue(HitTolerance.MOUSE.pointDp < 15.0 && HitTolerance.FINGER.pointDp > 15.0)
     }
 
     @Test
@@ -74,18 +80,79 @@ class DrawHitTest {
         assertFalse(hit.onCurve)
     }
 
+    /** Two corners joined by straight sides, each handle on its own node: node 3's retracted handle 2 comes BEFORE node 3 in the list. */
+    private fun twoCornerLine() =
+        Glyph(
+            "l",
+            100,
+            listOf(Contour(listOf(on(0, 0), off(0, 0), off(100, 0), on(100, 0), off(100, 0), off(0, 0)), CurveFormat.CUBIC)),
+        )
+
     @Test
-    fun aRetractedHandleSittingOnItsNodeCannotBeGrabbedSoTheNodeWins() {
-        val line =
-            Contour(
-                listOf(on(0, 0), off(0, 0), off(100, 0), on(100, 0), off(100, 0), off(0, 0)),
-                CurveFormat.CUBIC,
-            )
-        val hit = DrawHit.hit(Glyph("l", 100, listOf(line)), unitSpace, Vec2(100.0, 500.0), HitTolerance.MOUSE)
+    fun aRetractedHandleSittingOnItsNodeCannotBeGrabbedSoTheNodeWinsEvenWhereTheHandleComesFirst() {
+        val atNode3 = unitSpace.toScreen(Vec2(100.0, 0.0))
+        val hit = DrawHit.hit(twoCornerLine(), unitSpace, atNode3, HitTolerance.MOUSE)
         assertIs<Hit.OnPoint>(hit)
         assertTrue(hit.onCurve, "the node, not one of its retracted handles")
-        assertEquals(PointRef(0, 0), hit.ref)
+        assertEquals(PointRef(0, 3), hit.ref, "handle 2 is listed first and sits exactly there; only the skip lets the node through")
     }
+
+    @Test
+    fun aRetractedHandleOfASelectedNodeIsPickedAtItsMarkAHandsBreadthFromTheNode() {
+        // A square: pull a handle out of the bottom side of corner 0 (retracted handle 1) by grabbing its mark.
+        val square = squareGlyph()
+        val node = PointRef(0, 0)
+        val marks = RetractedHandles.marks(square, unitSpace, DrawSelection(setOf(node)))
+        val mark = marks.single { it.ref == PointRef(0, 1) }
+        assertEquals(RetractedHandles.MARK_DISTANCE_DP / unitSpace.dpPerUnit, mark.offset.length(), 1e-9, "a fixed distance on screen")
+        assertTrue(mark.offset.x > 0.0 && mark.offset.y == 0.0, "along the bottom side, towards the next corner")
+        val hit = DrawHit.hit(square, unitSpace, unitSpace.toScreen(mark.at), HitTolerance.MOUSE, DrawSelection(setOf(node)))
+        assertIs<Hit.OnPoint>(hit)
+        assertEquals(PointRef(0, 1), hit.ref)
+        assertTrue(!hit.onCurve)
+        assertEquals(mark.offset, hit.markOffset)
+        // Without the node selected there is nothing there: the mark is shown for what you are working on, not for every corner.
+        val unselected = DrawHit.hit(square, unitSpace, unitSpace.toScreen(mark.at), HitTolerance.MOUSE)
+        assertTrue(unselected !is Hit.OnPoint, "the spot is only the bottom side: $unselected")
+        assertEquals(emptyList(), RetractedHandles.marks(square, unitSpace, DrawSelection.EMPTY))
+    }
+
+    @Test
+    fun theMarkOfAShortSideStaysBetweenItsTwoNodes() {
+        val tiny = Glyph("t", 100, listOf(rectangleContour(0, 0, 20, 20)))
+        val mark = RetractedHandles.marks(tiny, unitSpace, DrawSelection(setOf(PointRef(0, 0)))).single { it.ref == PointRef(0, 1) }
+        assertTrue(mark.offset.length() <= 20 * 0.4 + 1e-9, "no more than 40% of a 20 unit side: ${mark.offset.length()}")
+    }
+
+    @Test
+    fun aHandleThatHasBeenPulledOutIsAnOrdinaryHandleWithNoMark() {
+        val square = squareGlyph()
+        val pulled = square.copy(contours = listOf(square.contours[0].withHandleMoved(1, 40, 0)))
+        assertEquals(
+            emptyList(),
+            RetractedHandles.marks(pulled, unitSpace, DrawSelection(setOf(PointRef(0, 0)))).filter {
+                it.ref ==
+                    PointRef(0, 1)
+            },
+        )
+    }
+
+    private fun rectangleContour(
+        x0: Int,
+        y0: Int,
+        x1: Int,
+        y1: Int,
+    ): Contour {
+        val corners = listOf(Point(x0, y0), Point(x1, y0), Point(x1, y1), Point(x0, y1))
+        return Contour(
+            corners.flatMapIndexed { i, p ->
+                listOf(ContourPoint(p, true), ContourPoint(p, false), ContourPoint(corners[(i + 1) % 4], false))
+            },
+            CurveFormat.CUBIC,
+        )
+    }
+
+    private fun squareGlyph() = Glyph("s", 300, listOf(rectangleContour(0, 0, 200, 200)))
 
     @Test
     fun aCurveBetweenNodesIsHitAtTheParameterNearestThePointer() {
@@ -162,15 +229,50 @@ class DrawSnapTest {
         assertEquals(setOf(SnapKind.GLYPH_EDGE, SnapKind.METRIC), result.targets.map { it.kind }.toSet())
     }
 
+    /** Two nodes at different heights, well away from the origin line and from every metric line: (80, 60) and (240, 120). */
+    private fun offsetBowl() =
+        Glyph(
+            "u",
+            400,
+            listOf(
+                Contour(
+                    listOf(on(80, 60), off(80, 260), off(240, 260), on(240, 120), off(240, -140), off(80, -140)),
+                    CurveFormat.CUBIC,
+                ),
+            ),
+        )
+
     @Test
     fun anotherNodesXAndYAreTargetsButTheMovingNodesOwnAreNot() {
-        val glyph = bowl()
-        val others = Snapper(glyph, metrics, 300, moving = setOf(PointRef(0, 0)), bandUnits = 10.0)
-        val toNode = others.snap(Vec2(197.0, 33.0)) // node (200, 0) is the other node; x 197 is within 10 of 200
-        assertTrue(toNode.targets.any { it.kind == SnapKind.NODE && it.axis == Axis.X })
-        // The node at (0, 0) is moving, so it offers no target at x = 0 ... except the glyph's own origin line.
-        val atOwnOldPlace = others.snap(Vec2(2.0, 100.0))
-        assertTrue(atOwnOldPlace.targets.none { it.kind == SnapKind.NODE && it.axis == Axis.X })
+        val glyph = offsetBowl()
+        val moving = Snapper(glyph, metrics, 400, moving = setOf(PointRef(0, 0)), bandUnits = 10.0)
+        // Node (240, 120) stays: 3 units short of its x and 2 above its y, both within the band.
+        val toOther = moving.snap(Vec2(237.0, 122.0))
+        assertEquals(
+            setOf(Axis.X, Axis.Y),
+            toOther.targets
+                .filter { it.kind == SnapKind.NODE }
+                .map { it.axis }
+                .toSet(),
+        )
+        assertEquals(3.0, toOther.dx, 1e-9)
+        assertEquals(-2.0, toOther.dy, 1e-9)
+        // Node (80, 60) is the one being dragged, so where it started is no target for itself: 2 units from its old x and 2 from its old y.
+        val atOwnOldPlace = moving.snap(Vec2(82.0, 62.0))
+        assertEquals(emptyList(), atOwnOldPlace.targets.filter { it.kind == SnapKind.NODE }, "a node does not snap to where it was")
+        assertEquals(SnapResult.NONE, atOwnOldPlace)
+        // The same probe with nothing moving does find the node: the exclusion is what made the difference.
+        val nothingMoving = Snapper(glyph, metrics, 400, moving = emptySet(), bandUnits = 10.0)
+        assertEquals(
+            setOf(Axis.X, Axis.Y),
+            nothingMoving
+                .snap(Vec2(82.0, 62.0))
+                .targets
+                .filter {
+                    it.kind == SnapKind.NODE
+                }.map { it.axis }
+                .toSet(),
+        )
     }
 
     @Test

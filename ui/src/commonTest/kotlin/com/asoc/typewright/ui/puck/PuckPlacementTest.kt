@@ -51,48 +51,89 @@ class PuckPlacementTest {
         assertIs<PuckGestureState.HoldTimerRunning>(machine.state, "an unconverted position is nowhere near the grip")
     }
 
+    /**
+     * The puck's box as Compose has it: where it was last laid out, which is what a pointer is reported
+     * against, and which follows the machine's state one frame late. [placement] is told about it only by
+     * [layOut], as `onGloballyPositioned` does, so the test's idea of where the finger is never comes
+     * from the object under test.
+     */
+    private class Box(
+        var origin: Vec2,
+        val placement: PuckPlacement,
+    ) {
+        fun reported(finger: Vec2): Vec2 = finger - origin
+
+        fun layOut(newOrigin: Vec2) {
+            origin = newOrigin
+            placement.topLeftDp = newOrigin
+        }
+    }
+
     @Test
     fun draggingTheGripMovesThePuckExactlyAsFarAsTheFingerEvenThoughTheBoxFollowsOneFrameLate() {
         var centre = Vec2(100.0, 300.0)
-        val placement = PuckPlacement(topLeftFor(centre))
+        val box = Box(topLeftFor(centre), PuckPlacement(topLeftFor(centre)))
         val machine = PuckGestureMachine(config)
         var finger = PuckGeometry(centre).gripVisualCenter
         val start = finger
 
         fun deliver(event: (Vec2) -> PuckInputEvent) {
-            // Compose reports the finger inside the box as it was last placed; the arbiter adds that same placement back.
-            val local = finger - placement.topLeftDp
-            val outputs = machine.onEvent(event(placement.toParent(local)), PuckGeometry(centre))
+            // Compose reports the finger inside the box as it stands; the arbiter adds the placement back.
+            val outputs = machine.onEvent(event(box.placement.toParent(box.reported(finger))), PuckGeometry(centre))
             for (out in outputs) if (out is PuckOutputEvent.GripDragged) centre += out.delta
         }
         deliver { PuckInputEvent.PointerDown(it, 0) }
         repeat(8) { step ->
             finger += Vec2(7.0, 5.0)
             deliver { PuckInputEvent.PointerMove(it, step.toLong()) }
+            assertTrue(box.origin != topLeftFor(centre), "the box is still where it was: it lags the puck by this move")
             // The box catches up with the state only now, after the event that moved it.
-            placement.topLeftDp = topLeftFor(centre)
+            box.layOut(topLeftFor(centre))
         }
         assertEquals(Vec2(100.0 + 56.0, 300.0 + 40.0), centre, "the puck is where the finger took it")
         assertEquals(finger - start, centre - Vec2(100.0, 300.0))
     }
 
     @Test
-    fun aMoveReportedAgainstAnOldPlacementStillConvertsExactlyAfterTheBoxHasMoved() {
+    fun aPlacementThatIsNeverUpdatedLosesTheFingerAfterTheFirstMove() {
+        // The failure the placement exists to prevent: converting every move with the origin the gesture began at.
         var centre = Vec2(100.0, 300.0)
-        val placement = PuckPlacement(topLeftFor(centre))
+        val box = Box(topLeftFor(centre), PuckPlacement(topLeftFor(centre)))
         val machine = PuckGestureMachine(config)
         var finger = PuckGeometry(centre).gripVisualCenter
-        machine.onEvent(PuckInputEvent.PointerDown(finger, 0), PuckGeometry(centre))
-        // Two moves arrive before the box is laid out again: both are reported against the same old origin.
-        val staleOrigin = placement.topLeftDp
+        machine.onEvent(PuckInputEvent.PointerDown(box.placement.toParent(box.reported(finger)), 0), PuckGeometry(centre))
+        repeat(8) { step ->
+            finger += Vec2(7.0, 5.0)
+            for (out in machine.onEvent(
+                PuckInputEvent.PointerMove(box.placement.toParent(box.reported(finger)), step.toLong()),
+                PuckGeometry(centre),
+            )) {
+                if (out is PuckOutputEvent.GripDragged) centre += out.delta
+            }
+            box.origin = topLeftFor(centre) // the box moves, but the placement is not told
+        }
+        assertNotEquals(Vec2(100.0 + 56.0, 300.0 + 40.0), centre, "a stale origin does not follow the finger")
+    }
+
+    @Test
+    fun twoMovesReportedBeforeTheBoxIsLaidOutAgainBothConvertAgainstTheSameOriginExactly() {
+        var centre = Vec2(100.0, 300.0)
+        val box = Box(topLeftFor(centre), PuckPlacement(topLeftFor(centre)))
+        val machine = PuckGestureMachine(config)
+        var finger = PuckGeometry(centre).gripVisualCenter
+        machine.onEvent(PuckInputEvent.PointerDown(box.placement.toParent(box.reported(finger)), 0), PuckGeometry(centre))
+        // The puck has moved on, but the box has not been laid out again: both moves are reported against the old box.
         repeat(2) {
             finger += Vec2(10.0, 0.0)
-            val local = finger - staleOrigin
-            for (out in machine.onEvent(PuckInputEvent.PointerMove(placement.toParent(local), 1), PuckGeometry(centre))) {
+            for (out in machine.onEvent(
+                PuckInputEvent.PointerMove(box.placement.toParent(box.reported(finger)), 1),
+                PuckGeometry(centre),
+            )) {
                 if (out is PuckOutputEvent.GripDragged) centre += out.delta
             }
         }
         assertEquals(Vec2(120.0, 300.0), centre, "20 dp of finger travel is 20 dp of puck travel")
+        assertEquals(topLeftFor(Vec2(100.0, 300.0)), box.placement.topLeftDp, "and the placement is still the old box's")
     }
 
     @Test

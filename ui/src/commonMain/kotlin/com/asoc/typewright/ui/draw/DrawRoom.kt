@@ -7,6 +7,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,6 +22,7 @@ import com.asoc.typewright.project.ProjectSession
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.puck.PuckUiState
 import com.asoc.typewright.ui.puck.Tool
+import com.asoc.typewright.ui.sheet.Room
 import com.asoc.typewright.ui.sheet.SheetCameraState
 import com.asoc.typewright.ui.shell.LocalGlyphNav
 
@@ -67,7 +69,8 @@ class DrawRoom(
  * ([LocalGlyphNav]), if the open project has it; otherwise the first glyph of the brief's drawing
  * order that the project has, otherwise the project's first glyph; with no project open, none (never
  * a fixture). The camera is fitted to the glyph when the glyph changes and when the first real size
- * arrives, and when a person asks; never because the window changed shape.
+ * arrives, and when a person asks, but only while the camera is in the Draw room; never because the
+ * window changed shape.
  */
 @Composable
 fun rememberDrawRoom(
@@ -115,7 +118,9 @@ fun rememberDrawRoom(
     val latestGlyphName by rememberUpdatedState(glyphName)
     val latestDirectory by rememberUpdatedState(directory)
 
-    val fit: () -> Unit = {
+    val fit: () -> Unit = fit@{
+        // Fitting is for the Draw room: with the camera in another room it would drag that room's view into Draw's world.
+        if (cameraState.currentRoom != Room.DRAW) return@fit
         val name = latestGlyphName
         val live = session?.state?.value
         val current =
@@ -181,9 +186,17 @@ fun rememberDrawRoom(
         }
     DisposableEffect(controller) { onDispose { controller?.end() } }
 
-    // Fit when the glyph changes and when the first real size is known; never on a later resize.
-    LaunchedEffect(session, glyphName, sizeMeasured) {
-        if (sizeMeasured && controller != null) latestFit()
+    // A glyph is fitted once, when it is first on screen at a real size in the Draw room: not on a later resize, and not while the
+    // camera is in another room or still flying (the view the person had there is theirs). Coming back to a glyph already fitted
+    // restores the view it was left in.
+    var fittedFor by remember { mutableStateOf<Pair<ProjectSession?, String?>?>(null) }
+    val inDraw by remember(cameraState) { derivedStateOf { cameraState.currentRoom == Room.DRAW && !cameraState.flying } }
+    val fitKey = session to glyphName
+    LaunchedEffect(fitKey, sizeMeasured, controller, inDraw, fittedFor) {
+        if (controller != null && sizeMeasured && inDraw && fittedFor != fitKey) {
+            latestFit()
+            fittedFor = fitKey
+        }
     }
 
     return remember(session, glyphName, controller, directory) {

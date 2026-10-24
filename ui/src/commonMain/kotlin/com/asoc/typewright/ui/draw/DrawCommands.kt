@@ -72,7 +72,8 @@ object DrawCommands {
         val editor = ctx.editor
         val glyph = editor.glyph ?: return emptyList()
         val locked = editor.isLocked
-        val selection = ctx.selection
+        // The registry is built from menus, keys and compositions: whatever an undo left a selection naming is dropped first.
+        val selection = ctx.selection.clippedTo(glyph)
         val nodes = selection.nodes(glyph)
         val smoothNow = nodes.isNotEmpty() && nodes.all { glyph.contours[it.contour].points[it.point].smooth }
         // The radial sweep that triggers a command depends on what is selected: a node's ring is not a segment's.

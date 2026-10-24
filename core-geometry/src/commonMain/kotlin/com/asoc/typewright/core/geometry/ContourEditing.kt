@@ -171,7 +171,12 @@ fun Contour.indicesMovedWith(selection: Set<Int>): Set<Int> {
     return moved
 }
 
-/** This contour with [selection] translated by (`dx`, `dy`) as [indicesMovedWith] says; nothing else changes. */
+/**
+ * This contour with [selection] translated by (`dx`, `dy`) as [indicesMovedWith] says. Straight cubic
+ * sides stay straight, and every smooth node the move touches stays smooth ([smoothHolds]): a node
+ * dragged away from the straight side its curve handle was in line with takes the handle round onto
+ * the new line, as every drawing program does.
+ */
 fun Contour.withSelectionMoved(
     selection: Set<Int>,
     dx: Int,
@@ -183,8 +188,18 @@ fun Contour.withSelectionMoved(
         copy(
             points = points.mapIndexed { i, p -> if (i in moving) p.copy(point = Point(p.point.x + dx, p.point.y + dy)) else p },
         )
-    return if (format == CurveFormat.CUBIC) moved.straightSidesKeptStraight(this, moving) else moved
+    val shaped = if (format == CurveFormat.CUBIC) moved.straightSidesKeptStraight(this, moving) else moved
+    return shaped.withSmoothKept(this, changedIndices(this, shaped))
 }
+
+/** The indices at which [after] has a different coordinate from [before] (same point count). */
+private fun changedIndices(
+    before: Contour,
+    after: Contour,
+): Set<Int> =
+    after.points.indices
+        .filter { after.points[it].point != before.points[it].point }
+        .toSet()
 
 /**
  * A cubic side that was straight before a node of it moved is straight afterwards: its two controls
@@ -218,11 +233,12 @@ private fun Contour.straightSidesKeptStraight(
 }
 
 /**
- * Moves the single handle [handleIndex] by (`dx`, `dy`). When its owner is smooth and has a second
- * handle, that one swings round the node to stay in line with the moved one and keeps its length,
- * which is what [ContourPoint.smooth] promises. With [keepSmooth] false (a handle dragged with Alt
- * held) the handle goes where it is pulled and its owner becomes a corner, so the flag never claims
- * collinear handles that are not.
+ * Moves the single handle [handleIndex] by (`dx`, `dy`) and keeps its owner smooth ([smoothHolds]):
+ * when the owner has a second handle, that one swings round the node to stay in line with the moved
+ * one and keeps its length; when the other side of the node is a straight side (or has no handle to
+ * swing), the moved handle slides along that side's line instead, because the line cannot turn. With
+ * [keepSmooth] false (a handle dragged with Alt held) the handle goes where it is pulled and its owner
+ * becomes a corner, so the flag never claims handles that are not in line.
  */
 fun Contour.withHandleMoved(
     handleIndex: Int,
@@ -232,32 +248,47 @@ fun Contour.withHandleMoved(
 ): Contour {
     require(handleIndex in points.indices && !points[handleIndex].onCurve) { "point $handleIndex is not an off-curve point" }
     if (dx == 0 && dy == 0) return this
-    val moved = Point(points[handleIndex].point.x + dx, points[handleIndex].point.y + dy)
+    var moved = Point(points[handleIndex].point.x + dx, points[handleIndex].point.y + dy)
     val updated = points.toMutableList()
-    updated[handleIndex] = updated[handleIndex].copy(point = moved)
     val owner = handleOwner(handleIndex)
+    val touched = mutableSetOf(handleIndex)
     if (owner != null && points[owner].smooth) {
-        val opposite = oppositeHandle(handleIndex)
         if (!keepSmooth) {
             updated[owner] = updated[owner].copy(smooth = false)
-        } else if (opposite != null) {
+        } else {
+            val sides = nodeSides(owner)
             val pivot = points[owner].point.toVec2()
-            val direction = moved.toVec2() - pivot
-            val length = (points[opposite].point.toVec2() - pivot).length()
-            if (direction.length() > EPSILON && length > EPSILON) {
-                val swung = pivot - direction * (length / direction.length())
-                updated[opposite] = updated[opposite].copy(point = swung.roundToPoint())
+            if (sides != null) {
+                val other = if (handleIndex == (owner + 1) % points.size) sides.into else sides.out
+                val swingable = other.handle
+                if (swingable != null && !other.straight) {
+                    val direction = moved.toVec2() - pivot
+                    val length = (points[swingable].point.toVec2() - pivot).length()
+                    if (direction.length() > EPSILON) {
+                        val swung = pivot - direction * (length / direction.length())
+                        updated[swingable] = updated[swingable].copy(point = swung.roundToPoint())
+                        touched += swingable
+                    }
+                } else if (other.tangent.length() > EPSILON) {
+                    // The other side is a line that cannot turn: this handle may only slide along it, away from the node.
+                    val away = other.tangent * (-1.0 / other.tangent.length())
+                    val along = (moved.toVec2() - pivot).dot(away).coerceAtLeast(0.0)
+                    moved = (pivot + away * along).roundToPoint()
+                }
             }
         }
     }
-    return copy(points = updated)
+    updated[handleIndex] = updated[handleIndex].copy(point = moved)
+    return copy(points = updated).withSmoothKept(this, touched)
 }
 
 /**
- * [nodeIndex] made smooth or a corner. Making it smooth, when both its handles exist and point in
- * different directions, swings the shorter handle onto the line of the longer one (keeping its own
- * length), so the curve changes as little as it can; a node with fewer than two real handles just
- * takes the flag. Making it a corner changes no coordinate.
+ * [nodeIndex] made smooth or a corner. Making it smooth turns the shorter of its two handles onto the
+ * line of the longer one (keeping its own length), or the one handle it has onto the line of the
+ * straight side or curve on its other side, so the outline changes as little as it can. A node that
+ * cannot be smooth without moving something it does not own (two straight sides that meet at an angle,
+ * or handles that belong to its neighbours) stays as it is, a corner: the flag is never set where
+ * [smoothHolds] would be false. Making it a corner changes no coordinate.
  */
 fun Contour.withSmooth(
     nodeIndex: Int,
@@ -265,31 +296,225 @@ fun Contour.withSmooth(
 ): Contour {
     require(nodeIndex in points.indices && points[nodeIndex].onCurve) { "point $nodeIndex is not an on-curve point" }
     if (points[nodeIndex].smooth == smooth) return this
-    val updated = points.toMutableList()
-    updated[nodeIndex] = updated[nodeIndex].copy(smooth = smooth)
-    if (smooth) {
-        val handles = ownedHandles(nodeIndex)
-        if (handles.size == 2) {
-            val pivot = points[nodeIndex].point.toVec2()
-            val a = points[handles[0]].point.toVec2() - pivot
-            val b = points[handles[1]].point.toVec2() - pivot
-            if (a.length() > EPSILON && b.length() > EPSILON && !a.isOppositeTo(b)) {
-                val (shortIndex, shortLength, longDir) =
-                    if (a.length() <= b.length()) {
-                        Triple(handles[0], a.length(), b * (1.0 / b.length()))
-                    } else {
-                        Triple(handles[1], b.length(), a * (1.0 / a.length()))
-                    }
-                updated[shortIndex] = updated[shortIndex].copy(point = (pivot - longDir * shortLength).roundToPoint())
-            }
-        }
-    }
-    return copy(points = updated)
+    val flagged = copy(points = points.mapIndexed { i, p -> if (i == nodeIndex) p.copy(smooth = smooth) else p })
+    if (!smooth || flagged.smoothHolds(nodeIndex)) return flagged
+    return flagged.withNodeStraightened(nodeIndex, emptySet())?.takeIf { it.smoothHolds(nodeIndex) } ?: this
 }
 
-private fun Vec2.isOppositeTo(other: Vec2): Boolean {
-    val cross = abs(this.cross(other))
-    return cross <= COLLINEAR_SINE * this.length() * other.length() && this.dot(other) < 0.0
+// ---- the smooth invariant --------------------------------------------------------------------
+
+/**
+ * What [ContourPoint.smooth] promises, stated once: the on-curve point [nodeIndex] has no corner. Its
+ * two neighbouring control points are in line with it on opposite sides of it, or one neighbour is a
+ * straight side and the other control lies on that straight side's line (a node where a line meets a
+ * curve, as every node of a rounded rectangle does), or both neighbours are straight sides that run on
+ * as one line. Said in directions: the way the curve leaves the node and the way it arrives are the same
+ * line to within [SMOOTH_TOLERANCE_UNITS], the tip of the shorter being no further than that from the
+ * line of the longer. The direction of a side is that of its first control point that is not on the
+ * node, else of its far end, so a handle pulled in to nothing does not make a node a corner by itself.
+ * A node with nothing on one side to point along (a zero-length side) holds vacuously.
+ *
+ * Every editing function of this file keeps it for every smooth node it touches: an edit that moves a
+ * node or a handle turns the other handle of that node (or, at a line-to-curve junction, the curve's
+ * handle) to follow, the way a smooth node behaves in every drawing program, and an edit that cannot
+ * keep it without moving points the node does not own (or that breaks it on purpose, like deleting a
+ * handle) makes the node a corner. The tolerance is the rounding of whole-unit coordinates.
+ */
+fun Contour.smoothHolds(nodeIndex: Int): Boolean {
+    require(nodeIndex in points.indices && points[nodeIndex].onCurve) { "point $nodeIndex is not an on-curve point" }
+    val sides = nodeSides(nodeIndex) ?: return true
+    return sides.inLine()
+}
+
+/** The on-curve points of this contour that are flagged smooth while [smoothHolds] is false for them: what a flag claims and the outline contradicts. */
+fun Contour.brokenSmoothNodes(): List<Int> = points.indices.filter { points[it].onCurve && points[it].smooth && !smoothHolds(it) }
+
+/**
+ * This contour, which is [before] after an edit that changed the points listed in [touched] (all of
+ * them when null) without adding or removing any, with every smooth node that the edit disturbed kept
+ * smooth: an on-curve node whose [smoothHolds] was true in [before] and is false now has the one handle
+ * it can turn (the one the edit did not move, else the shorter) turned onto the line of the other side,
+ * keeping its length, or becomes a corner when nothing it owns can turn. A smooth node that did not hold
+ * in [before] is left alone: an edit does not mend what it did not break. This is the function for a
+ * transform of a whole contour (a scale, a shear) as much as for a drag.
+ */
+fun Contour.withSmoothKept(
+    before: Contour,
+    touched: Set<Int>? = null,
+): Contour {
+    require(before.points.size == points.size && before.format == format) { "withSmoothKept compares the same contour before and after" }
+    if (points.none { it.smooth }) return this
+    val nodes = if (touched == null) points.indices.filter { points[it].onCurve } else affectedNodes(touched)
+    return withSmoothRestored(nodes, before.heldAcross { it }, touched ?: emptySet())
+}
+
+/** One side of an on-curve node: the segment that arrives at it or leaves it. */
+private class NodeSide(
+    /** The segment and the point indices it was read from. */
+    val info: SegmentInfo,
+    /** The way the curve goes from the node on this side, not normalised; zero for a segment that is only a point. */
+    val tangent: Vec2,
+    /** The off-curve point of this side that belongs to the node and is not on it, or null when this side has none to turn. */
+    val handle: Int?,
+    /** True when the segment is straight, so its direction is its chord and nothing on it may be turned. */
+    val straight: Boolean,
+)
+
+private class NodeSides(
+    val into: NodeSide,
+    val out: NodeSide,
+) {
+    fun inLine(): Boolean {
+        val a = into.tangent
+        val b = out.tangent
+        val la = a.length()
+        val lb = b.length()
+        if (la <= EPSILON || lb <= EPSILON) return true
+        return abs(a.cross(b)) <= SMOOTH_TOLERANCE_UNITS * max(la, lb) && a.dot(b) < 0.0
+    }
+}
+
+private fun Contour.nodeSides(nodeIndex: Int): NodeSides? {
+    val layout = segmentLayout()
+    val incoming = layout.firstOrNull { it.endPoint == nodeIndex } ?: return null
+    val outgoing = layout.firstOrNull { it.startPoint == nodeIndex } ?: return null
+    val owned = ownedHandles(nodeIndex)
+    val here = points[nodeIndex].point
+
+    fun side(
+        info: SegmentInfo,
+        leaving: Boolean,
+    ): NodeSide {
+        val segment = info.segment
+        val control =
+            when (format) {
+                CurveFormat.CUBIC -> info.controlPoints.let { if (leaving) it.firstOrNull() else it.lastOrNull() }
+                CurveFormat.QUADRATIC -> info.controlPoints.singleOrNull()
+            }
+        val handle = control?.takeIf { it in owned && points[it].point != here }
+        val tangent =
+            when (segment) {
+                is CurveSegment.Line -> {
+                    if (leaving) segment.end - segment.start else segment.start - segment.end
+                }
+
+                is CurveSegment.Quadratic -> {
+                    if (leaving) {
+                        firstNonZero(segment.control - segment.start, segment.end - segment.start)
+                    } else {
+                        firstNonZero(segment.control - segment.end, segment.start - segment.end)
+                    }
+                }
+
+                is CurveSegment.Cubic -> {
+                    if (leaving) segment.firstTangent() ?: ZERO else segment.lastTangentBackward() ?: ZERO
+                }
+            }
+        return NodeSide(info, tangent, handle, segment.isStraight())
+    }
+    return NodeSides(into = side(incoming, leaving = false), out = side(outgoing, leaving = true))
+}
+
+private fun firstNonZero(vararg candidates: Vec2): Vec2 = candidates.firstOrNull { it.length() > EPSILON } ?: ZERO
+
+/** The on-curve nodes whose smoothness an edit of the points [moved] can have disturbed: the ends of every segment that has one of them. */
+private fun Contour.affectedNodes(moved: Set<Int>): Set<Int> {
+    val nodes = mutableSetOf<Int>()
+    for (info in segmentLayout()) {
+        val ends = listOfNotNull(info.startPoint, info.endPoint)
+        if (ends.any { it in moved } || info.controlPoints.any { it in moved }) nodes += ends
+    }
+    nodes += moved.filter { it in points.indices && points[it].onCurve }
+    return nodes
+}
+
+/** The nodes that share a segment with [nodeIndex]. */
+private fun Contour.neighbourNodes(nodeIndex: Int): List<Int> =
+    segmentLayout().flatMap { info ->
+        when (nodeIndex) {
+            info.startPoint -> listOfNotNull(info.endPoint)
+            info.endPoint -> listOfNotNull(info.startPoint)
+            else -> emptyList()
+        }
+    }
+
+/**
+ * Whether the smooth invariant held at a node of the edited contour before the edit: asks this
+ * (the contour before) about the node [oldOf] names, and counts a node the edit made as having held.
+ */
+private fun Contour.heldAcross(oldOf: (Int) -> Int?): (Int) -> Boolean =
+    { index ->
+        val old = oldOf(index)
+        old == null || old !in points.indices || !points[old].onCurve || smoothHolds(old)
+    }
+
+/**
+ * For each smooth node of [nodes] that [held] says was in line before the edit and no longer is: turns
+ * the handle that can turn onto the line ([withNodeStraightened]), moving on to that node's neighbours
+ * whose side may have shared the handle, and finally makes a corner of any node that could not be mended.
+ * The loop is bounded, so a pathological outline cannot spin it.
+ */
+private fun Contour.withSmoothRestored(
+    nodes: Collection<Int>,
+    held: (Int) -> Boolean,
+    moved: Set<Int> = emptySet(),
+): Contour {
+    var current = this
+    val queue = ArrayDeque(nodes.distinct())
+    val seen = nodes.toMutableSet()
+    var budget = RESTORE_BUDGET_PER_NODE * (nodes.size + 1)
+    while (queue.isNotEmpty() && budget-- > 0) {
+        val node = queue.removeFirst()
+        val point = current.points.getOrNull(node) ?: continue
+        if (!point.onCurve || !point.smooth || !held(node) || current.smoothHolds(node)) continue
+        val repaired = current.withNodeStraightened(node, moved) ?: continue
+        if (repaired == current) continue
+        current = repaired
+        for (next in current.neighbourNodes(node)) {
+            seen += next
+            queue.addLast(next)
+        }
+    }
+    return current.withBrokenSmoothCleared(seen, held)
+}
+
+/** [nodes] that are flagged smooth, [held] before and no longer in line become corners; no coordinate changes. */
+private fun Contour.withBrokenSmoothCleared(
+    nodes: Collection<Int>,
+    held: (Int) -> Boolean,
+): Contour {
+    val broken = nodes.filter { it in points.indices && points[it].onCurve && points[it].smooth && held(it) && !smoothHolds(it) }.toSet()
+    if (broken.isEmpty()) return this
+    return copy(points = points.mapIndexed { i, p -> if (i in broken) p.copy(smooth = false) else p })
+}
+
+/**
+ * This contour with the node's one turnable handle swung about the node onto the line of the other side,
+ * opposite to it and at its own length; null when the node has no handle that can turn (both sides are
+ * straight or have nothing of the node's own to move). When both sides have a turnable handle the one the edit
+ * did not move ([moved]) turns, else the shorter.
+ */
+private fun Contour.withNodeStraightened(
+    nodeIndex: Int,
+    moved: Set<Int>,
+): Contour? {
+    val sides = nodeSides(nodeIndex) ?: return this
+    val pivot = points[nodeIndex].point.toVec2()
+    val turnable = listOf(sides.into, sides.out).filter { it.handle != null && !it.straight }
+
+    fun reach(side: NodeSide) = (points[checkNotNull(side.handle)].point.toVec2() - pivot).length()
+    val turning =
+        when (turnable.size) {
+            0 -> return null
+            1 -> turnable[0]
+            else -> turnable.filter { it.handle !in moved }.takeIf { it.size == 1 }?.single() ?: turnable.minBy(::reach)
+        }
+    val fixed = if (turning === sides.into) sides.out else sides.into
+    val fixedLength = fixed.tangent.length()
+    if (fixedLength <= EPSILON) return this
+    val handle = checkNotNull(turning.handle)
+    val target = pivot - fixed.tangent * (reach(turning) / fixedLength)
+    return copy(points = points.mapIndexed { i, p -> if (i == handle) p.copy(point = target.roundToPoint()) else p })
 }
 
 // ---- adding a node ---------------------------------------------------------------------------
@@ -316,12 +541,29 @@ fun Contour.withNodeInserted(
     }
 }
 
+/**
+ * The out handle of a node split off a curve, [out], turned about [node] onto the line from [into] through it
+ * and rounded, so the three points are in line to the unit and the new node really is smooth. The handle keeps
+ * its length; it moves by at most half a unit from where the exact split put it.
+ */
+private fun alignedOutHandle(
+    node: Point,
+    into: Point,
+    out: Vec2,
+): Point {
+    val back = node.toVec2() - into.toVec2()
+    val reach = (out - node.toVec2()).length()
+    if (back.length() <= EPSILON || reach <= EPSILON) return out.roundToPoint()
+    return (node.toVec2() + back * (reach / back.length())).roundToPoint()
+}
+
 private fun Contour.insertIntoCubic(
     k: Int,
     segment: CurveSegment.Cubic,
     t: Double,
 ): NodeInsertion {
-    val straight = points[3 * k + 1].point == points[3 * k].point && points[3 * k + 2].point == points[(3 * k + 3) % points.size].point
+    val size = points.size
+    val straight = points[3 * k + 1].point == points[3 * k].point && points[3 * k + 2].point == points[(3 * k + 3) % size].point
     val updated = points.toMutableList()
     val inserted: List<ContourPoint>
     if (straight) {
@@ -335,17 +577,36 @@ private fun Contour.insertIntoCubic(
             )
     } else {
         val (left, right) = splitCubicAt(segment, t)
+        val node = left.end.roundToPoint()
+        val into = left.control2.roundToPoint()
         updated[3 * k + 1] = updated[3 * k + 1].copy(point = left.control1.roundToPoint())
-        updated[3 * k + 2] = updated[3 * k + 2].copy(point = left.control2.roundToPoint())
+        updated[3 * k + 2] = updated[3 * k + 2].copy(point = into)
         inserted =
             listOf(
-                ContourPoint(left.end.roundToPoint(), onCurve = true, smooth = true),
-                ContourPoint(right.control1.roundToPoint(), onCurve = false),
+                ContourPoint(node, onCurve = true, smooth = true),
+                ContourPoint(alignedOutHandle(node, into, right.control1), onCurve = false),
                 ContourPoint(right.control2.roundToPoint(), onCurve = false),
             )
     }
     updated.addAll(3 * k + 3, inserted)
-    return NodeInsertion(copy(points = updated), nodeIndex = 3 * k + 3)
+    // The nodes at the ends of the split segment kept their handles' directions up to rounding; keep them smooth to the unit.
+    val endNew = if (3 * k + 3 < size) 3 * k + 6 else 0
+    val result =
+        copy(points = updated).withSmoothRestored(
+            nodes = listOf(3 * k, endNew, 3 * k + 3),
+            held =
+                heldAcross { i ->
+                    if (i < 3 * k + 3) {
+                        i
+                    } else if (i >= 3 * k + 6) {
+                        i - 3
+                    } else {
+                        null
+                    }
+                },
+            moved = setOf(3 * k + 1, 3 * k + 2),
+        )
+    return NodeInsertion(result, nodeIndex = 3 * k + 3)
 }
 
 private fun Contour.insertIntoQuadratic(
@@ -369,14 +630,35 @@ private fun Contour.insertIntoQuadratic(
     // Replace the control by: [start if implied], left control, new node, right control, [end if implied].
     val replacement = mutableListOf<ContourPoint>()
     if (info.startPoint == null) replacement += ContourPoint(segment.start.roundToPoint(), onCurve = true)
-    replacement += ContourPoint(left.roundToPoint(), onCurve = false)
+    val leftControl = left.roundToPoint()
+    replacement += ContourPoint(leftControl, onCurve = false)
     val nodeOffset = replacement.size
-    replacement += ContourPoint(mid.roundToPoint(), onCurve = true, smooth = true)
-    replacement += ContourPoint(right.roundToPoint(), onCurve = false)
+    val node = mid.roundToPoint()
+    replacement += ContourPoint(node, onCurve = true, smooth = true)
+    replacement += ContourPoint(alignedOutHandle(node, leftControl, right), onCurve = false)
     if (info.endPoint == null) replacement += ContourPoint(segment.end.roundToPoint(), onCurve = true)
     updated.removeAt(controlIndex)
     updated.addAll(controlIndex, replacement)
-    return NodeInsertion(copy(points = updated), nodeIndex = controlIndex + nodeOffset)
+
+    // The existing nodes at the ends of the split segment moved with the index shift; their controls are shared, so a node
+    // whose smoothness the rounding of its control upsets can only lose the flag.
+    fun shifted(old: Int?): Int? = old?.let { if (it < controlIndex) it else it + replacement.size - 1 }
+    val result =
+        copy(points = updated).withSmoothRestored(
+            nodes = listOfNotNull(shifted(info.startPoint), shifted(info.endPoint), controlIndex + nodeOffset),
+            held =
+                heldAcross { i ->
+                    if (i < controlIndex) {
+                        i
+                    } else if (i >= controlIndex + replacement.size) {
+                        i - replacement.size + 1
+                    } else {
+                        null
+                    }
+                },
+            moved = setOf(controlIndex),
+        )
+    return NodeInsertion(result, nodeIndex = controlIndex + nodeOffset)
 }
 
 // ---- deleting a node -------------------------------------------------------------------------
@@ -436,7 +718,14 @@ private fun Contour.deleteCubicNode(nodeIndex: Int): Contour? {
     updated[3 * prevK + 2] = updated[3 * prevK + 2].copy(point = merged.control2.roundToPoint())
     // Drop the deleted node's triple; remove from the highest index so the others stay valid.
     for (index in (3 * k + 2) downTo 3 * k) updated.removeAt(index)
-    return copy(points = updated)
+    // The two nodes the merged side now joins keep their smoothness (the merged side may be a straight line where two bent ones were).
+    val m = n / 3
+    val joined = listOf(prevK, (k + 1) % m).map { if (it < k) 3 * it else 3 * (it - 1) }
+    return copy(points = updated).withSmoothRestored(
+        nodes = joined,
+        held = heldAcross { i -> if (i < 3 * k) i else i + 3 },
+        moved = setOf(joined[0] + 1, joined[0] + 2),
+    )
 }
 
 /** The one cubic from [first]'s start to [second]'s end that best follows both, keeping their outer tangent directions. */
@@ -498,7 +787,14 @@ private fun Contour.deleteQuadraticNode(nodeIndex: Int): Contour? {
     }
     for (index in remove.sortedDescending()) updated.removeAt(index)
     if (updated.isEmpty()) return null
-    return copy(points = updated)
+    // The nodes the joined sides now meet at keep their smoothness where they can; their controls are shared, so otherwise they lose the flag.
+    val kept = points.indices.filter { it !in remove }
+    val oldEnds = listOfNotNull(inInfo.startPoint, outInfo.endPoint).filter { it !in remove }
+    return copy(points = updated).withSmoothRestored(
+        nodes = oldEnds.map { kept.indexOf(it) },
+        held = heldAcross { i -> kept.getOrNull(i) },
+        moved = sharedControls.map { kept.indexOf(it) }.filter { it >= 0 }.toSet(),
+    )
 }
 
 /** The single quadratic control, for fixed ends [a] and [c], that best fits samples of [segments] (least squares, chord-length parameters). */
@@ -530,11 +826,14 @@ private fun fitQuadraticControl(
  * Removes the off-curve points in [handles]. On a cubic contour that retracts each handle onto its
  * node (the segment keeps its place in the (on, off, off) pattern, the handle just has no length);
  * on a quadratic contour the control point is removed, so a segment with no control left is a
- * straight line. The caller says which of the two happened, so the message is plain.
+ * straight line. The caller says which of the two happened, so the message is plain. Deleting a
+ * handle is an explicit break with the node it belonged to: a smooth node whose two sides no longer
+ * meet in line ([smoothHolds]) becomes a corner, and nothing else is moved to keep it smooth.
  */
 fun Contour.withHandlesRemoved(handles: Set<Int>): Contour {
     val offCurve = handles.filter { it in points.indices && !points[it].onCurve }.toSet()
     if (offCurve.isEmpty()) return this
+    val touchedNodes = affectedNodes(offCurve)
     return when (format) {
         CurveFormat.CUBIC -> {
             copy(
@@ -548,12 +847,20 @@ fun Contour.withHandlesRemoved(handles: Set<Int>): Contour {
                             p
                         }
                     },
-            )
+            ).withBrokenSmoothCleared(touchedNodes, heldAcross { it })
         }
 
         CurveFormat.QUADRATIC -> {
-            val kept = points.filterIndexed { i, _ -> i !in offCurve }
-            if (kept.isEmpty()) this else copy(points = kept)
+            val keptIndices = points.indices.filter { it !in offCurve }
+            if (keptIndices.isEmpty()) {
+                this
+            } else {
+                copy(points = keptIndices.map { points[it] })
+                    .withBrokenSmoothCleared(
+                        touchedNodes.map { keptIndices.indexOf(it) }.filter { it >= 0 },
+                        heldAcross { keptIndices.getOrNull(it) },
+                    )
+            }
         }
     }
 }
@@ -587,10 +894,16 @@ fun Contour.withSegmentBent(
             val control = info.controlPoints.single()
             val pulled = segment.control + delta * (1.0 / (2.0 * tt * (1.0 - tt)))
             copy(points = points.mapIndexed { i, p -> if (i == control) p.copy(point = pulled.roundToPoint()) else p })
+                .withSmoothKept(this, setOf(control))
         }
 
         is CurveSegment.Cubic -> {
-            if (segment.isStraight()) moveSegmentEnds(info, dx.roundUnits(), dy.roundUnits()) else bendCubic(info, segment, tt, delta)
+            if (segment.isStraight()) {
+                moveSegmentEnds(info, dx.roundUnits(), dy.roundUnits())
+            } else {
+                val bent = bendCubic(info, segment, tt, delta)
+                bent.withSmoothKept(this, changedIndices(this, bent))
+            }
         }
     }
 }
@@ -705,11 +1018,18 @@ private fun carrySmooth(
     newNodesSmooth: Boolean,
 ): Contour {
     val flags = from.points.filter { it.onCurve }.associate { it.point to it.smooth }
-    return to.copy(
-        points =
-            to.points.map { p ->
-                if (!p.onCurve) p else p.copy(smooth = flags[p.point] ?: newNodesSmooth)
-            },
+    val flagged =
+        to.copy(
+            points =
+                to.points.map { p ->
+                    if (!p.onCurve) p else p.copy(smooth = flags[p.point] ?: newNodesSmooth)
+                },
+        )
+    // A rebuilt outline has rounded its nodes and handles afresh: keep every flagged node in line, as an edit would.
+    val sourceOf = { index: Int -> from.points.indexOfFirst { it.onCurve && it.point == flagged.points[index].point }.takeIf { it >= 0 } }
+    return flagged.withSmoothRestored(
+        nodes = flagged.points.indices.filter { flagged.points[it].onCurve && flagged.points[it].smooth },
+        held = from.heldAcross(sourceOf),
     )
 }
 
@@ -748,7 +1068,12 @@ fun Contour.degreeElevatedToCubic(): Contour {
         out += ContourPoint(c1.roundToPoint(), onCurve = false)
         out += ContourPoint(c2.roundToPoint(), onCurve = false)
     }
-    return Contour(out, CurveFormat.CUBIC)
+    val elevated = Contour(out, CurveFormat.CUBIC)
+    // The same outline in whole units: a node that was in line as a quadratic stays in line as a cubic.
+    return elevated.withSmoothRestored(
+        nodes = layout.indices.map { 3 * it }.filter { elevated.points[it].smooth },
+        held = heldAcross { index -> if (index % 3 == 0) layout.getOrNull(index / 3)?.startPoint else null },
+    )
 }
 
 // ---- new contours ----------------------------------------------------------------------------
@@ -842,7 +1167,11 @@ private fun Vec2.normalizedOr(fallback: Vec2): Vec2 {
 private fun Double.roundUnits(): Int = kotlin.math.floor(this + 0.5).toInt()
 
 private const val EPSILON = 1e-9
-private const val COLLINEAR_SINE = 0.0087
+
+/** How far, in font units, the tip of the shorter of a smooth node's two sides may stand from the line of the longer: a whole unit's rounding. */
+const val SMOOTH_TOLERANCE_UNITS: Double = 0.75
+private const val RESTORE_BUDGET_PER_NODE = 8
+private val ZERO = Vec2(0.0, 0.0)
 private const val STRAIGHT_TOLERANCE = 0.75
 private const val MERGE_SAMPLES = 12
 private const val MERGE_REFINEMENTS = 4

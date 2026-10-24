@@ -27,6 +27,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -91,6 +92,8 @@ fun InspectorRow(
     bottomInsetDp: Double = SpacingTokens.INSPECTOR_FROM_BOTTOM_DP,
     /** Called with true while a value is being typed, so the page can stop treating letters as keys. */
     onEditingChanged: (Boolean) -> Unit = {},
+    /** Changes to put away an open field without committing it (the deck's Close circle), as Esc does. */
+    cancelEditing: Int = 0,
     /** The side gutters of the row: the page's 18 dp by default, less in a column that has its own padding. */
     horizontalPaddingDp: Double = SpacingTokens.GUTTER_DP,
     /** A fixed gap between values, for a column; null spreads the values across the whole width, as the row does. */
@@ -105,6 +108,10 @@ fun InspectorRow(
     val activeKey = editingKey?.takeIf { it in editable }
     val isEditing = activeKey != null
     LaunchedEffect(isEditing) { latestEditingChanged(isEditing) }
+    LaunchedEffect(cancelEditing) {
+        editingKey = null
+        error = null
+    }
     Column(
         modifier =
             modifier
@@ -239,6 +246,24 @@ private fun ValueEditor(
 
                             Key.Tab -> {
                                 onFinish(value.text, true)
+                                true
+                            }
+
+                            // D6: up and down step a whole number by one, Shift by ten; Enter then commits it, Esc puts the old value back.
+                            Key.DirectionUp, Key.DirectionDown -> {
+                                val next =
+                                    NumericStep.stepped(
+                                        value.text,
+                                        if (event.key ==
+                                            Key.DirectionUp
+                                        ) {
+                                            1
+                                        } else {
+                                            -1
+                                        },
+                                        event.isShiftPressed,
+                                    )
+                                if (next != null) value = TextFieldValue(next, TextRange(0, next.length))
                                 true
                             }
 

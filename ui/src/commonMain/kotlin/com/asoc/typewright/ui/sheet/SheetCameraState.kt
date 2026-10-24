@@ -62,16 +62,25 @@ class SheetCameraState(
      */
     suspend fun flyToCamera(target: SheetCamera) {
         val from = camera
-        animate(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = RoomFlight.DURATION_MS, easing = LinearEasing),
-        ) { value, _ ->
-            val eased = CubicBezierEasing.ROOM_PAN.transform(value.toDouble())
-            camera = SheetCamera(from.offset + (target.offset - from.offset) * eased, from.zoom + (target.zoom - from.zoom) * eased)
+        flying = true
+        try {
+            animate(
+                initialValue = 0f,
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = RoomFlight.DURATION_MS, easing = LinearEasing),
+            ) { value, _ ->
+                val eased = CubicBezierEasing.ROOM_PAN.transform(value.toDouble())
+                camera = SheetCamera(from.offset + (target.offset - from.offset) * eased, from.zoom + (target.zoom - from.zoom) * eased)
+            }
+            camera = target
+        } finally {
+            flying = false
         }
-        camera = target
     }
+
+    /** True while a flight is under way, so a host that wants the camera to be at rest (to fit a glyph) can wait for it. */
+    var flying: Boolean by mutableStateOf(false)
+        private set
 
     /** The camera each room was last left in, so that coming back to Draw lands on the glyph the person was drawing. */
     private val lastViews = mutableMapOf<Room, SheetCamera>()
@@ -90,9 +99,20 @@ class SheetCameraState(
      * processing pointer events.
      */
     suspend fun flyTo(room: Room) {
-        val leaving = currentRoom
-        if (leaving != room) lastViews[leaving] = camera
-        flyToCamera(lastViews[room] ?: RoomViews.firstView(room, camera))
+        val target = flightTarget(room) ?: return
+        lastViews[currentRoom] = camera
+        flyToCamera(target)
+    }
+
+    /**
+     * Where a flight to [room] ends: the view the room was left in, or its first view. Null when the
+     * camera is already in [room]: there is nowhere to go, and the view remembered from an earlier visit
+     * is stale (a flick or an arrow key at the end of the line asks for the room it is in, and must not
+     * throw the person's own pan and zoom away for it).
+     */
+    fun flightTarget(room: Room): SheetCamera? {
+        if (currentRoom == room) return null
+        return lastViews[room] ?: RoomViews.firstView(room, camera)
     }
 }
 

@@ -80,6 +80,47 @@ class DrawPointerTest {
 
     private fun withSlab(block: DrawSheetRig.() -> Unit) = withDrawSheet(DrawTestProjects.small(slab()), "I", 720, 1560, 2f, block = block)
 
+    /**
+     * The slab with a handle pulled out of its bottom-right corner along the bottom side's line: that corner has a handle of its
+     * own to be in line with the side, so "Make smooth" can be true of it. (A right-angle corner between two straight sides cannot be
+     * smooth, and Make smooth refuses it; the refusal has its own test.)
+     */
+    private fun bulgedSlab(): Glyph =
+        slab().let { glyph ->
+            val contour = glyph.contours[0]
+            glyph.copy(
+                contours =
+                    listOf(
+                        contour.copy(
+                            points =
+                                contour.points.mapIndexed { i, p ->
+                                    if (i ==
+                                        4
+                                    ) {
+                                        p.copy(point = Point(400, 0))
+                                    } else {
+                                        p
+                                    }
+                                },
+                        ),
+                    ),
+            )
+        }
+
+    private fun withBulgedSlab(block: DrawSheetRig.() -> Unit) =
+        withDrawSheet(DrawTestProjects.small(bulgedSlab()), "I", 720, 1560, 2f, block = block)
+
+    @Test
+    fun makeSmoothOnARightAngleCornerIsRefusedWithAReasonAndSetsNoFlag() =
+        withSlab {
+            select(0, 3)
+            key(Keys.ENTER)
+            assertEquals(false, glyph("I").contours[0].points[3].smooth, "a flag the outline contradicts is not written")
+            assertEquals(0, undoSteps())
+            val notice = controller.notice
+            assertTrue(notice is DrawNotice.Toast && "handle" in notice.text, "the notice says why and what to do: $notice")
+        }
+
     // ---- selecting -----------------------------------------------------------------------------
 
     @Test
@@ -254,7 +295,7 @@ class DrawPointerTest {
 
     @Test
     fun enterMakesTheSelectedCornerSmoothAndOneUndoMakesItACornerAgain() =
-        withSlab {
+        withBulgedSlab {
             select(0, 3)
             key(Keys.ENTER)
             assertTrue(glyph("I").contours[0].points[3].smooth)
@@ -639,7 +680,7 @@ class DrawPointerTest {
 
     @Test
     fun sweepingAwayFromTheHubAndReleasingRunsTheSectorAcrossFromTheFinger() =
-        withSlab {
+        withBulgedSlab {
             val corner = screenOf(0, 3)
             press(corner, type = PointerType.Touch)
             waitForHold()
@@ -688,7 +729,7 @@ class DrawPointerTest {
 
     @Test
     fun aTapOnALiftedRingSectorRunsIt() =
-        withSlab {
+        withBulgedSlab {
             val corner = screenOf(0, 3)
             press(corner, type = PointerType.Touch)
             waitForHold()
@@ -707,11 +748,22 @@ class DrawPointerTest {
 
     @Test
     fun controlGOpensTheGoToListAndEnterOnItsFirstRowGoesThere() =
-        withDrawSheet(DrawTestProjects.small(slab(), slab().copy(name = "J")), "I", 720, 1560, 2f) {
+        withDrawSheet(DrawTestProjects.small(slab(), slab().copy(name = "J")), "J", 720, 1560, 2f) {
             key(Keys.G, ctrl = true)
             frames(3)
             key(Keys.ENTER)
+            // The list is in the font's order and J is the glyph that is open, so only a row that was really chosen can say I.
             assertEquals(listOf("I"), selections, "the first glyph row was chosen and the router was asked to open it")
+        }
+
+    @Test
+    fun theDownArrowMovesTheGoToHighlightSoEnterGoesToTheSecondRow() =
+        withDrawSheet(DrawTestProjects.small(slab(), slab().copy(name = "J")), "I", 720, 1560, 2f) {
+            key(Keys.G, ctrl = true)
+            frames(3)
+            key(Key.DirectionDown)
+            key(Keys.ENTER)
+            assertEquals(listOf("J"), selections, "the second row, not the open glyph's own first row")
         }
 
     @Test

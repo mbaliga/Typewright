@@ -148,6 +148,15 @@ fun TypewrightSheet(
     puckPin: PuckPinState? = null,
     /** Told about the Draw room whenever the glyph or the project changes, so a host or a test can reach its controller. */
     onDrawRoom: (DrawRoom) -> Unit = {},
+    /** The camera the sheet moves; a host that wants to read or place it passes its own, otherwise the sheet keeps one at [initialRoom]. */
+    cameraState: SheetCameraState =
+        rememberSheetCameraState(
+            initial =
+                SheetCamera(
+                    offset = initialRoom.worldBounds().let { Vec2(it.left, -RoomViews.REST_BASELINE_DP) },
+                    zoom = RoomViews.REST_ZOOM,
+                ),
+        ),
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -157,14 +166,6 @@ fun TypewrightSheet(
     val hapticsOn = LocalAppearance.current?.settings?.haptics ?: true
 
     val texture = initialTexture
-    val cameraState =
-        rememberSheetCameraState(
-            initial =
-                SheetCamera(
-                    offset = initialRoom.worldBounds().let { Vec2(it.left, -RoomViews.REST_BASELINE_DP) },
-                    zoom = RoomViews.REST_ZOOM,
-                ),
-        )
     // A phone-sized guess until the first layout pass reports the real size.
     var canvasSizeDp by remember { mutableStateOf(Vec2(360.0, 780.0)) }
     var sizeMeasured by remember { mutableStateOf(false) }
@@ -174,6 +175,7 @@ fun TypewrightSheet(
     var shortcutsOpen by remember { mutableStateOf(false) }
     var layersOpen by remember { mutableStateOf(false) }
     var editingField by remember { mutableStateOf(false) }
+    var cancelEditTick by remember { mutableStateOf(0) }
     var spaceHeld by remember { mutableStateOf(false) }
     var ctrlHeld by remember { mutableStateOf(false) }
     var shiftHeld by remember { mutableStateOf(false) }
@@ -217,12 +219,8 @@ fun TypewrightSheet(
 
     LaunchedEffect(section) {
         val target = if (section == DeckSection.SPACE) Room.SPACE else Room.DRAW
-        if (cameraState.currentRoom != target && (section == DeckSection.DRAW || section == DeckSection.SPACE)) {
-            val hadView = cameraState.hasView(target)
-            cameraState.flyTo(target)
-            // A first arrival in Draw has no view to go back to, so the glyph is fitted to the screen.
-            if (target == Room.DRAW && !hadView) drawRoom.fit()
-        }
+        // A glyph that has not been fitted yet is fitted by the Draw room once the camera has arrived and come to rest.
+        if (cameraState.currentRoom != target && (section == DeckSection.DRAW || section == DeckSection.SPACE)) cameraState.flyTo(target)
     }
     LaunchedEffect(currentRoom) {
         when (currentRoom) {
@@ -278,12 +276,14 @@ fun TypewrightSheet(
     val lifted = radial?.state is RadialState.Lifted || controller?.menu != null
     // While a ring is being swept, the object's or the puck's, the deck goes to 30% (S12).
     val ringOpen = radial?.state is RadialState.Sweeping || puckState.gestureState is PuckGestureState.RadialOpen
-    val closeable = lifted || paletteOpen || pageMenuOpen || shortcutsOpen
+    // A numeric field being typed into is an edit mode (S11): the deck's left circle is Close until it is committed or put away.
+    val closeable = lifted || paletteOpen || pageMenuOpen || shortcutsOpen || editingField
 
     fun closeAll() {
         paletteOpen = false
         pageMenuOpen = false
         shortcutsOpen = false
+        if (editingField) cancelEditTick++
         controller?.closeOverlays()
     }
     SystemBackHandler(enabled = closeable && deckVisible) { closeAll() }
@@ -352,6 +352,8 @@ fun TypewrightSheet(
             construction = construction,
             labelBand = layout.free.top..(canvasSizeDp.y - layout.free.bottom + LABEL_BAND_SLACK_DP),
             labelEndInsetDp = layout.free.right,
+            // While an object's radial is open, sweeping or waiting for a tap, the glyph steps back to 30% (S12); the metric lines do not (C4).
+            glyphAlpha = if (controller?.radial != null) RADIAL_GLYPH_ALPHA else 1f,
         )
         if (section == DeckSection.DRAW) {
             Box(
@@ -412,6 +414,7 @@ fun TypewrightSheet(
                 edit = controller?.let { inspectorEdit(it, puckState) },
                 onEditingChanged = { editingField = it },
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = SheetLayout.TOP_BAR_DP.dp),
+                cancelEditing = cancelEditTick,
             )
         } else if (layersOpen) {
             LayersPanel(
@@ -470,6 +473,7 @@ fun TypewrightSheet(
                     edit = if (construct != null) null else inspectorEdit(controller, puckState),
                     bottomInsetDp = layout.inspectorBottomDp,
                     onEditingChanged = { editingField = it },
+                    cancelEditing = cancelEditTick,
                 )
             }
             DrawNoticeBar(
@@ -525,7 +529,7 @@ fun TypewrightSheet(
                             paletteGoTo = true
                             paletteOpen = true
                         },
-                        onLayers = { layersOpen = !layersOpen },
+                        onLayers = if (layout.wide) null else ({ layersOpen = !layersOpen }),
                     ),
                 onDismiss = { pageMenuOpen = false },
             )
@@ -610,6 +614,7 @@ private const val CONSTRUCT_FIRST_GROUP = 3
 private const val NOTICE_GAP_DP = 8.0
 private const val LABEL_BAND_SLACK_DP = 4.0
 private const val DECK_DIMMED_ALPHA = 0.3f
+private const val RADIAL_GLYPH_ALPHA = 0.3f
 
 /**
  * Bloom zones (UI_SPEC §1 layer 4): the puck when there is one, and the header and inspector bands,

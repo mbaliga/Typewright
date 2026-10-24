@@ -115,7 +115,18 @@ class DrawController(
     val editor: DrawEditor,
     private val host: DrawHost,
 ) : DrawHooks {
-    var selection: DrawSelection by mutableStateOf(DrawSelection.EMPTY)
+    private var chosen: DrawSelection by mutableStateOf(DrawSelection.EMPTY)
+
+    /**
+     * What is selected, always read against the outline as it stands: an undo or redo, or an edit made in
+     * another room while this controller was alive, can remove the points or the segment a selection
+     * names, and a selection that names nothing must never reach a command, a menu or the canvas.
+     */
+    var selection: DrawSelection
+        get() = glyph?.let { chosen.clippedTo(it) } ?: chosen
+        set(value) {
+            chosen = value
+        }
     var snaps: List<SnapTarget> by mutableStateOf(emptyList())
     var sweep: SweepShape? by mutableStateOf(null)
     var readout: Readout? by mutableStateOf(null)
@@ -146,6 +157,9 @@ class DrawController(
         val master = font.master(editor.ref.master) ?: return DrawMetrics.NONE
         return drawMetricsFor(master.ufo.fontInfo)
     }
+
+    /** The selection whose retracted handles show marks to pull on: none on a locked glyph, which would only refuse the edit. */
+    fun selectionForMarks(): DrawSelection = if (editor.isLocked) DrawSelection.EMPTY else selection
 
     /** True when something is open over the glyph that wants the next tap (the radial waiting, the rich menu). */
     val overlayOpen: Boolean get() = radial != null || menu != null
@@ -232,13 +246,15 @@ class DrawController(
                     ) {
                         selection = if (output.additive) selection.toggled(hit.ref) else selection.only(hit.ref)
                     }
+                    // A handle picked at its mark is dragged from there: it lands under the pointer, not on its node.
+                    val lead = hit.markOffset ?: Vec2(0.0, 0.0)
                     primary =
                         current.contours[hit.ref.contour]
                             .points[hit.ref.point]
                             .point
-                            .toVec2()
+                            .toVec2() + lead
                     if (!hit.onCurve && selection.points == setOf(hit.ref)) {
-                        DragOp.MoveHandle(hit.ref, breakSymmetry = frame.alt)
+                        DragOp.MoveHandle(hit.ref, breakSymmetry = frame.alt, lead = lead)
                     } else {
                         DragOp.MoveSelection(selection.points)
                     }
@@ -778,12 +794,16 @@ class DrawController(
         val current = glyph ?: return
         scrubStartValue = currentValue(current, key) ?: return
         scrubKey = key
-        if (key == FieldKeys.X || key == FieldKeys.Y) {
-            val refused = editor.beginDrag(editor.dragOpFor(selection))
-            if (refused != null) {
-                scrubKey = null
-                applied(refused)
+        val refused =
+            when (key) {
+                FieldKeys.X, FieldKeys.Y -> editor.beginDrag(editor.dragOpFor(selection))
+                FieldKeys.ADVANCE -> editor.beginMetricScrub("Set advance")
+                FieldKeys.LSB, FieldKeys.RSB -> editor.beginMetricScrub("Set sidebearings")
+                else -> null
             }
+        if (refused != null) {
+            scrubKey = null
+            applied(refused)
         }
     }
 
@@ -796,9 +816,9 @@ class DrawController(
         when (key) {
             FieldKeys.X -> if (editor.dragTo(units.toDouble(), 0.0) != DragUpdate.FOLLOWED) scrubKey = null
             FieldKeys.Y -> if (editor.dragTo(0.0, units.toDouble()) != DragUpdate.FOLLOWED) scrubKey = null
-            FieldKeys.ADVANCE -> editor.setAdvance(scrubStartValue + units)
-            FieldKeys.LSB -> editor.setSidebearings(scrubStartValue + units, null)
-            FieldKeys.RSB -> editor.setSidebearings(null, scrubStartValue + units)
+            FieldKeys.ADVANCE -> if (editor.scrubAdvance(scrubStartValue + units) != DragUpdate.FOLLOWED) scrubKey = null
+            FieldKeys.LSB -> if (editor.scrubSidebearings(scrubStartValue + units, null) != DragUpdate.FOLLOWED) scrubKey = null
+            FieldKeys.RSB -> if (editor.scrubSidebearings(null, scrubStartValue + units) != DragUpdate.FOLLOWED) scrubKey = null
         }
     }
 

@@ -36,7 +36,12 @@ import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.project.createProjectWorkspace
 import com.asoc.typewright.ui.puck.PuckPinState
 import com.asoc.typewright.ui.puck.PuckUiState
+import com.asoc.typewright.ui.sheet.Room
+import com.asoc.typewright.ui.sheet.RoomViews
+import com.asoc.typewright.ui.sheet.SheetCamera
+import com.asoc.typewright.ui.sheet.SheetCameraState
 import com.asoc.typewright.ui.sheet.TypewrightSheet
+import com.asoc.typewright.ui.sheet.worldBounds
 import com.asoc.typewright.ui.shell.GlyphNav
 import com.asoc.typewright.ui.shell.LocalGlyphNav
 import com.asoc.typewright.ui.tokens.CanvasTexture
@@ -77,6 +82,9 @@ internal class DrawSheetRig(
     private val roomRef: () -> DrawRoom?,
 ) {
     private var clockNs = 0L
+
+    /** The sheet's camera, so a test can see which room it is in and whether it moved. */
+    lateinit var camera: SheetCameraState
 
     val room: DrawRoom get() = checkNotNull(roomRef()) { "the sheet has not reported its Draw room" }
     val controller: DrawController get() = checkNotNull(room.controller) { "no glyph is open" }
@@ -287,6 +295,8 @@ internal fun withDrawSheet(
     texture: CanvasTexture = CanvasTextures.PAPER,
     deckVisible: Boolean = true,
     section: State<DeckSection>? = null,
+    /** The glyph the router holds, when a test changes it while the sheet is up; otherwise [glyph] throughout. */
+    currentGlyph: State<String>? = null,
     block: DrawSheetRig.() -> Unit,
 ) {
     val workspace = workspaceWith(ufo)
@@ -294,12 +304,17 @@ internal fun withDrawSheet(
     val pin = PuckPinState(PuckPinState.defaultFor(Vec2(width / density.toDouble(), height / density.toDouble())))
     val selections = mutableListOf<String>()
     var room: DrawRoom? = null
+    val camera =
+        SheetCameraState(
+            SheetCamera(offset = Vec2(Room.DRAW.worldBounds().left, -RoomViews.REST_BASELINE_DP), zoom = RoomViews.REST_ZOOM),
+        )
     ImageComposeScene(width = width, height = height, density = Density(density)) {
         CompositionLocalProvider(
             LocalProjectWorkspace provides workspace,
-            LocalGlyphNav provides GlyphNav(current = glyph, open = {}, select = { selections += it }),
+            LocalGlyphNav provides GlyphNav(current = currentGlyph?.value ?: glyph, open = {}, select = { selections += it }),
         ) {
             TypewrightSheet(
+                cameraState = camera,
                 initialTexture = texture,
                 initialFill = fill,
                 puckState = puck,
@@ -311,6 +326,7 @@ internal fun withDrawSheet(
         }
     }.use { scene ->
         val rig = DrawSheetRig(scene, density, puck, pin, selections) { room }
+        rig.camera = camera
         rig.frames(6)
         rig.block()
     }
