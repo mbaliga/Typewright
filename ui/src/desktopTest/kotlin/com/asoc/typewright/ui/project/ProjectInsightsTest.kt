@@ -79,6 +79,11 @@ class ProjectInsightsTest {
         assertEquals(StyleOrigin.DETECTED, detected.origin)
         assertTrue(detected.isHeuristic)
         assertTrue("our heuristic" in detected.provenance)
+        // What opening the sample as a person opens a font (no class declared) gives: the detector's own reading, which the app calls a
+        // heuristic, is not the geometric class the sample's own brief declares, so Task 4 is judged against another box than the one
+        // it was first measured against. Pinned so a change to the detector shows up here.
+        assertEquals("sans-humanist", detected.key, "the class the detector reads from Hyle Deco's own letters")
+        assertEquals("sans-geometric", declaredProject.manifest.brief.styleClass.declared)
     }
 
     @Test

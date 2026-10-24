@@ -6,10 +6,12 @@ import com.asoc.typewright.core.font.sfnt.SFNT_VERSION_TRUETYPE
 import com.asoc.typewright.core.font.sfnt.SFNT_VERSION_TRUE_TAG
 import com.asoc.typewright.core.font.sfnt.SfntFont
 import com.asoc.typewright.core.font.sfnt.readSfntFont
+import com.asoc.typewright.core.font.sfnt.readSfntFontInfo
 import com.asoc.typewright.core.font.sfnt.toUfoProject
 import com.asoc.typewright.core.font.ufo.PlistValue
 import com.asoc.typewright.core.font.ufo.UfoProject
 import com.asoc.typewright.core.font.ufo.parsePlist
+import com.asoc.typewright.core.font.ufo.readUfoFontInfo
 import com.asoc.typewright.core.font.ufo.readUfoProject
 import com.asoc.typewright.core.font.ufo.writeUfoProject
 import com.asoc.typewright.core.geometry.Glyph
@@ -51,7 +53,7 @@ sealed interface ImportReview {
         override val fileName: String get() = candidate.fileName
     }
 
-    /** The font's licence withholds modification; nothing was read beyond the audit. */
+    /** The font's licence withholds modification; nothing was read beyond the audit (no outline was decoded, no glyph parsed). */
     data class Refused(
         val audit: ImportAudit,
     ) : ImportReview {
@@ -79,11 +81,14 @@ fun reviewFontFile(
 ): ImportReview {
     unreadableKind(fileName, bytes)?.let { return it }
     return try {
+        // The audit comes first and reads only the name table, `OS/2` and the other small tables: a font whose
+        // licence withholds modification is refused without a single outline having been decoded.
+        val audit = auditLicence(fileName, readSfntFontInfo(bytes), AuditSource.FONT_FILE)
+        if (!audit.canImport) return ImportReview.Refused(audit)
         val font = readSfntFont(bytes)
         val converted = font.toUfoProject()
         val project = nameGlyphs(converted, font)
         val notes = fontFileNotes(font, project.renamed)
-        val audit = auditLicence(fileName, project.ufo.fontInfo, AuditSource.FONT_FILE)
         // The project must be writable as UFO files; finding out now keeps a bad font from half-creating a project.
         writeUfoProject(project.ufo)
         reviewed(fileName, project.ufo, audit, reportFor(ImportFormat.FONT_FILE, project.ufo, notes), null, null)
@@ -106,10 +111,15 @@ fun reviewUfoFolder(
     licenceFiles: List<String> = emptyList(),
 ): ImportReview =
     try {
-        val ufo = readUfoProject(files)
-        val audit = auditLicence(folderName, ufo.fontInfo, AuditSource.UFO, licenceFiles)
-        writeUfoProject(ufo)
-        reviewed(folderName, ufo, audit, reportFor(ImportFormat.UFO, ufo, ufoNotes(files, otherEntries)), folderName, siblings)
+        // As for a font file, the audit is made from the font info alone and a refused UFO's glyphs are never parsed.
+        val audit = auditLicence(folderName, readUfoFontInfo(files), AuditSource.UFO, licenceFiles)
+        if (!audit.canImport) {
+            ImportReview.Refused(audit)
+        } else {
+            val ufo = readUfoProject(files)
+            writeUfoProject(ufo)
+            reviewed(folderName, ufo, audit, reportFor(ImportFormat.UFO, ufo, ufoNotes(files, otherEntries)), folderName, siblings)
+        }
     } catch (e: Exception) {
         ImportReview.Unreadable(folderName, damagedMessage(e))
     }

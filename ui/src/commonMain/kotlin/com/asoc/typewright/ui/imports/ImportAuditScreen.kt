@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
@@ -37,6 +38,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -88,7 +90,7 @@ fun FontImportHost(
     val state by controller.state.collectAsState()
     DisposableEffect(controller) { onDispose { controller.cancel() } }
     when (val s = state) {
-        ImportState.Idle, is ImportState.Picking -> Unit
+        ImportState.Idle -> Unit
         else -> ImportOverlay(s, controller, texture, modifier)
     }
 }
@@ -153,6 +155,7 @@ private fun ImportOverlay(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         when (state) {
+                            is ImportState.Picking -> PickingBlock(onInk)
                             is ImportState.Reading -> ReadingBlock(state.fileName, onInk)
                             is ImportState.Message -> MessageBlock(onInk)
                             else -> if (auditing != null) AuditFacts(auditing, onInk)
@@ -161,7 +164,7 @@ private fun ImportOverlay(
                     Column(modifier = Modifier.padding(top = 14.dp, bottom = 22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         when (state) {
                             is ImportState.Message -> VerdictRow(shape = "●", title = "Can't open that", words = state.text, onInk = onInk)
-                            is ImportState.Reading -> Unit
+                            is ImportState.Reading, is ImportState.Picking -> Unit
                             else -> if (auditing != null) AuditFooter(auditing, busy, controller, onInk)
                         }
                     }
@@ -174,7 +177,14 @@ private fun ImportOverlay(
             modifier = Modifier.align(Alignment.BottomCenter),
             section = from,
             left = if (busy) DeckLeft.NONE else layout.left,
-            right = if (state is ImportState.Message || state is ImportState.Reading) DeckRight.NONE else layout.right,
+            right =
+                if (state is ImportState.Message || state is ImportState.Reading ||
+                    state is ImportState.Picking
+                ) {
+                    DeckRight.NONE
+                } else {
+                    layout.right
+                },
             rightDimmed = !(auditing?.canImport == true) || busy,
             rightLabel = DeckSeats.IMPORT_LABEL,
             dimSections = true,
@@ -202,6 +212,22 @@ private fun ImportState.originSection(): DeckSection? =
         is ImportState.Message -> from
         ImportState.Idle -> null
     }
+
+/**
+ * The wait for the platform's file picker. It is drawn so that the way out is always on screen: the deck's Close
+ * ends the wait, which matters on a platform whose picker may never answer (a browser that sends no cancel).
+ */
+@Composable
+private fun PickingBlock(onInk: Color) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        BasicText(text = "OPEN A FONT", style = Typography.mono(sizeSp = 9.5).copy(color = onInk.copy(alpha = LABEL_ALPHA)))
+        BasicText(text = "Choose a file", style = titleStyle(onInk))
+    }
+    BasicText(
+        text = "A window for choosing the font should be open. If you can't see one, or it never answers, close this and try again.",
+        style = valueStyle(onInk),
+    )
+}
 
 @Composable
 private fun ReadingBlock(
@@ -272,6 +298,7 @@ private fun AuditFooter(
         is ImportReview.Ready -> {
             VerdictRow(review.candidate.audit.verdict, review.candidate.audit.verdictWords, onInk)
             if (s.needsName) NewNameField(s, controller, onInk)
+            if (s.offersCopy) CopyChoice(s, controller, onInk)
         }
     }
     s.error?.let { error -> BasicText(text = error, style = valueStyle(onInk).copy(fontWeight = FontWeight.SemiBold)) }
@@ -441,6 +468,56 @@ private fun NewNameField(
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(onInk.copy(alpha = UNDERLINE_ALPHA)))
         s.nameProblem?.let { BasicText(text = it, style = valueStyle(onInk).copy(fontSize = 12.sp)) }
+    }
+}
+
+/**
+ * For a UFO that reserves a name: rename the `.ufo` where it lies (the only edit made to it is its `fontinfo.plist`) or import a
+ * renamed copy and leave the `.ufo` as it is. Two choices with a shape each (● chosen, ○ not), so colour is not the signal.
+ */
+@Composable
+private fun CopyChoice(
+    s: ImportState.Auditing,
+    controller: FontImportController,
+    onInk: Color,
+) {
+    val folder = s.ufoFolder ?: return
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        BasicText(text = "THE RENAME", style = Typography.mono(sizeSp = 9.0).copy(color = onInk.copy(alpha = LABEL_ALPHA)))
+        CopyChoiceRow("Rename $folder where it lies (edits its fontinfo.plist)", chosen = !s.asCopy, onInk) { controller.setAsCopy(false) }
+        CopyChoiceRow("Import a renamed copy and leave $folder as it is", chosen = s.asCopy, onInk) { controller.setAsCopy(true) }
+        // Said where it cannot scroll away: what the choice does to the person's own folder.
+        BasicText(
+            text =
+                if (s.asCopy) {
+                    "$folder is not touched. The copy goes in a new folder."
+                } else {
+                    "$folder will be edited for the rename: only its fontinfo.plist is rewritten, and no other file in it changes."
+                },
+            style = valueStyle(onInk).copy(fontSize = 12.sp, color = onInk.copy(alpha = VERDICT_ALPHA)),
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}
+
+@Composable
+private fun CopyChoiceRow(
+    text: String,
+    chosen: Boolean,
+    onInk: Color,
+    onChoose: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .selectable(selected = chosen, role = Role.RadioButton, onClick = onChoose)
+                .padding(vertical = 5.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        BasicText(text = if (chosen) "●" else "○", style = valueStyle(onInk))
+        BasicText(text = text, style = valueStyle(onInk).copy(fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal))
     }
 }
 

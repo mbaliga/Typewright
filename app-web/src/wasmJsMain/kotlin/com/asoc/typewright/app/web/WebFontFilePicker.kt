@@ -4,12 +4,9 @@
 
 package com.asoc.typewright.app.web
 
-import com.asoc.typewright.project.ProjectLocation
 import com.asoc.typewright.ui.imports.FontFilePicker
-import com.asoc.typewright.ui.imports.ImportDestination
 import com.asoc.typewright.ui.imports.PickResult
 import com.asoc.typewright.ui.imports.pickResultFromBrowserAnswer
-import com.asoc.typewright.ui.project.IN_MEMORY_WORKSPACE_ROOT
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.await
 import kotlin.js.ExperimentalWasmJsInterop
@@ -88,18 +85,4 @@ class WebFontFilePicker : FontFilePicker {
             }
         return pickResultFromBrowserAnswer(answer?.toString())
     }
-}
-
-/** Where a project made from an imported font goes in the browser: into the tab's memory, and the audit says it is gone with the tab. */
-class WebImportDestination : ImportDestination {
-    override val persists: Boolean get() = false
-
-    override suspend fun parentFolder(): ProjectLocation = IN_MEMORY_WORKSPACE_ROOT
-
-    override fun describe(
-        parent: ProjectLocation?,
-        folderName: String,
-    ): String =
-        "Nothing is written to disk. The browser keeps this project in the tab only, so it is gone when the tab closes " +
-            "unless you download it first (Download project in the command palette)."
 }

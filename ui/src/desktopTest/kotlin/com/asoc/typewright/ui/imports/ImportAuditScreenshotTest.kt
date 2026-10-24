@@ -7,7 +7,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toPixelMap
+import com.asoc.typewright.core.font.sfnt.readSfntFont
+import com.asoc.typewright.core.font.sfnt.toUfoProject
+import com.asoc.typewright.core.font.ufo.writeUfoProject
 import com.asoc.typewright.project.ProjectLocation
+import com.asoc.typewright.project.imports.UfoFolder
 import com.asoc.typewright.ui.Screenshot
 import com.asoc.typewright.ui.ScreenshotHarness
 import com.asoc.typewright.ui.deck.DeckSection
@@ -18,6 +22,7 @@ import com.asoc.typewright.ui.project.createProjectWorkspace
 import com.asoc.typewright.ui.shell.HomeScreen
 import com.asoc.typewright.ui.shell.HomeView
 import com.asoc.typewright.ui.tokens.CanvasTextures
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -159,6 +164,73 @@ class ImportAuditScreenshotTest {
             assertTrue(s.file.length() > 0)
             assertTrue(differentPixels(s, home) > 0.2, "$name: the audit should cover most of the section underneath")
         }
+    }
+
+    /** A picker that hands over a UFO folder (read in memory, as the desktop reader would hand it over) that reserves its name. */
+    private class UfoPicker : FontFilePicker {
+        override val canPickUfoFolder: Boolean get() = true
+        override val ufoFolderUnavailableReason: String? get() = null
+
+        override suspend fun pickFont(): PickResult = pickUfoFolder()
+
+        override suspend fun pickUfoFolder(): PickResult {
+            val hyle = readSfntFont(ImportFixtures.fontBytes("fonts/HyleDeco-Regular.ttf")).toUfoProject()
+            val info =
+                hyle.fontInfo.copy(
+                    familyName = "Foo",
+                    postscriptFontName = "Foo-Regular",
+                    copyright = "Copyright 2012 The Foo Project Authors, with the Reserved Font Name Foo",
+                )
+            val files = writeUfoProject(hyle.copy(fontInfo = info))
+            return PickResult.Ufo(UfoFolder("Foo-Regular.ufo", "/home/me/Fonts", files, emptyList(), listOf("Foo-Bold.ufo"), emptyList()))
+        }
+    }
+
+    /** A fresh flow on the UFO that reserves its name, with a new name typed and the copy chosen or not (the host ends its flow when a capture ends, so each picture needs its own). */
+    private fun ufoAuditing(asCopy: Boolean): FontImportController {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val controller = FontImportController(createProjectWorkspace(scope), UfoPicker(), Destination, scope)
+        controller.openUfoFolder(DeckSection.HOME)
+        runBlocking { withTimeout(20_000) { controller.state.first { it is ImportState.Auditing } } }
+        controller.setNewName("Bar Redraw")
+        controller.setAsCopy(asCopy)
+        return controller
+    }
+
+    @Test
+    fun aUfoThatReservesANameOffersToRenameItWhereItLiesOrToImportACopy() {
+        val home = bareHome()
+        val inPlaceFlow = ufoAuditing(asCopy = false)
+        val copyFlow = ufoAuditing(asCopy = true)
+        val inPlaceState = inPlaceFlow.state.value as ImportState.Auditing
+        val copyState = copyFlow.state.value as ImportState.Auditing
+        assertTrue(inPlaceState.offersCopy && copyState.offersCopy)
+        assertTrue(!inPlaceState.asCopy && copyState.asCopy)
+        val inPlace = shot("import-audit-ufo-rename-in-place", inPlaceFlow)
+        val copy = shot("import-audit-ufo-rename-copy", copyFlow)
+        // Both pictures are the audit over the section (not the bare section), and they differ from each other in the choice they show.
+        assertTrue(differentPixels(inPlace, home) > 0.2, "the in-place audit should cover the section underneath")
+        assertTrue(differentPixels(copy, home) > 0.2, "the copy audit should cover the section underneath")
+        assertTrue(differentPixels(inPlace, copy) > 0.003, "choosing a copy should change what the audit says")
+    }
+
+    @Test
+    fun theWaitWhileAFileIsReadIsDrawnAsTheFlowHoldsItsState() {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val held =
+            object : CoroutineDispatcher() {
+                override fun dispatch(
+                    context: kotlin.coroutines.CoroutineContext,
+                    block: Runnable,
+                ) = Unit
+            }
+        val poppins = ImportFixtures.fontBytes("data/learn-faces/poppins/Poppins-Regular.ttf")
+        val controller =
+            FontImportController(createProjectWorkspace(scope), Picker("Poppins-Regular.ttf", poppins), Destination, scope, held)
+        controller.openFont(DeckSection.HOME)
+        runBlocking { withTimeout(20_000) { controller.state.first { it is ImportState.Reading } } }
+        val s = shot("import-audit-reading", controller)
+        assertTrue(s.file.length() > 0)
     }
 
     @Test

@@ -2,6 +2,7 @@
 
 package com.asoc.typewright.project.imports
 
+import com.asoc.typewright.core.font.ufo.PlistValue
 import com.asoc.typewright.core.font.ufo.UfoFontInfo
 import com.asoc.typewright.core.font.ufo.UfoProject
 import com.asoc.typewright.core.font.ufo.readUfoProject
@@ -327,6 +328,189 @@ class ProjectImporterTest {
             val reopened = ws.open(store.location)
             assertIs<OpenResult.Opened>(reopened)
             assertEquals(adopted.state.value.font.locks.keys, reopened.session.state.value.font.locks.keys)
+        }
+
+    // ---- A UFO that reserves a font name --------------------------------------------------------------
+
+    private val reservedInfo =
+        UfoFontInfo(
+            familyName = "Foo",
+            styleName = "Regular",
+            unitsPerEm = 1000,
+            copyright = "Copyright 2012 The Foo Project Authors, with Reserved Font Name \"Foo\".",
+            openTypeNameLicense = "This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+            postscriptFontName = "Foo-Regular",
+            other =
+                listOf(
+                    "openTypeNameCompatibleFullName" to PlistValue.PString("Foo Regular"),
+                    "openTypeNameRecords" to
+                        PlistValue.PArray(
+                            listOf(
+                                PlistValue.PDict(
+                                    listOf(
+                                        "nameID" to PlistValue.PInteger(4),
+                                        "platformID" to PlistValue.PInteger(3),
+                                        "encodingID" to PlistValue.PInteger(1),
+                                        "languageID" to PlistValue.PInteger(1033),
+                                        "string" to PlistValue.PString("Foo Regular"),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    "openTypeNameUniqueID" to PlistValue.PString("1.000;FOO;Foo-Regular"),
+                    "openTypeOS2WeightClass" to PlistValue.PInteger(400),
+                    "postscriptFullName" to PlistValue.PString("Foo Regular"),
+                    "styleMapFamilyName" to PlistValue.PString("Foo"),
+                ),
+        )
+
+    private val reservedUfoFolder = "Foo-Regular.ufo"
+
+    /** A folder of fonts holding a UFO that declares a Reserved Font Name in its copyright line, with a note of the person's beside it. */
+    private fun reservedNameStore(): InMemoryProjectStore {
+        val ufo =
+            Fixtures.ufoProject(listOf("A", "B", "n")).let { project ->
+                project.copy(fontInfo = reservedInfo, glyphs = project.glyphs.map { it.copy(unicodes = listOf(it.name.first().code)) })
+            }
+        return ufoStore("fonts", ufo, folder = reservedUfoFolder, extra = mapOf("README.md" to "# my fonts\n"))
+    }
+
+    private suspend fun filesOf(store: InMemoryProjectStore): Map<String, String> =
+        store.list().associateWith { store.read(it)!!.decodeToString() }
+
+    /** The review a person sees for the UFO in [store]: read exactly as the desktop reader hands it over. */
+    private suspend fun reviewOf(store: InMemoryProjectStore): ImportCandidate {
+        val prefix = "$reservedUfoFolder/"
+        val files = filesOf(store).filterKeys { it.startsWith(prefix) }.mapKeys { it.key.removePrefix(prefix) }
+        val review = reviewUfoFolder(reservedUfoFolder, files, siblings = UfoSiblings("fonts", emptyList()))
+        return assertIs<ImportReview.Ready>(review).candidate
+    }
+
+    private suspend fun fontInfoOnDisk(store: InMemoryProjectStore): UfoFontInfo {
+        val prefix = "$reservedUfoFolder/"
+        return readUfoProject(filesOf(store).filterKeys { it.startsWith(prefix) }.mapKeys { it.key.removePrefix(prefix) }).fontInfo
+    }
+
+    @Test
+    fun adoptingAUfoThatReservesANameRenamesItsFontInfoAndNothingElseInTheUfo() =
+        runTest {
+            val storage = SharedNameStorage()
+            val store = reservedNameStore()
+            storage.stores[store.location] = store
+            val candidate = reviewOf(store)
+            assertEquals(ImportVerdict.RENAME, candidate.audit.verdict)
+            assertEquals(listOf("Foo"), candidate.audit.reservedFontNames)
+            val before = filesOf(store)
+
+            val ws = workspace(backgroundScope, storage)
+            val outcome = ProjectImporter(ws).adopt(candidate, store.location, "Bar Redraw", newFamily = "Bar Redraw")
+            assertIs<ImportOutcome.Imported>(outcome)
+
+            // The UFO's fontinfo.plist is the one file of the UFO that changed, and every other file in the folder is as it was.
+            val after = filesOf(store)
+            assertTrue(after.keys.containsAll(before.keys), "nothing was deleted")
+            assertEquals(
+                listOf("$reservedUfoFolder/fontinfo.plist"),
+                before.keys.filter { before[it] != after[it] },
+                "only fontinfo.plist differs",
+            )
+
+            // The file on disk now carries the new name under every key a compiler would emit.
+            val onDisk = fontInfoOnDisk(store)
+            assertEquals("Bar Redraw", onDisk.familyName)
+            assertEquals("BarRedraw-Regular", onDisk.postscriptFontName)
+            assertEquals(emptyList(), nameTableKeysMentioning(onDisk, listOf("Foo")), "no name key still uses the reserved name")
+            val otherKeys = onDisk.other.map { it.first }
+            for (derived in listOf("styleMapFamilyName", "postscriptFullName", "openTypeNameUniqueID", "openTypeNameCompatibleFullName")) {
+                assertTrue(derived !in otherKeys, "$derived was built from the old name, so it is dropped for the compiler to rebuild")
+            }
+            assertTrue("openTypeOS2WeightClass" in otherKeys, "keys that are not names are carried over")
+            assertTrue("Reserved Font Name" in onDisk.copyright.orEmpty(), "the copyright line is kept as it was")
+
+            // The open project holds the same renamed font, begins with an empty history, and reopens to the same thing.
+            val session = outcome.session
+            val held =
+                session.state.value.font.masters
+                    .single()
+                    .ufo.fontInfo
+            assertEquals(onDisk, held)
+            assertEquals(false, session.history.value.canUndo, "renaming is how the project starts, not an edit to undo")
+            ws.closeCurrent()
+            val reopened = assertIs<OpenResult.Opened>(ws.open(store.location))
+            assertEquals(
+                onDisk,
+                reopened.session.state.value.font.masters
+                    .single()
+                    .ufo.fontInfo,
+            )
+        }
+
+    @Test
+    fun adoptingAUfoThatReservesANameNeedsANewOneAndWritesNothingWithoutIt() =
+        runTest {
+            val storage = SharedNameStorage()
+            val store = reservedNameStore()
+            storage.stores[store.location] = store
+            val candidate = reviewOf(store)
+            val before = filesOf(store)
+            val ws = workspace(backgroundScope, storage)
+
+            val outcome = ProjectImporter(ws).adopt(candidate, store.location, "Foo")
+            assertIs<ImportOutcome.Failed>(outcome)
+            assertTrue("new family name is required" in outcome.message, outcome.message)
+            assertEquals(before, filesOf(store), "a refused adoption leaves the folder exactly as it was")
+            assertNull(ws.current.value)
+        }
+
+    @Test
+    fun aNewNameThatStillUsesTheReservedNameIsRefusedBeforeAnythingIsWritten() =
+        runTest {
+            val storage = SharedNameStorage()
+            val store = reservedNameStore()
+            storage.stores[store.location] = store
+            val candidate = reviewOf(store)
+            val before = filesOf(store)
+            val ws = workspace(backgroundScope, storage)
+
+            val outcome = ProjectImporter(ws).adopt(candidate, store.location, "Foo Redraw", newFamily = "Foo Redraw")
+            assertIs<ImportOutcome.Failed>(outcome)
+            assertTrue("reserved name" in outcome.message, outcome.message)
+            assertEquals(before, filesOf(store))
+            assertNull(ws.current.value)
+        }
+
+    @Test
+    fun aUfoThatReservesNoNameIsStillAdoptedWithoutTouchingItsFontInfo() =
+        runTest {
+            val storage = SharedNameStorage()
+            val store = ufoStore("fonts", Fixtures.ufoProject(listOf("A", "B", "n")))
+            storage.stores[store.location] = store
+            val before = filesOf(store)
+            val ws = workspace(backgroundScope, storage)
+            val outcome = ProjectImporter(ws).adopt(candidateFor(Fixtures.ufoProject(listOf("A", "B", "n"))), store.location, "Fixture")
+            assertIs<ImportOutcome.Imported>(outcome)
+            for ((path, text) in before) assertEquals(text, filesOf(store)[path], "$path is unchanged")
+        }
+
+    @Test
+    fun aRenamedCopyOfAUfoLeavesTheOriginalExactlyAsItWas() =
+        runTest {
+            val storage = SharedNameStorage()
+            val store = reservedNameStore()
+            storage.stores[store.location] = store
+            val candidate = reviewOf(store)
+            val before = filesOf(store)
+            val ws = workspace(backgroundScope, storage)
+
+            val outcome = ProjectImporter(ws).create(candidate, root, "Bar Redraw", newFamily = "Bar Redraw")
+            assertIs<ImportOutcome.Imported>(outcome)
+            assertEquals(before, filesOf(store), "the original folder is untouched")
+            val copy =
+                outcome.session.state.value.font.masters
+                    .single()
+                    .ufo.fontInfo
+            assertEquals("Bar Redraw", copy.familyName)
+            assertEquals(emptyList(), nameTableKeysMentioning(copy, listOf("Foo")))
         }
 
     private fun candidateFor(ufo: UfoProject): ImportCandidate =

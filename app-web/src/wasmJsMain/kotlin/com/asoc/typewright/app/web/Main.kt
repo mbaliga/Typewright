@@ -5,6 +5,7 @@ package com.asoc.typewright.app.web
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
 import com.asoc.typewright.ui.TypewrightApp
+import com.asoc.typewright.ui.imports.BrowserTabImportDestination
 import com.asoc.typewright.ui.imports.PlatformImportSupport
 import com.asoc.typewright.ui.project.createProjectWorkspace
 import kotlinx.browser.document
@@ -29,7 +30,7 @@ fun main() {
     val workspace = createProjectWorkspace(workspaceScope)
     // "Open a font…": the browser's file input; the project lives in the tab (compile-verified only).
     PlatformImportSupport.filePicker = WebFontFilePicker()
-    PlatformImportSupport.destination = WebImportDestination()
+    PlatformImportSupport.destination = BrowserTabImportDestination
 
     // There is no reliable "the tab is about to close" event in a browser, so "no longer
     // visible" (switched away from, minimised, or genuinely closing) is the honest signal to

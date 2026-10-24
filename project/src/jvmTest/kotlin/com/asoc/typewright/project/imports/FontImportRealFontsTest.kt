@@ -112,6 +112,33 @@ class FontImportRealFontsTest {
     }
 
     @Test
+    fun theWholeOflTextBesideEachFaceDeclaresExactlyTheNamesItsFirstLineDoes() {
+        // The licence files the repository ships are whole OFL texts: a copyright line, the licence's own definitions and its
+        // conditions. Reading a full text must find the names its copyright line declares (read by eye from each file's first
+        // line) and none of the licence's own words ("Reserved Font Name" refers to..., may use the Reserved Font Name(s) unless...).
+        val declared =
+            mapOf(
+                "josefinsans" to listOf("Josefin Sans"),
+                "librebaskerville" to listOf("Libre Baskerville"),
+                "limelight" to listOf("Limelight"),
+                "playfairdisplay" to listOf("Playfair Display"),
+                "sourcesans3" to listOf("Source"),
+                "unifrakturmaguntia" to listOf("UnifrakturMaguntia"),
+            )
+        val dirs = File(repoRoot, "data/learn-faces").listFiles().orEmpty().filter { File(it, "OFL.txt").isFile }
+        assertTrue(dirs.size >= 15, "the faces' OFL texts were not found: " + dirs.map { it.name })
+        for (dir in dirs) {
+            assertEquals(declared[dir.name].orEmpty(), reservedFontNames(File(dir, "OFL.txt").readText()), dir.name + "/OFL.txt")
+        }
+        assertEquals(
+            listOf("Source"),
+            reservedFontNames(File(repoRoot, "scripts/templates/OFL.txt").readText()),
+            "the template's first line reserves Source, and none of the licence's own words add a name",
+        )
+        assertEquals(emptyList(), reservedFontNames(File(repoRoot, "fonts/OFL.txt").readText()), "Hyle Deco reserves no name")
+    }
+
+    @Test
     fun aVariableFaceImportsItsDefaultInstanceAndSaysSo() {
         val candidate = ready("WorkSans[wght].ttf", "data/learn-faces/worksans/WorkSans[wght].ttf")
         assertTrue(candidate.report.notes.any { "variable font" in it && "default instance" in it }, candidate.report.notes.toString())
@@ -189,6 +216,32 @@ class FontImportRealFontsTest {
         assertTrue("Import stays off" in review.audit.verdictWords)
         // The same bytes, with the licence put back, are fine: the refusal is the licence, not the file.
         assertIs<ImportReview.Ready>(reviewFontFile("Poppins.ttf", poppins))
+    }
+
+    @Test
+    fun aRefusedFontIsRefusedFromItsNameTableAloneSoNoOutlineIsDecoded() {
+        val poppins = bytes("data/learn-faces/poppins/Poppins-Regular.ttf")
+        val proprietary =
+            withNameRecord(
+                withNameRecord(
+                    poppins,
+                    13,
+                    "This font is proprietary software of Example Foundry. It may not be modified or redistributed.",
+                ),
+                14,
+                "http://example.invalid/eula",
+            )
+
+        fun withGlyfRuined(font: ByteArray): ByteArray {
+            val glyf = checkNotNull(readSfntTableDirectory(font)["glyf"])
+            return font.copyOf().also { ruined -> for (i in glyf.offset until glyf.offset + glyf.length) ruined[i] = 0x7F }
+        }
+        // Every outline in the file is junk. A refused font is still refused, because its outlines are never looked at...
+        val refused = reviewFontFile("Proprietary.ttf", withGlyfRuined(proprietary))
+        assertIs<ImportReview.Refused>(refused)
+        assertEquals(LicenceKind.PROPRIETARY, refused.audit.licence)
+        // ...while the same ruin under an open licence is unreadable, which shows the outlines are decoded for a font that may be imported.
+        assertIs<ImportReview.Unreadable>(reviewFontFile("Poppins.ttf", withGlyfRuined(poppins)))
     }
 
     @Test

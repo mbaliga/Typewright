@@ -3482,6 +3482,10 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     `WebFontFilePicker.kt` was compiled once inside `:ui:compileKotlinWasmJs` and the lines added
     to `app-web`'s `Main.kt` were not compiled. UFO folders are offered on the desktop only, and
     Android and the browser say why on the Projects screen and on S03. Owner: Madhav.
+    *Fix pass:* while the picker is open S03 now draws a waiting screen with the deck's Close, and a new
+    request replaces a wait that never answered, so a browser that sends no `cancel` is no longer a dead
+    end; a late answer from a wait that was ended is dropped. `WebFontFilePicker.kt` and `Main.kt` of
+    `app-web` were compiled inside `:ui:compileKotlinWasmJs` again (the offline resolution failure remains).
 
 159. **Until the router is wired, three things are built but not on screen (P12).** The import flow
     reaches the command palette and the S03 audit over any section only when `TypewrightApp` provides
@@ -3489,8 +3493,46 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     appear only when `SectionNav.statusOf` is `rememberProjectStationStatus()`; and the current glyph is
     saved and restored only when `ProjectResumeEffect` is composed. Projects hosts its own import
     until then. `TypewrightApp.kt` is outside this package, so the wiring lines are in its report.
-    Owner: the lead.
+    Owner: the lead. *Fix pass:* all three are wired in `TypewrightApp.kt`; this item is resolved.
 
 160. **Draw's one-tap unlock, for the owner of Draw (P12).** An import locks every glyph (D1), so the
     first thing a person does in Draw on their own font is unlock a glyph. `docs/PROJECT_MODEL.md` §15
     asks Draw to make that one tap; `ui/draw` is not this package's and was not checked. Owner: Madhav.
+
+161. **Opened as a person opens a font, the sample is read as humanist sans, so Task 4 is judged against another box than before (P12 fix pass).**
+    With no class declared, the detector (our heuristic) reads Hyle Deco's letters as `sans-humanist`, not
+    the `sans-geometric` the sample's own brief declares (150). Task 4's gate and Home's counts are then
+    judged against the humanist box, so "the Task 4 gate matches what it showed before" holds only when the
+    class is declared. `ProjectInsightsTest` pins the detector's reading so a change to it shows. Should S03
+    or the Brief ask for the closest class on the way in? Owner: Madhav.
+
+162. **The web build cannot yet save a project to the person's computer (P12 fix pass).** S03 on the web
+    now says the project lives in the memory of the tab and that this build cannot yet save it out, instead
+    of pointing at the palette's "Download project (.zip)", which builds the zip bytes (`ProjectZip`) but has
+    no browser download behind it: that needs a Blob download in `app-web` and a hook for `ui` to reach it,
+    neither of which can be tried here (no browser). Wire it, and put it back in the audit's sentence?
+    Owner: Madhav.
+
+163. **Projects rows have no specimen strip (S01, P12 fix pass).** The board draws each recent project with
+    "Hamburgefonstiv" set in its own font; the rows show the name, a mono line and the folder. Recents keep a
+    summary only, so a strip needs the project's outlines: read the UFO when listing, or cache a few glyphs in
+    `recent-projects.json`. Which? Owner: Madhav.
+
+164. **Two of the Workbook's sample figures have no measurement defined (P12 fix pass).** The Workbook now
+    measures the open font's own stem, counter, overshoot, sidebearings and Overlay probe for tasks 2, 3, 4,
+    5 and 7, and shows the lesson's figures as the lesson's. "round : straight = 1 : 1" (task 4) and "r about
+    118 / 74" (task 5, the corner radius of the sample's rounded-rectangle `o`) have no definition of what is
+    counted or how a radius is read off a contour, so they appear only in the lesson's block. Define them, or
+    drop them from the lesson? Owner: Madhav.
+
+165. **Home's task card still runs the twelve gates inside composition (P12 fix pass).** The Workbook runs
+    them off the UI thread behind a Loading state. Home's specimen reads the same snapshot to name the
+    current task and still computes it on the UI thread whenever the project changes while Home is showing.
+    Moving it needs Home's screenshot tests to wait for the result (the harness renders one frame).
+    Owner: the lead.
+
+166. **Renaming a UFO in place edits `fontinfo.plist`; should a copy be the default? (P12 fix pass).** For
+    a UFO that reserves a name, S03 offers to rename it where it lies (the one file changed is
+    `fontinfo.plist`, rewritten from the model, so its keys are re-sorted and any comments dropped) or to
+    import a renamed copy. In place is the default because the project folder is the folder that holds the
+    `.ufo`. Should the copy be the default for a UFO that is under version control? Owner: Madhav.

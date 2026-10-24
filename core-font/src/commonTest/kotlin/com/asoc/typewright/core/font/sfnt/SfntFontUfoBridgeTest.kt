@@ -10,6 +10,7 @@ import com.asoc.typewright.core.geometry.CurveFormat
 import com.asoc.typewright.core.geometry.count
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -127,6 +128,37 @@ class SfntFontUfoBridgeTest {
         assertEquals("Golden Path Seed", info.familyName)
         assertEquals("Regular", info.styleName)
         assertNull(info.postscriptFontName, "the source's PostScript name would contradict the new family")
+    }
+
+    @Test
+    fun readSfntFontInfoGivesTheFontInfoToUfoProjectWould() {
+        assertEquals(font.toUfoProject().fontInfo, readSfntFontInfo(HyleDecoRegularTtfBase64.bytes))
+        assertEquals(
+            font.toUfoProject(familyName = "Golden Path Seed").fontInfo,
+            readSfntFontInfo(HyleDecoRegularTtfBase64.bytes, familyName = "Golden Path Seed"),
+        )
+    }
+
+    @Test
+    fun readSfntFontInfoNeedsNoOutlines() {
+        // Overwrite the whole glyf table with junk: the names and licence are still read, because no glyph is.
+        val bytes = HyleDecoRegularTtfBase64.bytes.copyOf()
+        val glyf = checkNotNull(readSfntTableDirectory(bytes)["glyf"])
+        for (i in glyf.offset until glyf.offset + glyf.length) bytes[i] = 0x7F
+        assertEquals(font.toUfoProject().fontInfo, readSfntFontInfo(bytes))
+    }
+
+    @Test
+    fun readSfntFontInfoRefusesWhatReadSfntFontRefuses() {
+        val cff = HyleDecoRegularTtfBase64.bytes.copyOf()
+        cff[0] = 'O'.code.toByte()
+        cff[1] = 'T'.code.toByte()
+        cff[2] = 'T'.code.toByte()
+        cff[3] = 'O'.code.toByte()
+        assertFailsWith<IllegalArgumentException> { readSfntFontInfo(cff) }
+        val junk = HyleDecoRegularTtfBase64.bytes.copyOf()
+        junk[3] = 0x42
+        assertFailsWith<IllegalArgumentException> { readSfntFontInfo(junk) }
     }
 
     @Test

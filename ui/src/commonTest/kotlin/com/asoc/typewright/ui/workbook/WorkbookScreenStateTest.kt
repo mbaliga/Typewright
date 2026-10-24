@@ -100,6 +100,68 @@ class WorkbookScreenUiStateTest {
         assertEquals(1, WorkbookScreenUiState(snapshot = loaded, initialTaskIndex = 0).taskIndex)
         assertEquals(WORKBOOK_TASK_COUNT, WorkbookScreenUiState(snapshot = loaded, initialTaskIndex = 99).taskIndex)
     }
+
+    @Test
+    fun aNewSnapshotNeverMovesThePersonOffTheTaskAndViewTheyChose() {
+        val state = WorkbookScreenUiState(snapshot = fixtureSnapshot(currentIndex = 6))
+        state.taskIndex = 3
+        state.allTasks = true
+        val next = fixtureSnapshot(currentIndex = 7)
+        state.show(next)
+        assertEquals(next, state.snapshot, "the snapshot itself is replaced")
+        assertEquals(3, state.taskIndex, "the task they were on stays")
+        assertEquals(true, state.allTasks, "the All tasks view stays")
+    }
+
+    @Test
+    fun aNewSnapshotDoesNotMoveATaskThatWasOnlyTheCurrentOneEither() {
+        val state = WorkbookScreenUiState(snapshot = fixtureSnapshot(currentIndex = 6))
+        state.show(fixtureSnapshot(currentIndex = 8))
+        assertEquals(6, state.taskIndex, "confirming a task does not turn the page under the person's thumb")
+    }
+
+    @Test
+    fun aScreenOpenedBeforeAnyGateRanLandsOnTheCurrentTaskWhenTheFirstSnapshotArrives() {
+        val state = WorkbookScreenUiState(snapshot = WorkbookCampaignSnapshot.Loading)
+        assertEquals(1, state.taskIndex)
+        state.show(fixtureSnapshot(currentIndex = 6))
+        assertEquals(6, state.taskIndex)
+        state.show(fixtureSnapshot(currentIndex = 9))
+        assertEquals(6, state.taskIndex, "only the first snapshot positions the screen")
+    }
+
+    @Test
+    fun aTaskChosenWhileLoadingIsKeptWhenTheSnapshotArrives() {
+        val state = WorkbookScreenUiState(snapshot = WorkbookCampaignSnapshot.Loading)
+        state.taskIndex = 4
+        state.show(fixtureSnapshot(currentIndex = 6))
+        assertEquals(4, state.taskIndex)
+    }
+
+    @Test
+    fun anExplicitInitialTaskSurvivesTheFirstSnapshotToo() {
+        val state = WorkbookScreenUiState(snapshot = WorkbookCampaignSnapshot.Loading, initialTaskIndex = 9)
+        state.show(fixtureSnapshot(currentIndex = 6))
+        assertEquals(9, state.taskIndex)
+    }
+
+    @Test
+    fun aSnapshotThatIsNotLoadedDoesNotSettleTheScreen() {
+        val state = WorkbookScreenUiState(snapshot = WorkbookCampaignSnapshot.Loading)
+        state.show(WorkbookCampaignSnapshot.Unavailable("no corpus on this target"))
+        assertEquals(1, state.taskIndex)
+        state.show(fixtureSnapshot(currentIndex = 5))
+        assertEquals(5, state.taskIndex)
+    }
+
+    @Test
+    fun theChosenTaskIsKeptInsideTheTwelveTaskRange() {
+        val state = WorkbookScreenUiState(snapshot = WorkbookCampaignSnapshot.Loading)
+        state.taskIndex = 40
+        assertEquals(WORKBOOK_TASK_COUNT, state.taskIndex)
+        state.taskIndex = -2
+        assertEquals(1, state.taskIndex)
+    }
 }
 
 class NextTaskLabelTest {
@@ -120,5 +182,10 @@ class NextTaskLabelTest {
     @Test
     fun fallsBackToThePlainWordWorkbookWhenUnavailable() {
         assertEquals("Workbook", nextTaskLabel(WorkbookCampaignSnapshot.Unavailable("reason")))
+    }
+
+    @Test
+    fun fallsBackToThePlainWordWorkbookWhileLoading() {
+        assertEquals("Workbook", nextTaskLabel(WorkbookCampaignSnapshot.Loading))
     }
 }

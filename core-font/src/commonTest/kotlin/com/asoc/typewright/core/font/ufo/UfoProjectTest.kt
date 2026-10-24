@@ -12,6 +12,7 @@ import com.asoc.typewright.core.geometry.Point
 import com.asoc.typewright.core.geometry.count
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFails
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
@@ -142,6 +143,35 @@ class UfoProjectTest {
 
         val readBack = readUfoProject(files)
         assertEquals(project.glyphs.toSet(), readBack.glyphs.toSet())
+    }
+
+    @Test
+    fun readUfoFontInfoReadsTheFontInfoAndNoGlyph() {
+        val project =
+            UfoProject(
+                UfoFontInfo(familyName = "Fam", copyright = "Copyright 2020 X, with Reserved Font Name \"Fam\"."),
+                listOf(Glyph("A", 500, listOf(triangleCubic()))),
+            )
+        val files = writeUfoProject(project).toMutableMap()
+        // A glyph file that cannot be parsed: readUfoProject would fail on it, readUfoFontInfo never looks.
+        val glifPath = files.keys.first { it.startsWith("glyphs/") && it.endsWith(".glif") }
+        files[glifPath] = "<not a glif"
+        assertFails { readUfoProject(files) }
+        assertEquals(project.fontInfo, readUfoFontInfo(files))
+    }
+
+    @Test
+    fun readUfoFontInfoOfAUfoWithNoFontInfoIsEmpty() {
+        val files = writeUfoProject(UfoProject(UfoFontInfo(), emptyList())).toMutableMap()
+        files.remove("fontinfo.plist")
+        assertEquals(UfoFontInfo(), readUfoFontInfo(files))
+    }
+
+    @Test
+    fun readUfoFontInfoRejectsWhatReadUfoProjectRejectsAboutMetaInfo() {
+        assertFailsWith<IllegalArgumentException> { readUfoFontInfo(emptyMap()) }
+        val metaInfo = writePlist(PlistValue.PDict(listOf("creator" to PlistValue.PString("x"), "formatVersion" to PlistValue.PInteger(2))))
+        assertFailsWith<IllegalArgumentException> { readUfoFontInfo(mapOf("metainfo.plist" to metaInfo)) }
     }
 
     @Test

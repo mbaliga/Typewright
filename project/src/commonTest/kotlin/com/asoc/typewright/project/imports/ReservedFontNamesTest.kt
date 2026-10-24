@@ -91,6 +91,34 @@ class ReservedFontNamesTest {
     }
 
     @Test
+    fun anArticleBetweenWithAndTheMarker() {
+        assertEquals(listOf("Bar"), names("Copyright 2011 Foo, with the Reserved Font Name Bar"))
+        assertEquals(listOf("Bar Sans"), names("Copyright 2011 Foo, with the Reserved Font Name \"Bar Sans\"."))
+        assertEquals(listOf("Bar"), names("Copyright 2011 Foo, With The Reserved Font Name Bar."))
+    }
+
+    @Test
+    fun aDeclarationThatStartsASentenceOfItsOwn() {
+        assertEquals(listOf("Bar"), names("Copyright 2012 Foo. Reserved Font Name \"Bar\""))
+        assertEquals(listOf("Bar"), names("Copyright 2012 Foo.\nReserved Font Name Bar."))
+        assertEquals(listOf("Bar", "Baz"), names("Copyright 2012 Foo. Reserved Font Names \"Bar\" and \"Baz\"."))
+    }
+
+    @Test
+    fun aDeclarationAfterACommaOrSemicolon() {
+        assertEquals(listOf("Bar"), names("Foo, Reserved Font Name Bar"))
+        assertEquals(listOf("Bar"), names("Copyright 2012 Foo; Reserved Font Name Bar."))
+    }
+
+    @Test
+    fun sentencesAboutReservedNamesThatDeclareNothing() {
+        assertEquals(emptyList(), names("Copyright 2012 Foo. Reserved Font Names refers to any names specified after the copyright."))
+        assertEquals(emptyList(), names("Foo, Reserved Font Name is a term the licence defines."))
+        assertEquals(emptyList(), names("Reserved Font Name(s) must not be used by a Modified Version."))
+        assertEquals(emptyList(), names("Copyright 2012 Foo. Reserved Font Name <Reserved Font Name>."))
+    }
+
+    @Test
     fun theLicencesOwnBoilerplateIsNotADeclaration() {
         val boilerplate =
             "\"Reserved Font Name\" refers to any names specified as such after the copyright statement(s).\n" +

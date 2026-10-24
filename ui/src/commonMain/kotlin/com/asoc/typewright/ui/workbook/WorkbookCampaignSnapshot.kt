@@ -48,6 +48,9 @@ sealed interface WorkbookCampaignSnapshot {
     /** No project is open. */
     data object NoProject : WorkbookCampaignSnapshot
 
+    /** The gates are being run on the open project, off the UI thread; nothing is shown as measured until they have. */
+    data object Loading : WorkbookCampaignSnapshot
+
     /** The real, honest reason loading failed on this target: never a fabricated task list. */
     data class Unavailable(
         val reason: String,
@@ -106,7 +109,7 @@ fun nextTaskLabel(snapshot: WorkbookCampaignSnapshot): String =
             "Task ${task.index} · ${task.title}"
         }
 
-        is WorkbookCampaignSnapshot.NoProject, is WorkbookCampaignSnapshot.Unavailable -> {
+        is WorkbookCampaignSnapshot.NoProject, is WorkbookCampaignSnapshot.Loading, is WorkbookCampaignSnapshot.Unavailable -> {
             "Workbook"
         }
     }

@@ -50,6 +50,59 @@ import kotlin.math.roundToInt
  * when the UFO is opened again, keeping its point counts (see [UfoLib]).
  */
 fun SfntFont.toUfoProject(familyName: String? = null): UfoProject {
+    val fontInfo = ufoFontInfoOf(head, hhea, name, os2, post, familyName)
+    val codePointsByGlyphId = HashMap<Int, MutableList<Int>>()
+    for ((codePoint, glyphId) in cmap.bestMapping) {
+        if (glyphId in 1 until numGlyphs && codePoint in 0..MAX_CODE_POINT) {
+            codePointsByGlyphId.getOrPut(glyphId) { mutableListOf() } += codePoint
+        }
+    }
+    val glyphs =
+        allGlyphs().mapIndexed { glyphId, glyph ->
+            glyph.copy(unicodes = codePointsByGlyphId[glyphId]?.sorted().orEmpty())
+        }
+    return UfoProject(fontInfo, glyphs, lib = UfoLib(lineContourFormat = CurveFormat.QUADRATIC))
+}
+
+/**
+ * The [UfoFontInfo] [toUfoProject] would give the font in [fontBytes] (see there for what it holds),
+ * read from the `head`, `hhea`, `maxp`, `name`, `OS/2` and `post` tables alone: no outline is
+ * decoded, so a caller that only needs the font's names and licence (the import audit, which may
+ * refuse the font) does not pay for every glyph. Throws [IllegalArgumentException] for bytes that
+ * are not a TrueType-outline font, as [readSfntFont] does.
+ */
+fun readSfntFontInfo(
+    fontBytes: ByteArray,
+    familyName: String? = null,
+): UfoFontInfo {
+    val directory = readSfntTableDirectory(fontBytes)
+    require(directory.sfntVersion != SFNT_VERSION_CFF) {
+        "font has CFF outlines (sfntVersion 'OTTO'); core-font reads only TrueType glyf-outline fonts in v1"
+    }
+    require(directory.sfntVersion == SFNT_VERSION_TRUETYPE || directory.sfntVersion == SFNT_VERSION_TRUE_TAG) {
+        "unrecognised sfntVersion 0x${directory.sfntVersion.toString(16)}"
+    }
+
+    fun requiredCursor(tag: String): ByteCursor =
+        directory.cursor(fontBytes, tag) ?: throw IllegalArgumentException("font has no '$tag' table")
+
+    val head = readHeadTable(requiredCursor("head"))
+    val hhea = readHheaTable(requiredCursor("hhea"))
+    val maxp = readMaxpTable(requiredCursor("maxp"))
+    val name = readNameTable(requiredCursor("name"))
+    val os2 = directory.cursor(fontBytes, "OS/2")?.let { readOs2Table(it) }
+    val post = directory.cursor(fontBytes, "post")?.let { readPostTable(it, maxp.numGlyphs) }
+    return ufoFontInfoOf(head, hhea, name, os2, post, familyName)
+}
+
+private fun ufoFontInfoOf(
+    head: HeadTable,
+    hhea: HheaTable,
+    name: NameTable,
+    os2: Os2Table?,
+    post: PostTable?,
+    familyName: String?,
+): UfoFontInfo {
     val typographicFamily = name.cleanText(NameId.TYPOGRAPHIC_FAMILY)
     val legacyFamily = name.cleanText(NameId.FAMILY)
     val resolvedFamily = familyName ?: typographicFamily ?: legacyFamily
@@ -123,17 +176,7 @@ fun SfntFont.toUfoProject(familyName: String? = null): UfoProject {
             openTypeOS2WinDescent = os2?.usWinDescent,
             other = other,
         )
-    val codePointsByGlyphId = HashMap<Int, MutableList<Int>>()
-    for ((codePoint, glyphId) in cmap.bestMapping) {
-        if (glyphId in 1 until numGlyphs && codePoint in 0..MAX_CODE_POINT) {
-            codePointsByGlyphId.getOrPut(glyphId) { mutableListOf() } += codePoint
-        }
-    }
-    val glyphs =
-        allGlyphs().mapIndexed { glyphId, glyph ->
-            glyph.copy(unicodes = codePointsByGlyphId[glyphId]?.sorted().orEmpty())
-        }
-    return UfoProject(fontInfo, glyphs, lib = UfoLib(lineContourFormat = CurveFormat.QUADRATIC))
+    return fontInfo
 }
 
 /**

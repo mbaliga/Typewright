@@ -17,9 +17,12 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
@@ -56,11 +59,22 @@ sealed interface ImportState {
         val where: String,
         /** Why the last attempt to import failed, or null. */
         val error: String?,
+        /**
+         * For a UFO that reserves a name: whether the person chose a renamed copy in a new project folder,
+         * which leaves the `.ufo` they opened exactly as it is, instead of renaming it where it lies.
+         */
+        val asCopy: Boolean = false,
     ) : ImportState {
         private val candidate: ImportCandidate? get() = (review as? ImportReview.Ready)?.candidate
 
         /** Whether the font reserves a name, so the project needs a new one. */
         val needsName: Boolean get() = candidate?.audit?.mustRename == true
+
+        /** Whether the choice between renaming the `.ufo` in place and importing a renamed copy is on offer: a UFO folder that reserves a name. */
+        val offersCopy: Boolean get() = needsName && candidate?.ufoFolder != null
+
+        /** The name of the `.ufo` folder the choice is about, when [offersCopy]. */
+        val ufoFolder: String? get() = candidate?.ufoFolder
 
         /** Whether the right circle can be pressed: the audit allows it, and a needed new name is a good one. */
         val canImport: Boolean get() = candidate != null && (!needsName || (newName.isNotBlank() && nameProblem == null))
@@ -94,7 +108,10 @@ sealed interface ImportState {
  * the bundled sample), read and audit it, show the audit, and on Import make the project and open
  * it. [state] is what S03 draws; nothing here touches the screen.
  *
- * - One flow at a time: a call while the state is not [ImportState.Idle] does nothing.
+ * - One flow at a time: a call while the state is not [ImportState.Idle] does nothing, with one exception.
+ *   A request for a font or a UFO folder while the picker is open ([ImportState.Picking]) ends that wait and
+ *   starts again, so a picker that never answers (a browser that sends no cancel) cannot block the next
+ *   request; and an answer that arrives after its wait was ended is dropped.
  * - The open project is closed before the new one is made, and put back if the import fails
  *   ([ProjectImporter]).
  * - [close] is the deck's Close circle: it leaves an audit or a message, cancels an open picker, and
@@ -142,12 +159,24 @@ class FontImportController(
         from: DeckSection?,
         pick: suspend () -> PickResult,
     ) {
-        if (mutableState.value != ImportState.Idle) return
+        when (mutableState.value) {
+            ImportState.Idle -> Unit
+
+            // A picker that never answers (a browser whose file input sends no cancel) must not block the next
+            // request for good: the stale wait is ended and this request takes its place.
+            is ImportState.Picking -> job?.cancel()
+
+            else -> return
+        }
         mutableState.value = ImportState.Picking(from)
         job =
             scope.launch {
                 try {
-                    when (val picked = pick()) {
+                    val picked = pick()
+                    // A pick that was cancelled (Close, or a newer request) and then answered anyway is dropped here,
+                    // so a late answer cannot move the state out from under whatever the person is doing now.
+                    currentCoroutineContext().ensureActive()
+                    when (picked) {
                         PickResult.Cancelled -> {
                             mutableState.value = ImportState.Idle
                         }
@@ -169,8 +198,11 @@ class FontImportController(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    mutableState.value =
-                        ImportState.Message(from, "Something went wrong opening that file: ${e.message ?: e::class.simpleName}.")
+                    // A wait that was ended (Close, or a newer request) and then failed on its way out says nothing now.
+                    if (isActive) {
+                        mutableState.value =
+                            ImportState.Message(from, "Something went wrong opening that file: ${e.message ?: e::class.simpleName}.")
+                    }
                 }
             }
     }
@@ -181,8 +213,16 @@ class FontImportController(
         sample: Boolean,
     ) {
         val candidate = (review as? ImportReview.Ready)?.candidate
-        val parent = if (candidate != null && candidate.ufoFolder == null) destination.parentFolder() else null
-        val where = if (candidate != null) whereText(candidate, parent, projectNameFor(candidate, "")) else ""
+        // A UFO that is adopted in place needs no folder, but one that reserves a name may be imported as a copy instead.
+        val parent =
+            if (candidate != null &&
+                (candidate.ufoFolder == null || candidate.audit.mustRename)
+            ) {
+                destination.parentFolder()
+            } else {
+                null
+            }
+        val where = if (candidate != null) whereText(candidate, parent, projectNameFor(candidate, ""), asCopy = false) else ""
         mutableState.value =
             ImportState.Auditing(from, review, sample, parent, newName = "", nameProblem = null, where = where, error = null)
     }
@@ -197,7 +237,23 @@ class FontImportController(
             current.copy(
                 newName = text,
                 nameProblem = problem,
-                where = whereText(candidate, current.parent, projectNameFor(candidate, text)),
+                where = whereText(candidate, current.parent, projectNameFor(candidate, text), current.asCopy),
+                error = null,
+            )
+    }
+
+    /**
+     * For a UFO that reserves a name: chooses between renaming the `.ufo` where it lies ([asCopy] false, the default) and
+     * importing a renamed copy into a new project folder, which leaves the `.ufo` untouched. Does nothing where the choice is not on offer.
+     */
+    fun setAsCopy(asCopy: Boolean) {
+        val current = mutableState.value as? ImportState.Auditing ?: return
+        if (!current.offersCopy) return
+        val candidate = (current.review as ImportReview.Ready).candidate
+        mutableState.value =
+            current.copy(
+                asCopy = asCopy,
+                where = whereText(candidate, current.parent, projectNameFor(candidate, current.newName), asCopy),
                 error = null,
             )
     }
@@ -238,20 +294,21 @@ class FontImportController(
         val importer = ProjectImporter(workspace)
         val declared = if (auditing.sample) BundledSampleFont.DECLARED_STYLE_CLASS else null
         val projectName = projectNameFor(candidate, auditing.newName)
-        if (candidate.ufoFolder != null) {
+        val newFamily = if (auditing.needsName) auditing.newName.trim() else null
+        // A UFO is adopted where it lies, and renamed there when it reserves a name, unless the person chose a copy.
+        if (candidate.ufoFolder != null && !(auditing.needsName && auditing.asCopy)) {
             val parentPath =
                 candidate.siblings?.parentPath
                     ?: return ImportOutcome.Failed(
                         "The folder that holds this UFO is not known, so nothing was imported.",
                         restoredPrevious = false,
                     )
-            return importer.adopt(candidate, ProjectLocation.FileSystem(parentPath), projectName, declared)
+            return importer.adopt(candidate, ProjectLocation.FileSystem(parentPath), projectName, newFamily, declared)
         }
         val parent =
             auditing.parent
                 ?: destination.chooseParentFolder()
                 ?: return ImportOutcome.Failed("No folder was chosen, so nothing was imported.", restoredPrevious = true)
-        val newFamily = if (auditing.needsName) auditing.newName.trim() else null
         return importer.create(candidate, parent, projectName, newFamily, declared)
     }
 
@@ -287,13 +344,57 @@ class FontImportController(
         candidate: ImportCandidate,
         parent: ProjectLocation?,
         projectName: String,
-    ): String = candidate.ufoFolder?.let { adoptionText(candidate, it) } ?: destination.describe(parent, projectFolderName(projectName))
+        asCopy: Boolean,
+    ): String {
+        val ufoFolder = candidate.ufoFolder
+        return when {
+            ufoFolder == null -> {
+                destination.describe(parent, projectFolderName(projectName))
+            }
+
+            candidate.audit.mustRename && asCopy -> {
+                copyText(
+                    candidate,
+                    ufoFolder,
+                    destination.describe(parent, projectFolderName(projectName)),
+                )
+            }
+
+            else -> {
+                adoptionText(candidate, ufoFolder)
+            }
+        }
+    }
 }
+
+/**
+ * What importing a renamed copy of a UFO that reserves a name will do: [destination] says where the new
+ * project folder goes, and the original [ufoFolder] is left exactly as it is. The copy holds what Typewright
+ * reads of a UFO (the default layer's glyphs, font info, groups, kerning, features and lib), so images, data
+ * and other layers stay in the original.
+ */
+internal fun copyText(
+    candidate: ImportCandidate,
+    ufoFolder: String,
+    destination: String,
+): String =
+    buildString {
+        append("A renamed copy: $ufoFolder is not touched. $destination ")
+        append("The copy holds the default layer's glyphs, font info, groups, kerning, features and lib; ")
+        append("images, data and other layers stay in $ufoFolder.")
+        val others = candidate.siblings?.otherUfos.orEmpty()
+        if (others.isNotEmpty()) append(" The other .ufo folders beside it (${others.joinToString(", ")}) are not read.")
+    }
 
 /**
  * What adopting a UFO in place will write and where, said exactly: the folder that holds the UFO is
  * the project folder, so it gets `typewright.json` and the project's folders; the UFO's own files are
  * left as they are; and any other UFO in that folder is named as left alone.
+ *
+ * The one exception is a font that reserves a name (`candidate.audit.mustRename`): the new name has
+ * to be written somewhere a compiler reads it, which is the UFO's `fontinfo.plist`, so the text says
+ * that file will be edited for the rename, that nothing else in the UFO is, and that importing a
+ * renamed copy is the way to leave the `.ufo` alone.
  */
 internal fun adoptionText(
     candidate: ImportCandidate,
@@ -305,7 +406,17 @@ internal fun adoptionText(
         append(
             "Typewright will add typewright.json, and the folders locks, scrapbook, lessons, comparisons and build, to $parent, next to $ufoFolder. ",
         )
-        append("$ufoFolder itself is not rewritten; a glyph in it changes only when you edit that glyph.")
+        if (candidate.audit.mustRename) {
+            append("Because this font reserves a name, $ufoFolder will be edited for the rename: its fontinfo.plist is rewritten ")
+            append(
+                "with your new family name, and no other file in it changes. That is the only edit made to $ufoFolder, and only for this. ",
+            )
+            append(
+                "To leave $ufoFolder exactly as it is, choose a renamed copy instead. A glyph in it changes only when you edit that glyph.",
+            )
+        } else {
+            append("$ufoFolder itself is not rewritten; a glyph in it changes only when you edit that glyph.")
+        }
         if (others.isNotEmpty()) {
             append(" That folder also holds ${others.joinToString(", ")}. Only $ufoFolder is imported; ")
             append(if (others.size == 1) "the other one is left as it is." else "the others are left as they are.")

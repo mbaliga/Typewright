@@ -2,6 +2,7 @@
 
 package com.asoc.typewright.project.imports
 
+import com.asoc.typewright.core.font.ufo.UfoProject
 import com.asoc.typewright.core.font.ufo.readGlyphFileNames
 import com.asoc.typewright.project.ApprovalOrigin
 import com.asoc.typewright.project.Brief
@@ -53,10 +54,7 @@ fun ImportCandidate.toNewProjectSpec(
     newFamily: String? = null,
     declaredStyleClass: String? = null,
 ): NewProjectSpec {
-    require(!audit.mustRename || newFamily != null) {
-        "this font reserves ${audit.reservedFontNames.joinToString(" and ")}; a new family name is required"
-    }
-    val font = if (newFamily != null) renameFamily(ufo, newFamily, audit.reservedFontNames) else ufo
+    val font = fontForProject(newFamily)
     return NewProjectSpec(
         name = projectFolderName(projectName),
         brief = Brief(source = BriefSource.FONT, styleClass = StyleClass(declared = declaredStyleClass, confirmed = null)),
@@ -64,6 +62,20 @@ fun ImportCandidate.toNewProjectSpec(
         masters = listOf(NewMaster(styleName = projectFolderName(font.fontInfo.styleName ?: "Regular"), ufo = font)),
         lockGlyphsAs = ApprovalOrigin.IMPORT,
     )
+}
+
+/**
+ * The font the project holds: [ImportCandidate.ufo] as it is, or renamed to [newFamily] with every name a
+ * compiler would emit changed ([renameFamily]). A font that reserves a name cannot be used without a
+ * new one, whether it becomes a new project folder or is adopted where it lies.
+ * Throws [IllegalArgumentException] when a new name is required and not given, or when a name key
+ * would still use a reserved name.
+ */
+internal fun ImportCandidate.fontForProject(newFamily: String?): UfoProject {
+    require(!audit.mustRename || newFamily != null) {
+        "this font reserves ${audit.reservedFontNames.joinToString(" and ")}; a new family name is required"
+    }
+    return if (newFamily != null) renameFamily(ufo, newFamily, audit.reservedFontNames) else ufo
 }
 
 /** The result of [ProjectImporter]: the new project is open, or nothing was imported and [message] says why. */
@@ -140,19 +152,41 @@ class ProjectImporter(
      * and the empty `scrapbook/`, `lessons/` and `comparisons/` folders there, never touching a file
      * of the UFO itself, then opens the folder as a project. Refuses a folder that already holds a
      * `typewright.json`.
+     *
+     * One exception, and only then: a UFO that reserves a font name ([ImportAudit.mustRename]) is
+     * adopted under [newFamily], and the rename has to live somewhere a compiler will read it, which
+     * is the UFO's own `fontinfo.plist`. That one file is rewritten (every name key a compiler would
+     * emit is renamed, exactly as [create] does for a font file) and no other file of the UFO
+     * changes. It is written after the project's own files and just before `typewright.json`, so a
+     * failure part-way leaves the UFO untouched or a folder that opens. A person who would rather
+     * not have the `.ufo` edited uses [create], which makes a renamed copy and leaves the original alone.
      */
     suspend fun adopt(
         candidate: ImportCandidate,
         folder: ProjectLocation,
         projectName: String,
+        newFamily: String? = null,
         declaredStyleClass: String? = null,
     ): ImportOutcome {
         val ufoFolder = candidate.ufoFolder ?: return ImportOutcome.Failed("This font is not a UFO folder.", restoredPrevious = false)
+        val font =
+            try {
+                candidate.fontForProject(newFamily)
+            } catch (e: IllegalArgumentException) {
+                return ImportOutcome.Failed(e.message ?: "The font could not be prepared.", restoredPrevious = false)
+            }
         return replacingCurrent { _ ->
             val prepared =
                 try {
                     workspace.openAfterPreparing(folder) { store ->
-                        writeAdoption(store, candidate, ufoFolder, projectFolderName(projectName), declaredStyleClass, clock.now())
+                        writeAdoption(
+                            store,
+                            Adoption(candidate, font, renamed = newFamily != null),
+                            ufoFolder,
+                            projectFolderName(projectName),
+                            declaredStyleClass,
+                            clock.now(),
+                        )
                     }
                 } catch (e: AdoptionRefused) {
                     return@replacingCurrent Attempt.Failed(e.message ?: "The folder could not be adopted.")
@@ -217,20 +251,29 @@ internal class AdoptionRefused(
     message: String,
 ) : Exception(message)
 
+/** What [writeAdoption] adopts: the [candidate] as read, [font] as the project will hold it, and whether [font] was [renamed] (its `fontinfo.plist` then differs from the one on disk). */
+internal class Adoption(
+    val candidate: ImportCandidate,
+    val font: UfoProject,
+    val renamed: Boolean,
+)
+
 /**
  * The files adoption adds to [store], which holds the UFO folder [ufoFolder] and is the folder
- * that contains it: everything the project format owns except the UFO's own files. Written in the
- * save order (leaf files, then `typewright.json` last), so a crash leaves either nothing or a
- * folder that opens.
+ * that contains it: everything the project format owns except the UFO's own files, and, for a
+ * renamed font, the UFO's `fontinfo.plist` (see [ProjectImporter.adopt]). Written in the
+ * save order (leaf files, then the UFO's index files, then `typewright.json` last), so a crash
+ * leaves either nothing or a folder that opens.
  */
 internal suspend fun writeAdoption(
     store: ProjectStore,
-    candidate: ImportCandidate,
+    adoption: Adoption,
     ufoFolder: String,
     projectName: String,
     declaredStyleClass: String?,
     now: Instant,
 ) {
+    val candidate = adoption.candidate
     val existing = store.list()
     if (ProjectManifestCodec.PATH in existing) {
         throw AdoptionRefused("This folder already holds a Typewright project (typewright.json), so there is nothing to import.")
@@ -239,7 +282,7 @@ internal suspend fun writeAdoption(
         throw AdoptionRefused("The UFO folder $ufoFolder is no longer there.")
     }
     val stamp = Instant.fromEpochSeconds(now.epochSeconds)
-    val font = candidate.ufo
+    val font = adoption.font
     val master = Master("regular", ufoFolder, font.fontInfo.styleName ?: "Regular", isDefault = true, ufo = font)
     val locks =
         font.glyphs.associate { glyph ->
@@ -263,7 +306,11 @@ internal suspend fun writeAdoption(
     }
     val caches = EncodeCaches(fileNameHints = mapOf(master.id to readGlyphFileNames(ufoTexts)))
     val encoded = ProjectEncoder.encode(state, caches)
-    val ours = encoded.files.filterKeys { !it.startsWith("$ufoFolder/") }
+    val toWrite = encoded.files.filterKeys { !it.startsWith("$ufoFolder/") }.toMutableMap()
+    if (adoption.renamed) {
+        val fontInfoPath = "$ufoFolder/fontinfo.plist"
+        toWrite[fontInfoPath] = encoded.files.getValue(fontInfoPath)
+    }
     for (directory in listOf("scrapbook", "lessons", "comparisons")) store.ensureDirectory(directory)
-    for (path in SavePhases.order(ours.keys)) store.writeAtomic(path, ours.getValue(path))
+    for (path in SavePhases.order(toWrite.keys)) store.writeAtomic(path, toWrite.getValue(path))
 }

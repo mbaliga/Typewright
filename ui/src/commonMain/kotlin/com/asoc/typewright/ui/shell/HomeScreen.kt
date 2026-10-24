@@ -324,7 +324,7 @@ private fun SpecimenView(
         val heaviest = heaviestGlyphs(cells)
         if (heaviest.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
-                Label(texture, "Most points first")
+                Label(texture, "Worst first")
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     for (cell in heaviest) {
                         Column(

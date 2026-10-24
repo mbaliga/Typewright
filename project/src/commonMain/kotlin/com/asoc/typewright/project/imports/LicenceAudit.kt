@@ -16,6 +16,13 @@ enum class LicenceKind {
     /** A licence that withholds the right to modify: a proprietary or end-user licence, or a restricted-embedding flag with no open licence. */
     PROPRIETARY,
 
+    /**
+     * A licence that limits how the font may be used (non-commercial, personal use) without saying
+     * it forbids changes. Many such licences, Creative Commons BY-NC among them, allow
+     * modification, so Typewright does not decide for the person: it says to read the licence.
+     */
+    USE_LIMITED,
+
     /** A licence is stated, but not one Typewright recognises. */
     OTHER,
 
@@ -95,11 +102,12 @@ data class ImportAudit(
  *
  * Reading order: the OFL or Apache is recognised in the licence description, its URL, the licence
  * files or the copyright line; failing that, a licence description or URL that withholds
- * modification ("proprietary", "end user licence", "may not be modified", "personal use only") or
+ * modification ("proprietary", "end user licence", "may not be modified", "no derivatives") or
  * an `OS/2` embedding flag of *restricted licence* makes the licence [LicenceKind.PROPRIETARY];
- * failing that, any other licence text is [LicenceKind.OTHER], and no text at all is
- * [LicenceKind.NONE]. "All rights reserved" alone is not a marker: the OFL fonts' own copyright
- * lines carry it.
+ * failing that, one that limits use without forbidding changes ("non-commercial", "personal use")
+ * is [LicenceKind.USE_LIMITED] and only asks to be read; failing that, any other licence text is
+ * [LicenceKind.OTHER], and no text at all is [LicenceKind.NONE]. "All rights reserved" alone is
+ * not a marker: the OFL fonts' own copyright lines carry it.
  */
 fun auditLicence(
     fileName: String,
@@ -154,6 +162,9 @@ internal fun classifyLicence(
         return LicenceKind.PROPRIETARY to "Proprietary"
     }
     if (restrictedEmbedding) return LicenceKind.PROPRIETARY to "Proprietary (restricted embedding)"
+    if (statedBy.any { text -> USE_LIMITED_MARKERS.any { it.containsMatchIn(text) } }) {
+        return LicenceKind.USE_LIMITED to "Limits how the font may be used"
+    }
     return if (statedBy.isEmpty()) LicenceKind.NONE to "None stated" else LicenceKind.OTHER to "Not recognised"
 }
 
@@ -176,7 +187,14 @@ private val PROPRIETARY_MARKERS =
             RegexOption.IGNORE_CASE,
         ),
         Regex("""(?:cannot|can't)\s+be\s+(?:modified|altered|changed|copied|redistributed)""", RegexOption.IGNORE_CASE),
-        Regex("""personal\s+use\s+only|for\s+personal\s+use|non[-\s]?commercial""", RegexOption.IGNORE_CASE),
+        Regex("""no[-\s]?derivatives?|\bby-nc-nd\b|\bby-nd\b""", RegexOption.IGNORE_CASE),
+    )
+
+/** Wording that limits use but does not, by itself, withhold the right to change the font (Creative Commons BY-NC allows derivatives). */
+private val USE_LIMITED_MARKERS =
+    listOf(
+        Regex("""personal\s+use\s+only|for\s+personal\s+use""", RegexOption.IGNORE_CASE),
+        Regex("""non[-\s]?commercial""", RegexOption.IGNORE_CASE),
     )
 
 private fun oflName(evidence: List<String>): String {
@@ -226,15 +244,26 @@ private fun verdictWords(
             val quoted = reserved.joinToString(" and ") { "“$it”" }
             val noun = if (reserved.size == 1) "the name" else "the names"
             "This font reserves $noun $quoted. Your version can't use ${if (reserved.size == 1) "it" else "them"}, " +
-                "so give it a new name before it is imported. Keep the copyright line."
+                "so give it a new name before it is imported. Keep the copyright line." +
+                if (kind == LicenceKind.USE_LIMITED) " Its licence also limits how it may be used, so read it too." else ""
         }
 
         ImportVerdict.UNCERTAIN -> {
-            if (kind == LicenceKind.NONE) {
-                "This font states no licence, so you may not have the right to change or share it. " +
-                    "Import it only if it is yours or you have permission."
-            } else {
-                "Typewright doesn't recognise this licence. Read it before you change or share the font."
+            when (kind) {
+                LicenceKind.NONE -> {
+                    "This font states no licence, so you may not have the right to change or share it. " +
+                        "Import it only if it is yours or you have permission."
+                }
+
+                LicenceKind.USE_LIMITED -> {
+                    "This font's licence limits how it may be used (it speaks of non-commercial or personal use). " +
+                        "That doesn't by itself forbid changes, and some such licences allow them, " +
+                        "but Typewright can't tell which this is. Read the licence before you change or share the font."
+                }
+
+                else -> {
+                    "Typewright doesn't recognise this licence. Read it before you change or share the font."
+                }
             }
         }
 

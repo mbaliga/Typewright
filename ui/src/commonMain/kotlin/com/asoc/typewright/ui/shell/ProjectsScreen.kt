@@ -92,11 +92,12 @@ fun summaryLine(
  * (there is nowhere above), the toggle arc holds Recent · All, the right circle is + (a new
  * project), and the section arc is dimmed and inert until a project is open.
  *
- * The ink-text choices (SCREENS_V1 S01's empty state, and under the list once there are projects)
- * are Start from drawings, Open a font, Open a UFO folder where the platform offers it (and a line
- * saying why not where it does not), and Try the sample. Open a font and Try the sample run the
- * import flow, whose audit (S03) draws over this screen: the app's own import flow when the router
- * provides one ([LocalFontImport]), else one this screen hosts itself.
+ * The empty state (SCREENS_V1 S01) offers three ink-text choices, and only there: Start from
+ * drawings, Open a font and Try the sample. Once there are projects the list stands alone, and the
+ * + and the command palette's "Open a font…" are the ways in. A UFO folder is opened from under
+ * Open a font, where the platform offers it, and a line says why not where it does not. Open a font
+ * and Try the sample run the import flow, whose audit (S03) draws over this screen: the app's own
+ * import flow when the router provides one ([LocalFontImport]), else one this screen hosts itself.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -198,7 +199,6 @@ fun ProjectsScreen(
                         },
                     )
                 }
-                if (shown.isNotEmpty() && workspace != null) ProjectChoices(texture, fontImport, onStartFromDrawings = null)
             }
         }
         if (own != null) FontImportHost(controller = own, texture = texture)
@@ -207,47 +207,104 @@ fun ProjectsScreen(
 
 private const val RECENT_COUNT = 5
 
+/** The three ink-text choices S01's empty state offers, in the order it shows them. */
+internal enum class StartChoice(
+    val title: String,
+) {
+    DRAWINGS("Start from drawings"),
+    FONT("Open a font"),
+    SAMPLE("Try the sample (${BundledSampleFont.FAMILY_NAME})"),
+}
+
 /**
- * The ink-text choices that start a project from something the person has: drawings (only on the
- * empty state, where the + below is the only other way in), a font, a UFO folder or the sample.
+ * The choices S01 shows: none once there are projects ([hasProjects]), where the list stands alone; on the
+ * empty state Start from drawings, and, where the import flow is available ([importAvailable]), Open a
+ * font and Try the sample.
+ */
+internal fun startChoices(
+    hasProjects: Boolean,
+    importAvailable: Boolean,
+): List<StartChoice> =
+    when {
+        hasProjects -> emptyList()
+        importAvailable -> StartChoice.entries
+        else -> listOf(StartChoice.DRAWINGS)
+    }
+
+/** What sits under Open a font about a UFO folder: a way to open one, or the reason there is none. */
+internal sealed interface UfoFolderOption {
+    data object Offered : UfoFolderOption
+
+    data class Unavailable(
+        val reason: String,
+    ) : UfoFolderOption
+}
+
+internal fun ufoFolderOption(fontImport: FontImportController): UfoFolderOption =
+    if (fontImport.canPickUfoFolder) {
+        UfoFolderOption.Offered
+    } else {
+        UfoFolderOption.Unavailable(fontImport.ufoFolderUnavailableReason ?: "this platform has no folder picker.")
+    }
+
+/**
+ * The ink-text choices that start a project from something the person has, on the empty state only
+ * ([startChoices]): drawings, a font (with a UFO folder under it, or the reason there cannot be one) or the sample.
  */
 @Composable
 private fun ProjectChoices(
     texture: CanvasTexture,
     fontImport: FontImportController?,
-    onStartFromDrawings: (() -> Unit)?,
+    onStartFromDrawings: () -> Unit,
 ) {
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        if (onStartFromDrawings != null) {
-            Choice(
-                "Start from drawings",
-                "A new project; photograph the template sheets or draw on screen.",
-                fg,
-                muted,
-                onStartFromDrawings,
-            )
-        }
-        if (fontImport != null) {
-            Choice("Open a font", "A .ttf file. Its licence is checked before anything is imported.", fg, muted) {
-                fontImport.openFont(DeckSection.HOME)
-            }
-            if (fontImport.canPickUfoFolder) {
-                Choice("Open a UFO folder", "A .ufo folder you already have; the folder it sits in becomes the project.", fg, muted) {
-                    fontImport.openUfoFolder(DeckSection.HOME)
+        for (choice in startChoices(hasProjects = false, importAvailable = fontImport != null)) {
+            when (choice) {
+                StartChoice.DRAWINGS -> {
+                    Choice(choice.title, "A new project; photograph the template sheets or draw on screen.", fg, muted, onStartFromDrawings)
                 }
-            } else {
-                val reason = fontImport.ufoFolderUnavailableReason ?: "this platform has no folder picker."
-                BasicText(text = "A UFO folder can't be opened here: $reason", style = bodyStyle(muted, sizeSp = 11.0))
-            }
-            Choice(
-                "Try the sample (${BundledSampleFont.FAMILY_NAME})",
-                "The font this app ships with, opened as a project of your own.",
-                fg,
-                muted,
-            ) {
-                fontImport.trySample(DeckSection.HOME)
+
+                StartChoice.FONT -> {
+                    if (fontImport != null) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Choice(choice.title, "A .ttf file. Its licence is checked before anything is imported.", fg, muted) {
+                                fontImport.openFont(DeckSection.HOME)
+                            }
+                            when (val ufo = ufoFolderOption(fontImport)) {
+                                UfoFolderOption.Offered -> {
+                                    BasicText(
+                                        text = "or a UFO folder ›",
+                                        style = bodyStyle(fg, sizeSp = 12.5, weight = FontWeight.SemiBold),
+                                        modifier =
+                                            Modifier
+                                                .clickable {
+                                                    fontImport.openUfoFolder(
+                                                        DeckSection.HOME,
+                                                    )
+                                                }.padding(vertical = 2.dp),
+                                    )
+                                }
+
+                                is UfoFolderOption.Unavailable -> {
+                                    BasicText(
+                                        text = "A UFO folder can't be opened here: ${ufo.reason}",
+                                        style = bodyStyle(muted, sizeSp = 11.0),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                StartChoice.SAMPLE -> {
+                    if (fontImport != null) {
+                        Choice(choice.title, "The font this app ships with, opened as a project of your own.", fg, muted) {
+                            fontImport.trySample(DeckSection.HOME)
+                        }
+                    }
+                }
             }
         }
     }

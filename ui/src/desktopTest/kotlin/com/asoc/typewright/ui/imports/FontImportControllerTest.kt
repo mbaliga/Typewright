@@ -4,13 +4,19 @@ package com.asoc.typewright.ui.imports
 
 import com.asoc.typewright.core.font.sfnt.readSfntFont
 import com.asoc.typewright.core.font.sfnt.toUfoProject
+import com.asoc.typewright.core.font.ufo.readUfoProject
 import com.asoc.typewright.core.font.ufo.writeUfoProject
+import com.asoc.typewright.project.FileSystemProjectStore
 import com.asoc.typewright.project.ProjectLocation
 import com.asoc.typewright.project.ProjectSession
 import com.asoc.typewright.project.ProjectWorkspace
+import com.asoc.typewright.project.StorageProvider
+import com.asoc.typewright.project.StoreLookup
 import com.asoc.typewright.project.imports.ImportReview
 import com.asoc.typewright.project.imports.ImportVerdict
 import com.asoc.typewright.project.imports.LicenceKind
+import com.asoc.typewright.project.imports.UfoFolderRead
+import com.asoc.typewright.project.imports.nameTableKeysMentioning
 import com.asoc.typewright.project.imports.readUfoFolder
 import com.asoc.typewright.ui.deck.DeckSection
 import com.asoc.typewright.ui.project.IN_MEMORY_WORKSPACE_ROOT
@@ -25,7 +31,9 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.nio.file.Files
+import java.nio.file.Path
 import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.resume
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -305,6 +313,218 @@ class FontImportControllerTest {
             assertFalse(session.history.value.canUndo, "the rename is how the project starts, not an edit to undo")
         }
 
+    // ---- Picking: the wait for a picker that may never answer ---------------------------------------------
+
+    @Test
+    fun aPickerThatNeverAnswersDoesNotBlockTheNextRequest() =
+        runBlocking {
+            val poppins = fontBytes("data/learn-faces/poppins/Poppins-Regular.ttf")
+            val never = CompletableDeferred<PickResult>()
+            val calls =
+                java.util.concurrent.atomic
+                    .AtomicInteger()
+            val picker =
+                FakePicker {
+                    if (calls.incrementAndGet() == 1) never.await() else PickResult.Font("Poppins-Regular.ttf", poppins)
+                }
+            val h = Harness(picker)
+            h.controller.openFont(DeckSection.HOME)
+            assertIs<ImportState.Picking>(h.stateNow())
+            withTimeout(10_000) { while (calls.get() < 1) kotlinx.coroutines.yield() }
+
+            // The first picker never answers (a browser that sends no cancel). Asking again must not be ignored.
+            h.controller.openFont(DeckSection.DRAW)
+            val auditing = h.awaitState { it is ImportState.Auditing } as ImportState.Auditing
+            assertEquals(DeckSection.DRAW, auditing.from, "the second request took the first one's place")
+            assertEquals("Poppins-Regular.ttf", auditing.review.fileName)
+            assertEquals(2, calls.get())
+            withTimeout(10_000) { while (!picker.cancelledWhilePicking) kotlinx.coroutines.yield() }
+            h.controller.cancel()
+        }
+
+    @Test
+    fun aLateAnswerFromAPickThatWasEndedIsDropped() =
+        runBlocking {
+            // A picker whose wait cannot be cancelled and which answers whenever it likes, as a dialog that cannot be
+            // dismissed from outside does: a plain continuation, with no cancellation check on the way back.
+            val waiting =
+                java.util.concurrent.atomic
+                    .AtomicReference<kotlin.coroutines.Continuation<PickResult>?>(null)
+            val picker = FakePicker { kotlin.coroutines.suspendCoroutine { waiting.set(it) } }
+            val h = Harness(picker)
+            h.controller.openFont(DeckSection.HOME)
+            withTimeout(10_000) { while (waiting.get() == null) kotlinx.coroutines.yield() }
+            h.controller.close()
+            assertEquals(ImportState.Idle, h.stateNow())
+
+            // The stale dialog answers after Close. Nothing may move: no Reading state, no audit, no message.
+            waiting.get()!!.resume(PickResult.Font("Poppins-Regular.ttf", fontBytes("data/learn-faces/poppins/Poppins-Regular.ttf")))
+            kotlinx.coroutines.delay(300)
+            assertEquals(ImportState.Idle, h.stateNow(), "a late answer must not wedge the flow in Reading")
+
+            // And the flow is usable straight away.
+            h.controller.trySample(null)
+            h.awaitState { it is ImportState.Auditing }
+            h.controller.cancel()
+        }
+
+    @Test
+    fun closeIsAlwaysAvailableWhilePickingAndTheFlowStartsAgainAfterIt() =
+        runBlocking {
+            val never = CompletableDeferred<PickResult>()
+            val h = Harness(FakePicker { never.await() })
+            repeat(3) {
+                h.controller.openFont(DeckSection.CHECK)
+                assertIs<ImportState.Picking>(h.stateNow())
+                h.controller.close()
+                assertEquals(ImportState.Idle, h.stateNow(), "Close ends the wait (round ${it + 1})")
+            }
+        }
+
+    // ---- A UFO that reserves a name ------------------------------------------------------------------------
+
+    /** Real folders: what the desktop app's storage is for a [ProjectLocation.FileSystem]. */
+    private class DiskStorage : StorageProvider {
+        override suspend fun storeFor(location: ProjectLocation): StoreLookup {
+            val path = Path.of((location as? ProjectLocation.FileSystem)?.path ?: return StoreLookup.Missing)
+            return if (Files.isDirectory(path)) StoreLookup.Available(FileSystemProjectStore(path)) else StoreLookup.Missing
+        }
+
+        override suspend fun createChild(
+            parent: ProjectLocation,
+            name: String,
+        ): ProjectLocation {
+            val child = Path.of((parent as ProjectLocation.FileSystem).path).resolve(name)
+            Files.createDirectories(child)
+            return ProjectLocation.FileSystem(child.toString())
+        }
+    }
+
+    /** A folder holding `Foo-Regular.ufo`: Hyle Deco's glyphs under the family "Foo", with a Reserved Font Name in its copyright line. */
+    private fun folderWithAReservedNameUfo(): File {
+        val parent = Files.createTempDirectory("typewright-ufo-reserved-").toFile()
+        val hyle = readSfntFont(fontBytes("fonts/HyleDeco-Regular.ttf")).toUfoProject()
+        val info =
+            hyle.fontInfo.copy(
+                familyName = "Foo",
+                postscriptFontName = "Foo-Regular",
+                copyright = "Copyright 2012 The Foo Project Authors, with the Reserved Font Name Foo",
+            )
+        for ((path, text) in writeUfoProject(hyle.copy(fontInfo = info))) {
+            File(parent, "Foo-Regular.ufo/$path").apply { parentFile.mkdirs() }.writeText(text)
+        }
+        return parent
+    }
+
+    private fun snapshot(dir: File): Map<String, String> =
+        dir
+            .walkTopDown()
+            .filter { it.isFile }
+            .associate { it.relativeTo(dir).path to it.readText() }
+
+    private fun ufoPicker(parent: File): FakePicker {
+        val read = readUfoFolder(File(parent, "Foo-Regular.ufo").toPath())
+        val folder = assertIs<UfoFolderRead.Read>(read).folder
+        return FakePicker { PickResult.Ufo(folder) }
+    }
+
+    @Test
+    fun aUfoThatReservesANameIsRenamedWhereItLiesAndTheAuditSaysSoBeforeHand() =
+        runBlocking {
+            val parent = folderWithAReservedNameUfo()
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+            val h = Harness(ufoPicker(parent), scope = scope, workspace = createProjectWorkspace(scope, storage = DiskStorage()))
+            h.controller.openUfoFolder(DeckSection.HOME)
+            val first = h.awaitState { it is ImportState.Auditing } as ImportState.Auditing
+            assertTrue(first.needsName)
+            assertTrue(first.offersCopy, "a UFO that reserves a name can be imported as a renamed copy instead")
+            assertFalse(first.asCopy, "adopting in place is the default")
+            assertFalse(first.canImport)
+            // The audit says, before anything is pressed, that the .ufo is edited for the rename, which file, and the way out.
+            assertTrue("Foo-Regular.ufo will be edited for the rename" in first.where, first.where)
+            assertTrue("fontinfo.plist" in first.where && "no other file in it changes" in first.where, first.where)
+            assertTrue("renamed copy" in first.where, first.where)
+
+            h.controller.setNewName("Bar Redraw")
+            assertTrue((h.stateNow() as ImportState.Auditing).canImport)
+            val before = snapshot(File(parent, "Foo-Regular.ufo"))
+            h.controller.confirm()
+            h.awaitImported(1)
+
+            val after = snapshot(File(parent, "Foo-Regular.ufo"))
+            assertEquals(before.keys, after.keys)
+            assertEquals(
+                listOf("fontinfo.plist"),
+                before.keys.filter { before[it] != after[it] },
+                "the rename is written to fontinfo.plist only",
+            )
+            val onDisk = readUfoProject(after).fontInfo
+            assertEquals("Bar Redraw", onDisk.familyName)
+            assertEquals(emptyList(), nameTableKeysMentioning(onDisk, listOf("Foo")))
+            val session = assertNotNull(h.workspace.current.value)
+            assertEquals(
+                "Bar Redraw",
+                session.state.value.font.masters
+                    .single()
+                    .ufo.fontInfo.familyName,
+            )
+            assertFalse(session.history.value.canUndo)
+            assertTrue(File(parent, "typewright.json").isFile, "the project files are written beside the .ufo")
+        }
+
+    @Test
+    fun aRenamedCopyOfAUfoLeavesTheOriginalExactlyAsItWas() =
+        runBlocking {
+            val parent = folderWithAReservedNameUfo()
+            val out = Files.createTempDirectory("typewright-ufo-copy-").toFile()
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+            val h =
+                Harness(
+                    ufoPicker(parent),
+                    FakeDestination(parent = ProjectLocation.FileSystem(out.path)),
+                    scope = scope,
+                    workspace = createProjectWorkspace(scope, storage = DiskStorage()),
+                )
+            h.controller.openUfoFolder(DeckSection.HOME)
+            h.awaitState { it is ImportState.Auditing }
+            h.controller.setNewName("Bar Redraw")
+            h.controller.setAsCopy(true)
+            val chosen = h.stateNow() as ImportState.Auditing
+            assertTrue(chosen.asCopy)
+            assertTrue("Foo-Regular.ufo is not touched" in chosen.where, chosen.where)
+            assertFalse(
+                "fontinfo.plist is rewritten" in chosen.where,
+                "the copy text must not claim the original is edited: ${chosen.where}",
+            )
+
+            val before = snapshot(parent)
+            h.controller.confirm()
+            h.awaitImported(1)
+
+            assertEquals(before, snapshot(parent), "nothing in the folder the person opened changed, not even fontinfo.plist")
+            assertTrue(out.listFiles().orEmpty().any { it.isDirectory && it.name == "Bar Redraw" }, "the copy went into the chosen folder")
+            val session = assertNotNull(h.workspace.current.value)
+            assertEquals(
+                "Bar Redraw",
+                session.state.value.font.masters
+                    .single()
+                    .ufo.fontInfo.familyName,
+            )
+        }
+
+    @Test
+    fun theChoiceBetweenInPlaceAndACopyIsOfferedOnlyToAUfoThatReservesAName() =
+        runBlocking {
+            // A TrueType font that reserves a name always becomes a new project folder: there is no .ufo of the person's to edit.
+            val h = Harness(picking(fontBytes("data/learn-faces/limelight/Limelight-Regular.ttf"), "Limelight-Regular.ttf"))
+            h.controller.openFont(DeckSection.HOME)
+            val state = h.awaitState { it is ImportState.Auditing } as ImportState.Auditing
+            assertTrue(state.needsName)
+            assertFalse(state.offersCopy)
+            h.controller.setAsCopy(true)
+            assertFalse((h.stateNow() as ImportState.Auditing).asCopy, "setAsCopy does nothing where the choice is not on offer")
+        }
+
     @Test
     fun aUfoAuditSaysWhereFilesGoAndWhichUfoIsAdoptedWhenSeveralShareAFolder() {
         val parent = Files.createTempDirectory("typewright-ufo-adopt-").toFile()
@@ -315,7 +535,7 @@ class FontImportControllerTest {
             }
         }
         val read = readUfoFolder(File(parent, "HyleDeco-Regular.ufo").toPath())
-        val folder = assertIs<com.asoc.typewright.project.imports.UfoFolderRead.Read>(read).folder
+        val folder = assertIs<UfoFolderRead.Read>(read).folder
         val candidate = assertIs<ImportReview.Ready>(folder.review()).candidate
         val text = adoptionText(candidate, candidate.ufoFolder!!)
         assertTrue(parent.path in text, text)

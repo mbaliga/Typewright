@@ -4,6 +4,7 @@ package com.asoc.typewright.app.android
 
 import com.asoc.typewright.project.ProjectLocation
 import com.asoc.typewright.ui.imports.PickResult
+import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayInputStream
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -36,21 +37,45 @@ class AndroidFontFilePickerTest {
         assertEquals(4_096, result.bytes.size)
     }
 
-    @Test
-    fun aUfoFolderIsNotOfferedAndTheReasonIsPlain() {
-        assertTrue("isn't offered on Android" in NO_UFO_ON_ANDROID)
-        assertTrue("one file at a time" in NO_UFO_ON_ANDROID)
-    }
+    // The picker's own refusal of a UFO folder (NO_UFO_ON_ANDROID) needs an ActivityResultRegistry and a ContentResolver, which exist
+    // only on a device, and a test that read the constant back would pass whatever the picker did. The reason reaches the person through
+    // FontFilePicker.ufoFolderUnavailableReason, and what the Projects screen does with it is tested in :ui (ProjectsChoicesScreenshotTest).
 
     @Test
-    fun theDestinationAsksForAFolderAndSaysSoBeforeImport() {
+    fun theDestinationNeverOpensTheFolderPickerWhileTheAuditIsBeingDrawn() =
+        runBlocking {
+            var asked = 0
+            val chosen = ProjectLocation.SafTree("content://tree/1", "primary:Fonts")
+            val destination =
+                AndroidImportDestination {
+                    asked++
+                    chosen
+                }
+            // The audit reads the destination to say where the project will go; that must not open a system dialog.
+            assertEquals(null, destination.parentFolder())
+            destination.describe(null, "Lumen")
+            destination.describe(chosen, "Lumen")
+            assertEquals(0, asked, "only pressing Import may ask for a folder")
+
+            assertEquals(chosen, destination.chooseParentFolder())
+            assertEquals(1, asked)
+            assertEquals(chosen, destination.chooseParentFolder())
+            assertEquals(2, asked, "every Import asks again; nothing is remembered behind the person's back")
+        }
+
+    @Test
+    fun aDeclinedFolderComesBackAsNothingSoTheImportSaysNoFolderWasChosen() =
+        runBlocking {
+            assertEquals(null, AndroidImportDestination { null }.chooseParentFolder())
+        }
+
+    @Test
+    fun theAuditNamesTheFolderItWillMakeAndSaysAndroidWillAsk() {
         val destination = AndroidImportDestination { null }
-        assertTrue(destination.persists)
-        val text = destination.describe(null, "Lumen")
-        assertTrue("asks which folder" in text && "Lumen" in text, text)
-        assertEquals(null, kotlinx.coroutines.runBlocking { destination.parentFolder() })
-        assertEquals(null, kotlinx.coroutines.runBlocking { destination.chooseParentFolder() })
-        val chosen = ProjectLocation.SafTree("content://tree/1", "primary:Fonts")
-        assertEquals(chosen, kotlinx.coroutines.runBlocking { AndroidImportDestination { chosen }.chooseParentFolder() })
+        for (folder in listOf("Lumen", "Poppins 2", "Josefin Sans")) {
+            val text = destination.describe(null, folder)
+            assertTrue(folder in text, "the audit names the folder $folder it will make: $text")
+            assertTrue("asks which folder" in text, text)
+        }
     }
 }

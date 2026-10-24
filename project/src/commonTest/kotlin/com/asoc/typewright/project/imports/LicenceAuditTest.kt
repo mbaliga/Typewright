@@ -115,14 +115,73 @@ class LicenceAuditTest {
             "This font is proprietary software of Example Foundry.",
             "Use of this font is governed by the End User License Agreement at example.com/eula.",
             "The font may not be modified or redistributed.",
-            "Free for personal use only.",
             "Not for redistribution.",
+            "Creative Commons Attribution-NoDerivatives 4.0 International",
+            "Licensed under CC BY-NC-ND 4.0.",
         )
         ) {
             val audit = audit(info(text))
             assertEquals(LicenceKind.PROPRIETARY, audit.licence, text)
             assertEquals(ImportVerdict.REFUSED, audit.verdict, text)
             assertFalse(audit.canImport, text)
+        }
+    }
+
+    @Test
+    fun aLicenceThatOnlyLimitsUseIsReadTheLicenceNotRefused() {
+        for (
+        text in
+        listOf(
+            "Free for personal use only.",
+            "Creative Commons Attribution-NonCommercial 4.0 International",
+            "This font is licensed CC BY-NC-SA 4.0 for non-commercial projects.",
+            "Free for personal use. Contact us for a commercial licence.",
+        )
+        ) {
+            val audit = audit(info(text))
+            assertEquals(LicenceKind.USE_LIMITED, audit.licence, text)
+            assertEquals(ImportVerdict.UNCERTAIN, audit.verdict, text)
+            assertEquals("Read the licence first", audit.verdict.title, text)
+            assertTrue(audit.canImport, "$text: such a licence may well allow changes, so it is not refused")
+            assertFalse("doesn't let you change it" in audit.verdictWords, "$text: that sentence would be false for CC BY-NC")
+            assertTrue("Read the licence" in audit.verdictWords, audit.verdictWords)
+        }
+    }
+
+    @Test
+    fun aNonCommercialLicenceThatAlsoForbidsChangesIsStillRefused() {
+        val audit = audit(info("Creative Commons Attribution-NonCommercial-NoDerivatives 4.0, non-commercial use only."))
+        assertEquals(LicenceKind.PROPRIETARY, audit.licence)
+        assertFalse(audit.canImport)
+    }
+
+    @Test
+    fun aReservedNameAndALimitedUseLicenceAskForBothTheRenameAndAReading() {
+        val audit =
+            audit(
+                info(
+                    "Free for non-commercial use.",
+                    copyright = "Copyright 2012 Foo, with the Reserved Font Name Bar",
+                ),
+            )
+        assertEquals(ImportVerdict.RENAME, audit.verdict)
+        assertEquals(listOf("Bar"), audit.reservedFontNames)
+        assertTrue("read it too" in audit.verdictWords, audit.verdictWords)
+    }
+
+    @Test
+    fun aReservedNameDeclaredInTheShapesTheOflFaqAllowsIsStillFoundByTheAudit() {
+        for (
+        copyright in
+        listOf(
+            "Copyright 2011 Foo, with the Reserved Font Name Bar",
+            "Copyright 2012 Foo. Reserved Font Name \"Bar\"",
+            "Foo, Reserved Font Name Bar",
+        )
+        ) {
+            val audit = audit(info(oflText, copyright = copyright))
+            assertEquals(ImportVerdict.RENAME, audit.verdict, copyright)
+            assertEquals(listOf("Bar"), audit.reservedFontNames, copyright)
         }
     }
 

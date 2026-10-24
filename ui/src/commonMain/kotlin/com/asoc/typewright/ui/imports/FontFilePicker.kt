@@ -100,6 +100,24 @@ object InMemoryImportDestination : ImportDestination {
 }
 
 /**
+ * The destination of the browser build: the project lives in the memory of the tab and nowhere else.
+ * The audit says exactly that, in plain words, including that this build has no way yet to save the
+ * project out to the person's computer, so nothing here points them at a command that does not exist.
+ */
+object BrowserTabImportDestination : ImportDestination {
+    override val persists: Boolean get() = false
+
+    override suspend fun parentFolder(): ProjectLocation = IN_MEMORY_WORKSPACE_ROOT
+
+    override fun describe(
+        parent: ProjectLocation?,
+        folderName: String,
+    ): String =
+        "Nothing is written to disk. The browser keeps this project in this tab's memory only, so it is gone when the tab is closed " +
+            "or reloaded, and this build can't yet save it to your computer."
+}
+
+/**
  * What each platform's `main` supplies before the first screen: its file picker and where imported
  * projects go. The defaults are an honest "unavailable" picker and the in-memory destination, so a
  * build that wires neither says so in the UI instead of failing.

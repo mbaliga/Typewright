@@ -54,7 +54,7 @@ class WorkbookScreenScreenshotTest {
     fun rendersTheRealCurrentTaskOnPaperWithoutCrashing() {
         val shot =
             ScreenshotHarness.capture(name = "workbook-screen-paper", width = 800, height = 2600, density = 2f) {
-                WithSample { WorkbookScreen(texture = CanvasTextures.PAPER) }
+                WithSample { WorkbookScreen(texture = CanvasTextures.PAPER, uiState = WorkbookScreenUiState(loadSnapshot())) }
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
         assertTrue(inkFraction(shot) > 0.01, "workbook screen rendered blank -- expected real ink")
@@ -70,7 +70,7 @@ class WorkbookScreenScreenshotTest {
                     height = 2600,
                     density = 2f,
                 ) {
-                    WithSample { WorkbookScreen(texture = texture) }
+                    WithSample { WorkbookScreen(texture = texture, uiState = WorkbookScreenUiState(loadSnapshot())) }
                 }
             assertTrue(shot.file.length() > 0, "PNG written to ${shot.file} for texture ${texture.id}")
         }
@@ -207,7 +207,13 @@ class WorkbookScreenScreenshotTest {
         var backCalls = 0
         val shot =
             ScreenshotHarness.capture(name = "workbook-screen-back-not-yet-tapped", width = 800, height = 2600, density = 2f) {
-                WithSample { WorkbookScreen(texture = CanvasTextures.PAPER, onBack = { backCalls++ }) }
+                WithSample {
+                    WorkbookScreen(
+                        texture = CanvasTextures.PAPER,
+                        onBack = { backCalls++ },
+                        uiState = WorkbookScreenUiState(loadSnapshot()),
+                    )
+                }
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
         assertTrue(backCalls == 0, "onBack must not fire just from rendering")

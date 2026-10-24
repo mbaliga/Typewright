@@ -64,7 +64,21 @@ private fun isDeclaration(
     if (before.endsWith("\"") || before.endsWith("“") || before.endsWith("'") || before.endsWith("‘")) return false
     val after = text.substring(match.range.last + 1).trimStart(' ', '\t')
     val afterMarker = after.removePrefix("(s)").trimStart(' ', '\t')
-    return lastWord == "with" || before.endsWith("(") || afterMarker.startsWith(":")
+    if (afterMarker.startsWith(":") || before.endsWith("(") || WITH_BEFORE.containsMatchIn(before)) return true
+    // A clause of its own (`Copyright 2012 Foo. Reserved Font Name "Bar"`, `Foo, Reserved Font Name Bar`): it counts
+    // only when a name follows, which keeps `Reserved Font Names refers to…` and the like out.
+    val opensClause = before.isEmpty() || before.last() in CLAUSE_ENDS
+    return opensClause && startsLikeAName(afterMarker)
+}
+
+/** `with`, `with the`, `with its`… directly before the marker. */
+private val WITH_BEFORE = Regex("""\bwith(?:\s+(?:the|a|its|their))?$""", RegexOption.IGNORE_CASE)
+
+private val CLAUSE_ENDS = setOf('.', ',', ';', '\n', '\r')
+
+private fun startsLikeAName(afterMarker: String): Boolean {
+    val first = afterMarker.firstOrNull() ?: return false
+    return first in OPENING_QUOTES || first.isUpperCase() || first.isDigit()
 }
 
 private fun skipSpaces(
