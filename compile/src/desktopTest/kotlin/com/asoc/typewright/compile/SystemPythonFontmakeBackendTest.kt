@@ -96,8 +96,10 @@ class SystemPythonFontmakeBackendTest {
         assertEquals(before, digest(project), "building changed the project's files")
         val args = assertNotNull(python.arguments())
         assertEquals(listOf("-m", "fontmake", "-u"), args.take(3))
-        assertTrue(args[3].endsWith("/source/Fixture-Regular.ufo"), args[3])
-        assertEquals(listOf("-o", "ttf", "--output-dir"), args.subList(4, 7))
+        // Plain ASCII names for the copy and the font, whatever the project calls them; the binary gets the project's name back.
+        assertTrue(args[3].endsWith("/source/source.ufo"), args[3])
+        assertEquals(listOf("-o", "ttf", "--output-path"), args.subList(4, 7))
+        assertTrue(args[7].endsWith("/out/font.ttf"), args[7])
         // The copy fontmake read has the O as cubic curves, where the project holds it as quadratic qcurve points.
         val seen = File(python.directory, "O.glif").readText()
         assertTrue("type=\"curve\"" in seen && "qcurve" !in seen, seen)
@@ -210,6 +212,62 @@ class SystemPythonFontmakeBackendTest {
         assertEquals("Fixture-Regular.ttf", binary.fileName)
         assertEquals(OutputFormat.TTF, binary.format)
         assertContentEquals("FAKE-TTF-BYTES".encodeToByteArray(), binary.bytes)
+    }
+
+    @Test
+    fun aRelativeInterpreterNamesTheSameFileForTheProbeAndForTheBuild() {
+        // The interpreter sits under this test's working directory and is named relative to it, as TYPEWRIGHT_PYTHON=.venv/bin/python is.
+        val directory = File("build/typewright-relative-python-${System.nanoTime()}").also { it.mkdirs() }
+        try {
+            val script = File(directory, "fake-python")
+            fake(FakePython.succeedsAfter(0)).script.copyTo(script)
+            script.setExecutable(true)
+            val relative = "build/${directory.name}/fake-python"
+            assertFalse(File(relative).isAbsolute)
+            val backend =
+                SystemPythonFontmakeBackend(
+                    env = { name -> if (name == PYTHON_ENV_VARIABLE) relative else null },
+                    runner = RealProcessRunner,
+                    timeoutMillis = 60_000L,
+                )
+            assertEquals(BackendAvailability.Available, runBlocking { backend.availability() })
+            // The build runs from a temporary directory, where that relative path would name a file that is not there.
+            val result = runBlocking { backend.compile(request) }
+            assertIs<CompileResult.Success>(result, "the probe found the interpreter, so the build must run it too: $result")
+            val args = File(directory, "args.txt").readText().trim().split(' ')
+            assertEquals(listOf("-m", "fontmake", "-u"), args.take(3))
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun anAccentedFamilyAndAKanaGlyphBuildFromAsciiNamesAndTheBinaryKeepsTheProjectsName() {
+        val python = fake(FakePython.LISTS_THE_COPY)
+        val accented = accentedProject()
+        val result = runBlocking { python.backend().compile(CompileRequest(accented, CompileSource.Ufo(ACCENTED_UFO))) }
+
+        assertIs<CompileResult.Success>(result)
+        assertEquals("HyléDeco-Regular.ttf", result.binaries.single().fileName, "the project's own name is put back on the binary")
+        val args = assertNotNull(python.arguments())
+        assertTrue(args.all { isPlainAscii(it) }, "everything fontmake was given has a plain ASCII name: $args")
+        val files = File(python.directory, "glyph-files.txt").readLines().filter { it.isNotBlank() }
+        assertTrue(files.all { isPlainAscii(it) }, "the copy's glyph files: $files")
+        val glyphFiles = files.filter { it.endsWith(".glif") }
+        assertEquals(2, glyphFiles.size, "two glyphs keep two files, never one shared name: $files")
+        // contents.plist points each glyph at a file that is there, and the glyph names inside are the project's.
+        val contents =
+            com.asoc.typewright.core.font.ufo
+                .parsePlistDict(File(python.directory, "contents.plist").readText(Charsets.UTF_8))
+        assertEquals(setOf("é", "あ"), contents.entries.map { it.first }.toSet())
+        assertEquals(
+            glyphFiles.toSet(),
+            contents.entries.map { (it.second as com.asoc.typewright.core.font.ufo.PlistValue.PString).value }.toSet(),
+        )
+        // Only the file names changed: the family in the copy's font info is the project's.
+        assertContains(File(python.directory, "fontinfo.plist").readText(Charsets.UTF_8), ACCENTED_FAMILY)
+        // And the project's own files are untouched.
+        assertTrue(accented.listFiles().any { it.startsWith("$ACCENTED_UFO/glyphs/") && it.endsWith("é.glif") })
     }
 
     // --- failures -------------------------------------------------------------------------------------

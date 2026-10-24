@@ -68,15 +68,17 @@ sealed interface LayerOneAvailability {
 }
 
 /**
- * One check's outcome, in the four words brief §12's pipeline actually needs (never the box
+ * One check's outcome, in the words brief §12's pipeline actually needs (never the box
  * check's "outlier / above / in range" — those are [com.asoc.typewright.qa.corpus.NodeEconomyVerdict]'s
- * own words, law 5, a different vocabulary for a different kind of check).
+ * own words, law 5, a different vocabulary for a different kind of check). [INFO] is a note the tool
+ * makes about the font that is not a problem (Fontbakery's `INFO`): it is counted on its own, never
+ * as a warning.
  */
-enum class CheckStatus { PASS, WARN, FAIL, SKIP }
+enum class CheckStatus { PASS, WARN, FAIL, SKIP, INFO }
 
 /**
  * One check's result: its tool-given [id], its [status], and a plain-language [message]. [toolStatus] is the
- * tool's own word when it has more than [CheckStatus] does (Fontbakery's `INFO`, `FATAL` or `ERROR`), so the
+ * tool's own word when it has more than [CheckStatus] does (Fontbakery's `FATAL` or `ERROR`, both [CheckStatus.FAIL]), so the
  * raw view can show it; [title] is the tool's one-line description of the check, when it gives one.
  */
 data class CheckOutcome(
@@ -93,6 +95,7 @@ data class LayerOneCounts(
     val warn: Int,
     val fail: Int,
     val skip: Int,
+    val info: Int = 0,
 ) {
     companion object {
         fun of(results: List<CheckOutcome>): LayerOneCounts =
@@ -101,23 +104,32 @@ data class LayerOneCounts(
                 warn = results.count { it.status == CheckStatus.WARN },
                 fail = results.count { it.status == CheckStatus.FAIL },
                 skip = results.count { it.status == CheckStatus.SKIP },
+                info = results.count { it.status == CheckStatus.INFO },
             )
     }
 }
 
 /**
  * A [LayerOneChecker]'s full output: every [results] entry, plus the [counts] a summary card shows, and the
- * [tool] that produced them when one ran.
+ * [tool] that produced them when one ran. [notes] are plain sentences about how the report came to be, for
+ * the page to print under the counts: that the first tool's output could not be read and another was used.
  */
 data class LayerOneReport(
     val results: List<CheckOutcome>,
     val counts: LayerOneCounts = LayerOneCounts.of(results),
     val tool: LayerOneRuntime? = null,
-)
+    val notes: List<String> = emptyList(),
+) {
+    /** True for the one skipped outcome [unavailableReport] makes: no tool produced anything to read. */
+    val isUnavailable: Boolean get() = results.size == 1 && results.single().id == LAYER_ONE_UNAVAILABLE_ID
+}
+
+/** The id of the single skipped outcome that stands for a layer one that did not run. */
+const val LAYER_ONE_UNAVAILABLE_ID: String = "layer-one/unavailable"
 
 /** One line of raw process output, for a [LayerOneReport] whose tool ran but could not be understood. */
 internal fun unavailableReport(reason: String): LayerOneReport =
-    LayerOneReport(listOf(CheckOutcome(id = "layer-one/unavailable", status = CheckStatus.SKIP, message = reason)))
+    LayerOneReport(listOf(CheckOutcome(id = LAYER_ONE_UNAVAILABLE_ID, status = CheckStatus.SKIP, message = reason)))
 
 /** The [LayerOneChecker] for the platform this code runs on. */
 expect fun platformLayerOneChecker(): LayerOneChecker

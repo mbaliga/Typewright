@@ -45,10 +45,10 @@ internal class FakePython(
             fi
             echo "${'$'}@" > "${'$'}DIR/args.txt"
             UFO=""
-            OUT=""
+            OUTFILE=""
             while [ ${'$'}# -gt 0 ]; do
               if [ "${'$'}1" = "-u" ]; then UFO="${'$'}2"; fi
-              if [ "${'$'}1" = "--output-dir" ]; then OUT="${'$'}2"; fi
+              if [ "${'$'}1" = "--output-path" ]; then OUTFILE="${'$'}2"; fi
               shift
             done
             """.trimIndent() + "\n" + behaviour.trimIndent() + "\n",
@@ -64,7 +64,7 @@ internal class FakePython(
             ?.trim()
             ?.split(' ')
 
-    /** The build's temporary directory, found from the `-u` argument (`<work>/source/<name>.ufo`). */
+    /** The build's temporary directory, found from the `-u` argument (`<work>/source/source.ufo`). */
     fun workDirectory(): File = File(arguments()!!.let { it[it.indexOf("-u") + 1] }).parentFile.parentFile
 
     fun cleanUp() {
@@ -90,7 +90,17 @@ internal class FakePython(
             cp "${'$'}UFO/glyphs/O_.glif" "${'$'}DIR/O.glif" 2>/dev/null
             sleep $pause
             echo "WARNING:ufo2ft:a gentle warning"
-            printf 'FAKE-TTF-BYTES' > "${'$'}OUT/Fixture-Regular.ttf"
+            printf 'FAKE-TTF-BYTES' > "${'$'}OUTFILE"
+            exit 0
+            """.trimIndent()
+
+        /** Records which glyph files the copy holds, the layer's `contents.plist` and `fontinfo.plist`, then writes a font. */
+        val LISTS_THE_COPY =
+            """
+            ls "${'$'}UFO/glyphs" > "${'$'}DIR/glyph-files.txt"
+            cp "${'$'}UFO/glyphs/contents.plist" "${'$'}DIR/contents.plist"
+            cp "${'$'}UFO/fontinfo.plist" "${'$'}DIR/fontinfo.plist"
+            printf 'FAKE-TTF-BYTES' > "${'$'}OUTFILE"
             exit 0
             """.trimIndent()
 
@@ -164,4 +174,34 @@ internal fun fixtureProject(): InMemoryProjectFiles {
         )
     val files = writeUfoProject(ufo).mapKeys { "Fixture-Regular.ufo/${it.key}" }.mapValues { it.value.encodeToByteArray() }
     return InMemoryProjectFiles("Fixture", files + ("typewright.json" to "{}".encodeToByteArray()))
+}
+
+/** The UFO folder of [accentedProject], whose name is not ASCII. */
+internal const val ACCENTED_UFO = "HyléDeco-Regular.ufo"
+
+/** The family of [accentedProject], as the font's own name table must carry it. */
+internal const val ACCENTED_FAMILY = "Hylé Deco"
+
+/**
+ * A project whose family is [ACCENTED_FAMILY] and whose glyphs are [glyphs] (name and code point); the default two, an e with an acute
+ * accent and Kana a, are named by their letters, so their glyph files are not ASCII: what a font with an accent or a non-Latin script
+ * looks like to a Java that cannot write such a file name. The UFO folder, [ACCENTED_UFO], is not ASCII either.
+ */
+internal fun accentedProject(glyphs: List<Pair<String, Int>> = listOf("\u00E9" to 0xE9, "\u3042" to 0x3042)): InMemoryProjectFiles {
+    fun square(
+        name: String,
+        code: Int,
+    ) = Glyph(
+        name = name,
+        advanceWidth = 600,
+        contours = listOf(Contour(listOf(on(50, 0), on(50, 700), on(550, 700), on(550, 0)), CurveFormat.QUADRATIC)),
+        unicodes = listOf(code),
+    )
+    val ufo =
+        UfoProject(
+            UfoFontInfo(familyName = ACCENTED_FAMILY, styleName = "Regular", unitsPerEm = 1000),
+            glyphs.map { (name, code) -> square(name, code) },
+        )
+    val files = writeUfoProject(ufo).mapKeys { "$ACCENTED_UFO/${it.key}" }.mapValues { it.value.encodeToByteArray() }
+    return InMemoryProjectFiles("Accented", files + ("typewright.json" to "{}".encodeToByteArray()))
 }

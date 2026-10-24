@@ -98,9 +98,11 @@ fun InspectorRow(
     horizontalPaddingDp: Double = SpacingTokens.GUTTER_DP,
     /** A fixed gap between values, for a column; null spreads the values across the whole width, as the row does. */
     gapDp: Double? = null,
+    /** The key of the value whose field is already open when the row first appears, for a link that lands on a number. */
+    initialEditingKey: String? = null,
 ) {
     require(fields.size <= 6) { "UI_SPEC §3 Inspector: \"Never more than six pairs\", got ${fields.size}" }
-    var editingKey by remember { mutableStateOf<String?>(null) }
+    var editingKey by remember { mutableStateOf(initialEditingKey) }
     var error by remember { mutableStateOf<String?>(null) }
     val editable = fields.mapNotNull { it.key }
     val latestEditingChanged by rememberUpdatedState(onEditingChanged)
@@ -108,7 +110,12 @@ fun InspectorRow(
     val activeKey = editingKey?.takeIf { it in editable }
     val isEditing = activeKey != null
     LaunchedEffect(isEditing) { latestEditingChanged(isEditing) }
+    // Only a change of the counter puts an open field away: the first value is how the row began, and a row that began with a
+    // field open (initialEditingKey) must not lose it.
+    var seenCancel by remember { mutableStateOf(cancelEditing) }
     LaunchedEffect(cancelEditing) {
+        if (cancelEditing == seenCancel) return@LaunchedEffect
+        seenCancel = cancelEditing
         editingKey = null
         error = null
     }

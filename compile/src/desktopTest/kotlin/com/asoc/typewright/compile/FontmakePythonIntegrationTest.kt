@@ -145,6 +145,31 @@ class FontmakePythonIntegrationTest {
     }
 
     @Test
+    fun anAccentedFamilyBuildsForRealAndTheFontKeepsItsNamesAndLetters() {
+        // The build copy and the font fontmake writes have plain ASCII names, so this holds in a Java whose file-name encoding is ASCII
+        // too. The glyphs are named as fontmake wants them (production names, which a post table can hold); the family and the UFO
+        // folder are what carry the accent.
+        val project = accentedProject(listOf("eacute" to 0xE9, "uni3042" to 0x3042))
+        val result = runBlocking { realBackend().compile(CompileRequest(project, CompileSource.Ufo(ACCENTED_UFO))) }
+        if (result !is CompileResult.Success) {
+            fail("the build did not succeed: $result\n" + result.log.joinToString("\n") { "[${it.level}] ${it.message}" })
+        }
+        val binary = result.binaries.single()
+        assertEquals("HyléDeco-Regular.ttf", binary.fileName, "the project's own name is put back on the binary")
+        val compiled = readSfntFont(binary.bytes)
+        assertEquals(
+            ACCENTED_FAMILY,
+            compiled.name.get(com.asoc.typewright.core.font.sfnt.NameId.FAMILY),
+            "the name table carries the real family",
+        )
+        assertEquals(2, compiled.numGlyphs - 1, "the two glyphs and .notdef")
+        assertTrue(
+            compiled.glyphIdForCodePoint(0xE9) != null && compiled.glyphIdForCodePoint(0x3042) != null,
+            "both letters are in the cmap",
+        )
+    }
+
+    @Test
     fun theRealPythonIsFoundAndSaysFontmakeIsThere() {
         val backend = realBackend()
         assertEquals(BackendAvailability.Available, runBlocking { backend.availability() })

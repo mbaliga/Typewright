@@ -8,6 +8,7 @@ import com.asoc.typewright.core.geometry.Point
 import com.asoc.typewright.core.geometry.polygonContour
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -33,13 +34,85 @@ class OutlineChecksTest {
         assertEquals(Severity.FAIL, economy.severity)
         assertEquals(
             "Your T has 1,764 points. In 4 geometric sans faces a T has 8 to 12.5, at most 28. " +
-                "A point at every step of a pixel is the footprint a tracer leaves.",
+                "That is more than 10 times the most any of those faces has: a point at every step of a pixel " +
+                "is the footprint a tracer leaves (our heuristic).",
             economy.summary,
         )
+        // The 10 times is ours and is said so wherever it is used, not only in the code: the basis note names it too.
+        assertTrue("more than 10 times the box's largest" in economy.basisNote && "our heuristic" in economy.basisNote, economy.basisNote)
         assertEquals("1 of 1 letters are outliers", economy.detail)
         assertEquals("See every glyph against its box", economy.action?.label)
         assertEquals(CheckRoute.OpenEconomy, economy.action?.route)
         assertEquals("lots of precision, many nodes", economy.reviewerQuote)
+    }
+
+    @Test
+    fun theMiniPlotCarriesTheWorstLettersCountAndItsBox() {
+        val economy = item(ReviewOrder.NODE_ECONOMY, fx.report(glyphs = listOf(tWith(1764))))
+        val plot = assertNotNull(economy.plot)
+        assertEquals("T", plot.glyph)
+        assertEquals(1764, plot.count)
+        assertEquals(12.5, plot.box.q3)
+        // A project with nothing past the fence has no outlier to draw.
+        val clean = item(ReviewOrder.NODE_ECONOMY, fx.report(glyphs = lettersWithOutliers(listOf("T", "o", "H", "e"), outliers = 0)))
+        assertNull(clean.plot)
+    }
+
+    @Test
+    fun aClassTheCorpusHasNoBoxForSaysSoInsteadOfClaimingNoClassIsSet() {
+        val formal = CheckStyle("script-formal", "formal script", heuristic = false)
+        val economy = item(ReviewOrder.NODE_ECONOMY, fx.report(glyphs = listOf(tWith(1764)), style = formal))
+        assertEquals(Severity.NOT_MEASURED, economy.severity)
+        assertTrue("formal script, has no measured faces" in economy.summary, economy.summary)
+        assertTrue("No style class is set" !in economy.summary, economy.summary)
+    }
+
+    @Test
+    fun aClassWithNoBoxFallsBackToTheRoundLettersAndSaysItDoes() {
+        val formal = CheckStyle("script-formal", "formal script", heuristic = false)
+        val polygons = item(ReviewOrder.CURVES_ARE_POLYGONS, fx.report(glyphs = listOf(fx.cleanT, polygonO()), style = formal))
+        assertEquals(Severity.FAIL, polygons.severity, "an all-polygon o is judged by the round-letters list, not skipped")
+        assertEquals(Basis.HEURISTIC, polygons.basis)
+        assertTrue("formal script class has no measured faces" in polygons.basisNote, polygons.basisNote)
+        assertTrue("our heuristic" in polygons.basisNote, polygons.basisNote)
+    }
+
+    @Test
+    fun aCheckThatCouldNotJudgeCarriesNoReviewerQuoteAndNoAction() {
+        // No class, and only a digit: node economy, curves and anchors each have nothing to judge.
+        val report = fx.report(glyphs = listOf(bare("one", 0x31)), style = null)
+        val notMeasured = report.items.filter { it.severity == Severity.NOT_MEASURED }
+        assertTrue(
+            notMeasured.map { it.id }.containsAll(listOf(ReviewOrder.NODE_ECONOMY, ReviewOrder.CURVES_ARE_POLYGONS, ReviewOrder.ANCHORS)),
+            notMeasured.map { it.id }.toString(),
+        )
+        for (item in notMeasured) {
+            assertNull(item.reviewerQuote, "${item.id} did not judge, so no reviewer's words describe it")
+            assertNull(item.action, "${item.id} did not judge, so there is no fix to offer")
+        }
+    }
+
+    @Test
+    fun anItemThatCouldNotJudgeRefusesToCarryAQuoteOrAnAction() {
+        fun notMeasured(
+            quote: String? = null,
+            action: CheckAction? = null,
+        ) = CheckItem(
+            "x/y",
+            CheckGroup.OUTLINES,
+            "x",
+            null,
+            Severity.NOT_MEASURED,
+            "s",
+            quote,
+            action,
+            Basis.HEURISTIC,
+            "n",
+            "r",
+        )
+        notMeasured()
+        assertFailsWith<IllegalArgumentException> { notMeasured(quote = "lots of precision, many nodes") }
+        assertFailsWith<IllegalArgumentException> { notMeasured(action = CheckAction("Open", CheckRoute.OpenEconomy)) }
     }
 
     @Test

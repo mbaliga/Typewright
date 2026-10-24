@@ -64,6 +64,21 @@ internal object RealProcessRunner : ProcessRunner {
     private const val MILLIS_PER_SECOND = 1_000L
 }
 
+/**
+ * [interpreter] as a command that means the same file wherever a process is started from: a path with a directory part
+ * (`.venv/bin/python`) is made absolute against the working directory, and a bare name (`python3`) is left for the PATH.
+ * A build runs its interpreter from a temporary directory, where a relative path would name another file, so a path is
+ * made absolute once, when the interpreter is found, and the probe and the build use the same one.
+ */
+internal fun absoluteInterpreter(interpreter: String): String {
+    if ('/' !in interpreter && File.separatorChar !in interpreter) return interpreter
+    return File(interpreter)
+        .toPath()
+        .toAbsolutePath()
+        .normalize()
+        .toString()
+}
+
 /** Stops this process and every process it started, which is what cancelling a build has to do. */
 internal fun Process.killTree() {
     val handle = toHandle()

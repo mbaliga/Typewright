@@ -120,7 +120,11 @@ jobs:
   golden-path:
     name: golden-path (acceptance harness; pass count never blocks, ratchet does)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Measured on a warm machine (docs/CHECK_AND_COMPILE.md): the virtualenv 19 s, the golden path 39 s, then the three Python
+    # integration tasks 16 s, 22 s and 44 s: about 2.5 minutes of work that runs real fontmake and Fontbakery. The rest is the cold
+    # compile of what those tests need, which now includes the :ui module (the Check page's own tests), so the limit is the android
+    # job's, which compiles the same module cold and has 45; the first cold runs are the real measurement (docs/OPEN_QUESTIONS.md).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
@@ -149,10 +153,10 @@ jobs:
       # passing step goes unlisted (see that file's own header, and golden-path/README.md).
       - name: Golden path pass count and ratchet
         run: ./gradlew :golden-path:goldenPath :golden-path:goldenPathRatchet
-      # The tests that call the same tools through the backends' own code paths. They are separate
-      # tasks because the core and android jobs have no Python with these tools.
+      # The tests that call the same tools through the backends' own code paths, and through the Check page's controller (:ui). They
+      # are separate tasks because the core and android jobs have no Python with these tools, and they fail, never skip, without one.
       - name: Compile and Check against the real tools
-        run: ./gradlew :compile:pythonIntegrationTest :qa:pythonIntegrationTest
+        run: ./gradlew :compile:pythonIntegrationTest :qa:pythonIntegrationTest :ui:pythonIntegrationTest
       - name: Golden path summary
         if: always()
         run: cat golden-path/build/golden-path/summary.txt >> "$GITHUB_STEP_SUMMARY"

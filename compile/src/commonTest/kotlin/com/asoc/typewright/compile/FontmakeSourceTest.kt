@@ -252,7 +252,12 @@ class FontmakeSourceTest {
 
     @Test
     fun aUfoThatCannotBeReadIsRefusedWithAMessageNotAnArbitraryCrash() {
-        val broken = mapOf("metainfo.plist" to "not a plist".encodeToByteArray())
-        assertFailsWith<Exception>("reading a broken UFO must fail loudly") { prepareUfoForFontmake(broken) }
+        // No fontinfo.plist, layer contents or glyphs at all: the one exception prepareUfoForFontmake documents, with a message.
+        val missing = mapOf("metainfo.plist" to "not a plist".encodeToByteArray())
+        val refusal = assertFailsWith<IllegalArgumentException>("reading a broken UFO must fail loudly") { prepareUfoForFontmake(missing) }
+        assertTrue(!refusal.message.isNullOrBlank(), "the refusal says what is wrong")
+        // A UFO that is there but whose own files are not plists is refused the same way, not with the parser's own exception.
+        val garbled = ufo(listOf(quadraticH), CurveFormat.QUADRATIC) + ("fontinfo.plist" to "<not-a-plist".encodeToByteArray())
+        assertFailsWith<IllegalArgumentException> { prepareUfoForFontmake(garbled) }
     }
 }

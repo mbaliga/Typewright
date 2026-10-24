@@ -14,6 +14,7 @@ import com.asoc.typewright.qa.LayerOneChecker
 import com.asoc.typewright.qa.LayerOneInput
 import com.asoc.typewright.qa.LayerOneReport
 import com.asoc.typewright.qa.LayerOneRuntime
+import com.asoc.typewright.qa.report.CheckInputs
 import com.asoc.typewright.qa.report.CheckReport
 import com.asoc.typewright.qa.report.buildCheckReport
 import kotlinx.coroutines.CancellationException
@@ -30,12 +31,16 @@ import kotlinx.coroutines.withContext
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
 
-/** The two steps layer one takes: compiling the project, then checking the compiled binary. */
+/**
+ * The two steps layer one takes: compiling the project, then checking the compiled binary. [title] names the step in a
+ * list of steps; [activity] finishes the sentence "Layer one stopped while ...".
+ */
 enum class LayerOneStage(
     val title: String,
+    val activity: String,
 ) {
-    COMPILE("Compile the project with fontmake"),
-    CHECK("Check the compiled binary"),
+    COMPILE("Compile the project with fontmake", "compiling the project with fontmake"),
+    CHECK("Check the compiled binary", "checking the compiled binary"),
 }
 
 /** Where layer two stands. It is quick, but it is still kept off the screen's thread. */
@@ -44,6 +49,11 @@ sealed interface LayerTwoState {
 
     data class Ready(
         val report: CheckReport,
+    ) : LayerTwoState
+
+    /** One of the checks threw, so there is no report; [cause] is what it said, for the page to print and the person to report. */
+    data class Failed(
+        val cause: String,
     ) : LayerTwoState
 }
 
@@ -138,6 +148,8 @@ class CheckController(
     private val layerOne: LayerOneChecker,
     private val memory: CheckMemory = CheckMemory.shared,
     private val work: CoroutineDispatcher = Dispatchers.Default,
+    /** How layer two's report is built from what the page reads; the app's own checks unless a test stands one in that throws. */
+    private val buildReport: (CheckInputs) -> CheckReport = ::buildCheckReport,
 ) {
     private val mutable = MutableStateFlow(CheckRunState())
 
@@ -159,6 +171,14 @@ class CheckController(
         mutable.update { it.copy(layerOne = LayerOneState.Cancelled) }
     }
 
+    /**
+     * Returns when the run in hand has stopped and cleaned up after itself: finished, failed or cancelled. A test (or a
+     * caller about to start again) waits on this instead of on the clock.
+     */
+    internal suspend fun settled() {
+        job?.join()
+    }
+
     private fun start(
         subject: CheckSubject,
         force: Boolean,
@@ -170,11 +190,23 @@ class CheckController(
             scope.launch {
                 // The run being replaced has finished stopping, and cleaned up after itself, before this one begins.
                 previous?.join()
-                val report = withContext(work) { buildCheckReport(subject.inputs) }
+                val report =
+                    try {
+                        withContext(work) { buildReport(subject.inputs) }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (failure: Throwable) {
+                        // A check that throws is a state the page shows, with the cause and a way to try again, never an escape.
+                        mutable.update { it.copy(layerTwo = LayerTwoState.Failed(describe(failure))) }
+                        return@launch
+                    }
                 mutable.update { it.copy(layerTwo = LayerTwoState.Ready(report)) }
                 runLayerOne(subject, force)
             }
     }
+
+    private fun describe(failure: Throwable): String =
+        failure.message?.takeIf { it.isNotBlank() } ?: failure::class.simpleName ?: "an error"
 
     private suspend fun runLayerOne(
         subject: CheckSubject,
@@ -242,9 +274,8 @@ class CheckController(
                     val seconds = startedAt.elapsedNow().inWholeSeconds.toInt()
                     mutable.update { it.copy(layerOne = running(LayerOneStage.CHECK, seconds)) }
                     val checked = layerOne.check(LayerOneInput(binary.fileName.ifBlank { subject.binaryName }, binary.bytes))
-                    val skippedOnly = checked.results.size == 1 && checked.results.single().id == UNAVAILABLE_ID
                     val next =
-                        if (skippedOnly) {
+                        if (checked.isUnavailable) {
                             LayerOneState.Unavailable(checked.results.single().message)
                         } else {
                             LayerOneState.Done(checked, subject.version).also { memory.remember(it) }
@@ -271,6 +302,5 @@ class CheckController(
 
     private companion object {
         const val LOG_KEPT = 200
-        const val UNAVAILABLE_ID = "layer-one/unavailable"
     }
 }

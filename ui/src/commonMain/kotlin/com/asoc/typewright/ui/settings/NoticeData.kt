@@ -170,6 +170,37 @@ val NOTICE_SECTIONS: List<NoticeSection> =
             ),
         ),
         NoticeSection(
+            "Python tools the desktop app runs (not bundled, not linked)",
+            listOf(
+                "Check's layer one and the desktop compile run these as separate programs in the Python on " +
+                    "the person's own computer (`TYPEWRIGHT_PYTHON`, else `python3` on the PATH). Typewright in" +
+                    "stalls none of them, ships none of them in any app and links none of them; the apps only s" +
+                    "tart them and read what they print. The versions below are the ones `tools/requirements-go" +
+                    "lden-path.txt` pins, which CI installs into a virtualenv and the golden path runs. Licence" +
+                    "s were read from each distribution's own metadata and licence file in that virtualenv.",
+                "Component — Version — Licence — Verified",
+                "fontmake (`fontmake[pathops]`): compiles a UFO to a TTF — 3.12.2 — Apache-2.0 — package me" +
+                    "tadata",
+                "fontTools, which fontmake and Fontbakery both run on — 4.67.0 — MIT — package metadata",
+                "ufo2ft, the compiler fontmake drives — 3.9.1 — MIT — package metadata",
+                "skia-pathops (`pathops`), which removes overlaps and accepts quadratic outlines — 0.9.2 — " +
+                    "BSD-3-Clause — package metadata",
+                "Fontbakery (`fontbakery[googlefonts]`), run as `python -m fontbakery check-googlefonts --s" +
+                    "kip-network` — 0.12.10 — Apache-2.0 — file (`LICENSE.txt` in the distribution)",
+                "The data packages Fontbakery's Google Fonts profile imports, pinned together because pip's" +
+                    " resolver, left alone, picks a set that does not install: `gflanguages` 0.6.5, `glyphsets`" +
+                    " 1.0.0, `axisregistry` 0.4.16, `shaperglot` 0.5.1, `gfsubsets` 2025.11.4 — as listed — Apa" +
+                    "che-2.0 — file (each distribution's licence file)",
+                "The other packages pip resolves for the above (for example ufoLib2, defcon, booleanOperati" +
+                    "ons, compreffor, cffsubr, uharfbuzz, freetype-py, protobuf, beautifulsoup4) — as resolved " +
+                    "— Apache-2.0, MIT or BSD-3-Clause, each as its own metadata says — package metadata; they " +
+                    "are not enumerated here, and `pip list` in the virtualenv names them",
+                "ttfautohint, only if it is on the PATH, run as a separate program to hint the build — not " +
+                    "installed here — FreeType License or GPL-2.0 (a separate program, never linked) — not chec" +
+                    "ked here; recorded from its own project's documentation",
+            ),
+        ),
+        NoticeSection(
             "Ported (reimplemented in Kotlin; not linked as a binary dependency)",
             listOf(
                 "Component — Source — Licence — Notes",

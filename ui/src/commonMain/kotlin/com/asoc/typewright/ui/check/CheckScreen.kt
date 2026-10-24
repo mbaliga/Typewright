@@ -2,7 +2,9 @@
 
 package com.asoc.typewright.ui.check
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -19,6 +21,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.asoc.typewright.brief.genreByKey
 import com.asoc.typewright.compile.platformCompileBackend
@@ -27,13 +30,16 @@ import com.asoc.typewright.qa.corpus.NodeEconomyCorpus
 import com.asoc.typewright.qa.platformLayerOneChecker
 import com.asoc.typewright.qa.report.CheckRoute
 import com.asoc.typewright.qa.report.EconomySort
-import com.asoc.typewright.qa.report.economyRows
+import com.asoc.typewright.qa.report.FontInfoTarget
+import com.asoc.typewright.qa.report.Severity
+import com.asoc.typewright.qa.report.economyListing
 import com.asoc.typewright.ui.deck.DeckSection
 import com.asoc.typewright.ui.project.NoProjectState
 import com.asoc.typewright.ui.project.OpenProject
 import com.asoc.typewright.ui.project.ProjectDataPacks
 import com.asoc.typewright.ui.project.projectStyle
 import com.asoc.typewright.ui.project.rememberOpenProject
+import com.asoc.typewright.ui.shell.FontInfoRules
 import com.asoc.typewright.ui.shell.FontInfoScreen
 import com.asoc.typewright.ui.shell.LocalGlyphNav
 import com.asoc.typewright.ui.shell.LocalSectionNav
@@ -57,6 +63,8 @@ class CheckPageState(
     styleKey: String? = null,
     openRow: OpenRow = OpenRow(),
     showOutput: Boolean = false,
+    showPasses: Boolean = false,
+    fontInfoTarget: FontInfoTarget? = null,
 ) {
     var view by mutableStateOf(view)
     var raw by mutableStateOf(raw)
@@ -66,6 +74,12 @@ class CheckPageState(
     var styleKey by mutableStateOf(styleKey)
     var openRow by mutableStateOf(openRow)
     var showOutput by mutableStateOf(showOutput)
+
+    /** Whether layer one lists the checks that passed, which it counts and otherwise leaves out. */
+    var showPasses by mutableStateOf(showPasses)
+
+    /** The part of Font info a finding's action asked for, so the page opens on the value to change. */
+    var fontInfoTarget by mutableStateOf(fontInfoTarget)
 }
 
 /** Where a finding's action goes: another view of this page, or another page. */
@@ -78,6 +92,11 @@ sealed interface CheckDestination {
         val glyph: String,
     ) : CheckDestination
 
+    /** Font info, opened on the value [target] is about. */
+    data class FontInfo(
+        val target: FontInfoTarget,
+    ) : CheckDestination
+
     data class Section(
         val section: DeckSection,
         val glyph: String? = null,
@@ -88,7 +107,7 @@ sealed interface CheckDestination {
 fun destinationOf(route: CheckRoute): CheckDestination =
     when (route) {
         CheckRoute.OpenEconomy -> CheckDestination.InPage(CheckView.ECONOMY)
-        CheckRoute.OpenFontInfo -> CheckDestination.InPage(CheckView.FONT_INFO)
+        is CheckRoute.OpenFontInfo -> CheckDestination.FontInfo(route.target)
         is CheckRoute.OpenDraw -> CheckDestination.Draw(route.glyph)
         is CheckRoute.OpenTrace -> CheckDestination.Section(DeckSection.TRACE, route.glyphs.firstOrNull())
         CheckRoute.OpenCapture -> CheckDestination.Section(DeckSection.CAPTURE)
@@ -136,6 +155,7 @@ private const val NO_CORPUS = "This build cannot read the measured faces on this
 private const val NO_CLASS =
     "No class is declared and too few letters are drawn for our heuristic to read one. Choose one to compare against."
 private const val TAP_A_STYLE = "Tap a style to compare against a different box."
+private const val CHOOSE_A_STYLE = "Choose a style above to compare."
 
 /** How wide the page's text and plots grow on a wide screen, so a line stays readable. */
 private const val PAGE_MAX_WIDTH_DP = 720
@@ -159,8 +179,15 @@ internal fun CheckFrame(
     val nav = LocalSectionNav.current
     val glyphNav = LocalGlyphNav.current
     val font = project?.font
-    if (page.view == CheckView.FONT_INFO && font != null) {
-        FontInfoScreen(texture = texture, font = font, onBack = { page.view = CheckView.REPORT }, modifier = modifier)
+    if (page.view == CheckView.FONT_INFO && project != null && font != null) {
+        val landing = page.fontInfoTarget?.let { FontInfoRules.landing(it, font.ufo.fontInfo) }
+        FontInfoScreen(
+            texture = texture,
+            project = project,
+            onBack = { page.view = CheckView.REPORT },
+            modifier = modifier,
+            focus = landing,
+        )
         return
     }
     val economyView = page.view == CheckView.ECONOMY
@@ -171,13 +198,18 @@ internal fun CheckFrame(
         remember(font, selectedKey, corpus) {
             if (font != null && corpus != null && usable) checkNodeEconomy(font.ufo, selectedKey.orEmpty(), corpus) else null
         }
-    val rows = remember(economy, page.sort) { economy?.let { economyRows(it, page.sort) }.orEmpty() }
+    val listing = remember(economy, page.sort) { economy?.let { economyListing(it, page.sort) } }
     val faceCount = if (corpus != null && selectedKey != null) corpus.families(selectedKey).size else 0
 
     fun go(route: CheckRoute) {
         when (val destination = destinationOf(route)) {
             is CheckDestination.InPage -> {
                 page.view = destination.view
+            }
+
+            is CheckDestination.FontInfo -> {
+                page.fontInfoTarget = destination.target
+                page.view = CheckView.FONT_INFO
             }
 
             is CheckDestination.Draw -> {
@@ -253,7 +285,7 @@ internal fun CheckFrame(
                                     projectKey = subject.inputs.style?.key,
                                     selectedKey = selectedKey,
                                 )
-                            val open = page.openRow.resolve(rows.map { it.glyph })
+                            val open = page.openRow.resolve(listing?.rows.orEmpty().map { it.glyph })
                             EconomyPage(
                                 texture = texture,
                                 model =
@@ -262,8 +294,16 @@ internal fun CheckFrame(
                                         corpus = corpus,
                                         chips = chips,
                                         selectedKey = selectedKey.takeIf { usable },
-                                        classNote = economyClassNote(ownStyle?.key, ownStyle?.provenance, selectedKey, ownStyle?.name),
-                                        rows = rows,
+                                        classNote =
+                                            economyClassNote(
+                                                ownStyle?.key,
+                                                ownStyle?.provenance,
+                                                selectedKey,
+                                                ownStyle?.name,
+                                                hasBoxes = usable,
+                                            ),
+                                        entries = listing?.entries.orEmpty(),
+                                        coverage = listing?.coverage(),
                                         sort = page.sort,
                                         open = open,
                                         faceCount = faceCount,
@@ -273,6 +313,10 @@ internal fun CheckFrame(
                                 onOpen = { glyph -> page.openRow = page.openRow.tapped(glyph, open) },
                             )
                         }
+                    }
+
+                    run.layerTwo is LayerTwoState.Failed -> {
+                        LayerTwoStopped(texture, run.layerTwo.cause, onRunAgain)
                     }
 
                     run.report == null -> {
@@ -286,12 +330,14 @@ internal fun CheckFrame(
                             run = run,
                             raw = page.raw,
                             showOutput = page.showOutput,
+                            showPasses = page.showPasses,
                             actions =
                                 ReportActions(
                                     onRoute = ::go,
                                     onCancel = onCancel,
                                     onRunAgain = onRunAgain,
                                     onToggleOutput = { page.showOutput = !page.showOutput },
+                                    onTogglePasses = { page.showPasses = !page.showPasses },
                                 ),
                         )
                     }
@@ -315,21 +361,46 @@ private fun PageMessage(
 }
 
 /**
- * The line under the Economy page's chips that says which class the glyphs are judged against and where it came from,
- * or that the person is comparing against another class than their own.
+ * The line under the Economy page's chips that says which class the glyphs are judged against and where it came from, that the
+ * person is comparing against another class than their own, or that the class has no faces in the corpus ([hasBoxes] false) to judge by.
  */
 internal fun economyClassNote(
     ownKey: String?,
     ownProvenance: String?,
     selectedKey: String?,
     ownName: String?,
+    hasBoxes: Boolean = true,
 ): String? =
     when {
         selectedKey == null -> NO_CLASS
+
+        !hasBoxes -> "${genreNameOf(
+            selectedKey,
+        )} has no measured faces in the corpus, so there is no box to judge your glyphs against. $CHOOSE_A_STYLE"
+
         ownKey == null -> "Comparing against ${genreNameOf(selectedKey).lowercase()}, which you chose here."
+
         selectedKey == ownKey -> "Judged against ${ownName.orEmpty().lowercase()}: $ownProvenance. $TAP_A_STYLE"
+
         else -> "Comparing against ${genreNameOf(selectedKey).lowercase()} instead of your own class, ${ownName.orEmpty().lowercase()}."
     }
+
+/** Check could not finish the layer-two report: what stopped it, in the words of the error, and a way to try again. */
+@Composable
+private fun LayerTwoStopped(
+    texture: CanvasTexture,
+    cause: String,
+    onRunAgain: () -> Unit,
+) {
+    Column(modifier = Modifier.padding(horizontal = 22.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        BasicText(
+            text = "${Severity.FAIL.shape} ${CheckText.layerTwoStopped(cause)}",
+            style = sentenceStyle(texture.fg.toColor(), size = 13.0, weight = FontWeight.SemiBold),
+        )
+        BasicText(text = CheckText.LAYER_TWO_STOPPED_ADVICE, style = sentenceStyle(texture.muted.toColor(), size = 12.0))
+        ActionLink("Try again", texture, onClick = onRunAgain)
+    }
+}
 
 /** A style class as a person names it (`Geometric sans`), from the brief's own list of genres; the key itself when it is not one. */
 internal fun genreNameOf(key: String): String = genreByKey(key)?.name ?: key

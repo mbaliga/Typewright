@@ -6,6 +6,7 @@ import com.asoc.typewright.qa.checkNodeEconomy
 import com.asoc.typewright.qa.corpus.NodeEconomyVerdict
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -49,9 +50,43 @@ class EconomyRowsTest {
     }
 
     @Test
-    fun aGlyphTheCorpusHasNoBoxForHasNoRow() {
+    fun aGlyphTheCorpusHasNoBoxForIsNotJudgedSoEconomyRowsLeavesItOut() {
         val rows = economyRows(report("T" to 8, "Z" to 8), EconomySort.ALPHABETICAL)
         assertEquals(listOf("T"), rows.map { it.glyph })
+    }
+
+    @Test
+    fun theListingHasOneLinePerGlyphAndAGlyphWithNoBoxSaysSo() {
+        val listing = economyListing(report("T" to 400, "Z" to 28, "e" to 8), EconomySort.WORST_FIRST)
+        assertEquals(3, listing.total, "one line for every glyph of the project")
+        assertEquals(2, listing.judged)
+        // Judged glyphs first, worst first; the glyph with no box last, with its count and its own sentence.
+        assertEquals(listOf("T", "e", "Z"), listing.entries.map { it.glyph })
+        val z = assertIs<UnjudgedRow>(listing.entries.last())
+        assertEquals(28, z.count)
+        assertEquals("no box for this glyph in the corpus", z.sentence)
+        assertEquals(listOf("T", "e"), listing.rows.map { it.glyph })
+    }
+
+    @Test
+    fun alphabeticalKeepsAGlyphWithNoBoxInItsPlace() {
+        val listing = economyListing(report("T" to 400, "Z" to 31, "e" to 8, "H" to 8), EconomySort.ALPHABETICAL)
+        assertEquals(listOf("e", "H", "T", "Z"), listing.entries.map { it.glyph })
+        assertIs<UnjudgedRow>(listing.entries.last())
+        assertEquals(3, listing.judged)
+    }
+
+    @Test
+    fun theCoverageSentenceSaysHowManyGlyphsAreJudgedAndWhatBecomesOfTheRest() {
+        val listing = economyListing(report("T" to 400, "Z" to 31, "e" to 8), EconomySort.WORST_FIRST)
+        assertEquals(
+            "2 of 3 glyphs are judged against this class's faces. " +
+                "The other 1 have no box in the corpus, so each shows its count and no verdict.",
+            listing.coverage(),
+        )
+        assertEquals("All 2 glyphs are judged against this class's faces.", economyCoverage(2, 2))
+        assertEquals("None of the 5 glyphs has a box in this class's faces, so none is judged.", economyCoverage(0, 5))
+        assertEquals("This project has no glyphs yet.", economyCoverage(0, 0))
     }
 
     @Test

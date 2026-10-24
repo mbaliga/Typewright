@@ -64,6 +64,30 @@ class FontbakeryLocatorTest {
     }
 
     @Test
+    fun aRelativePythonIsMadeAbsoluteOnceSoTheProbeAndTheRunMeanTheSameFile() {
+        val absolute =
+            java.io
+                .File(".venv/bin/python")
+                .toPath()
+                .toAbsolutePath()
+                .normalize()
+                .toString()
+        val runner = fullInstall(python = absolute)
+        val c = checker(runner, variable = ".venv/bin/python")
+        assertEquals(LayerOneAvailability.Available, runSuspend { c.availability() })
+        assertTrue(
+            runner.asked.isNotEmpty() &&
+                runner.asked.all {
+                    it.first() == absolute
+                },
+            "every command names the absolute file: ${runner.asked}",
+        )
+        assertEquals("python3", absoluteInterpreter("python3"), "a bare name is left to the PATH")
+        assertEquals(absolute, absoluteInterpreter("./.venv/bin/python"))
+        assertEquals("/usr/bin/python3", absoluteInterpreter("/usr/bin/python3"))
+    }
+
+    @Test
     fun aPythonThatWasFoundIsRememberedSoTheProbesAreNotRepeated() {
         val runner = fullInstall()
         val c = checker(runner)

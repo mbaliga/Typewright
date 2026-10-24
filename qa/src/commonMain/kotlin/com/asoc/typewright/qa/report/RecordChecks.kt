@@ -131,7 +131,7 @@ internal fun metricsItem(inputs: CheckInputs): CheckItem {
         severity = severity,
         summary = summary,
         reviewerQuote = null,
-        action = CheckAction("Set the metrics in Font info", CheckRoute.OpenFontInfo),
+        action = CheckAction("Set the metrics in Font info", CheckRoute.OpenFontInfo(FontInfoTarget.METRICS)),
         basis = Basis.PUBLISHED,
         basisNote = basisNote,
         raw = raw.joinToString("\n"),
@@ -267,7 +267,11 @@ internal fun namesItem(inputs: CheckInputs): CheckItem {
         severity = severity,
         summary = summary,
         reviewerQuote = null,
-        action = CheckAction("Set the names in Font info", CheckRoute.OpenFontInfo).takeIf { severity != Severity.PASS },
+        action =
+            CheckAction(
+                "Set the names in Font info",
+                CheckRoute.OpenFontInfo(FontInfoTarget.NAMES),
+            ).takeIf { severity != Severity.PASS },
         basis = Basis.PUBLISHED,
         basisNote =
             "The 32-character limit and the naming habits to avoid are in Google Fonts' requirements. Uniqueness is checked against the " +
@@ -354,7 +358,11 @@ internal fun licenceItem(inputs: CheckInputs): CheckItem {
         severity = severity,
         summary = summary,
         reviewerQuote = null,
-        action = CheckAction("Set the licence lines in Font info", CheckRoute.OpenFontInfo).takeIf { severity != Severity.PASS },
+        action =
+            CheckAction("Set the licence lines in Font info", CheckRoute.OpenFontInfo(FontInfoTarget.LICENCE)).takeIf {
+                severity !=
+                    Severity.PASS
+            },
         basis = Basis.PUBLISHED,
         basisNote =
             "The copyright pattern and the licence strings are Google Fonts' requirements for the Open Font License route. " +

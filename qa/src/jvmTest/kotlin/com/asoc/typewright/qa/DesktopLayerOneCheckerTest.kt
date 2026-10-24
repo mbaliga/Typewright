@@ -65,6 +65,42 @@ class DesktopLayerOneCheckerTest {
     }
 
     @Test
+    fun fontspectorsReportThatCannotBeReadFallsBackToFontbakeryAndTheReportSaysSo() {
+        val unreadable = unavailableReport("Fontspector's JSON report did not match any recognised shape. Raw report: {}")
+        val spector = Stand("Fontspector", LayerOneAvailability.Available, unreadable)
+        val bakery = Stand("Fontbakery", LayerOneAvailability.Available, fail)
+        val report = runSuspend { DesktopLayerOneChecker(spector, bakery).check(input) }
+
+        assertEquals(1, spector.checked)
+        assertEquals(1, bakery.checked, "Fontbakery is asked once Fontspector gave nothing readable")
+        assertEquals(CheckStatus.FAIL, report.results.single().status, "Fontbakery's result, not a skip")
+        assertEquals("Fontbakery", report.tool?.tool)
+        val note = report.notes.single()
+        assertTrue("Fontspector ran but its report could not be read" in note && "so Fontbakery checked the font instead" in note, note)
+    }
+
+    @Test
+    fun whenBothToolsGiveNothingReadableTheAnswerIsOneSkipThatNamesBoth() {
+        val spector = Stand("Fontspector", LayerOneAvailability.Available, unavailableReport("Unavailable: it wrote no JSON report."))
+        val bakery = Stand("Fontbakery", LayerOneAvailability.Available, unavailableReport("Fontbakery's report held no check results."))
+        val report = runSuspend { DesktopLayerOneChecker(spector, bakery).check(input) }
+        assertTrue(report.isUnavailable)
+        val message = report.results.single().message
+        assertTrue("Fontspector gave no report that could be read" in message && "Fontbakery then said" in message, message)
+        assertTrue("it wrote no JSON report" in message && "held no check results" in message, message)
+    }
+
+    @Test
+    fun aReadableFontspectorReportIsNotReplacedByFontbakerys() {
+        val spector = Stand("Fontspector", LayerOneAvailability.Available, fail)
+        val bakery = Stand("Fontbakery", LayerOneAvailability.Available, pass)
+        val report = runSuspend { DesktopLayerOneChecker(spector, bakery).check(input) }
+        assertEquals(0, bakery.checked)
+        assertEquals(CheckStatus.FAIL, report.results.single().status)
+        assertTrue(report.notes.isEmpty())
+    }
+
+    @Test
     fun withNeitherToolAvailabilitySaysWhyInOneSentenceBothAreNamed() {
         val spector = Stand("Fontspector", LayerOneAvailability.Unavailable("Unavailable: fontspector not found on PATH."), pass)
         val bakery =

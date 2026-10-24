@@ -43,6 +43,53 @@ class CheckControllerTest {
         }
 
     @Test
+    fun aCheckThatThrowsIsAnErrorStateWithTheCauseNotAnEscapeAndRunAgainRecovers() =
+        runBlocking<Unit> {
+            var attempts = 0
+            val c =
+                CheckController(
+                    CheckTestProject.scope(),
+                    FakeCompiler.succeeding(),
+                    FakeChecker(),
+                    CheckMemory(),
+                    buildReport = { inputs ->
+                        if (attempts++ == 0) throw IllegalStateException("the contour of T has no points")
+                        com.asoc.typewright.qa.report
+                            .buildCheckReport(inputs)
+                    },
+                )
+            c.open(CheckTestProject.subject)
+            val stopped = c.await { it.layerTwo is LayerTwoState.Failed }
+            assertEquals("the contour of T has no points", (stopped.layerTwo as LayerTwoState.Failed).cause)
+            assertEquals(null, stopped.report, "there is no report to draw")
+            assertTrue(!stopped.isRunning, "the right circle is free, so Run again is the way to retry")
+            // The throw did not escape the controller's scope, and layer one did not start on a project that layer two choked on.
+            c.settled()
+            assertIs<LayerOneState.NotRun>(c.state.value.layerOne)
+
+            c.runAgain(CheckTestProject.subject)
+            val ready = c.await { it.layerTwo is LayerTwoState.Ready }
+            assertTrue(checkNotNull(ready.report).items.isNotEmpty())
+            assertEquals(2, attempts)
+        }
+
+    @Test
+    fun anExceptionWithNoMessageIsNamedByItsType() =
+        runBlocking<Unit> {
+            val c =
+                CheckController(
+                    CheckTestProject.scope(),
+                    FakeCompiler.succeeding(),
+                    FakeChecker(),
+                    CheckMemory(),
+                    buildReport = { throw NullPointerException() },
+                )
+            c.open(CheckTestProject.subject)
+            val stopped = c.await { it.layerTwo is LayerTwoState.Failed }
+            assertEquals("NullPointerException", (stopped.layerTwo as LayerTwoState.Failed).cause)
+        }
+
+    @Test
     fun layerOneCompilesTheMastersUfoFromASnapshotAndChecksTheBinary() =
         runBlocking<Unit> {
             val compiler = FakeCompiler.succeeding(byteArrayOf(9, 8, 7))

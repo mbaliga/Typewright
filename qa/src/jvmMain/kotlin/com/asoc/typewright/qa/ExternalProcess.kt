@@ -2,6 +2,8 @@
 
 package com.asoc.typewright.qa
 
+import java.io.File
+import java.text.Normalizer
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import kotlin.coroutines.cancellation.CancellationException
@@ -73,6 +75,35 @@ internal object RealCommandRunner : CommandRunner {
     private const val MILLIS_PER_SECOND = 1_000L
     private const val MILLIS_PER_MINUTE = 60_000L
 }
+
+/**
+ * [interpreter] as a command that means the same file wherever a process is started from: a path with a directory part
+ * (`.venv/bin/python`) is made absolute against the working directory, and a bare name (`python3`) is left for the PATH.
+ */
+internal fun absoluteInterpreter(interpreter: String): String {
+    if ('/' !in interpreter && File.separatorChar !in interpreter) return interpreter
+    return File(interpreter)
+        .toPath()
+        .toAbsolutePath()
+        .normalize()
+        .toString()
+}
+
+/**
+ * [name] as a file name every computer's file-name encoding can hold: the part after the last path separator, with accents taken off
+ * (`Hylé` becomes `Hyle`), any other character outside plain ASCII replaced by an underscore, and `font.ttf` when nothing is left.
+ * The tool is run on a temporary copy of the font under this name, so a family with an accent works in a Java whose file-name encoding
+ * is ASCII.
+ */
+internal fun asciiFileName(name: String): String {
+    val base = name.substringAfterLast('/').substringAfterLast('\\')
+    val folded = Normalizer.normalize(base, Normalizer.Form.NFD).filter { Character.getType(it) != Character.NON_SPACING_MARK.toInt() }
+    val ascii = folded.map { if (it.code in ASCII_FIRST..ASCII_LAST) it else '_' }.joinToString("")
+    return ascii.ifBlank { "font.ttf" }
+}
+
+private const val ASCII_FIRST = 0x20
+private const val ASCII_LAST = 0x7E
 
 /** Stops this process and every process it started. */
 internal fun Process.killTree() {

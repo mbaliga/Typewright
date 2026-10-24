@@ -51,4 +51,7 @@ that has both. Point `TYPEWRIGHT_PYTHON` at it (otherwise `python3` on `PATH` is
 `pip install -r tools/requirements-golden-path.txt`, ideally in a virtualenv. Without that Python
 these two steps fail and name what is missing (the backend's own sentence, with the pip command);
 they never pass on a fixture. The rest of the steps do not need Python. CI's golden-path job sets
-this up; see `docs/CHECK_AND_COMPILE.md`.
+this up; see `docs/CHECK_AND_COMPILE.md`. The same Python also runs the real-tool tests of the compile,
+qa and ui modules (`:compile:pythonIntegrationTest`, `:qa:pythonIntegrationTest`,
+`:ui:pythonIntegrationTest`), which are their own tasks so a machine without the tools keeps a green
+`desktopTest`.

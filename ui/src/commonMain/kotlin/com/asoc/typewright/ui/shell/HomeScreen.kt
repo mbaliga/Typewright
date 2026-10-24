@@ -88,8 +88,8 @@ import kotlinx.coroutines.delay
  * save state; the hero word and a pangram set in its own outlines with its own kerning; what it
  * counts and how its letters fare against its style class; the workbook's next task; the glyphs
  * with the most points; and where the pipeline stands. The deck's two views are Specimen and Glyphs
- * (every glyph, filterable, a tap opens it in Draw). The ⋯ menu adds Font info. With no project open
- * it says so and offers Projects.
+ * (every glyph, filterable, a tap opens it in Draw). The ⋯ menu adds Font info, where the names, metrics and licence
+ * lines are changed. With no project open it says so and offers Projects.
  */
 @Composable
 fun HomeScreen(
@@ -108,8 +108,8 @@ fun HomeScreen(
     val project = rememberOpenProject()
     val font = project?.font
     val economy = rememberProjectEconomy(project)
-    if (view == HomeView.FONT_INFO && font != null) {
-        FontInfoScreen(texture = texture, font = font, onBack = { view = HomeView.SPECIMEN }, modifier = modifier)
+    if (view == HomeView.FONT_INFO && project != null && font != null) {
+        FontInfoScreen(texture = texture, project = project, onBack = { view = HomeView.SPECIMEN }, modifier = modifier)
         return
     }
     val manifest = project?.manifest
@@ -143,7 +143,7 @@ fun HomeScreen(
         onBack = { openProjects?.invoke() },
         menuItems =
             listOfNotNull(
-                font?.let { PageMenuItem("Font info", "fontinfo.plist · names · metrics") { view = HomeView.FONT_INFO } },
+                font?.let { PageMenuItem("Font info", "names · metrics · licence") { view = HomeView.FONT_INFO } },
                 openBrief?.let { open -> PageMenuItem("Brief", "Find the visual language") { open(null, DeckSection.HOME) } },
                 LocalOpenSettings.current?.let { open -> PageMenuItem("Settings", "Theme, text size, haptics", open) },
             ),

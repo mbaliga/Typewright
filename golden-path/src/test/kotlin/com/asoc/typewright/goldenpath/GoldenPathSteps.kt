@@ -52,6 +52,8 @@ import com.asoc.typewright.project.imports.reviewFontFile
 import com.asoc.typewright.project.imports.toNewProjectSpec
 import com.asoc.typewright.project.scrapbook.ScrapbookPin
 import com.asoc.typewright.project.scrapbook.ScrapbookPinKind
+import com.asoc.typewright.qa.FontbakeryCliChecker
+import com.asoc.typewright.qa.LAYER_ONE_UNAVAILABLE_ID
 import com.asoc.typewright.qa.LayerOneAvailability
 import com.asoc.typewright.qa.LayerOneInput
 import com.asoc.typewright.qa.checkAlignmentMiss
@@ -436,18 +438,26 @@ object GoldenPathSteps {
         val binary = compiled.binaries.single()
         val layerOne = runBlocking { checker.check(LayerOneInput(binary.fileName, binary.bytes)) }
         assertTrue(
-            layerOne.results.none { it.id == "layer-one/unavailable" },
+            layerOne.results.none { it.id == LAYER_ONE_UNAVAILABLE_ID },
             "layer one must not be a skip: ${layerOne.results.first().message}",
         )
         assertTrue(layerOne.results.size > 50, "a real googlefonts run has hundreds of checks, not ${layerOne.results.size}")
 
-        // The fail count matches a direct run of the same tool on the same file.
-        val tool = layerOne.tool?.tool
-        if (tool == "Fontbakery") {
-            val direct = directFontbakeryCounts(binary.fileName, binary.bytes)
-            val expectedFails = (direct["FAIL"] ?: 0) + (direct["ERROR"] ?: 0) + (direct["FATAL"] ?: 0)
-            assertEquals(expectedFails, layerOne.counts.fail, "FAIL count against a direct fontbakery run $direct")
-        }
+        // The fail count matches a direct run of Fontbakery on the same file. When the platform picked Fontspector (a binary on PATH),
+        // Fontbakery is run through the app's own Fontbakery checker for the comparison, so the step never passes without one.
+        val fontbakeryReport =
+            if (layerOne.tool?.tool == "Fontbakery") {
+                layerOne
+            } else {
+                runBlocking { FontbakeryCliChecker().check(LayerOneInput(binary.fileName, binary.bytes)) }
+            }
+        assertTrue(
+            fontbakeryReport.results.none { it.id == LAYER_ONE_UNAVAILABLE_ID },
+            "Fontbakery gave no report to compare with a direct run: ${fontbakeryReport.results.first().message}",
+        )
+        val direct = directFontbakeryCounts(binary.fileName, binary.bytes)
+        val expectedFails = (direct["FAIL"] ?: 0) + (direct["ERROR"] ?: 0) + (direct["FATAL"] ?: 0)
+        assertEquals(expectedFails, fontbakeryReport.counts.fail, "FAIL count against a direct fontbakery run $direct")
         val full = report.withLayerOne(layerOne)
         assertEquals(report.items, full.items)
     }
@@ -459,7 +469,7 @@ object GoldenPathSteps {
      * `TYPEWRIGHT_PYTHON` names. A failure, including no Python, is a plain [fail] that quotes the backend's own sentence.
      * A success is checked against the seed project: family name, units per em, every glyph's advance and ink box within 2
      * units, the cmap, no ERROR line in the log, and the sources untouched. Then S-ufo itself, which holds Hyle Deco's
-     * quadratic outlines as `qcurve` points exactly as an import keeps them, is built the same way (OQ 125's flow), so a
+     * quadratic outlines as `qcurve` points exactly as an import keeps them, is built the same way, so a
      * font opened from a TTF compiles too.
      */
     fun step5CompileTtf() {

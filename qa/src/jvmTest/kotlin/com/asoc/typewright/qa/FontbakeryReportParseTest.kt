@@ -66,10 +66,13 @@ class FontbakeryReportParseTest {
         assertEquals(CheckStatus.WARN, byId.getValue("gpos_kerning_info").status)
         assertEquals(CheckStatus.SKIP, byId.getValue("gsub/smallcaps_before_ligatures").status)
         assertEquals(CheckStatus.FAIL, byId.getValue("canonical_filename").status)
-        // INFO is a note, not a problem: it counts as a warning, and the raw word survives.
-        assertEquals(CheckStatus.WARN, byId.getValue("superfamily/list").status)
-        assertEquals("INFO", byId.getValue("superfamily/list").toolStatus)
+        // INFO is a note, not a problem: it is its own status and is never counted as a warning.
+        assertEquals(CheckStatus.INFO, byId.getValue("superfamily/list").status)
+        assertNull(byId.getValue("superfamily/list").toolStatus, "INFO is its own status, so there is no other word to keep")
         assertNull(byId.getValue("canonical_filename").toolStatus)
+        val counts = LayerOneCounts.of(outcomes)
+        assertEquals(1, counts.info)
+        assertEquals(1, counts.warn, "only the one real WARN is a warning; the INFO note is not folded in")
     }
 
     @Test
@@ -82,8 +85,10 @@ class FontbakeryReportParseTest {
     @Test
     fun theCountsAreFontbakerysOwn() {
         val counts = LayerOneCounts.of(outcomes)
+        // The report's own tally is {"FAIL": 1, "INFO": 1, "PASS": 1, "SKIP": 1, "WARN": 1}: the note is its own count.
         assertEquals(1, counts.fail)
-        assertEquals(2, counts.warn)
+        assertEquals(1, counts.warn)
+        assertEquals(1, counts.info)
         assertEquals(1, counts.pass)
         assertEquals(1, counts.skip)
     }

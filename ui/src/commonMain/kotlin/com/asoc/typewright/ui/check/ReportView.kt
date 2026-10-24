@@ -37,9 +37,11 @@ import com.asoc.typewright.qa.report.Basis
 import com.asoc.typewright.qa.report.CheckItem
 import com.asoc.typewright.qa.report.CheckReport
 import com.asoc.typewright.qa.report.CheckRoute
+import com.asoc.typewright.qa.report.ItemPlot
 import com.asoc.typewright.qa.report.NotMeasured
 import com.asoc.typewright.qa.report.Severity
 import com.asoc.typewright.qa.report.SeverityBar
+import com.asoc.typewright.qa.report.statText
 import com.asoc.typewright.qa.report.withThousands
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.Typography
@@ -50,6 +52,7 @@ private const val DECK_CLEARANCE_DP = 200
 private const val RAW_PANEL_ALPHA = 0.06f
 private const val MESSAGE_LIMIT = 400
 private const val OUTCOMES_SHOWN = 40
+private const val NOTES_SHOWN = 10
 private const val LOG_LINES_SHOWN = 40
 
 /** What a tap on the Report page can ask for. */
@@ -58,9 +61,10 @@ internal class ReportActions(
     val onCancel: () -> Unit,
     val onRunAgain: () -> Unit,
     val onToggleOutput: () -> Unit,
+    val onTogglePasses: () -> Unit = {},
 )
 
-/** The shape a layer-one status carries: the same ● ◐ ✓ ○ the layer-two items use, so the two layers read alike. */
+/** The shape a layer-one status carries: the same ● ◐ ✓ ○ the layer-two items use, so the two layers read alike, and an i for a note. */
 internal val CheckStatus.shape: String
     get() =
         when (this) {
@@ -68,7 +72,21 @@ internal val CheckStatus.shape: String
             CheckStatus.WARN -> Severity.WARN.shape
             CheckStatus.PASS -> Severity.PASS.shape
             CheckStatus.SKIP -> Severity.NOT_MEASURED.shape
+            CheckStatus.INFO -> NOTE_SHAPE
         }
+
+/** The word that goes with a layer-one status's shape; a tool's INFO is a note, never a warning. */
+internal val CheckStatus.word: String
+    get() =
+        when (this) {
+            CheckStatus.FAIL -> Severity.FAIL.word
+            CheckStatus.WARN -> Severity.WARN.word
+            CheckStatus.PASS -> Severity.PASS.word
+            CheckStatus.SKIP -> "skipped"
+            CheckStatus.INFO -> "note"
+        }
+
+private const val NOTE_SHAPE = "i"
 
 /**
  * Check, Report (S14): the counts and the severity bar, then the fourteen layer-two checks in groups, each with
@@ -86,6 +104,7 @@ internal fun ReportPage(
     showOutput: Boolean,
     actions: ReportActions,
     modifier: Modifier = Modifier,
+    showPasses: Boolean = false,
 ) {
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()
@@ -121,7 +140,7 @@ internal fun ReportPage(
             }
         }
         Spacer(Modifier.height(10.dp))
-        LayerOneSection(texture, run, raw, actions)
+        LayerOneSection(texture, run, raw, showPasses, actions)
         Spacer(Modifier.height(10.dp))
         NotMeasuredView(texture)
         Spacer(Modifier.height(DECK_CLEARANCE_DP.dp))
@@ -151,6 +170,8 @@ private fun CheckItemView(
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()
     val passed = item.severity == Severity.PASS
+    // A reviewer's words and a fix answer a verdict; a check that could not judge has neither.
+    val judged = item.severity == Severity.FAIL || item.severity == Severity.WARN
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         BasicText(
             text = item.severity.shape,
@@ -180,7 +201,8 @@ private fun CheckItemView(
                 }
             }
             BasicText(text = item.summary, style = sentenceStyle(if (passed) muted else fg))
-            if (!passed) {
+            if (judged) item.plot?.let { MiniPlot(texture, it) }
+            if (judged) {
                 item.reviewerQuote?.let {
                     BasicText(
                         text = "Reviewer: “$it”",
@@ -193,6 +215,33 @@ private fun CheckItemView(
         }
     }
 }
+
+/** The box a finding is judged by, small, under its sentence: the glyph's count against the middle half and the range of the faces. */
+@Composable
+private fun MiniPlot(
+    texture: CanvasTexture,
+    plot: ItemPlot,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(top = 2.dp)) {
+        BoxPlot(
+            BoxPlotSpec.of(plot.box, plot.count),
+            plot.glyph,
+            texture,
+            modifier = Modifier.fillMaxWidth(),
+            height = MINI_PLOT_HEIGHT_DP.dp,
+            boxHeight = MINI_BOX_HEIGHT_DP.dp,
+        )
+        BasicText(
+            text =
+                "${plot.glyph} · yours ${plot.count.withThousands()} · " +
+                    "middle half ${plot.box.q1.statText()} to ${plot.box.q3.statText()} · log scale",
+            style = labelStyle(texture.muted.toColor(), size = 8.5, tracking = 0.06),
+        )
+    }
+}
+
+private const val MINI_PLOT_HEIGHT_DP = 22
+private const val MINI_BOX_HEIGHT_DP = 8
 
 /** A block of mono text on a faint ink ground: the Raw view of a finding or a log. */
 @Composable
@@ -249,7 +298,7 @@ private fun LayerOneNotice(
             Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 12.dp)) {
                 BasicText(text = "LAYER ONE · STOPPED", style = labelStyle(muted))
                 BasicText(
-                    text = "${Severity.FAIL.shape} Layer one stopped while it was ${state.stage.title.lowercase()}",
+                    text = "${Severity.FAIL.shape} ${CheckText.failureHeading(state.stage)}",
                     style = sentenceStyle(fg, size = 12.5, weight = FontWeight.SemiBold),
                 )
                 BasicText(text = state.cause, style = sentenceStyle(fg))
@@ -283,6 +332,7 @@ private fun LayerOneSection(
     texture: CanvasTexture,
     run: CheckRunState,
     raw: Boolean,
+    showPasses: Boolean,
     actions: ReportActions,
 ) {
     val fg = texture.fg.toColor()
@@ -307,7 +357,7 @@ private fun LayerOneSection(
             }
 
             is LayerOneState.Done -> {
-                LayerOneResults(texture, state.report, raw)
+                LayerOneResults(texture, state.report, raw, showPasses, actions.onTogglePasses)
             }
 
             else -> {
@@ -322,16 +372,14 @@ private fun LayerOneResults(
     texture: CanvasTexture,
     report: LayerOneReport,
     raw: Boolean,
+    showPasses: Boolean,
+    onTogglePasses: () -> Unit,
 ) {
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()
     val c = report.counts
-    BasicText(
-        text =
-            "${report.results.size.withThousands()} checks · ${c.fail.withThousands()} fail · ${c.warn.withThousands()} warn · " +
-                "${c.pass.withThousands()} pass · ${c.skip.withThousands()} skipped",
-        style = labelStyle(fg, size = 9.5, tracking = 0.06),
-    )
+    BasicText(text = layerOneCountsLine(report), style = labelStyle(fg, size = 9.5, tracking = 0.06))
+    for (note in report.notes) BasicText(text = note, style = sentenceStyle(muted, size = 12.0))
     if (raw) {
         RawPanel(
             texture,
@@ -342,7 +390,9 @@ private fun LayerOneResults(
         return
     }
     val findings = report.results.filter { it.status == CheckStatus.FAIL || it.status == CheckStatus.WARN }
+    val notes = report.results.filter { it.status == CheckStatus.INFO }
     val shown = findings.sortedBy { if (it.status == CheckStatus.FAIL) 0 else 1 }.take(OUTCOMES_SHOWN)
+    val shownNotes = notes.take(NOTES_SHOWN)
     Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 4.dp)) {
         for (outcome in shown) OutcomeView(texture, outcome)
         if (findings.size > shown.size) {
@@ -357,6 +407,56 @@ private fun LayerOneResults(
                 style = sentenceStyle(muted),
             )
         }
+        if (shownNotes.isNotEmpty()) {
+            BasicText(
+                text = "NOTES · NOT PROBLEMS",
+                style = labelStyle(muted, size = 9.0, tracking = 0.1),
+                modifier = Modifier.padding(top = 4.dp),
+            )
+            for (outcome in shownNotes) OutcomeView(texture, outcome)
+            if (notes.size > shownNotes.size) {
+                BasicText(
+                    text = "… and ${(notes.size - shownNotes.size).withThousands()} more notes in Raw.",
+                    style = sentenceStyle(muted, size = 12.0),
+                )
+            }
+        }
+        if (c.pass > 0) {
+            val passed = "the ${c.pass.withThousands()} that passed"
+            ActionLink(
+                label = if (showPasses) "Hide $passed" else "Show $passed",
+                texture = texture,
+                onClick = onTogglePasses,
+            )
+            if (showPasses) {
+                for (outcome in report.results.filter { it.status == CheckStatus.PASS }) PassedLine(texture, outcome)
+            }
+        }
+    }
+}
+
+/** Layer one's tally: `140 checks · 1 fail · 2 warn · 130 pass · 3 skipped`, with `· 4 notes` only when the tool made some. */
+internal fun layerOneCountsLine(report: LayerOneReport): String {
+    val c = report.counts
+    val notes = if (c.info > 0) " · ${c.info.withThousands()} ${if (c.info == 1) "note" else "notes"}" else ""
+    return "${report.results.size.withThousands()} checks · ${c.fail.withThousands()} fail · ${c.warn.withThousands()} warn · " +
+        "${c.pass.withThousands()} pass · ${c.skip.withThousands()} skipped$notes"
+}
+
+/** One check that passed: its shape, its id in mono, and the tool's own description of it. */
+@Composable
+private fun PassedLine(
+    texture: CanvasTexture,
+    outcome: CheckOutcome,
+) {
+    val fg = texture.fg.toColor()
+    val muted = texture.muted.toColor()
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        BasicText(text = outcome.status.shape, style = sentenceStyle(fg, size = 12.0), modifier = Modifier.widthIn(min = 12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            BasicText(text = outcome.id, style = Typography.mono(sizeSp = 10.5).copy(color = fg, letterSpacing = 0.sp))
+            outcome.title?.let { BasicText(text = it, style = sentenceStyle(muted, size = 11.5)) }
+        }
     }
 }
 
@@ -366,6 +466,7 @@ private fun OutcomeView(
     outcome: CheckOutcome,
 ) {
     val fg = texture.fg.toColor()
+    val muted = texture.muted.toColor()
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         BasicText(
             text = outcome.status.shape,
@@ -373,14 +474,22 @@ private fun OutcomeView(
             modifier = Modifier.widthIn(min = 12.dp).padding(top = 1.dp),
         )
         Column(verticalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.weight(1f)) {
-            BasicText(
-                text = outcome.id,
-                style = Typography.mono(sizeSp = 11.0, weight = FontWeight.SemiBold).copy(color = fg, letterSpacing = 0.02.em),
-            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                BasicText(
+                    text = outcome.id,
+                    style = Typography.mono(sizeSp = 11.0, weight = FontWeight.SemiBold).copy(color = fg, letterSpacing = 0.02.em),
+                    modifier = Modifier.alignByBaseline(),
+                )
+                BasicText(
+                    text = outcome.status.word.uppercase(),
+                    style = labelStyle(muted, size = 8.5, tracking = 0.08),
+                    modifier = Modifier.alignByBaseline(),
+                )
+            }
             val message = outcome.message.trim()
             BasicText(
                 text = if (message.length > MESSAGE_LIMIT) message.take(MESSAGE_LIMIT) + "…" else message,
-                style = sentenceStyle(fg, size = 12.0),
+                style = sentenceStyle(if (outcome.status == CheckStatus.INFO) muted else fg, size = 12.0),
             )
         }
     }

@@ -7,7 +7,9 @@ The quality gate: Typewright's own checks (node economy, extrema, overshoot, anc
 - `LayerOneChecker` (`LayerOneChecker.kt` + platform actuals): the bridge to a real googlefonts-profile
   tool. On the desktop, `DesktopLayerOneChecker` runs Fontspector when its binary is on `PATH` and
   otherwise Fontbakery (`python -m fontbakery check-googlefonts`) in the Python `TYPEWRIGHT_PYTHON`
-  names; with neither it reports one SKIP that names the pip command. On Android and the web the actual
+  names, and Fontbakery too when Fontspector's report cannot be read (the report says so in its `notes`);
+  with neither it reports one SKIP that names the pip command. A tool's INFO is `CheckStatus.INFO`, counted
+  apart from the warnings. On Android and the web the actual
   is `Unavailable` and says "Layer one needs the desktop app". The desktop checker is handed out wrapped in
   `BackgroundLayerOneChecker`: every call runs on a background thread and cancelling the caller interrupts it,
   which stops the tool and everything it started, so a screen can call it from its own thread and cancel it.
@@ -35,8 +37,8 @@ The quality gate: Typewright's own checks (node economy, extrema, overshoot, anc
 runs fourteen checks in five groups (Outlines, Metrics, Provenance, Names, Licence), gives each a
 severity that is a shape and a word (● fail, ◐ warn, ✓ pass, ○ not measured), and sorts them in a
 documented order, the order a Google Fonts reviewer attacks a font in (`ReviewOrder`). The counts and the
-severity bar are derived from the items every time, never stored. `economyRows` and `faceSpread` give
-the Economy view its rows and the faces behind each box. `NotMeasured.PARAGRAPHS` is the text of "What
+severity bar are derived from the items every time, never stored. `economyListing` gives the Economy view one
+line per glyph (a glyph with no box says so and is counted, not dropped) and `faceSpread` the faces behind each box. `NotMeasured.PARAGRAPHS` is the text of "What
 these checks do not measure". Layer one's results, when a tool ran, are attached with `withLayerOne`;
 they are the tool's own words and are never merged into the fourteen. How the thresholds are chosen and
 what is a heuristic is in `docs/CHECK_AND_COMPILE.md`.

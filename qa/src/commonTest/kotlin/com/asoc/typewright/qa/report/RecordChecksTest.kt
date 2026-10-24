@@ -132,7 +132,7 @@ class RecordChecksTest {
         val ok = metrics(clean)
         assertEquals(Basis.PUBLISHED, ok.basis)
         assertTrue("Which of them stops a release is our heuristic" in ok.basisNote, ok.basisNote)
-        assertEquals(CheckRoute.OpenFontInfo, ok.action?.route)
+        assertEquals(CheckRoute.OpenFontInfo(FontInfoTarget.METRICS), ok.action?.route)
     }
 
     // ---- provenance ---------------------------------------------------------------------------------------
@@ -289,7 +289,7 @@ class RecordChecksTest {
     @Test
     fun theLicenceItemSaysItIsForTheOflRouteAndPointsToFontInfo() {
         val bad = licence(clean.copy(copyright = null))
-        assertEquals(CheckRoute.OpenFontInfo, bad.action?.route)
+        assertEquals(CheckRoute.OpenFontInfo(FontInfoTarget.LICENCE), bad.action?.route)
         assertTrue("under its own licence chooses that on Ship" in bad.basisNote, bad.basisNote)
     }
 }

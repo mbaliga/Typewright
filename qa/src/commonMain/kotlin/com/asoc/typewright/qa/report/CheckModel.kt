@@ -4,6 +4,7 @@ package com.asoc.typewright.qa.report
 
 import com.asoc.typewright.qa.LayerOneReport
 import com.asoc.typewright.qa.NodeEconomyReport
+import com.asoc.typewright.qa.corpus.Quartiles
 
 /**
  * How serious a layer-two finding is, as a shape and a word (never a colour alone): ● fail, ◐ warn,
@@ -67,8 +68,22 @@ sealed interface CheckRoute {
     /** Ship, where a release is built. */
     data object OpenShip : CheckRoute
 
-    /** Font info, where names, metrics and the licence lines are set. */
-    data object OpenFontInfo : CheckRoute
+    /** Font info, on the part of it [target] names: where the metrics, the names and the licence lines are set. */
+    data class OpenFontInfo(
+        val target: FontInfoTarget,
+    ) : CheckRoute
+}
+
+/** Which part of Font info a finding's action lands on. */
+enum class FontInfoTarget {
+    /** The vertical metrics. */
+    METRICS,
+
+    /** The family and style names. */
+    NAMES,
+
+    /** The copyright line and the licence. */
+    LICENCE,
 }
 
 /** An action offered under a finding: the words on the link (without the trailing ›) and where it goes. */
@@ -97,6 +112,24 @@ data class CheckItem(
     val basis: Basis,
     val basisNote: String,
     val raw: String,
+    val plot: ItemPlot? = null,
+) {
+    init {
+        // A check that could not judge has no verdict for a reviewer's words to describe, or for a fix to answer.
+        require(severity != Severity.NOT_MEASURED || (reviewerQuote == null && action == null)) {
+            "A not-measured check ($id) carries no reviewer quote and no action"
+        }
+    }
+}
+
+/**
+ * The box a finding is judged by, for a small plot beside it: the [glyph] and its on-curve [count] against [box],
+ * the middle half and the range of the faces in `qa/corpus`.
+ */
+data class ItemPlot(
+    val glyph: String,
+    val count: Int,
+    val box: Quartiles,
 )
 
 /** How many items fall in each [Severity]. */

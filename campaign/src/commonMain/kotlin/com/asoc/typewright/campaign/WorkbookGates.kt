@@ -270,6 +270,7 @@ public object WorkbookGates {
                         CheckStatus.WARN -> GateCheckStatus.WARN
                         CheckStatus.FAIL -> GateCheckStatus.FAIL
                         CheckStatus.SKIP -> GateCheckStatus.NOT_IMPLEMENTED
+                        CheckStatus.INFO -> GateCheckStatus.INFO
                     }
                 GateCheckResult(outcome.id, status, outcome.message)
             }

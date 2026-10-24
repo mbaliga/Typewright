@@ -62,7 +62,7 @@ internal fun nodeEconomyItem(
             detail = null,
             severity = Severity.NOT_MEASURED,
             summary = why,
-            reviewerQuote = REVIEWER_QUOTE_NODES,
+            reviewerQuote = null,
             action = null,
             basis = Basis.MEASURED,
             basisNote = "Point counts are judged against the measured faces in qa/corpus; this project has none to be judged against.",
@@ -70,10 +70,16 @@ internal fun nodeEconomyItem(
         )
     }
     if (inputs.corpus == null) return notMeasured("This build cannot read the node-economy data, so the point counts are not judged.")
-    if (style == null || economy == null) {
+    if (style == null) {
         return notMeasured(
             "No style class is set for this project and none could be read from its letters, so there is no box of real faces " +
                 "to judge the point counts against. Declare one in the Brief.",
+        )
+    }
+    if (economy == null) {
+        return notMeasured(
+            "The style class for this project, ${style.name}, has no measured faces in the node-economy data, so there is no box of " +
+                "real faces to judge the point counts against. Choose a class that has one in the Brief.",
         )
     }
     val judged = economy.glyphs.filter { it.onCurveVerdict != null }
@@ -103,7 +109,8 @@ internal fun nodeEconomyItem(
                     "${box.q1.statText()} to ${box.q3.statText()}, at most ${box.max.statText()}."
             val tracer =
                 if (worst.onCurve > TRACER_FOOTPRINT_FACTOR * box.max) {
-                    " A point at every step of a pixel is the footprint a tracer leaves."
+                    " That is more than $TRACER_FOOTPRINT_FACTOR times the most any of those faces has: a point at every step of a " +
+                        "pixel is the footprint a tracer leaves (our heuristic)."
                 } else {
                     ""
                 }
@@ -125,9 +132,11 @@ internal fun nodeEconomyItem(
         reviewerQuote = REVIEWER_QUOTE_NODES,
         action = CheckAction("See every glyph against its box", CheckRoute.OpenEconomy),
         basis = Basis.HEURISTIC,
+        plot = worst?.let { ItemPlot(it.glyphName, it.onCurve, it.onCurveBox!!) },
         basisNote =
             "Each verdict is measured against the ${judged.first().onCurveBox!!.n} ${style.name} faces in qa/corpus. The fence's " +
-                "minimum slack of a quarter of Q3, and the quarter of letters that turns a warning into a fail, are our heuristic.",
+                "minimum slack of a quarter of Q3, the quarter of letters that turns a warning into a fail, and calling a count more " +
+                "than $TRACER_FOOTPRINT_FACTOR times the box's largest a tracer's footprint, are our heuristic.",
         raw =
             rawLines(
                 listOf("style class: ${style.key}${if (style.heuristic) " (read by our heuristic)" else ""}") +
@@ -171,7 +180,8 @@ internal fun curvesArePolygonsItem(inputs: CheckInputs): CheckItem {
     val corpus = inputs.corpus
     val inked = project.glyphs.filter { it.hasInk() }
     val byName = inked.associateBy { it.name }
-    val measured = style != null && corpus != null
+    // Measured only when the class has a box in the corpus; a class the corpus has no faces for falls back to the round letters.
+    val measured = style != null && corpus != null && style.key in corpus.styleKeys
     val expected: List<Glyph> =
         if (measured) {
             inked.filter { corpus!!.offCurveBox(style!!.key, it.name)?.let { box -> box.q1 >= 1.0 } == true }
@@ -201,6 +211,9 @@ internal fun curvesArePolygonsItem(inputs: CheckInputs): CheckItem {
         if (measured) {
             "A letter counts as curved when at least three quarters of the ${style!!.name} faces in qa/corpus draw it with an " +
                 "off-curve point (measured). How many polygons make a fail is our heuristic."
+        } else if (style != null && corpus != null) {
+            "The ${style.name} class has no measured faces in qa/corpus, so there is no box to say which letters are curved. " +
+                "The curved letters are taken to be o c e s O C G S Q: our heuristic."
         } else {
             "No measured box is available, so the curved letters are o c e s O C G S Q: our heuristic."
         }
@@ -213,7 +226,7 @@ internal fun curvesArePolygonsItem(inputs: CheckInputs): CheckItem {
             detail = detail.takeIf { inked.isNotEmpty() },
             severity = Severity.NOT_MEASURED,
             summary = "None of the letters that are normally drawn with curves are in this font yet, so there is nothing to judge.",
-            reviewerQuote = REVIEWER_QUOTE_NODES,
+            reviewerQuote = null,
             action = null,
             basis = basis,
             basisNote = basisNote,
@@ -502,7 +515,7 @@ internal fun anchorsItem(inputs: CheckInputs): CheckItem {
             detail = null,
             severity = Severity.NOT_MEASURED,
             summary = "None of the 52 basic Latin letters are in this font yet, so there is nothing to check for anchors.",
-            reviewerQuote = REVIEWER_QUOTE_DIACRITICS,
+            reviewerQuote = null,
             action = null,
             basis = Basis.HEURISTIC,
             basisNote = basisNote,

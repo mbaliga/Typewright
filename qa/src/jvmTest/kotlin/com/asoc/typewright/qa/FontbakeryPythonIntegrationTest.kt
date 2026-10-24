@@ -98,7 +98,9 @@ class FontbakeryPythonIntegrationTest {
         assertEquals(expectedFail, report.counts.fail, "FAIL count: ours against a direct run $direct")
         assertEquals(direct["PASS"] ?: 0, report.counts.pass, "PASS count")
         assertEquals(direct["SKIP"] ?: 0, report.counts.skip, "SKIP count")
-        assertEquals((direct["WARN"] ?: 0) + (direct["INFO"] ?: 0), report.counts.warn, "WARN and INFO count")
+        // A note is not a warning: Fontbakery's INFO is its own count, as its own report tallies it.
+        assertEquals(direct["WARN"] ?: 0, report.counts.warn, "WARN count")
+        assertEquals(direct["INFO"] ?: 0, report.counts.info, "INFO count")
         assertTrue(
             report.results.none { it.status == CheckStatus.SKIP && it.id == "layer-one/unavailable" },
             "layer one must not be a skip",

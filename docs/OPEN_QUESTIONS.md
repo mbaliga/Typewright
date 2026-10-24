@@ -3619,3 +3619,48 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     pointer. The 26 dp (clear of the contour start triangle, inside a finger's 22 dp reach of
     nothing else) and the select-first rule are my choice; check on a device that the mark is
     findable and not mistaken for a handle. Owner: Madhav.
+
+182. **"Snap with overshoot" is on the Check board but not in Draw (Check fix pass).** Check.dc.html labels the
+    overshoot finding's action "Snap with overshoot ›". Draw has no such command (it shows overshoot zones and
+    nothing moves a round extreme into one), so the action reads "Open e in Draw ›", which is what it does; a label
+    that promises an edit the app cannot make was the same fault as Font info's dead end. Decide whether to build the
+    command (move a round glyph's extremes to the zone, one undo step) and then use the board's words, or to change
+    the board. Owner: Madhav.
+
+183. **The Economy sort order: the board or the explorer (Check fix pass).** Economy.dc.html puts the sort at the
+    right end of the chip line and the legend and fence sentence together above the deck; the explorer's S15 has the
+    sort on its own row under the legend and the fence in a bottom sheet. The page follows the board, as the fix
+    brief asked, though D19 says the explorer wins where they disagree on look. Confirm which, and amend the other.
+    Owner: Madhav.
+
+184. **Font info cannot set fsSelection bit 7 or the Windows metrics (Check fix pass).** The Metrics item warns when
+    "use typo metrics" is not set and fails when the Windows ascent and descent cut off ink, but Font info edits
+    only ascender, descender, cap height, x-height and line gap (an ascender or descender also moves the hhea and typo
+    values the font already states, so Google Fonts' "typo equals hhea" holds). A font drawn from scratch can clear
+    every Check fail from the page, but not the bit-7 warning. Decide whether Font info offers a "Use typo metrics"
+    switch, and whether the Windows ascent and descent are derived from the ink on Ship or typed. Owner: Madhav.
+
+185. **A proprietary or other licence writes nothing, and Check can only pass the Open Font License route (Check fix
+    pass).** Font info's OFL and Apache choices write the standard name-table lines (IDs 13 and 14); Proprietary and
+    Other open the text for the person's own words, because a licence is not Typewright's to write. Check's Licence
+    item passes only the OFL strings, and its basis note says a font under its own licence "chooses that on Ship and
+    is judged there", which Ship does not yet do. Decide how a non-OFL font clears or is excused from that item, and
+    confirm the Apache URL (https://www.apache.org/licenses/LICENSE-2.0; Roboto's name table has http://). Owner: Madhav.
+
+186. **Fontspector's report shape is still unverified, so Fontbakery stands in when it cannot be read (Check fix
+    pass).** Layer one now uses Fontspector only if its output parses, and otherwise runs Fontbakery and says so on
+    the page. No real Fontspector ran in this environment. If one is found on a computer it can be compared with
+    Fontbakery on the same file; until then the golden path always compares against a direct Fontbakery run. Fontbakery's
+    INFO is its own count and is shown as a note, never a warning. Owner: Madhav.
+
+187. **A glyph named in Kana cannot be compiled by fontmake (Check fix pass).** A real build of a project whose glyph
+    is named "あ" (rather than uni3042) stops in fontmake with a UnicodeEncodeError in the post table, which holds
+    Latin-1 names. The build copy's glyph file names are now ASCII, but the glyph names inside are the project's. Decide
+    whether the compile copy renames such glyphs to production names (uniXXXX, as fontmake does for a font with
+    code points), or whether Draw and Capture name non-Latin glyphs that way from the start. Owner: Madhav.
+
+188. **The golden-path job's time on a cold runner is estimated, not measured (Check fix pass).** The job now builds a
+    virtualenv, runs the golden path (three fontmake builds and two Fontbakery runs) and three pythonIntegrationTest
+    tasks. The steps were timed on a warm machine (see docs/CHECK_AND_COMPILE.md) and the job's limit set to a
+    multiple of that sum; the first CI runs on a cold runner are the real measurement. Confirm the limit once they
+    have run. Owner: Madhav.

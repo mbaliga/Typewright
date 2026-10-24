@@ -27,13 +27,26 @@ object CheckText {
     fun runtimeLine(state: CheckRunState): String {
         if (!state.probed) return LAYER_TWO_ONLY
         val layerOne = state.layerOne
+        // The tool that made a finished report is the one named, which is not the one looked for first when that one's report could not be read.
+        val tool = (layerOne as? LayerOneState.Done)?.report?.tool ?: state.runtime
         return when {
             layerOne is LayerOneState.Unavailable && layerOne.reason.startsWith(NEEDS_DESKTOP) -> "$NEEDS_DESKTOP · layer two here"
             layerOne is LayerOneState.Unavailable -> "Layer one is not available on this computer · layer two here"
-            state.runtime != null -> "Layer one: ${state.runtime.description} · layer two here"
+            tool != null -> "Layer one: ${tool.description} · layer two here"
             else -> "Layer one runs on this computer · layer two here"
         }
     }
+
+    /** The heading of a layer-one run that stopped: `Layer one stopped while compiling the project with fontmake`. */
+    fun failureHeading(stage: LayerOneStage): String = "Layer one stopped while ${stage.activity}"
+
+    /** What Check says when one of Typewright's own checks threw: `Check stopped: <cause>.` */
+    fun layerTwoStopped(cause: String): String = "Check stopped: ${cause.trim().trimEnd('.')}."
+
+    /** What the person can do about a layer-two stop. */
+    const val LAYER_TWO_STOPPED_ADVICE: String =
+        "One of Typewright's own checks failed on this project. Nothing in your project was changed. " +
+            "Try again; if it stops again, the cause above is what to report."
 
     /** The Economy page's subtitle: `Your glyph against 30 faces · worst first`, and where the class came from when it is only our reading. */
     fun economySubtitle(

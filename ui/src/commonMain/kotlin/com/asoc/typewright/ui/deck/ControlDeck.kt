@@ -415,6 +415,7 @@ private fun DrawScope.drawDeck(
     }
     val rightAlpha = if (rightDimmed) 0.35f else 1f
     val rightAt = Offset(DeckGeometry.RIGHT_CIRCLE_X.toFloat(), cy)
+    val refreshPath = if (right == DeckRight.REFRESH) DeckGlyphs.refresh() else null
     when (right) {
         DeckRight.MENU -> {
             drawCircle(paper, DeckGeometry.CIRCLE_RADIUS.toFloat(), rightAt, alpha = rightAlpha)
@@ -466,39 +467,14 @@ private fun DrawScope.drawDeck(
 
         DeckRight.REFRESH -> {
             drawCircle(ink, DeckGeometry.FILLED_CIRCLE_RADIUS.toFloat(), rightAt, alpha = rightAlpha)
-            val color = paper.copy(alpha = paper.alpha * rightAlpha)
-            val r = REFRESH_RADIUS
-            val endAngle = REFRESH_END_DEGREES * PI.toFloat() / 180f
-            stroke(
-                Path().apply {
-                    arcTo(
-                        Rect(rightAt.x - r, rightAt.y - r, rightAt.x + r, rightAt.y + r),
-                        REFRESH_START_DEGREES,
-                        REFRESH_END_DEGREES - REFRESH_START_DEGREES,
-                        true,
-                    )
-                },
-                color,
-                2.2f,
-            )
-            // The arrowhead sits on the end of the arc and points the way it travels (clockwise).
-            val ex = rightAt.x + r * cos(endAngle)
-            val ey = rightAt.y + r * sin(endAngle)
-            val tx = -sin(endAngle)
-            val ty = cos(endAngle)
-            val tipX = ex + tx * 3f
-            val tipY = ey + ty * 3f
-            val baseX = tipX - tx * 5f
-            val baseY = tipY - ty * 5f
-            stroke(
-                Path().apply {
-                    moveTo(baseX - ty * 4f, baseY + tx * 4f)
-                    lineTo(tipX, tipY)
-                    lineTo(baseX + ty * 4f, baseY - tx * 4f)
-                },
-                color,
-                2.2f,
-            )
+            // The board's own path (Deck.dc.html), about the circle's centre, with the board's width and the plain ends it draws it with.
+            withTransform({ translate(rightAt.x, rightAt.y) }) {
+                drawPath(
+                    checkNotNull(refreshPath),
+                    paper.copy(alpha = paper.alpha * rightAlpha),
+                    style = Stroke(width = DeckGlyphs.REFRESH_STROKE, cap = StrokeCap.Butt),
+                )
+            }
         }
 
         DeckRight.NONE -> {
@@ -506,11 +482,6 @@ private fun DrawScope.drawDeck(
         }
     }
 }
-
-/** Run again's arrow: an arc of this radius from the start to the end angle (degrees, clockwise from three o'clock), then a head. */
-private const val REFRESH_RADIUS = 8f
-private const val REFRESH_START_DEGREES = -60f
-private const val REFRESH_END_DEGREES = 230f
 
 private fun DrawScope.stroke(
     path: Path,

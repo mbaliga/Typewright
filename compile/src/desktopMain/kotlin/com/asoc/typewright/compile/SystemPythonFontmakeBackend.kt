@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.nio.charset.Charset
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
@@ -16,10 +17,13 @@ import kotlin.concurrent.thread
  * first, then `python3` on PATH; [PythonLocator]).
  *
  * [availability] says in words which interpreter it found or why there is none, and names every
- * missing package with the pip command that installs it; it installs nothing. [compile] writes the
- * project's UFO to a fresh temporary directory (with quadratic contours rewritten as cubic in that
- * copy only, [prepareUfoForFontmake]), runs fontmake on it, streams its output line by line to
- * `onLog`, and returns the TTF as a [FontBinary]. Overlaps are removed with skia-pathops when it
+ * missing package with the pip command that installs it; it installs nothing. A relative
+ * `TYPEWRIGHT_PYTHON` is made absolute when it is found, so the probe and the build mean the same file.
+ * [compile] writes the project's UFO to a fresh temporary directory (with quadratic contours rewritten
+ * as cubic in that copy only, [prepareUfoForFontmake]), runs fontmake on it, streams its output line by
+ * line to `onLog`, and returns the TTF as a [FontBinary]. The copy and the font fontmake writes have
+ * plain ASCII names ([withAsciiFileNames]) and the binary gets the project's own name back, so a family
+ * with an accent or a glyph in Kana builds on a Java whose file-name encoding is ASCII. Overlaps are removed with skia-pathops when it
  * imports and are otherwise left alone, and the log says so. ttfautohint runs only when it is on
  * PATH; otherwise the log says "not hinted: ttfautohint not found" and the build goes on. Cancelling
  * the calling coroutine stops fontmake and every process it started and deletes the temporary
@@ -112,14 +116,25 @@ class SystemPythonFontmakeBackend internal constructor(
 
         val work = Files.createTempDirectory("typewright-build-").toFile()
         try {
-            val ufoDir = File(work, "source/${ufoPath.substringAfterLast('/')}")
-            writeFiles(ufoDir, prepared.files)
-            val outDir = File(work, "out").apply { mkdirs() }
+            if (!canNameFile(work.path)) {
+                return failure(
+                    log,
+                    "This computer's file-name encoding cannot hold the temporary folder ${work.path}, " +
+                        "so fontmake could not be given it. " +
+                        "Set TMPDIR (or java.io.tmpdir) to a folder whose name is plain ASCII, then build again.",
+                )
+            }
+            // The copy fontmake reads, and the font it writes, have plain ASCII names whatever the project is called, so a family
+            // such as "Hylé Deco" or a Kana glyph's file builds on a Java whose file-name encoding is ASCII. The project's own
+            // name is put back on the binary afterwards.
+            val ufoDir = File(work, "source/$BUILD_UFO_NAME")
+            writeFiles(ufoDir, withAsciiFileNames(prepared.files))
+            val outFile = File(work, "out/$BUILD_FONT_NAME").also { it.parentFile.mkdirs() }
 
-            val command = fontmakeCommand(python, ufoDir, outDir, request.options, log)
+            val command = fontmakeCommand(python, ufoDir, outFile, request.options, log)
             log.info("Running fontmake…")
             val exit = runStreaming(command, work, log)
-            val binaries = collectBinaries(outDir)
+            val binaries = collectBinaries(outFile, projectBinaryName(ufoPath))
             return when {
                 exit.timedOut -> failure(log, "fontmake did not finish within ${describeDuration(timeoutMillis)} and was stopped.")
                 exit.code != 0 -> CompileResult.Failure(explainFailure(log.lineTexts(), exit.code), log.lines())
@@ -134,12 +149,12 @@ class SystemPythonFontmakeBackend internal constructor(
     private fun fontmakeCommand(
         python: FontmakePython,
         ufoDir: File,
-        outDir: File,
+        outFile: File,
         options: CompileOptions,
         log: BuildLog,
     ): List<String> {
         val command =
-            mutableListOf(python.python, "-m", "fontmake", "-u", ufoDir.absolutePath, "-o", "ttf", "--output-dir", outDir.absolutePath)
+            mutableListOf(python.python, "-m", "fontmake", "-u", ufoDir.absolutePath, "-o", "ttf", "--output-path", outFile.absolutePath)
         when {
             !options.removeOverlaps -> {
                 command += "--keep-overlaps"
@@ -292,13 +307,23 @@ private fun writeFiles(
     }
 }
 
-/** Every `.ttf` fontmake wrote to [outDir], as binaries, in name order. */
-private fun collectBinaries(outDir: File): List<FontBinary> =
-    outDir
-        .walkTopDown()
-        .filter { it.isFile && it.extension.equals("ttf", ignoreCase = true) }
-        .sortedBy { it.name }
-        .map { FontBinary(it.name, OutputFormat.TTF, it.readBytes()) }
-        .toList()
+/** The font fontmake wrote to [outFile] as a binary called [name] (the project's own name for it), or none when it wrote nothing. */
+private fun collectBinaries(
+    outFile: File,
+    name: String,
+): List<FontBinary> = if (outFile.isFile) listOf(FontBinary(name, OutputFormat.TTF, outFile.readBytes())) else emptyList()
+
+/** What the project calls the font fontmake builds: the name of its UFO folder with `.ttf` in place of `.ufo`. */
+private fun projectBinaryName(ufoPath: String): String = ufoPath.substringAfterLast('/').removeSuffix(".ufo").ifEmpty { "font" } + ".ttf"
+
+/** Whether this Java's file-name encoding can write [path], which it cannot when it is ASCII and the path is not. */
+private fun canNameFile(path: String): Boolean {
+    val encoding = System.getProperty("sun.jnu.encoding") ?: return isPlainAscii(path)
+    return runCatching { Charset.forName(encoding).newEncoder().canEncode(path) }.getOrDefault(isPlainAscii(path))
+}
+
+/** The names the build's own files get, whatever the project is called. */
+private const val BUILD_UFO_NAME = "source.ufo"
+private const val BUILD_FONT_NAME = "font.ttf"
 
 actual fun platformCompileBackend(): CompileBackend = SystemPythonFontmakeBackend()

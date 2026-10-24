@@ -2,10 +2,15 @@
 
 package com.asoc.typewright.ui.check
 
+import com.asoc.typewright.qa.CheckOutcome
+import com.asoc.typewright.qa.CheckStatus
+import com.asoc.typewright.qa.LayerOneReport
 import com.asoc.typewright.qa.LayerOneRuntime
 import com.asoc.typewright.qa.report.EconomySort
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class CheckTextTest {
     private val fontbakery = LayerOneRuntime("Fontbakery", "0.12.10", "on this computer")
@@ -57,5 +62,29 @@ class CheckTextTest {
         assertEquals("00:00", CheckText.elapsed(-3))
         assertEquals("under 1 s", CheckText.duration(0))
         assertEquals("6 s", CheckText.duration(6))
+    }
+
+    @Test
+    fun aFailureHeadingReadsAsASentenceForEachStage() {
+        assertEquals("Layer one stopped while compiling the project with fontmake", CheckText.failureHeading(LayerOneStage.COMPILE))
+        assertEquals("Layer one stopped while checking the compiled binary", CheckText.failureHeading(LayerOneStage.CHECK))
+        // The old heading put a command after "was": "while it was compile the project with fontmake".
+        for (stage in LayerOneStage.entries) assertFalse("while it was" in CheckText.failureHeading(stage))
+    }
+
+    @Test
+    fun aLayerTwoStopNamesTheCauseAndEndsInOnePeriod() {
+        assertEquals("Check stopped: the contour of T has no points.", CheckText.layerTwoStopped("the contour of T has no points"))
+        assertEquals("Check stopped: boom.", CheckText.layerTwoStopped("boom."))
+        assertTrue("Nothing in your project was changed" in CheckText.LAYER_TWO_STOPPED_ADVICE)
+    }
+
+    @Test
+    fun theRuntimeLineNamesTheToolThatMadeTheReportNotTheOneLookedForFirst() {
+        val spector = LayerOneRuntime("Fontspector", "1.0.0", "on this computer")
+        val report = LayerOneReport(listOf(CheckOutcome("a", CheckStatus.PASS, "ok")), tool = fontbakery)
+        // Fontspector was found first, its report could not be read, and Fontbakery's was used: the page says Fontbakery.
+        val state = CheckRunState(layerOne = LayerOneState.Done(report, Any()), runtime = spector, probed = true)
+        assertEquals("Layer one: Fontbakery 0.12.10 on this computer · layer two here", CheckText.runtimeLine(state))
     }
 }

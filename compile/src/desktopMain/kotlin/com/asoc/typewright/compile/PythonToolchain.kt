@@ -48,11 +48,14 @@ internal class PythonLocator(
         val named = env(PYTHON_ENV_VARIABLE)?.trim()?.takeIf { it.isNotEmpty() }
         val candidates = listOfNotNull(named, DEFAULT_PYTHON).distinct()
         val notes = mutableListOf<String>()
-        for (candidate in candidates) {
+        for (typed in candidates) {
+            // A relative interpreter is made absolute here, once, so the probe and the build (which runs from a temporary
+            // directory) mean the same file.
+            val candidate = absoluteInterpreter(typed)
             val outcome = runner.run(listOf(candidate, "-c", PROBE_SCRIPT), probeTimeoutMillis)
             val facts = if (outcome.succeeded) parseProbe(outcome.output) else null
             if (facts == null || facts["python"] == null) {
-                notes += describeFailure(candidate, outcome, candidate == named)
+                notes += describeFailure(typed, outcome, typed == named)
                 continue
             }
             return interpret(candidate, facts)

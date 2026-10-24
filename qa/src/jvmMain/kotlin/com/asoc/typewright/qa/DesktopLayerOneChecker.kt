@@ -3,10 +3,11 @@
 package com.asoc.typewright.qa
 
 /**
- * Layer one on a computer: Fontspector when its binary is on PATH, otherwise Fontbakery from the Python
- * on this computer, the same googlefonts profile either way and the same [CheckOutcome]s out. When
- * neither can run it still answers: [availability] says why in one sentence that names the pip command,
- * and [check] returns the one skipped outcome the interface promises (a skip is never a pass).
+ * Layer one on a computer: Fontspector when its binary is on PATH and its report can be read, otherwise
+ * Fontbakery from the Python on this computer, the same googlefonts profile either way and the same
+ * [CheckOutcome]s out. When neither can run it still answers: [availability] says why in one sentence that
+ * names the pip command, and [check] returns the one skipped outcome the interface promises (a skip is
+ * never a pass).
  */
 internal class DesktopLayerOneChecker(
     private val fontspector: LayerOneChecker = FontspectorCliChecker(),
@@ -33,9 +34,38 @@ internal class DesktopLayerOneChecker(
     }
 
     override suspend fun check(input: LayerOneInput): LayerOneReport {
-        val chosen = if (fontspector.availability() is LayerOneAvailability.Available) fontspector else fontbakery
-        val report = chosen.check(input)
-        return if (report.tool == null) report.copy(tool = chosen.runtime()) else report
+        if (fontspector.availability() is LayerOneAvailability.Available) {
+            val first = tagged(fontspector, fontspector.check(input))
+            // Fontspector is used only if what it printed can be read: a report that held no recognisable check is not
+            // a verdict on the font, so the same profile is run by Fontbakery when it can, and the page says so.
+            if (!first.isUnavailable) return first
+            if (fontbakery.availability() !is LayerOneAvailability.Available) return first
+            val second = tagged(fontbakery, fontbakery.check(input))
+            val why =
+                first.results
+                    .single()
+                    .message
+                    .removePrefix("Unavailable: ")
+                    .take(NOTE_REASON_LIMIT)
+            if (second.isUnavailable) {
+                return unavailableReport(
+                    "Fontspector gave no report that could be read ($why). Fontbakery then said: ${second.results.single().message}",
+                )
+            }
+            val note = "Fontspector ran but its report could not be read ($why), so Fontbakery checked the font instead."
+            return second.copy(notes = second.notes + note)
+        }
+        return tagged(fontbakery, fontbakery.check(input))
+    }
+
+    /** [report] with [checker]'s tool named on it, unless the checker already named one. */
+    private suspend fun tagged(
+        checker: LayerOneChecker,
+        report: LayerOneReport,
+    ): LayerOneReport = if (report.tool == null && !report.isUnavailable) report.copy(tool = checker.runtime()) else report
+
+    private companion object {
+        const val NOTE_REASON_LIMIT = 160
     }
 }
 

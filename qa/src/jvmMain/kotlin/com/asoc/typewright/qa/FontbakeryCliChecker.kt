@@ -77,7 +77,7 @@ class FontbakeryCliChecker internal constructor(
         val tool = LayerOneRuntime("Fontbakery", python.version, "on this computer")
         val work = createTempDirectory("fontbakery-").toFile()
         try {
-            val fontFile = File(work, sanitizeFileName(input.fileName))
+            val fontFile = File(work, asciiFileName(input.fileName))
             fontFile.writeBytes(input.bytes)
             val jsonFile = File(work, "report.json")
             val command =
@@ -124,8 +124,10 @@ class FontbakeryCliChecker internal constructor(
 
     private fun locateAnew(named: String?): FontbakeryLookup {
         val notes = mutableListOf<String>()
-        for (candidate in listOfNotNull(named, DEFAULT_PYTHON).distinct()) {
-            val label = if (candidate == named) "$PYTHON_ENV_VARIABLE ($candidate)" else candidate
+        for (typed in listOfNotNull(named, DEFAULT_PYTHON).distinct()) {
+            val label = if (typed == named) "$PYTHON_ENV_VARIABLE ($typed)" else typed
+            // A relative interpreter is made absolute here, once, so the probe and the run mean the same file.
+            val candidate = absoluteInterpreter(typed)
             val python = runner.run(listOf(candidate, "-c", "import sys; print('python ok', sys.version.split()[0])"), PROBE_TIMEOUT_MILLIS)
             val pythonVersion =
                 python.output
@@ -188,19 +190,13 @@ class FontbakeryCliChecker internal constructor(
     }
 }
 
-/** A safe-enough basename for a temporary file: strips any path separators out of a caller-given name. */
-private fun sanitizeFileName(name: String): String {
-    val base = name.substringAfterLast('/').substringAfterLast('\\')
-    return base.ifBlank { "font.ttf" }
-}
-
 /**
  * Fontbakery's `--json` report as [CheckOutcome]s, one per check in the report's own order. A check's id
  * is Fontbakery's (`com.google.fonts/check/gpos_kerning_info`), its [CheckOutcome.title] is Fontbakery's
  * description of it, its message is what the check logged, and its status is Fontbakery's: `PASS`, `WARN`,
- * `FAIL` and `SKIP` map to themselves, `INFO` (a note, not a problem) to a warning and `ERROR` or `FATAL`
- * (the check broke, or found the font unusable) to a failure, with [CheckOutcome.toolStatus] keeping the
- * word the tool used. A check with a word this reader does not know is a skip, never a pass.
+ * `FAIL`, `SKIP` and `INFO` (a note, not a problem, so never counted as a warning) map to themselves and
+ * `ERROR` or `FATAL` (the check broke, or found the font unusable) to a failure, with [CheckOutcome.toolStatus]
+ * keeping the word the tool used. A check with a word this reader does not know is a skip, never a pass.
  */
 internal fun parseFontbakeryReport(report: JsonElement): List<CheckOutcome> {
     val sections = (report as? JsonObject)?.get("sections") as? JsonArray ?: return emptyList()
@@ -230,7 +226,8 @@ internal fun parseFontbakeryReport(report: JsonElement): List<CheckOutcome> {
 private fun statusOf(word: String): CheckStatus =
     when (word.uppercase()) {
         "PASS" -> CheckStatus.PASS
-        "WARN", "INFO" -> CheckStatus.WARN
+        "WARN" -> CheckStatus.WARN
+        "INFO" -> CheckStatus.INFO
         "FAIL", "ERROR", "FATAL" -> CheckStatus.FAIL
         else -> CheckStatus.SKIP
     }
