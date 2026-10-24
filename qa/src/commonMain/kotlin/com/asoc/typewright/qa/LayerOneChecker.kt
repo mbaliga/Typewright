@@ -34,6 +34,22 @@ interface LayerOneChecker {
      * never has to special-case "no report at all" versus "an empty one".
      */
     suspend fun check(input: LayerOneInput): LayerOneReport
+
+    /**
+     * Which tool would run, at which version, and where (for the Check page's runtime line), or null
+     * when none can run here or the checker cannot say. Never throws.
+     */
+    suspend fun runtime(): LayerOneRuntime? = null
+}
+
+/** The tool a [LayerOneChecker] runs: its [tool] name (`Fontbakery`), its [version] when it reports one, and [where] it runs, in words. */
+data class LayerOneRuntime(
+    val tool: String,
+    val version: String?,
+    val where: String,
+) {
+    /** The runtime line of the Check page: `Fontbakery 0.12.10 on this computer`. */
+    val description: String get() = listOfNotNull(tool, version).joinToString(" ") + " " + where
 }
 
 /** The compiled font layer one checks: raw bytes plus the file name a checker's CLI reports against. */
@@ -58,11 +74,17 @@ sealed interface LayerOneAvailability {
  */
 enum class CheckStatus { PASS, WARN, FAIL, SKIP }
 
-/** One check's result: its tool-given [id], its [status], and a plain-language [message]. */
+/**
+ * One check's result: its tool-given [id], its [status], and a plain-language [message]. [toolStatus] is the
+ * tool's own word when it has more than [CheckStatus] does (Fontbakery's `INFO`, `FATAL` or `ERROR`), so the
+ * raw view can show it; [title] is the tool's one-line description of the check, when it gives one.
+ */
 data class CheckOutcome(
     val id: String,
     val status: CheckStatus,
     val message: String,
+    val toolStatus: String? = null,
+    val title: String? = null,
 )
 
 /** How many of a [LayerOneReport]'s [LayerOneReport.results] fall into each [CheckStatus]. */
@@ -83,10 +105,14 @@ data class LayerOneCounts(
     }
 }
 
-/** A [LayerOneChecker]'s full output: every [results] entry, plus the [counts] a summary card shows. */
+/**
+ * A [LayerOneChecker]'s full output: every [results] entry, plus the [counts] a summary card shows, and the
+ * [tool] that produced them when one ran.
+ */
 data class LayerOneReport(
     val results: List<CheckOutcome>,
     val counts: LayerOneCounts = LayerOneCounts.of(results),
+    val tool: LayerOneRuntime? = null,
 )
 
 /** One line of raw process output, for a [LayerOneReport] whose tool ran but could not be understood. */

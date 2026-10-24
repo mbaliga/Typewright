@@ -44,6 +44,11 @@ starts its own run from a seed here).
 ```
 
 prints and writes `build/golden-path/summary.txt`. `./gradlew :golden-path:goldenPathRatchet`
-enforces the ratchet (CI runs both; only the ratchet can fail the build). Both need `python3` on
-`PATH` for `compile`'s and `qa`'s own backend/checker lookups to answer honestly, even while
-those backends stay stubs.
+enforces the ratchet (CI runs both; only the ratchet can fail the build).
+
+Steps 4 (Check) and 5 (Compile) run the real fontmake and the real Fontbakery, so they need a Python
+that has both. Point `TYPEWRIGHT_PYTHON` at it (otherwise `python3` on `PATH` is used) after
+`pip install -r tools/requirements-golden-path.txt`, ideally in a virtualenv. Without that Python
+these two steps fail and name what is missing (the backend's own sentence, with the pip command);
+they never pass on a fixture. The rest of the steps do not need Python. CI's golden-path job sets
+this up; see `docs/CHECK_AND_COMPILE.md`.
