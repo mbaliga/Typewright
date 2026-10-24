@@ -38,6 +38,8 @@ import com.asoc.typewright.ui.settings.ThemeEditorScreen
 import com.asoc.typewright.ui.settings.ThemeEditorState
 import com.asoc.typewright.ui.sheet.TypewrightSheet
 import com.asoc.typewright.ui.shell.HomeScreen
+import com.asoc.typewright.ui.shell.GlyphNav
+import com.asoc.typewright.ui.shell.LocalGlyphNav
 import com.asoc.typewright.ui.shell.LocalOpenProjects
 import com.asoc.typewright.ui.shell.LocalOpenSettings
 import com.asoc.typewright.ui.shell.LocalSectionNav
@@ -102,6 +104,12 @@ fun TypewrightApp(
         LocalSystemBack provides systemBack,
         LocalOpenNewProjectBrief provides navState::openNewProjectBrief,
         LocalSectionNav provides nav,
+        LocalGlyphNav provides
+            GlyphNav(
+                current = navState.currentGlyph,
+                open = navState::openGlyph,
+                select = { navState.currentGlyph = it },
+            ),
         LocalAppearance provides appearance,
         LocalOpenSettings provides navState::openSettings,
         LocalOpenProjects provides navState::openProjects,
@@ -263,6 +271,15 @@ class TypewrightAppNavState(
 
     var showBrief: Boolean by mutableStateOf(initialShowBrief)
         internal set
+
+    /** The glyph Draw and Space are on, by name; null until one is chosen. The open project's resume point is where it is remembered. */
+    var currentGlyph: String? by mutableStateOf(null)
+
+    /** Makes [name] the current glyph and goes to Draw. */
+    fun openGlyph(name: String) {
+        currentGlyph = name
+        goToSection(DeckSection.DRAW)
+    }
 
     /** True while the Map (S24) covers the screen. */
     var mapOpen: Boolean by mutableStateOf(false)
