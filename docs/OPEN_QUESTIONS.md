@@ -3536,3 +3536,86 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     `fontinfo.plist`, rewritten from the model, so its keys are re-sorted and any comments dropped) or to
     import a renamed copy. In place is the default because the project folder is the folder that holds the
     `.ufo`. Should the copy be the default for a UFO that is under version control? Owner: Madhav.
+
+167. **Close/open contour is not representable (Draw).** A Contour in core-geometry is closed by
+    construction and the UFO model only has closed contours here, so Draw has no Close/Open action
+    and an open path cannot be stored. INTERACTION_V1 lists close/open; decide whether the model
+    gains an open flag (UFO 'move' point type) or the action is dropped from the spec. Owner:
+    Madhav.
+
+168. **Shared quadratic control stays put (Draw).** On a quadratic (TrueType) contour consecutive
+    off-curve points imply on-curve midpoints. Moving or deleting one on-curve node does not move a
+    shared off-curve control point. Draw keeps the control where it is, which can change the curve
+    beyond the edited neighbourhood. Decide whether quadratic editing should re-derive controls or
+    whether imports should elevate to cubic first. Owner: Madhav.
+
+169. **Imports elevating quadratic to cubic (Draw).** The UFO model holds cubic and the TrueType
+    import is quadratic (OQ 125). Draw edits quadratic contours verbatim (move/delete on-curve
+    only). If the import step elevates to cubic, Draw's quadratic path becomes dead code; if it does
+    not, handle editing on quadratic needs a decision. Owner: Madhav.
+
+170. **Hold on a node: radial vs grab (Draw).** On touch, holding a node opens the radial
+    (HoldOpened) at the hold threshold, which competes with press-and-drag to grab the node. The
+    simplest reading was taken: a hold without movement opens the radial, movement before the
+    threshold drags. The threshold and whether a slow drag should win need owner confirmation on a
+    device. Owner: Madhav.
+
+171. **Puck grip hit region (Draw).** Where on the puck the grip (carry) begins versus the body
+    (tap, swipe, hold) is not pinned down in INTERACTION_V1. The build treats the top rim band as
+    the grip (about 25 dp above the centre) and the rest as the body. Confirm region and size on a
+    device. Owner: Madhav.
+
+172. **Puck default position (Draw).** The puck defaults to the LEFT edge at 40% of the height, 18
+    dp in. INTERACTION_V1 does not give a default. Confirm left versus right and the height,
+    including for left-handed use. Owner: Madhav.
+
+173. **Puck side setting (Draw).** There is no setting to choose the puck's side or to reset its
+    position; the user can only carry it, and it pins to the nearer edge on release. Decide whether
+    Settings gets a side/reset control and where it lives. Owner: Madhav.
+
+174. **Wasm test compile cannot run offline (Draw).** kotlin-test-wasm-js is not resolvable in this
+    container, so :ui wasm tests (the commonTest additions in this package) were not compiled for
+    Wasm. Main sources compile for Wasm. CI should confirm the commonTest sources compile there.
+    Owner: Madhav.
+
+175. **Haptics are owner-verified only (Draw).** tick() on a changed snap or sector and thump() on a
+    radial sector run use LocalHapticFeedback. Felt behaviour, strength and whether Linux/Web should
+    do anything are unverified; only the call counts are tested. Owner: Madhav.
+
+176. **Digit keys 1-8 pick radial sectors (Draw).** INTERACTION_V1 does not say whether a keyboard
+    can pick a radial sector. 1-8 select a sector of an open ring (an added accelerator, listed in
+    the shortcuts sheet). Confirm or remove. Owner: Madhav.
+
+177. **Smooth node beside a straight side: slide or break (Draw).** Dragging, nudging or typing a
+    position for the curve handle of a smooth node whose other side is a straight line now keeps the
+    handle on that line (the drag slides along it; the field reports where it landed) unless Alt is
+    held, which makes the node a corner. Glyphs behaves this way; some editors let it go free and
+    just clear the flag. Confirm on a device that a designer does not find the sliding surprising,
+    and whether a typed value off the line should instead break the node. Owner: Madhav.
+
+178. **Make smooth refused on a corner between two straight sides (Draw).** A right-angle corner of
+    two straight sides has no handle of its own to turn, so Make smooth is refused with the reason
+    'pull a handle out of one side first' instead of writing smooth="yes" onto an outline that has a
+    visible corner. This changes the earlier behaviour where the flag was just set. Confirm this is
+    the wanted designer-facing behaviour, or whether the node should be given handles automatically.
+    Owner: Madhav.
+
+179. **Quadratic smooth nodes lose the flag when an edit cannot keep them in line (Draw).** On a
+    TrueType-style contour a lone control between two on-curve points belongs to neither, so no
+    handle can be turned to keep its neighbours smooth. Moving, bending or deleting beside such a
+    node therefore clears its smooth flag when its controls stop being collinear. Decide whether the
+    import should elevate to cubic first (OQ already open on quadratic editing) so this case
+    disappears. Owner: Madhav.
+
+180. **Radial dimming and construction lines (C4 vs the DrawRadial board) (Draw).** The DrawRadial
+    and RadialTap boards draw the metric lines and the glyph together at 30% while a radial is open.
+    C4 says metric lines are drawn at full strength everywhere, so only the glyph body, handles and
+    nodes dim (the selection, snap targets and metric lines stay full). Confirm that C4 wins, or
+    amend the boards. Owner: Madhav.
+
+181. **Retracted-handle marks: distance and visibility (Draw).** A retracted handle shows as a
+    hollow diamond 26 dp along its side from the node, only for a selected node or a selected
+    handle, and not on a locked glyph; picking it and pulling drags the real handle out under the
+    pointer. The 26 dp (clear of the contour start triangle, inside a finger's 22 dp reach of
+    nothing else) and the select-first rule are my choice; check on a device that the mark is
+    findable and not mistaken for a handle. Owner: Madhav.
