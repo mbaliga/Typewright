@@ -220,12 +220,18 @@ internal class DrawSheetRig(
         type: PointerEventType,
         vararg pointers: Triple<Int, Vec2, Boolean>,
     ) {
+        // Multi-finger gestures are judged by the time between events, so the harness stamps them itself,
+        // 10 ms apart: a loaded machine cannot stretch a tap past its limit.
+        touchClockMs += TOUCH_STEP_MS
         scene.sendPointerEvent(
             eventType = type,
             pointers = pointers.map { (id, at, down) -> ComposeScenePointer(PointerId(id.toLong()), px(at), down, PointerType.Touch) },
+            timeMillis = touchClockMs,
         )
         frames(1)
     }
+
+    private var touchClockMs = 1_000_000L
 
     /** Two fingers down at [a] and [b] together and up again, as a quick tap does. */
     fun twoFingerTap(
@@ -281,6 +287,7 @@ internal class DrawSheetRig(
 
     private companion object {
         const val FRAME_NS = 16_000_000L
+        const val TOUCH_STEP_MS = 10L
     }
 }
 
