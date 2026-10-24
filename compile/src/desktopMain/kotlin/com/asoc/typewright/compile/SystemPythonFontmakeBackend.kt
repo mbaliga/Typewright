@@ -25,7 +25,10 @@ import kotlin.concurrent.thread
  * plain ASCII names ([withAsciiFileNames]) and the binary gets the project's own name back, so a family
  * with an accent or a glyph in Kana builds on a Java whose file-name encoding is ASCII. Overlaps are removed with skia-pathops when it
  * imports and are otherwise left alone, and the log says so. ttfautohint runs only when it is on
- * PATH; otherwise the log says "not hinted: ttfautohint not found" and the build goes on. Cancelling
+ * PATH; otherwise the log says "not hinted: ttfautohint not found" and the build goes on. Then the
+ * Google Fonts fix-ups ([GoogleFontsFixes]) make the binary what that checker asks of every font
+ * (embedding allowed, `USE_TYPO_METRICS`, and for an unhinted font `gasp` and the smart-dropout
+ * `prep`), and the log lists what they changed. Cancelling
  * the calling coroutine stops fontmake and every process it started and deletes the temporary
  * directory; the project is never written to. A build that runs past [timeoutMillis] is stopped.
  */
@@ -134,6 +137,9 @@ class SystemPythonFontmakeBackend internal constructor(
             val command = fontmakeCommand(python, ufoDir, outFile, request.options, log)
             log.info("Running fontmake…")
             val exit = runStreaming(command, work, log)
+            if (exit.code == 0 && !exit.timedOut && outFile.isFile && request.options.googleFontsFixes) {
+                applyGoogleFontsFixes(python, outFile, log)
+            }
             val binaries = collectBinaries(outFile, projectBinaryName(ufoPath))
             return when {
                 exit.timedOut -> failure(log, "fontmake did not finish within ${describeDuration(timeoutMillis)} and was stopped.")
@@ -179,6 +185,43 @@ class SystemPythonFontmakeBackend internal constructor(
             }
         }
         return command
+    }
+
+    /**
+     * Makes [font] what Google Fonts' checker asks of every font, in the ways that belong to the build ([GoogleFontsFixes]), and says in the
+     * log what it changed. A font that cannot be fixed is still the font fontmake wrote: the log warns, and the build goes on, so the check on
+     * the binary reports what is wrong instead of the build failing here. An interpreter that does not run the script at all (a stand-in) is
+     * silent.
+     */
+    private fun applyGoogleFontsFixes(
+        python: FontmakePython,
+        font: File,
+        log: BuildLog,
+    ) {
+        val outcome = runner.run(listOf(python.python, "-c", GoogleFontsFixes.SCRIPT, font.absolutePath), FIXES_TIMEOUT_MILLIS)
+        val changes = if (outcome.succeeded) GoogleFontsFixes.parse(outcome.output) else null
+        when {
+            changes != null && changes.isEmpty() -> {
+                log.info("Google Fonts fix-ups: nothing to change.")
+            }
+
+            changes != null -> {
+                changes.forEach { log.info("Google Fonts fix-up: $it") }
+            }
+
+            outcome.succeeded -> {
+                Unit
+            }
+
+            else -> {
+                val why =
+                    outcome.problem ?: outcome.output
+                        .trim()
+                        .lineSequence()
+                        .lastOrNull { it.isNotBlank() } ?: "it printed nothing"
+                log.warn("The Google Fonts fix-ups could not be applied ($why). The font is as fontmake wrote it.")
+            }
+        }
     }
 
     /** Runs [command], handing each output line to [log]; stops the whole process tree on cancellation or timeout. */
@@ -233,6 +276,7 @@ class SystemPythonFontmakeBackend internal constructor(
 
     private companion object {
         const val DEFAULT_TIMEOUT_MILLIS = 20L * 60L * 1000L
+        const val FIXES_TIMEOUT_MILLIS = 2L * 60L * 1000L
         const val MILLIS_PER_MINUTE = 60_000L
         const val MILLIS_PER_SECOND = 1_000L
         const val READER_JOIN_MILLIS = 5_000L

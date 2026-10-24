@@ -598,14 +598,14 @@ object GoldenPathSteps {
         }
     }
 
-    fun step6ShipFolder() {
-        notBuilt(
-            "6",
-            "Ship the repo folder",
-            "ship generators return strings only; nothing writes the folder, re-checks the binary or blocks on fails",
-            "P15",
-        )
-    }
+    /**
+     * Fully built (docs/SHIP.md): the Ship controller the Ship room drives, with the real compiler, the real layer-one checker and the real
+     * folder writer. Hyle Deco, which Check fails, is Blocked: every fail is named, a copy with its names and copyright taken away names two
+     * more, and the target directory stays empty. The clean seed ([CleanSeed]) writes the whole upstream folder, `sources/…ufo` equal to
+     * the project file for file and `fonts/ttf/…ttf` a font that parses; Fontbakery's Google Fonts profile on the folder as Google Fonts would
+     * assemble it finds no fail. See [ShipStepRun].
+     */
+    fun step6ShipFolder() = ShipStepRun.run()
 
     /**
      * Fully built (docs/PROJECT_MODEL.md §12): S-ufo through a real [ProjectSession] over a

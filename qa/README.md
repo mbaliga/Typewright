@@ -25,10 +25,14 @@ The quality gate: Typewright's own checks (node economy, extrema, overshoot, anc
   file's own KDoc, per law 5.
 - `checkAnchorsPresent` (`AnchorPresenceCheck.kt`): a best-effort, allow-list-based check over the
   52 base Latin letters -- see "Deferred checks" below for why it stops there.
-- `com.asoc.typewright.qa.ship` (`ShipPipeline.kt`): pure string generators for `OFL.txt`,
-  `DESCRIPTION.en_us.html` and a `METADATA.pb`-shaped scaffold (not `upstream.yaml`, which
-  `gftools` now treats as legacy -- docs/ARCHITECTURE_REVIEW.md section 5 item 52). No file I/O, no
-  compile step, no Fontspector requirement.
+- `com.asoc.typewright.qa.ship` is Ship's pure half (docs/SHIP.md), with no file I/O and no compiler.
+  `buildShipPlan` makes the repository folder as data (`OFL.txt`, `AUTHORS.txt`, `DESCRIPTION.en_us.html`,
+  `METADATA.pb`, `upstream.yaml`, `sources/<F>-<S>.ufo/`, `fonts/ttf/<F>-<S>.ttf` and the request text, or the
+  Own-licence subset) from `ShipFacts`, which reads the project's font info; a fact the project does not state is
+  an `Omission` and a line the file leaves out, never a placeholder. `shipGate` is the block rule (layer two's
+  fails, and layer one's on a compiled binary), and `shipChecklist` is the Ship page's list of lines with the Font
+  info field that fixes each unmet one. `ShipPipeline.kt` keeps the older string generators that the lessons'
+  campaign task still calls; they are not what Ship writes.
 
 ## The Check report
 

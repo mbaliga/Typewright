@@ -25,8 +25,11 @@ import com.asoc.typewright.ui.brief.LocalOpenBrief
 import com.asoc.typewright.ui.brief.LocalOpenNewProjectBrief
 import com.asoc.typewright.ui.brief.rememberBriefScreenUiState
 import com.asoc.typewright.ui.brief.rememberBriefStateKeeper
+import com.asoc.typewright.ui.check.CheckScreen
+import com.asoc.typewright.ui.check.rememberCheckShipStatus
 import com.asoc.typewright.ui.deck.DeckSection
 import com.asoc.typewright.ui.deck.LocalSystemBack
+import com.asoc.typewright.ui.deck.StationStatus
 import com.asoc.typewright.ui.deck.SystemBack
 import com.asoc.typewright.ui.imports.FontImportHost
 import com.asoc.typewright.ui.imports.LocalFontImport
@@ -53,6 +56,7 @@ import com.asoc.typewright.ui.shell.ProjectsScreen
 import com.asoc.typewright.ui.shell.SectionNav
 import com.asoc.typewright.ui.shell.StubSection
 import com.asoc.typewright.ui.shell.sectionFor
+import com.asoc.typewright.ui.ship.ShipScreen
 import com.asoc.typewright.ui.theme.AppearanceState
 import com.asoc.typewright.ui.theme.LocalAppearance
 import com.asoc.typewright.ui.theme.Theme
@@ -111,7 +115,7 @@ fun TypewrightApp(
             current = navState.section,
             goTo = navState::goToSection,
             openMap = { navState.mapOpen = true },
-            statusOf = rememberProjectStationStatus(workspace),
+            statusOf = rememberDeckStatus(workspace),
         )
     CompositionLocalProvider(
         LocalProjectWorkspace provides workspace,
@@ -252,6 +256,14 @@ fun TypewrightApp(
                         onBack = navState::closeWorkbook,
                         uiState = rememberWorkbookScreenUiState(),
                     )
+                }
+
+                navState.section == DeckSection.CHECK -> {
+                    CheckScreen(texture = texture, modifier = Modifier.fillMaxSize())
+                }
+
+                navState.section == DeckSection.SHIP -> {
+                    ShipScreen(texture = texture, modifier = Modifier.fillMaxSize())
                 }
 
                 !onSheet -> {
@@ -437,3 +449,11 @@ fun rememberTypewrightAppNavState(
     rememberSaveable(saver = TypewrightAppNavState.Saver) {
         TypewrightAppNavState(initialShowLearn, initialShowWorkbook, initialShowBrief)
     }
+
+/** One status function for the deck: Check and Ship from Typewright's own checks, Draw and Trace from the project's locks and outliers. */
+@Composable
+private fun rememberDeckStatus(workspace: ProjectWorkspace): (DeckSection) -> StationStatus? {
+    val project = rememberProjectStationStatus(workspace)
+    val checkShip = rememberCheckShipStatus(workspace)
+    return remember(project, checkShip) { { section -> checkShip(section) ?: project(section) } }
+}

@@ -24,35 +24,55 @@ import java.nio.file.Files
 internal class FakePython(
     behaviour: String,
     pathops: Boolean = true,
+    /**
+     * What the stand-in does when it is run as `-c <the Google Fonts fix-up script> <font>`: shell lines, with the font as `$2`'s next
+     * argument (`FONT`), after it has recorded its arguments in `fixes-args.txt`. Null means it answers every `-c` like the probe.
+     */
+    fixes: String? = null,
 ) {
     val directory: File = Files.createTempDirectory("typewright-fake-python-").toFile()
     val script: File = File(directory, "fake-python")
     val argsFile: File = File(directory, "args.txt")
+    val fixesArgsFile: File = File(directory, "fixes-args.txt")
 
     init {
         val pathopsLine = if (pathops) "ok 1.0" else "missing ModuleNotFoundError"
-        script.writeText(
-            """
-            #!/bin/sh
-            DIR="${'$'}(cd "${'$'}(dirname "${'$'}0")" && pwd)"
-            if [ "${'$'}1" = "-c" ]; then
-              echo "fontmake ok 9.9.9"
-              echo "ufo2ft ok 9.9.9"
-              echo "fontTools ok 9.9.9"
-              echo "pathops $pathopsLine"
-              echo "python ok 3.11.0"
-              exit 0
-            fi
-            echo "${'$'}@" > "${'$'}DIR/args.txt"
-            UFO=""
-            OUTFILE=""
-            while [ ${'$'}# -gt 0 ]; do
-              if [ "${'$'}1" = "-u" ]; then UFO="${'$'}2"; fi
-              if [ "${'$'}1" = "--output-path" ]; then OUTFILE="${'$'}2"; fi
-              shift
-            done
-            """.trimIndent() + "\n" + behaviour.trimIndent() + "\n",
-        )
+        val dollar = "$"
+        val fixesLines =
+            if (fixes == null) {
+                emptyList()
+            } else {
+                listOf(
+                    "  case \"${dollar}2\" in",
+                    "    *typewright-google-fonts-fixes*)",
+                    "      FONT=\"${dollar}3\"",
+                    "      echo \"${dollar}1 SCRIPT ${dollar}FONT\" > \"${dollar}DIR/fixes-args.txt\"",
+                ) + fixes.trimIndent().lines().map { "      $it" } + listOf("      ;;", "  esac")
+            }
+        val head =
+            listOf(
+                "#!/bin/sh",
+                "DIR=\"$dollar(cd \"$dollar(dirname \"${dollar}0\")\" && pwd)\"",
+                "if [ \"${dollar}1\" = \"-c\" ]; then",
+            ) + fixesLines +
+                listOf(
+                    "  echo \"fontmake ok 9.9.9\"",
+                    "  echo \"ufo2ft ok 9.9.9\"",
+                    "  echo \"fontTools ok 9.9.9\"",
+                    "  echo \"pathops $pathopsLine\"",
+                    "  echo \"python ok 3.11.0\"",
+                    "  exit 0",
+                    "fi",
+                    "echo \"$dollar@\" > \"${dollar}DIR/args.txt\"",
+                    "UFO=\"\"",
+                    "OUTFILE=\"\"",
+                    "while [ $dollar# -gt 0 ]; do",
+                    "  if [ \"${dollar}1\" = \"-u\" ]; then UFO=\"${dollar}2\"; fi",
+                    "  if [ \"${dollar}1\" = \"--output-path\" ]; then OUTFILE=\"${dollar}2\"; fi",
+                    "  shift",
+                    "done",
+                )
+        script.writeText(head.joinToString("\n") + "\n" + behaviour.trimIndent() + "\n")
         script.setExecutable(true)
     }
 

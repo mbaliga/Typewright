@@ -18,4 +18,19 @@ internal object DeckGlyphs {
 
     /** [REFRESH_PATH] as a path about the origin. */
     fun refresh(): Path = PathParser().parsePathString(REFRESH_PATH).toPath()
+
+    /** Ship's build: an arrow rising from a base line. The board's own path data (`rBuild` in Deck.dc.html). */
+    const val BUILD_PATH: String = "M 0 5 V -8 M -6 -2 L 0 -8 L 6 -2 M -8 9 H 8"
+
+    /** Ship's export, where only a file can be offered: an arrow falling to a base line (`rDown` in Deck.dc.html). */
+    const val DOWNLOAD_PATH: String = "M 0 -8 V 5 M -6 -1 L 0 5 L 6 -1 M -8 9 H 8"
+
+    /** The width the board strokes [BUILD_PATH] and [DOWNLOAD_PATH] with. */
+    const val ARROW_STROKE: Float = 2.2f
+
+    /** [BUILD_PATH] as a path about the origin. */
+    fun build(): Path = PathParser().parsePathString(BUILD_PATH).toPath()
+
+    /** [DOWNLOAD_PATH] as a path about the origin. */
+    fun download(): Path = PathParser().parsePathString(DOWNLOAD_PATH).toPath()
 }

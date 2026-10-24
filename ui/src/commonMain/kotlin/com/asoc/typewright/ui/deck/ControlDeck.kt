@@ -181,6 +181,10 @@ fun ControlDeck(
                         "New project"
                     } else if (right == DeckRight.REFRESH) {
                         "Run again"
+                    } else if (right == DeckRight.BUILD) {
+                        "Build"
+                    } else if (right == DeckRight.DOWNLOAD) {
+                        "Export"
                     } else {
                         "Next"
                     },
@@ -473,6 +477,18 @@ private fun DrawScope.drawDeck(
                     checkNotNull(refreshPath),
                     paper.copy(alpha = paper.alpha * rightAlpha),
                     style = Stroke(width = DeckGlyphs.REFRESH_STROKE, cap = StrokeCap.Butt),
+                )
+            }
+        }
+
+        DeckRight.BUILD, DeckRight.DOWNLOAD -> {
+            drawCircle(ink, DeckGeometry.FILLED_CIRCLE_RADIUS.toFloat(), rightAt, alpha = rightAlpha)
+            val arrow = if (right == DeckRight.BUILD) DeckGlyphs.build() else DeckGlyphs.download()
+            withTransform({ translate(rightAt.x, rightAt.y) }) {
+                drawPath(
+                    arrow,
+                    paper.copy(alpha = paper.alpha * rightAlpha),
+                    style = Stroke(width = DeckGlyphs.ARROW_STROKE, cap = StrokeCap.Butt),
                 )
             }
         }

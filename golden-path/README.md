@@ -1,7 +1,7 @@
 # golden-path
 
 `golden-path` is the release acceptance harness for `docs/V1_SCOPE.md`'s golden path: one
-headless desktop-JVM test per step, driven against the real modules (never the UI), so "the
+headless desktop-JVM test per step, driven against the real modules (never the UI's screens), so "the
 golden path passes" always means real code ran, not a screenshot or a fixture standing in for
 one. It reports the pass count on every prompt's own build and stops a passing step from ever
 quietly regressing again.
@@ -18,6 +18,7 @@ starts its own run from a seed here).
 | S-ttf2 | a second real, static, OFL font, for the "not just the one fixture" checks | `data/learn-faces/poppins/Poppins-Regular.ttf` |
 | S-ufo | S-ttf converted through core-font's `SfntFont.toUfoProject()` bridge, written to a fresh temp directory | `Seeds.newSUfoDirectory()` |
 | S-project | S-ttf through the same bridge (`familyName = "Golden Path Seed"`), with every glyph's contours exactly degree-elevated from `writeGlif`-unwritable QUADRATIC to CUBIC (docs/OPEN_QUESTIONS.md item 125) — step 5's own seed, since its job is to measure compiling, not importing | `Seeds.newSProject()` |
+| S-clean | "Seed Boxes", a made-up box font with one glyph for each of Google Fonts' Latin core, every fact a repository folder needs stated, and nothing Check fails it for — step 6's clean seed, since Hyle Deco is a traced font and Check rightly fails it (so it is step 6's failing seed) | `CleanSeed` |
 
 ## The rules
 
@@ -46,11 +47,17 @@ starts its own run from a seed here).
 prints and writes `build/golden-path/summary.txt`. `./gradlew :golden-path:goldenPathRatchet`
 enforces the ratchet (CI runs both; only the ratchet can fail the build).
 
-Steps 4 (Check) and 5 (Compile) run the real fontmake and the real Fontbakery, so they need a Python
-that has both. Point `TYPEWRIGHT_PYTHON` at it (otherwise `python3` on `PATH` is used) after
+Steps 4 (Check), 5 (Compile) and 6 (Ship) run the real fontmake and the real Fontbakery, so they need a
+Python that has both. Point `TYPEWRIGHT_PYTHON` at it (otherwise `python3` on `PATH` is used) after
 `pip install -r tools/requirements-golden-path.txt`, ideally in a virtualenv. Without that Python
-these two steps fail and name what is missing (the backend's own sentence, with the pip command);
-they never pass on a fixture. The rest of the steps do not need Python. CI's golden-path job sets
+these three steps fail and name what is missing (the backend's own sentence, with the pip command);
+they never pass on a fixture. The rest of the steps do not need Python.
+
+Step 6 drives `ui`'s `ShipController` (the block rule and the order of the build; it holds no Compose, and
+nothing of the UI's screens is touched) with the real compiler, the real layer-one checker and the real
+folder writer, then gives the folder it wrote to Fontbakery's Google Fonts profile in the shape Google Fonts'
+own tree has it (`ofl/<family>/`, assembled from `upstream.yaml`'s `files:` map). That is why this module's
+tests depend on `:ui`. CI's golden-path job sets
 this up; see `docs/CHECK_AND_COMPILE.md`. The same Python also runs the real-tool tests of the compile,
 qa and ui modules (`:compile:pythonIntegrationTest`, `:qa:pythonIntegrationTest`,
 `:ui:pythonIntegrationTest`), which are their own tasks so a machine without the tools keeps a green

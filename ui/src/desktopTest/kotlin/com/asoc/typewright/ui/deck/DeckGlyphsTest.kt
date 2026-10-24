@@ -29,6 +29,37 @@ class DeckGlyphsTest {
         assertEquals(width, DeckGlyphs.REFRESH_STROKE)
     }
 
+    /** The `<path d="...">` and stroke width the board draws for the glyph whose opacity is `{{[flag]}}` (Ship's build and download arrows). */
+    private fun boardArrow(flag: String): Pair<String, Float> {
+        val line = board.lines().single { "{{$flag}}" in it }
+        val d = Regex("""<path d="([^"]+)"""").find(line)!!.groupValues[1]
+        val width = Regex("""stroke-width: ([0-9.]+)""").find(line)!!.groupValues[1].toFloat()
+        return d to width
+    }
+
+    @Test
+    fun shipsBuildAndDownloadArrowsAreExactlyTheBoards() {
+        assertEquals(boardArrow("rBuild"), DeckGlyphs.BUILD_PATH to DeckGlyphs.ARROW_STROKE)
+        assertEquals(boardArrow("rDown"), DeckGlyphs.DOWNLOAD_PATH to DeckGlyphs.ARROW_STROKE)
+    }
+
+    @Test
+    fun theBuildArrowRisesFromItsBaseAndTheDownloadArrowFallsToItWithTheSameBase() {
+        fun heads(path: String): List<Float> =
+            PathParser()
+                .parsePathString(path)
+                .toNodes()
+                .filterIsInstance<PathNode.LineTo>()
+                .map { it.y }
+        // Both arrows have the same base line (y 9), and their tips are at opposite ends of the shaft.
+        val build = PathParser().parsePathString(DeckGlyphs.BUILD_PATH).toNodes()
+        val download = PathParser().parsePathString(DeckGlyphs.DOWNLOAD_PATH).toNodes()
+        assertEquals(build.filterIsInstance<PathNode.HorizontalTo>(), download.filterIsInstance<PathNode.HorizontalTo>(), "the same base")
+        assertEquals(-8f, heads(DeckGlyphs.BUILD_PATH).minOrNull(), "the build arrow's tip is at the top")
+        assertEquals(5f, heads(DeckGlyphs.DOWNLOAD_PATH).maxOrNull(), "the download arrow's tip is at the bottom")
+        assertTrue(DeckGlyphs.build().isEmpty.not() && DeckGlyphs.download().isEmpty.not())
+    }
+
     @Test
     fun theParsedPathHasTheArcAndTheArrowheadTheBoardDraws() {
         val nodes: List<PathNode> = PathParser().parsePathString(DeckGlyphs.REFRESH_PATH).toNodes()

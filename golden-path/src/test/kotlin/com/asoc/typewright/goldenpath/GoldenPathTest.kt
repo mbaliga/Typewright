@@ -109,12 +109,14 @@ class GoldenPathTest {
     // --- Step 6: Ship --------------------------------------------------------------------------
 
     /**
-     * Seed: a compiled S-project TTF (once step 5 is real) plus a deliberately failing Check seed.
+     * Seeds: the deliberately failing one (Hyle Deco, which Check fails) and a clean one ([CleanSeed], a box font that Check has nothing
+     * against and that covers Google Fonts' Latin core). Fully built now -- see [GoldenPathSteps.step6ShipFolder] for the arrange/act/assert.
      *
-     * Real assertions this step must clear (P15):
      * - ⚑ The failing seed is Blocked, naming every fail, and the target directory stays empty.
-     * - The clean seed writes OFL.txt, DESCRIPTION/ARTICLE, METADATA.pb, `sources/<F>-Regular.ufo`
-     *   (equal to the project) and `fonts/ttf/<F>-Regular.ttf` (parses), plus the issue body.
+     * - The clean seed writes OFL.txt, DESCRIPTION, METADATA.pb, upstream.yaml, `sources/<F>-Regular.ufo` (equal to the project) and
+     *   `fonts/ttf/<F>-Regular.ttf` (parses), plus the request text; Fontbakery's Google Fonts profile finds no fail in the folder.
+     *
+     * Needs a Python with fontmake and Fontbakery (`TYPEWRIGHT_PYTHON`); without one it fails, naming what is missing.
      */
     @Test
     fun step6ShipFolder() = GoldenPathSteps.step6ShipFolder()

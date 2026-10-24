@@ -183,6 +183,44 @@ class FontmakePythonIntegrationTest {
     }
 
     @Test
+    fun theBinaryCarriesTheGoogleFontsFixUpsAndTheLogListsThem() {
+        val project = openAsProject("HyleDeco-Regular.ttf", repoFile("fonts/HyleDeco-Regular.ttf").readBytes())
+        val request = CompileRequest(project.snapshot, CompileSource.Ufo(project.ufoPath))
+        val plain = runBlocking { realBackend().compile(request.copy(options = CompileOptions(googleFontsFixes = false))) }
+        val fixed = runBlocking { realBackend().compile(request) }
+        assertIs<CompileResult.Success>(plain)
+        assertIs<CompileResult.Success>(fixed)
+
+        // What fontmake alone wrote: embedding restricted, no gasp, no prep. This is what the fix-ups are for.
+        val before = readSfntFont(plain.binaries.single().bytes)
+        assertTrue(before.os2!!.fsType != 0, "fontmake alone writes a restricted fsType, or this test proves nothing")
+        assertFalse("gasp" in before.tableTags || "prep" in before.tableTags, "fontmake alone writes neither gasp nor prep")
+        assertTrue(plain.log.none { it.message.contains("Google Fonts fix-up") })
+
+        val after = readSfntFont(fixed.binaries.single().bytes)
+        assertEquals(0, after.os2!!.fsType, "fsType is installable embedding")
+        assertTrue(after.os2!!.fsSelection and (1 shl 7) != 0, "USE_TYPO_METRICS is set")
+        assertTrue(
+            "gasp" in after.tableTags && "prep" in after.tableTags,
+            "an unhinted font has gasp and the smart-dropout prep: ${after.tableTags}",
+        )
+        val said = fixed.log.map { it.message }.filter { it.startsWith("Google Fonts fix-up") }
+        assertTrue(
+            said.any {
+                "fsType" in it
+            } && said.any { "USE_TYPO_METRICS" in it } && said.any { "gasp" in it } && said.any { "prep" in it },
+            said.toString(),
+        )
+        // Nothing else about the font moved: the same glyphs, advances and units per em.
+        assertEquals(before.numGlyphs, after.numGlyphs)
+        assertEquals(before.head.unitsPerEm, after.head.unitsPerEm)
+        for (gid in 0 until before.numGlyphs) {
+            assertEquals(before.glyph(gid).contours, after.glyph(gid).contours, "outline of glyph $gid")
+            assertEquals(before.glyph(gid).advanceWidth, after.glyph(gid).advanceWidth, "advance of glyph $gid")
+        }
+    }
+
+    @Test
     fun poppinsWithRealCurvesSurvivesTheQuadraticToCubicToQuadraticTripWithinTwoUnits() {
         val result = compileAndCompare("Poppins-Regular.ttf", "data/learn-faces/poppins/Poppins-Regular.ttf")
         // The curves really were curves: the compiled 'o' has off-curve points, not only corners.

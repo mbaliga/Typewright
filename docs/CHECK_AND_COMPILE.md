@@ -188,4 +188,6 @@ and pip install 19 s, the golden path 39 s, `:compile:pythonIntegrationTest` 16 
   only against a fake `fontspector` script and its JSON shape is unverified. Fontbakery is what ran for real. If
   Fontspector's profile differs from Fontbakery's on the same file, the two layers would disagree by tool.
 - **ttfautohint.** Builds are not hinted unless `ttfautohint` is on the PATH, and the log says so. Google Fonts expects a
-  hinted TrueType; whether Ship blocks, warns or builds an unhinted font is a decision for the Ship room.
+  hinted TrueType. Ship builds an unhinted font rather than blocking: the desktop backend gives it the `gasp` table and the `prep`
+  program Google Fonts' profile asks of an unhinted font (docs/SHIP.md, "Google Fonts fix-ups at compile"), and the log says
+  "not hinted". Whether Google Fonts' reviewers accept an unhinted upload is for the owner to ask them.
