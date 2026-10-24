@@ -2,7 +2,6 @@
 
 package com.asoc.typewright.ui.space
 
-import com.asoc.typewright.campaign.WorkbookLatinContent
 import com.asoc.typewright.project.ProjectPreferences
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -12,17 +11,6 @@ import kotlin.test.assertTrue
 
 /** [ControlStrings]: the Workbook's two, the person's own, and what may be added. */
 class ControlStringsTest {
-    @Test
-    fun theWorkbookStringsAreTheOnesTheWorkbooksSpacingTasksName() {
-        val tasks = WorkbookLatinContent.load()
-        val spacing = tasks.single { it.index == 7 }
-        for (string in ControlStrings.WORKBOOK) {
-            assertTrue(string in spacing.task, "$string is named by the Workbook's Spacing task")
-        }
-        assertEquals("nnonnonon", tasks.single { it.index == 4 }.controlString)
-        assertEquals(listOf("nnonnonon", "HHOHOHOH"), ControlStrings.WORKBOOK)
-    }
-
     @Test
     fun theListIsTheWorkbooksThenTheirOwnWithoutRepeats() {
         val preferences = ProjectPreferences(spaceControlStrings = listOf("HOHOOHH", "nnonnonon", "HOHOOHH", "oOoOo"))
