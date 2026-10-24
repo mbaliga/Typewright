@@ -28,9 +28,14 @@ import com.asoc.typewright.ui.brief.rememberBriefStateKeeper
 import com.asoc.typewright.ui.deck.DeckSection
 import com.asoc.typewright.ui.deck.LocalSystemBack
 import com.asoc.typewright.ui.deck.SystemBack
+import com.asoc.typewright.ui.imports.FontImportHost
+import com.asoc.typewright.ui.imports.LocalFontImport
+import com.asoc.typewright.ui.imports.rememberFontImportController
 import com.asoc.typewright.ui.learn.LearnScreen
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.project.LocalZipTransferSupported
+import com.asoc.typewright.ui.project.ProjectResumeEffect
+import com.asoc.typewright.ui.project.rememberProjectStationStatus
 import com.asoc.typewright.ui.project.rememberProjectWorkspace
 import com.asoc.typewright.ui.settings.AboutScreen
 import com.asoc.typewright.ui.settings.SettingsScreen
@@ -47,6 +52,7 @@ import com.asoc.typewright.ui.shell.MapScreen
 import com.asoc.typewright.ui.shell.ProjectsScreen
 import com.asoc.typewright.ui.shell.SectionNav
 import com.asoc.typewright.ui.shell.StubSection
+import com.asoc.typewright.ui.shell.sectionFor
 import com.asoc.typewright.ui.theme.AppearanceState
 import com.asoc.typewright.ui.theme.LocalAppearance
 import com.asoc.typewright.ui.theme.Theme
@@ -82,9 +88,18 @@ fun TypewrightApp(
     // must not have it silently replaced by whatever the workspace would reopen from disk.
     LaunchedEffect(workspace) {
         if (workspace.current.value == null) workspace.reopenLast()
-        // First launch, or nothing to reopen: the app's root is Projects.
-        if (workspace.current.value == null) navState.openProjects()
+        val reopened = workspace.current.value
+        if (reopened == null) {
+            // First launch, or nothing to reopen: the app's root is Projects.
+            navState.openProjects()
+        } else {
+            // Back on the section the project was left on.
+            workspace.recents.value
+                .firstOrNull { it.location == reopened.store.location }
+                ?.let { navState.goToSection(sectionFor(it)) }
+        }
     }
+    val fontImport = rememberFontImportController(inWorkspace = workspace) { navState.goToSection(DeckSection.HOME) }
     val briefKeeper = rememberBriefStateKeeper()
     val scope = rememberCoroutineScope()
     val appearance = remember(workspace) { AppearanceState(workspace.appConfig, scope) }
@@ -96,6 +111,7 @@ fun TypewrightApp(
             current = navState.section,
             goTo = navState::goToSection,
             openMap = { navState.mapOpen = true },
+            statusOf = rememberProjectStationStatus(workspace),
         )
     CompositionLocalProvider(
         LocalProjectWorkspace provides workspace,
@@ -104,6 +120,7 @@ fun TypewrightApp(
         LocalSystemBack provides systemBack,
         LocalOpenNewProjectBrief provides navState::openNewProjectBrief,
         LocalSectionNav provides nav,
+        LocalFontImport provides fontImport,
         LocalGlyphNav provides
             GlyphNav(
                 current = navState.currentGlyph,
@@ -115,6 +132,7 @@ fun TypewrightApp(
         LocalOpenProjects provides navState::openProjects,
         LocalDensity provides Density(density.density, density.fontScale * appearance.settings.textScale.toFloat()),
     ) {
+        ProjectResumeEffect(section = navState.section, glyph = navState.currentGlyph) { navState.currentGlyph = it }
         Box(modifier = modifier.fillMaxSize()) {
             val onSheet = navState.section == DeckSection.DRAW || navState.section == DeckSection.SPACE
             TypewrightSheet(
@@ -240,6 +258,8 @@ fun TypewrightApp(
                     StubSection(texture = texture, section = navState.section, modifier = Modifier.fillMaxSize())
                 }
             }
+            // Last, so the import's audit covers whichever screen the person started it from.
+            fontImport?.let { FontImportHost(controller = it, texture = texture, modifier = Modifier.fillMaxSize()) }
         }
     }
 }
