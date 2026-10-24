@@ -17,6 +17,7 @@ import com.asoc.typewright.engine.construct.RoundedRectanglePrimitive
 import com.asoc.typewright.engine.construct.StemPrimitive
 import com.asoc.typewright.engine.construct.SuperellipsePrimitive
 import com.asoc.typewright.engine.construct.TwoPointLine
+import com.asoc.typewright.ui.draw.DrawSpace
 import com.asoc.typewright.ui.sheet.SheetCamera
 import kotlin.math.PI
 import kotlin.math.roundToInt
@@ -358,17 +359,14 @@ private fun Contour.boundingWidthUnits(): Double {
 }
 
 /**
- * The sheet's current view centre, in font units, y up (CLAUDE.md's own "y up" convention;
- * `com.asoc.typewright.ui.sheet.GridAndMetrics.kt`'s own `worldToScreenFontUp` negates y going
- * world-to-screen for the identical reason). Defined locally, not by importing or editing that
- * file, per this task's own instruction to touch shared `sheet/` files as little as possible --
- * this is the one small inverse it needs, restated rather than reused across a package boundary.
+ * The middle of the screen in the open glyph's font units (y up), where a primitive is made when it is
+ * picked: the same map the glyph is drawn through, so the primitive appears where the person is looking
+ * and not at some other place on the sheet.
  */
 fun viewCentreFontUnits(
     camera: SheetCamera,
     canvasSizeDp: Vec2,
 ): Point {
-    val screenCenter = Vec2(canvasSizeDp.x / 2.0, canvasSizeDp.y / 2.0)
-    val world = camera.screenToFont(screenCenter)
-    return Point(world.x.roundToInt(), (-world.y).roundToInt())
+    val font = DrawSpace.of(camera).toFont(Vec2(canvasSizeDp.x / 2.0, canvasSizeDp.y / 2.0))
+    return Point(font.x.roundToInt(), font.y.roundToInt())
 }

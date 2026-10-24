@@ -34,11 +34,16 @@ data class MovePoints(
     override val coalesceKey: Any = glyph to points
 }
 
-/** Replaces [glyph]'s outline with [contours] wholesale (a tool result, a boolean, a knife cut, …). */
+/**
+ * Replaces [glyph]'s outline with [contours] wholesale (a tool result, a boolean, a knife cut, …).
+ * A non-null [coalesceKey] lets a burst of the same edit (arrow-key nudges, say) merge into one
+ * history entry; left null, every replacement is its own step.
+ */
 data class ReplaceOutline(
     val glyph: GlyphRef,
     val contours: List<Contour>,
     override val label: String,
+    override val coalesceKey: Any? = null,
 ) : FontCommand
 
 /** Replaces [glyph]'s anchors. */
@@ -364,6 +369,14 @@ interface Gesture {
 
     /** Discards every update since [ProjectSession.beginGesture]; no history entry. */
     fun cancel()
+
+    /**
+     * True until the gesture is committed or cancelled, whether by [commit]/[cancel] or because the
+     * session ended it (an [ProjectSession.execute], [ProjectSession.undo] or another
+     * [ProjectSession.beginGesture] while it was open). [update] on a gesture that is no longer open
+     * throws, so a caller that holds one across other session calls checks this first.
+     */
+    val isOpen: Boolean
 }
 
 /** The default coalescing window (docs/PROJECT_MODEL.md §6): 1,000 ms. */

@@ -38,9 +38,11 @@ private fun rectContour(
         CurveFormat.QUADRATIC,
     )
 
+private const val TEST_STYLE_KEY = "sans-geometric"
+
 private fun fixtureFontInfo(familyName: String = "Fixture") = UfoFontInfo(familyName = familyName, xHeight = 500, capHeight = 700)
 
-/** A tiny node-economy corpus with one style class ([DEFAULT_TASK4_STYLE_KEY]) and one glyph ("n"), its box centred on 4 on-curve points -- matches [rectContour]'s own 4-point rectangle exactly, so a fixture "n" built from one rectangle reads IN_RANGE. */
+/** A tiny node-economy corpus with one style class ([TEST_STYLE_KEY]) and one glyph ("n"), its box centred on 4 on-curve points -- matches [rectContour]'s own 4-point rectangle exactly, so a fixture "n" built from one rectangle reads IN_RANGE. */
 private fun fixtureCorpus(): NodeEconomyCorpus =
     NodeEconomyCorpus(
         NodeEconomyPack(
@@ -48,7 +50,7 @@ private fun fixtureCorpus(): NodeEconomyCorpus =
             glyphs = "on",
             styles =
                 mapOf(
-                    DEFAULT_TASK4_STYLE_KEY to
+                    TEST_STYLE_KEY to
                         StyleClass(
                             tags = listOf("/Test"),
                             families = listOf(FamilyEntry("Alpha", "alpha.ttf", "quadratic", 90.0, mapOf("n" to listOf(4, 0, 1)))),
@@ -224,7 +226,7 @@ class WorkbookProgressTest {
         val corpus = fixtureCorpus()
         for (index in listOf(1, 2, 7, 8, 10)) {
             val t = task(index)
-            val result = runWorkbookGate(t, project, corpus)
+            val result = runWorkbookGate(t, project, corpus, TEST_STYLE_KEY)
             assertEquals(GateCheckStatus.NOT_IMPLEMENTED, result.checks.single().status)
             assertEquals(
                 t.gate.notImplementedReason?.trim(),
@@ -241,21 +243,21 @@ class WorkbookProgressTest {
         val roundGlyph = Glyph("o", advanceWidth = 500, contours = listOf(rectContour(0, 0, 400, 500)))
         val project = UfoProject(fixtureFontInfo(), listOf(roundGlyph))
 
-        val result = runWorkbookGate(task(3), project, fixtureCorpus())
+        val result = runWorkbookGate(task(3), project, fixtureCorpus(), TEST_STYLE_KEY)
 
         assertEquals(3, result.taskIndex)
         assertEquals(GateCheckStatus.INFO, result.checks.single { it.label == "o" }.status)
     }
 
     @Test
-    fun dispatchesTask4ToNodeEconomyAgainstTheDefaultStyleKey() {
+    fun dispatchesTask4ToNodeEconomyAgainstTheGivenStyleKey() {
         val inRangeN = Glyph("n", advanceWidth = 500, contours = listOf(rectContour(0, 0, 4, 4)))
         val project = UfoProject(fixtureFontInfo(), listOf(inRangeN))
 
-        val result = runWorkbookGate(task(4), project, fixtureCorpus())
+        val result = runWorkbookGate(task(4), project, fixtureCorpus(), TEST_STYLE_KEY)
 
         assertEquals(4, result.taskIndex)
-        assertTrue(result.gateSummary.contains(DEFAULT_TASK4_STYLE_KEY))
+        assertTrue(result.gateSummary.contains(TEST_STYLE_KEY))
         assertEquals(GateCheckStatus.PASS, result.checks.single { it.label == "n" }.status)
     }
 
@@ -264,11 +266,11 @@ class WorkbookProgressTest {
         val clean = Glyph("b", advanceWidth = 500, contours = listOf(rectContour(0, 0, 100, 500)))
         val project = UfoProject(fixtureFontInfo(), listOf(clean))
 
-        val result5 = runWorkbookGate(task(5), project, fixtureCorpus())
+        val result5 = runWorkbookGate(task(5), project, fixtureCorpus(), TEST_STYLE_KEY)
         assertEquals(5, result5.taskIndex)
         assertEquals(GateCheckStatus.PASS, result5.checks.single { it.label == "b" }.status)
 
-        val result6 = runWorkbookGate(task(6), project, fixtureCorpus())
+        val result6 = runWorkbookGate(task(6), project, fixtureCorpus(), TEST_STYLE_KEY)
         assertEquals(6, result6.taskIndex)
     }
 
@@ -277,7 +279,7 @@ class WorkbookProgressTest {
         val withAnchor = Glyph("A", advanceWidth = 500, contours = emptyList(), anchors = listOf(Anchor("top", Point(250, 700))))
         val project = UfoProject(fixtureFontInfo(), listOf(withAnchor))
 
-        val result = runWorkbookGate(task(9), project, fixtureCorpus())
+        val result = runWorkbookGate(task(9), project, fixtureCorpus(), TEST_STYLE_KEY)
 
         assertEquals(9, result.taskIndex)
         assertEquals(GateCheckStatus.PASS, result.checks.single { it.label == "A" }.status)
@@ -287,7 +289,7 @@ class WorkbookProgressTest {
     fun task11NeverCallsTheRealCheckerAndAlwaysReportsNoCompiledFont() {
         val project = UfoProject(fixtureFontInfo(), emptyList())
 
-        val result = runWorkbookGate(task(11), project, fixtureCorpus())
+        val result = runWorkbookGate(task(11), project, fixtureCorpus(), TEST_STYLE_KEY)
 
         assertEquals(11, result.taskIndex)
         val check = result.checks.single()
@@ -300,7 +302,7 @@ class WorkbookProgressTest {
         val project = UfoProject(fixtureFontInfo("Hyle Deco"), emptyList())
         val metadata = ShipMetadata(family = "Hyle Deco", designer = "Madhav", year = 2026, gitUrl = "https://github.com/mbaliga/hyle-deco")
 
-        val result = runWorkbookGate(task(12), project, fixtureCorpus(), shipMetadata = metadata)
+        val result = runWorkbookGate(task(12), project, fixtureCorpus(), TEST_STYLE_KEY, shipMetadata = metadata)
 
         assertEquals(12, result.taskIndex)
         assertTrue(
@@ -318,12 +320,35 @@ class WorkbookProgressTest {
         val metadata = ShipMetadata.from(fixtureFontInfo("Fixture Font"))
         assertEquals("Fixture Font", metadata.family)
         assertEquals(ShipMetadata.UNKNOWN_YEAR, metadata.year)
+        assertEquals("Unknown", metadata.designer)
+        assertEquals("(no repository yet)", metadata.gitUrl)
+    }
+
+    @Test
+    fun shipMetadataIsReadFromTheFontInfoItsOwnWords() {
+        val info =
+            fixtureFontInfo("Poppins")
+                .copy(
+                    copyright = "Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins)",
+                    openTypeNameDesigner = "Ninad Kale",
+                )
+        val metadata = ShipMetadata.from(info)
+        assertEquals(ShipMetadata("Poppins", "Ninad Kale", 2020, "https://github.com/itfoundry/Poppins"), metadata)
+    }
+
+    @Test
+    fun task4WithNoStyleClassSaysSoInsteadOfGuessingOne() {
+        val project = UfoProject(fixtureFontInfo(), listOf(Glyph("n", 500, listOf(rectContour(0, 0, 4, 4)))))
+        val result = runWorkbookGate(task(4), project, fixtureCorpus(), task4StyleKey = null)
+        val check = result.checks.single()
+        assertEquals(GateCheckStatus.NOT_IMPLEMENTED, check.status)
+        assertTrue("no style class" in check.detail, check.detail)
     }
 
     @Test
     fun runAllWorkbookGatesCoversEveryTaskIndexOnceEach() {
         val project = UfoProject(fixtureFontInfo(), emptyList())
-        val gates = runAllWorkbookGates(realTasks, project, fixtureCorpus())
+        val gates = runAllWorkbookGates(realTasks, project, fixtureCorpus(), TEST_STYLE_KEY)
         assertEquals((1..12).toSet(), gates.keys)
     }
 }

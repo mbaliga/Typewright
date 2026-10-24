@@ -43,37 +43,99 @@ class SheetCameraState(
         camera = camera.pannedBy(screenDelta)
     }
 
-    /** Zooms by a multiplicative factor around a screen-dp focus point (see [SheetCamera.zoomedBy]). */
+    /**
+     * Zooms by a multiplicative factor around a screen-dp focus point (see [SheetCamera.zoomedBy]),
+     * held to [MIN_ZOOM]..[MAX_ZOOM]: the one clamp that a pinch, the scroll wheel and a keyboard zoom
+     * all go through, so none of them can zoom further than another.
+     */
     fun zoomBy(
         factor: Double,
         focusScreen: Vec2,
     ) {
-        camera = camera.zoomedBy(factor, focusScreen)
+        camera = camera.zoomedTo((camera.zoom * factor).coerceIn(MIN_ZOOM, MAX_ZOOM), focusScreen)
     }
 
     /**
-     * Flies the camera to [room]'s own [Room.flightTargetOffset], eased over [RoomFlight]'s
-     * 600 ms curve (UI_SPEC §5). `docs/ARCHITECTURE_REVIEW.md` §4.1 recommendation 4 / P4a's own
-     * `RoomFlight` KDoc: progress is driven "from a Compose `Animatable`/`withFrameNanos` loop";
-     * this uses the top-level `animate()` suspend function (a linear `0f..1f` `tween`, since
-     * [RoomFlight.offsetAt] already applies [CubicBezierEasing] itself -- easing it twice would be
-     * wrong), which is Compose's own frame-callback-driven interpolator and therefore exactly
-     * such a loop. Suspends until the flight completes; callers launch it in a coroutine scope
-     * tied to the composition (e.g. `rememberCoroutineScope()`), never awaiting it synchronously
-     * inside a gesture handler that must keep processing pointer events.
+     * Flies the camera to [target], offset and zoom together, over the same 600 ms curve as a room
+     * flight: how a view the person had (the glyph they were drawing) comes back after a visit to
+     * another room.
+     */
+    suspend fun flyToCamera(target: SheetCamera) {
+        val from = camera
+        flying = true
+        try {
+            animate(
+                initialValue = 0f,
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = RoomFlight.DURATION_MS, easing = LinearEasing),
+            ) { value, _ ->
+                val eased = CubicBezierEasing.ROOM_PAN.transform(value.toDouble())
+                camera = SheetCamera(from.offset + (target.offset - from.offset) * eased, from.zoom + (target.zoom - from.zoom) * eased)
+            }
+            camera = target
+        } finally {
+            flying = false
+        }
+    }
+
+    /** True while a flight is under way, so a host that wants the camera to be at rest (to fit a glyph) can wait for it. */
+    var flying: Boolean by mutableStateOf(false)
+        private set
+
+    /** The camera each room was last left in, so that coming back to Draw lands on the glyph the person was drawing. */
+    private val lastViews = mutableMapOf<Room, SheetCamera>()
+
+    /** True when [room] has been left before, so [flyTo] will take the camera back to where it was and not to a fresh view. */
+    fun hasView(room: Room): Boolean = room in lastViews
+
+    /**
+     * Flies the camera to [room], over [RoomFlight]'s 600 ms curve (UI_SPEC §5). The room being left is
+     * remembered as the camera stands, and the room arrived at gets the view it was left in, or, the
+     * first time, the one [RoomViews.firstView] gives it. `docs/ARCHITECTURE_REVIEW.md` §4.1
+     * recommendation 4 / P4a's own `RoomFlight` KDoc: progress is driven "from a Compose
+     * `Animatable`/`withFrameNanos` loop"; [flyToCamera] uses the top-level `animate()` suspend function,
+     * which is exactly that. Suspends until the flight completes; callers launch it in a coroutine scope
+     * tied to the composition, never awaiting it synchronously inside a gesture handler that must keep
+     * processing pointer events.
      */
     suspend fun flyTo(room: Room) {
-        val flight = room.flightFrom(camera)
-        animate(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = RoomFlight.DURATION_MS, easing = LinearEasing),
-        ) { value, _ ->
-            camera = camera.pannedTo(flight.offsetAt(value.toDouble()))
-        }
-        // Land exactly on the target regardless of float rounding across the last frame.
-        camera = camera.pannedTo(flight.to)
+        val target = flightTarget(room) ?: return
+        lastViews[currentRoom] = camera
+        flyToCamera(target)
     }
+
+    /**
+     * Where a flight to [room] ends: the view the room was left in, or its first view. Null when the
+     * camera is already in [room]: there is nowhere to go, and the view remembered from an earlier visit
+     * is stale (a flick or an arrow key at the end of the line asks for the room it is in, and must not
+     * throw the person's own pan and zoom away for it).
+     */
+    fun flightTarget(room: Room): SheetCamera? {
+        if (currentRoom == room) return null
+        return lastViews[room] ?: RoomViews.firstView(room, camera)
+    }
+}
+
+/**
+ * Where the camera goes when it flies to a room it has not been in before. Draw keeps the zoom the
+ * person has (the glyph comes fitted afterwards, by the Draw room itself); every other room is laid out
+ * for a camera at rest, so it gets [REST_ZOOM] and a vertical offset that puts the baseline a sensible
+ * way down the screen, however far the Draw view was zoomed or panned.
+ */
+object RoomViews {
+    /** How far down a phone-sized screen the baseline of a room at rest starts, in dp: the camera's starting y offset is its negative. */
+    const val REST_BASELINE_DP: Double = 400.0
+
+    const val REST_ZOOM: Double = 1.0
+
+    fun firstView(
+        room: Room,
+        current: SheetCamera,
+    ): SheetCamera =
+        when (room) {
+            Room.DRAW -> SheetCamera(room.flightTargetOffset(current.offset), current.zoom)
+            else -> SheetCamera(Vec2(room.worldBounds().left, -REST_BASELINE_DP), REST_ZOOM)
+        }
 }
 
 /** Remembers a [SheetCameraState] across recomposition, starting at [initial]. */

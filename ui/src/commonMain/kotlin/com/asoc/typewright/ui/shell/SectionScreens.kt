@@ -7,21 +7,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
@@ -29,19 +19,13 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.asoc.typewright.ui.brief.LocalOpenBrief
 import com.asoc.typewright.ui.deck.ControlDeck
 import com.asoc.typewright.ui.deck.DeckLeft
 import com.asoc.typewright.ui.deck.DeckRight
 import com.asoc.typewright.ui.deck.DeckSection
-import com.asoc.typewright.ui.deck.DeckToggle
-import com.asoc.typewright.ui.glass.projectStatusText
-import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.Typography
 import com.asoc.typewright.ui.tokens.toColor
-import com.asoc.typewright.ui.workbook.WorkbookCampaignSnapshot
-import com.asoc.typewright.ui.workbook.loadWorkbookCampaignSnapshot
 
 /** Opens Settings (S21) over the current section; null where nothing provided it. */
 val LocalOpenSettings = androidx.compose.runtime.staticCompositionLocalOf<(() -> Unit)?> { null }
@@ -95,150 +79,6 @@ private val STUB_TEXT: Map<DeckSection, String> =
         DeckSection.SHIP to
             "Build the font and write the repository folder Google Fonts expects, and stop with a reason if anything fails.",
     )
-
-/**
- * Home (S04) from what the open project really holds, never a fixture: its name and save state, its
- * scripts, how many glyphs it has, the workbook's next task, and where the pipeline stands. The two
- * views are the deck's: Specimen and Glyphs. With no project open it says so.
- */
-@Composable
-fun HomeScreen(
-    texture: CanvasTexture,
-    modifier: Modifier = Modifier,
-    onOpenDraw: () -> Unit = {},
-    onOpenWorkbook: () -> Unit = {},
-) {
-    var glyphsView by remember { mutableStateOf(false) }
-    val openBrief = LocalOpenBrief.current
-    val openProjects = LocalOpenProjects.current
-    val session =
-        LocalProjectWorkspace.current
-            ?.current
-            ?.collectAsState()
-            ?.value
-    val projectState = session?.state?.collectAsState()?.value
-    val master = projectState?.font?.masters?.let { masters -> masters.firstOrNull { it.isDefault } ?: masters.firstOrNull() }
-    val glyphs = master?.ufo?.glyphs.orEmpty()
-    val manifest = projectState?.meta?.manifest
-    SectionScaffold(
-        texture = texture,
-        section = DeckSection.HOME,
-        title = manifest?.name ?: "Typewright",
-        subtitle =
-            if (master != null) {
-                "${master.styleName} · ${master.ufo.fontInfo.unitsPerEm ?: 1000} · ${projectStatusText()}"
-            } else {
-                projectStatusText()
-            },
-        modifier = modifier,
-        toggles = listOf(DeckToggle("Specimen", on = !glyphsView), DeckToggle("Glyphs", on = glyphsView)),
-        onToggle = { glyphsView = it == 1 },
-        onBack = { openProjects?.invoke() },
-        menuItems =
-            listOfNotNull(
-                openBrief?.let { open -> PageMenuItem("Brief", "Find the visual language") { open(null, DeckSection.HOME) } },
-                LocalOpenSettings.current?.let { open -> PageMenuItem("Settings", "Theme, text size, haptics", open) },
-            ),
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 18.dp, end = 18.dp, bottom = 200.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
-        ) {
-            if (manifest == null) {
-                NoProject(texture)
-            } else if (glyphsView) {
-                GlyphGrid(texture = texture, names = glyphs.map { it.name }, onOpen = onOpenDraw)
-            } else {
-                Specimen(texture = texture, scripts = manifest.scripts, glyphCount = glyphs.size, onOpenWorkbook = onOpenWorkbook)
-            }
-        }
-    }
-}
-
-@Composable
-private fun NoProject(texture: CanvasTexture) {
-    BasicText(
-        text = "No project is open. Open the ⋯ menu, then Command…, then New project… to make one.",
-        style = TextStyle(fontFamily = FontFamily.Default, fontSize = 13.sp, lineHeight = 18.sp, color = texture.fg.toColor()),
-    )
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun Specimen(
-    texture: CanvasTexture,
-    scripts: List<String>,
-    glyphCount: Int,
-    onOpenWorkbook: () -> Unit,
-) {
-    val fg = texture.fg.toColor()
-    val muted = texture.muted.toColor()
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        for (script in scripts) BasicText(text = "○ ${scriptName(script)}", style = TextStyle(fontSize = 12.5.sp, color = fg))
-    }
-    BasicText(
-        text = if (glyphCount == 0) "No letters yet. Draw one, or capture a sheet." else "$glyphCount glyphs",
-        style = Typography.mono(sizeSp = 9.5).copy(color = if (glyphCount == 0) muted else fg),
-    )
-    val snapshot = remember { loadWorkbookCampaignSnapshot() }
-    if (snapshot is WorkbookCampaignSnapshot.Loaded) {
-        val task = snapshot.tasks.firstOrNull { it.index == snapshot.currentTaskIndex }
-        if (task != null) {
-            Row(
-                modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenWorkbook),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                BasicText(text = "○", style = TextStyle(fontSize = 13.sp, color = fg))
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    BasicText(
-                        text = "Task ${task.index} · ${task.title}",
-                        style = TextStyle(fontFamily = FontFamily.Default, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = fg),
-                    )
-                    BasicText(text = task.why, style = TextStyle(fontSize = 12.5.sp, lineHeight = 17.sp, color = muted))
-                }
-            }
-        }
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        BasicText(text = "PIPELINE", style = Typography.mono(sizeSp = 9.0).copy(color = muted))
-        BasicText(
-            text = "Capture · not built    Trace · not built    Check · not built",
-            style = Typography.mono(sizeSp = 9.5).copy(color = muted),
-        )
-    }
-}
-
-private fun scriptName(code: String): String =
-    when (code) {
-        "Latn" -> "Latin"
-        "Hira" -> "Hiragana"
-        "Kana" -> "Katakana"
-        "Deva" -> "Devanagari"
-        "Arab" -> "Naskh"
-        else -> code
-    }
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun GlyphGrid(
-    texture: CanvasTexture,
-    names: List<String>,
-    onOpen: () -> Unit,
-) {
-    if (names.isEmpty()) {
-        BasicText(text = "No glyphs yet.", style = TextStyle(fontSize = 13.sp, color = texture.fg.toColor()))
-        return
-    }
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        for (name in names) {
-            BasicText(
-                text = name,
-                style = Typography.mono(sizeSp = 10.0).copy(color = texture.fg.toColor()),
-                modifier = Modifier.clickable(onClick = onOpen).padding(horizontal = 8.dp, vertical = 10.dp),
-            )
-        }
-    }
-}
 
 /**
  * The Map (S24): every section as an ink block, a tap flies there. The deck shows only the left

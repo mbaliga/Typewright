@@ -10,7 +10,13 @@ import com.asoc.typewright.campaign.WorkbookGateSpec
 import com.asoc.typewright.campaign.WorkbookTask
 import com.asoc.typewright.campaign.WorkbookTaskProgress
 import com.asoc.typewright.campaign.WorkbookTaskState
+import com.asoc.typewright.core.font.ufo.UfoFontInfo
+import com.asoc.typewright.core.font.ufo.UfoProject
+import com.asoc.typewright.project.Master
 import com.asoc.typewright.qa.NodeEconomyReport
+import com.asoc.typewright.ui.project.ProjectFont
+import com.asoc.typewright.ui.project.ProjectStyle
+import com.asoc.typewright.ui.project.StyleOrigin
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -40,7 +46,7 @@ private fun syntheticTask(index: Int): WorkbookTask =
         reflection = "reflect $index",
     )
 
-/** A hand-built [WorkbookCampaignSnapshot.Loaded] -- every task TODO except [currentIndex] CURRENT -- portable across every target (no real font parse, corpus load or resource read, unlike [loadWorkbookCampaignSnapshot] itself; see `WorkbookScreenScreenshotTest`, `desktopTest`-only, for that real load, JVM-only for the same reason `HyleDecoTask4GateTest` already is). */
+/** A hand-built [WorkbookCampaignSnapshot.Loaded] -- every task TODO except [currentIndex] CURRENT -- portable across every target (no real font parse, corpus load or resource read, unlike [loadWorkbookCampaignSnapshot] itself; see `WorkbookScreenScreenshotTest`, `desktopTest`-only, for that real load, JVM-only because the campaign data is read with Node-only I/O on wasm). */
 private fun fixtureSnapshot(currentIndex: Int): WorkbookCampaignSnapshot.Loaded {
     val tasks = (1..WORKBOOK_TASK_COUNT).map { syntheticTask(it) }
     val progress =
@@ -54,7 +60,17 @@ private fun fixtureSnapshot(currentIndex: Int): WorkbookCampaignSnapshot.Loaded 
         tasks = tasks,
         progress = progress,
         currentTaskIndex = currentIndex,
-        task4StyleKey = "sans-geometric",
+        font =
+            ProjectFont(
+                Master(
+                    "regular",
+                    "Regular.ufo",
+                    "Regular",
+                    isDefault = true,
+                    ufo = UfoProject(UfoFontInfo(familyName = "Fixture"), emptyList()),
+                ),
+            ),
+        task4Style = ProjectStyle("sans-geometric", StyleOrigin.DECLARED),
         task4Report = NodeEconomyReport("sans-geometric", emptyList()),
     )
 }
@@ -84,6 +100,68 @@ class WorkbookScreenUiStateTest {
         assertEquals(1, WorkbookScreenUiState(snapshot = loaded, initialTaskIndex = 0).taskIndex)
         assertEquals(WORKBOOK_TASK_COUNT, WorkbookScreenUiState(snapshot = loaded, initialTaskIndex = 99).taskIndex)
     }
+
+    @Test
+    fun aNewSnapshotNeverMovesThePersonOffTheTaskAndViewTheyChose() {
+        val state = WorkbookScreenUiState(snapshot = fixtureSnapshot(currentIndex = 6))
+        state.taskIndex = 3
+        state.allTasks = true
+        val next = fixtureSnapshot(currentIndex = 7)
+        state.show(next)
+        assertEquals(next, state.snapshot, "the snapshot itself is replaced")
+        assertEquals(3, state.taskIndex, "the task they were on stays")
+        assertEquals(true, state.allTasks, "the All tasks view stays")
+    }
+
+    @Test
+    fun aNewSnapshotDoesNotMoveATaskThatWasOnlyTheCurrentOneEither() {
+        val state = WorkbookScreenUiState(snapshot = fixtureSnapshot(currentIndex = 6))
+        state.show(fixtureSnapshot(currentIndex = 8))
+        assertEquals(6, state.taskIndex, "confirming a task does not turn the page under the person's thumb")
+    }
+
+    @Test
+    fun aScreenOpenedBeforeAnyGateRanLandsOnTheCurrentTaskWhenTheFirstSnapshotArrives() {
+        val state = WorkbookScreenUiState(snapshot = WorkbookCampaignSnapshot.Loading)
+        assertEquals(1, state.taskIndex)
+        state.show(fixtureSnapshot(currentIndex = 6))
+        assertEquals(6, state.taskIndex)
+        state.show(fixtureSnapshot(currentIndex = 9))
+        assertEquals(6, state.taskIndex, "only the first snapshot positions the screen")
+    }
+
+    @Test
+    fun aTaskChosenWhileLoadingIsKeptWhenTheSnapshotArrives() {
+        val state = WorkbookScreenUiState(snapshot = WorkbookCampaignSnapshot.Loading)
+        state.taskIndex = 4
+        state.show(fixtureSnapshot(currentIndex = 6))
+        assertEquals(4, state.taskIndex)
+    }
+
+    @Test
+    fun anExplicitInitialTaskSurvivesTheFirstSnapshotToo() {
+        val state = WorkbookScreenUiState(snapshot = WorkbookCampaignSnapshot.Loading, initialTaskIndex = 9)
+        state.show(fixtureSnapshot(currentIndex = 6))
+        assertEquals(9, state.taskIndex)
+    }
+
+    @Test
+    fun aSnapshotThatIsNotLoadedDoesNotSettleTheScreen() {
+        val state = WorkbookScreenUiState(snapshot = WorkbookCampaignSnapshot.Loading)
+        state.show(WorkbookCampaignSnapshot.Unavailable("no corpus on this target"))
+        assertEquals(1, state.taskIndex)
+        state.show(fixtureSnapshot(currentIndex = 5))
+        assertEquals(5, state.taskIndex)
+    }
+
+    @Test
+    fun theChosenTaskIsKeptInsideTheTwelveTaskRange() {
+        val state = WorkbookScreenUiState(snapshot = WorkbookCampaignSnapshot.Loading)
+        state.taskIndex = 40
+        assertEquals(WORKBOOK_TASK_COUNT, state.taskIndex)
+        state.taskIndex = -2
+        assertEquals(1, state.taskIndex)
+    }
 }
 
 class NextTaskLabelTest {
@@ -104,5 +182,10 @@ class NextTaskLabelTest {
     @Test
     fun fallsBackToThePlainWordWorkbookWhenUnavailable() {
         assertEquals("Workbook", nextTaskLabel(WorkbookCampaignSnapshot.Unavailable("reason")))
+    }
+
+    @Test
+    fun fallsBackToThePlainWordWorkbookWhileLoading() {
+        assertEquals("Workbook", nextTaskLabel(WorkbookCampaignSnapshot.Loading))
     }
 }

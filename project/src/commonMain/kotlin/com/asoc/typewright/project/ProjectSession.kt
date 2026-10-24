@@ -229,6 +229,8 @@ class ProjectSession private constructor(
         var workingFont = startFont
         var active = true
 
+        override val isOpen: Boolean get() = active
+
         override fun update(command: FontCommand): EditResult {
             check(active) { "This gesture is no longer open" }
             if (readOnly != null) return EditResult.Refused(Refusal.ReadOnly(readOnly))

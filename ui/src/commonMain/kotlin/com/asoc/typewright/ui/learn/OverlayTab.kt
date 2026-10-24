@@ -33,6 +33,8 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import com.asoc.typewright.ui.project.NoProjectState
+import com.asoc.typewright.ui.project.rememberOpenProject
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.SpacingTokens
 import com.asoc.typewright.ui.tokens.Typography
@@ -44,28 +46,19 @@ import kotlin.math.roundToInt
  * (`ui/typewright-explorer.html`'s `#s-learn` station, its own `#ln-ov` markup and `.wordf` /
  * `.ov` / `.ovctl` / `.seg` / `.layers` / `.ly` / `.sw` CSS -- CLAUDE.md law 6, reproduced rather
  * than improvised). Its own standalone tab, matching [com.asoc.typewright.ui.learn.LineagesTab]'s
- * own shape (`texture: CanvasTexture, modifier: Modifier = Modifier`), fully self-contained: it
- * loads its own three real layers ([loadDefaultOverlayLayers]) and keeps its own alignment/redline/
- * layer-visibility state.
+ * own shape (`texture: CanvasTexture, modifier: Modifier = Modifier`): it builds its three layers
+ * ([loadDefaultOverlayLayers]) from the open project and keeps its own alignment/redline/
+ * layer-visibility state. With no project open there is no "your font" layer to compare, so it says
+ * to open or start a project ([NoProjectState]) and shows no stand-in.
  *
- * **Real geometry, not platform text.** [com.asoc.typewright.ui.learn.LearnFaceFonts]'s own KDoc
- * (the sibling Lineages tab's font-loading piece, checked before writing this) already draws the
- * line this file lives on the other side of: platform text rendering is the *finished, opaque*
- * rendering of a face -- the right tool when the caller only wants to *show* a typeface. A redline
- * diff or a stroke probe needs the *raw outline* to measure and dash, which platform text does not
- * expose. Every layer's outline here is real [com.asoc.typewright.core.geometry.Glyph] data, read
- * by `core-font`'s sfnt reader (Hyle Deco via [HyleDecoProjectFontBytes]'s own embedded bytes; EB
- * Garamond/Libre Baskerville via `data/learn-faces`'s own real fetched files,
- * [com.asoc.typewright.learn.scenes.LearnFaceResources]), converted to a Compose [androidx.compose.ui.graphics.Path]
- * through `GeometryInterop.kt`'s own outline bridge ([com.asoc.typewright.ui.toComposePath]) --
- * confirmed general over any of the seventeen real fetched Learn faces, not hardcoded to Hyle
- * Deco: `core-font`'s `glyf`/`loca` reader takes a variable font's *default* master directly, with
- * no `gvar` handling at all (`SfntFont.kt`'s own KDoc, read in full before writing this file; its
- * `readSfntFont` never even opens a `gvar` table), which is exactly the default/Regular instance
- * every one of these files' own filenames names (`EBGaramond[wght].ttf`'s own `fvar` default is
- * `wght=400`, confirmed directly against the real file with fontTools while building this task,
- * alongside Libre Baskerville and Hyle Deco itself -- all three parse and render correctly through
- * this exact path, real screenshot in this task's own report).
+ * **Real geometry, not platform text.** Platform text rendering is the finished, opaque rendering
+ * of a face, the right tool when the caller only wants to show a typeface; a redline diff or a
+ * stroke probe needs the raw outline to measure and dash, which platform text does not expose.
+ * Every layer's outline here is real [com.asoc.typewright.core.geometry.Glyph] data: the open
+ * project's own, and EB Garamond and Libre Baskerville read by `core-font`'s sfnt reader from
+ * `data/learn-faces` ([com.asoc.typewright.learn.scenes.LearnFaceResources], a variable font's
+ * default instance), converted to a Compose [androidx.compose.ui.graphics.Path] through
+ * `GeometryInterop.kt`'s outline bridge ([com.asoc.typewright.ui.toComposePath]).
  *
  * **Colour + line pattern (CLAUDE.md law 8).** The project layer draws in the texture's own plain
  * ink colour (solid fill normally; stroke-only in redline mode, `ui/typewright-explorer.html`'s
@@ -82,7 +75,16 @@ public fun OverlayTab(
     texture: CanvasTexture,
     modifier: Modifier = Modifier,
 ) {
-    val layersResult = remember { loadDefaultOverlayLayers() }
+    val project = rememberOpenProject()?.font
+    if (project == null) {
+        NoProjectState(
+            texture = texture,
+            what = "your font set beside others",
+            modifier = modifier.fillMaxSize().background(texture.canvas.toColor()).padding(SpacingTokens.GUTTER_DP.dp, 14.dp),
+        )
+        return
+    }
+    val layersResult = remember(project) { loadDefaultOverlayLayers(project) }
     val ink = texture.ink.toColor()
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()

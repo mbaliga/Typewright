@@ -43,6 +43,25 @@ class ContourTest {
     }
 
     @Test
+    fun anOffCurvePointCannotBeSmoothAndTheFlagDefaultsToACorner() {
+        assertFailsWith<IllegalArgumentException> { ContourPoint(Point(1, 1), onCurve = false, smooth = true) }
+        assertEquals(false, ContourPoint(Point(1, 1), onCurve = true).smooth)
+        assertTrue(ContourPoint(Point(1, 1), onCurve = true, smooth = true) != ContourPoint(Point(1, 1), onCurve = true))
+    }
+
+    @Test
+    fun reversingAContourKeepsEachNodesSmoothFlagWithItsPoint() {
+        val c =
+            Contour(
+                listOf(ContourPoint(Point(0, 0), true, smooth = true), off(1, 0), off(2, 1), on(3, 3), off(4, 4), off(5, 5)),
+                CurveFormat.CUBIC,
+            )
+        val r = c.reverse()
+        assertEquals(true, r.points.first { it.point == Point(0, 0) }.smooth)
+        assertEquals(false, r.points.first { it.point == Point(3, 3) }.smooth)
+    }
+
+    @Test
     fun acceptsAWellFormedCubicContour() {
         val c = Contour(listOf(on(0, 0), off(1, 1), off(2, 2), on(3, 3), off(4, 4), off(5, 5)), CurveFormat.CUBIC)
         assertEquals(6, c.points.size)

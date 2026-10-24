@@ -26,6 +26,8 @@ kotlin {
 
 dependencies {
     implementation(project(":ui"))
+    // The desktop app's real storage for imported fonts and adopted UFOs (DesktopStorageProvider).
+    implementation(project(":project:storage"))
     implementation(compose.desktop.currentOs)
     testImplementation(libs.kotlin.test)
 }

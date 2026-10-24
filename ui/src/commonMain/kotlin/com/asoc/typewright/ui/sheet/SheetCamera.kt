@@ -83,6 +83,10 @@ data class SheetCamera(
     }
 }
 
+/** The zoom range the sheet allows, shared by pinch, the scroll wheel, the keyboard and fit-to-glyph. */
+const val MIN_ZOOM: Double = 0.05
+const val MAX_ZOOM: Double = 8.0
+
 /**
  * "Zoom is depth" (brief §4.2): "Pinch out from a glyph → the word proof → the specimen (the
  * project's home) → the map of rooms. Pinch in reverses." `docs/ARCHITECTURE_REVIEW.md` §4.1

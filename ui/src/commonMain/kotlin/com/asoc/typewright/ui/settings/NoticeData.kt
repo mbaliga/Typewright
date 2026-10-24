@@ -170,6 +170,37 @@ val NOTICE_SECTIONS: List<NoticeSection> =
             ),
         ),
         NoticeSection(
+            "Python tools the desktop app runs (not bundled, not linked)",
+            listOf(
+                "Check's layer one and the desktop compile run these as separate programs in the Python on " +
+                    "the person's own computer (`TYPEWRIGHT_PYTHON`, else `python3` on the PATH). Typewright in" +
+                    "stalls none of them, ships none of them in any app and links none of them; the apps only s" +
+                    "tart them and read what they print. The versions below are the ones `tools/requirements-go" +
+                    "lden-path.txt` pins, which CI installs into a virtualenv and the golden path runs. Licence" +
+                    "s were read from each distribution's own metadata and licence file in that virtualenv.",
+                "Component — Version — Licence — Verified",
+                "fontmake (`fontmake[pathops]`): compiles a UFO to a TTF — 3.12.2 — Apache-2.0 — package me" +
+                    "tadata",
+                "fontTools, which fontmake and Fontbakery both run on — 4.67.0 — MIT — package metadata",
+                "ufo2ft, the compiler fontmake drives — 3.9.1 — MIT — package metadata",
+                "skia-pathops (`pathops`), which removes overlaps and accepts quadratic outlines — 0.9.2 — " +
+                    "BSD-3-Clause — package metadata",
+                "Fontbakery (`fontbakery[googlefonts]`), run as `python -m fontbakery check-googlefonts --s" +
+                    "kip-network` — 0.12.10 — Apache-2.0 — file (`LICENSE.txt` in the distribution)",
+                "The data packages Fontbakery's Google Fonts profile imports, pinned together because pip's" +
+                    " resolver, left alone, picks a set that does not install: `gflanguages` 0.6.5, `glyphsets`" +
+                    " 1.0.0, `axisregistry` 0.4.16, `shaperglot` 0.5.1, `gfsubsets` 2025.11.4 — as listed — Apa" +
+                    "che-2.0 — file (each distribution's licence file)",
+                "The other packages pip resolves for the above (for example ufoLib2, defcon, booleanOperati" +
+                    "ons, compreffor, cffsubr, uharfbuzz, freetype-py, protobuf, beautifulsoup4) — as resolved " +
+                    "— Apache-2.0, MIT or BSD-3-Clause, each as its own metadata says — package metadata; they " +
+                    "are not enumerated here, and `pip list` in the virtualenv names them",
+                "ttfautohint, only if it is on the PATH, run as a separate program to hint the build — not " +
+                    "installed here — FreeType License or GPL-2.0 (a separate program, never linked) — not chec" +
+                    "ked here; recorded from its own project's documentation",
+            ),
+        ),
+        NoticeSection(
             "Ported (reimplemented in Kotlin; not linked as a binary dependency)",
             listOf(
                 "Component — Source — Licence — Notes",
@@ -373,10 +404,14 @@ val NOTICE_SECTIONS: List<NoticeSection> =
                     " global install, not a project dependency.",
                 "Hyle Deco Regular and Italic in `fonts/` (Copyright 2026 The Hyle Deco Project Authors) — " +
                     "OFL-1.1 — Verified from the fonts' name table (IDs 0 and 13); the full licence text is now" +
-                    " in `fonts/OFL.txt`. Regular ships inside the app itself: `ui`'s `HyleDecoProjectFontBytes" +
-                    ".kt` embeds it in `ui`'s own main source set (Overlay tab's project layer, P6), not only a" +
-                    "s a test fixture (`core-font`'s `HyleDecoRegularTtfBase64.kt`, `commonTest`). Italic is no" +
-                    "t currently read by any module.",
+                    " in `fonts/OFL.txt`. Regular ships inside the app itself: `ui`'s `imports/BundledSampleFon" +
+                    "t.kt` embeds a byte-for-byte copy (base64 text, so every target can open it with no file a" +
+                    "ccess) in `ui`'s own main source set. It is read only when the person chooses \"Try the sam" +
+                    "ple\" on Projects, through the same licence check as any font they bring, and opens as an o" +
+                    "rdinary project in their own folder; no other screen reads it, and a test (`NoFixtureFontI" +
+                    "nMainSourcesTest`) fails if any other main source file names it. It is also a test fixture" +
+                    " (`core-font`'s `HyleDecoRegularTtfBase64.kt`, `commonTest`). Italic is not currently read" +
+                    " by any module.",
                 "Noto Sans Devanagari Regular and Noto Naskh Arabic Regular in `fonts/` (Copyright 2022 The" +
                     " Noto Project Authors, `github.com/notofonts/devanagari` and `github.com/notofonts/arabic`" +
                     ") — OFL-1.1 — Verified from the fonts' name table (IDs 0 and 13), same method as Hyle Deco" +

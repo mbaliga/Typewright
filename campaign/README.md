@@ -46,14 +46,13 @@ logic was added to `qa` itself to fill these gaps; that is out of this task's sc
 
 ## Real font input for task 4's gate
 
-There is no SFNT-to-`UfoProject` bridge in `core-font`. This build's own established precedent
-(P6's `HyleDecoProjectFontBytes.kt`) is to use `fonts/HyleDeco-Regular.ttf`, this project's own
-real test-fixture font, as an honestly-disclosed reference/stand-in: `HyleDecoTask4GateTest.kt`
-(`src/jvmTest`) reads it with `core-font`'s real SFNT reader (`readSfntFont`), builds a small real
-`UfoProject` around its real `n`/`o`/`H`/`O` glyphs, and runs `WorkbookGates.task4ControlCharacters`
-against the real `sans-geometric` node-economy corpus -- see that test's own KDoc for the real
-measured numbers and verdicts (`docs/OPEN_QUESTIONS.md` item 86 flags the missing bridge itself as
-future work).
+The gate runs on the open project's own glyphs (a `UfoProject`): the app hands it the project's
+default master, and the style class it is judged against is the one the person declared or confirmed,
+or the detector's reading, which the gate then calls "our heuristic". With no class to judge by the
+gate says so (`NOT_IMPLEMENTED`) rather than choosing one. `HyleDecoTask4GateTest.kt` (`src/jvmTest`)
+builds a small real `UfoProject` around the sample font's `n`/`o`/`H`/`O` glyphs through `core-font`'s
+SFNT reader and runs `WorkbookGates.task4ControlCharacters` against the real `sans-geometric`
+node-economy corpus; see its KDoc for the measured numbers and verdicts.
 
 ## Tests
 

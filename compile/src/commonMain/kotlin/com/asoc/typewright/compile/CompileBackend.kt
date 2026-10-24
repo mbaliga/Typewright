@@ -20,8 +20,18 @@ interface CompileBackend {
     /** Whether this backend can compile here, now. Never throws and never installs anything. */
     suspend fun availability(): BackendAvailability
 
-    /** Compiles [request]. A stub returns [CompileResult.NotImplemented]; no backend fakes output. */
-    suspend fun compile(request: CompileRequest): CompileResult
+    /**
+     * Compiles [request]. A stub returns [CompileResult.NotImplemented]; no backend fakes output.
+     *
+     * [onLog] is called with each log line as the build produces it, so a screen can show progress
+     * while the build runs; the same lines are also in the returned [CompileResult.log]. It may be
+     * called from any thread. Cancelling the calling coroutine stops the build, removes everything
+     * it wrote and leaves the project exactly as it was.
+     */
+    suspend fun compile(
+        request: CompileRequest,
+        onLog: (CompileLogLine) -> Unit = {},
+    ): CompileResult
 }
 
 /** Where a [CompileBackend] does its work, in words the UI can show as they are. */

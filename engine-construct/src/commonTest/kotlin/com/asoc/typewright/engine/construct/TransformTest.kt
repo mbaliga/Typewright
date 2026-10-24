@@ -9,6 +9,7 @@ import com.asoc.typewright.core.geometry.CurveFormat
 import com.asoc.typewright.core.geometry.Glyph
 import com.asoc.typewright.core.geometry.Point
 import com.asoc.typewright.core.geometry.Vec2
+import com.asoc.typewright.core.geometry.brokenSmoothNodes
 import kotlin.math.PI
 import kotlin.math.sqrt
 import kotlin.test.Test
@@ -312,5 +313,49 @@ class TransformTest {
         val rotated = rotate(1.234, center).apply(p)
         val distance = sqrt((rotated.x - center.x) * (rotated.x - center.x) + (rotated.y - center.y) * (rotated.y - center.y))
         assertTrue(kotlin.math.abs(distance - 10.0) < 1e-9)
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // Smooth flags
+    // -----------------------------------------------------------------------------------------
+
+    /** A four-node round shape whose every node is smooth: a drawn glyph's outline, as Draw leaves it. */
+    private fun smoothRound(): Contour {
+        fun node(
+            x: Int,
+            y: Int,
+        ) = ContourPoint(Point(x, y), onCurve = true, smooth = true)
+
+        fun handle(
+            x: Int,
+            y: Int,
+        ) = ContourPoint(Point(x, y), onCurve = false)
+        return Contour(
+            listOf(
+                node(203, 0),
+                handle(203, 111),
+                handle(111, 203),
+                node(0, 203),
+                handle(-111, 203),
+                handle(-203, 111),
+                node(-203, 0),
+                handle(-203, -111),
+                handle(-111, -203),
+                node(0, -203),
+                handle(111, -203),
+                handle(203, -111),
+            ),
+            CurveFormat.CUBIC,
+        )
+    }
+
+    @Test
+    fun transformingAContourKeepsItsSmoothFlagsAndTheyStayTrueToTheOutline() {
+        val contour = smoothRound()
+        for (transform in listOf(rotate(0.37), scale(0.71, 1.3).andThen(shearX(0.33)), rotate(2.1, Vec2(40.0, -15.0)))) {
+            val moved = transform.apply(contour)
+            assertEquals(4, moved.points.count { it.smooth }, "every node is still flagged smooth")
+            assertEquals(emptyList(), moved.brokenSmoothNodes(), "and the outline agrees with every flag")
+        }
     }
 }

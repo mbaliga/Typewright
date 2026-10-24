@@ -84,7 +84,7 @@ internal object RecentProjectsCodec {
                 ) {
                     null
                 } else {
-                    ProjectSummary(glyphs, (it["outliers"] as? JsonPrimitive)?.intOrNull ?: 0, it.stringOrNull("style_class"))
+                    ProjectSummary(glyphs, (it["outliers"] as? JsonPrimitive)?.intOrNull, it.stringOrNull("style_class"))
                 }
             }
         return RecentProject(
