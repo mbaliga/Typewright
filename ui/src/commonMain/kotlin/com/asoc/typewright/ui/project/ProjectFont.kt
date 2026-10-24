@@ -2,9 +2,9 @@
 
 package com.asoc.typewright.ui.project
 
-import com.asoc.typewright.core.font.ufo.UfoKerning
 import com.asoc.typewright.core.font.ufo.UfoProject
 import com.asoc.typewright.core.geometry.Glyph
+import com.asoc.typewright.project.KerningTable
 import com.asoc.typewright.project.Master
 
 /** One glyph placed in a run of text: [x] is its pen position in font units, kerning already applied. */
@@ -51,8 +51,8 @@ class ProjectFont(
             for (glyph in glyphs) for (codePoint in glyph.unicodes) if (codePoint !in this) put(codePoint, glyph)
         }
 
-    private val kern1Groups: Map<String, String> = groupLookup(ufo.kerningInfo, "public.kern1.")
-    private val kern2Groups: Map<String, String> = groupLookup(ufo.kerningInfo, "public.kern2.")
+    /** The project's kerning read by the UFO lookup order, with where each value comes from; the one reading the specimen and Space share. */
+    val kerningTable: KerningTable = KerningTable(ufo.kerningInfo)
 
     /** The glyph named [name], or null. */
     fun glyph(name: String): Glyph? = byName[name]
@@ -77,20 +77,7 @@ class ProjectFont(
     fun kerning(
         first: Glyph,
         second: Glyph,
-    ): Double {
-        val table = ufo.kerningInfo.kerning
-        if (table.isEmpty()) return 0.0
-        val group1 = kern1Groups[first.name]
-        val group2 = kern2Groups[second.name]
-        val firstRow = table[first.name]
-        val groupRow = group1?.let { table[it] }
-        val found =
-            firstRow?.get(second.name)
-                ?: group2?.let { firstRow?.get(it) }
-                ?: groupRow?.get(second.name)
-                ?: group2?.let { groupRow?.get(it) }
-        return found ?: 0.0
-    }
+    ): Double = kerningTable.value(first.name, second.name)
 
     /** [text] set on one line in the project's outlines, advances and kerning applied; characters with no glyph are skipped. */
     fun setLine(text: String): SetLine {
@@ -132,7 +119,8 @@ class ProjectFont(
         return lines
     }
 
-    private fun spaceAdvance(): Double = (byName["space"] ?: byCodePoint[SPACE])?.advanceWidth?.toDouble() ?: (unitsPerEm * FALLBACK_SPACE)
+    /** The width of a space in font units: the project's `space` glyph, else the glyph mapped from U+0020, else a quarter of the em. */
+    fun spaceAdvance(): Double = (byName["space"] ?: byCodePoint[SPACE])?.advanceWidth?.toDouble() ?: (unitsPerEm * FALLBACK_SPACE)
 
     /** A word to show the font off with: [preferred] when the font can set it, else the first [fallbackLength] letters it maps, else null. */
     fun showWord(
@@ -146,16 +134,6 @@ class ProjectFont(
             .joinToString("") { it.toChar().toString() }
             .takeIf { it.isNotEmpty() }
     }
-
-    private fun groupLookup(
-        kerning: UfoKerning,
-        prefix: String,
-    ): Map<String, String> =
-        buildMap {
-            for ((group, members) in kerning.groups) {
-                if (group.startsWith(prefix)) for (member in members) if (member !in this) put(member, group)
-            }
-        }
 
     companion object {
         private var last: ProjectFont? = null
