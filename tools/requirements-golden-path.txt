@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# The Python tools the golden path's steps 4 (Check) and 5 (Compile) really run, and the ones a person
+# installs to get the same on their own computer (docs/CHECK_AND_COMPILE.md). The app finds them through
+# the Python it is pointed at: TYPEWRIGHT_PYTHON, else python3 on the PATH.
+#
+# fontmake[pathops] is the compiler plus skia-pathops, which removes overlaps and, unlike the default
+# overlap remover, accepts quadratic outlines. fontbakery[googlefonts] is Google Fonts' checker with the
+# extras its check-googlefonts profile imports; plain "fontbakery" crashes on that profile.
+#
+# Kept apart from requirements-ufolib.txt on purpose: that file pins the fontTools the UFO validator
+# reads our files with, and these tools resolve their own fontTools.
+fontmake[pathops]==3.12.2
+fontbakery[googlefonts]==0.12.10

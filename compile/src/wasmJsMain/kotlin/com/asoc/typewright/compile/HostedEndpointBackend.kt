@@ -33,8 +33,11 @@ class HostedEndpointBackend(
             BackendAvailability.Available
         }
 
-    override suspend fun compile(request: CompileRequest): CompileResult {
-        val endpoint = endpoint ?: return notImplemented(name, PLANNED)
+    override suspend fun compile(
+        request: CompileRequest,
+        onLog: (CompileLogLine) -> Unit,
+    ): CompileResult {
+        val endpoint = endpoint ?: return notImplemented(name, PLANNED).also { result -> result.log.forEach(onLog) }
         return try {
             val bodyJson = HostedBuildProtocol.encodeRequest(request)
             val outcomeJson = postJsonForOutcome(endpoint, HostedBuildProtocol.COMPILE_PATH, bodyJson)
@@ -47,10 +50,10 @@ class HostedEndpointBackend(
         }
     }
 
-    private companion object {
+    companion object {
+        /** What the UI shows wherever it would offer to build in the browser while no endpoint is chosen (decision D4). */
         const val PLANNED =
-            "Not built yet. Planned: on an explicit build, upload the project to the hosted " +
-                "endpoint, which runs fontmake in a container, keeps nothing, and returns the binaries."
+            "The web preview does not compile (D4); export the UFO and Ship folder and build on the desktop app."
     }
 }
 

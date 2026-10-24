@@ -53,6 +53,13 @@ class FontspectorCliChecker(
             onFailure = { LayerOneAvailability.Unavailable(NOT_FOUND_REASON) },
         )
 
+    override suspend fun runtime(): LayerOneRuntime? {
+        val answer = RealCommandRunner.run(listOf(binaryName, "--version"), VERSION_TIMEOUT_MILLIS)
+        if (answer.problem != null) return null
+        val version = Regex("""\d+(\.\d+)+\S*""").find(answer.output)?.value
+        return LayerOneRuntime("Fontspector", version, "on this computer")
+    }
+
     override suspend fun check(input: LayerOneInput): LayerOneReport {
         val workDir = createTempDirectory("fontspector-").toFile()
         try {
@@ -77,7 +84,14 @@ class FontspectorCliChecker(
                     ProcessBuilder(args).redirectErrorStream(false).start()
                 }.getOrElse { return unavailableReport(NOT_FOUND_REASON) }
 
-            val finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
+            val finished =
+                try {
+                    process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
+                } catch (interrupted: InterruptedException) {
+                    // The caller was cancelled: stop Fontspector and everything it started, then let the cancellation through.
+                    process.killTree()
+                    throw interrupted
+                }
             val stdout = process.inputStream.bufferedReader().use { it.readText() }
             val stderr = process.errorStream.bufferedReader().use { it.readText() }
             if (!finished) {
@@ -111,6 +125,7 @@ class FontspectorCliChecker(
     private companion object {
         const val NOT_FOUND_REASON = "Unavailable: fontspector not found on PATH."
         const val RAW_OUTPUT_LIMIT = 2000
+        const val VERSION_TIMEOUT_MILLIS = 10_000L
     }
 }
 
@@ -178,4 +193,10 @@ private fun parseFontspectorStatus(word: String): CheckStatus? =
         else -> null
     }
 
-actual fun platformLayerOneChecker(): LayerOneChecker = FontspectorCliChecker()
+/** Fontspector or Fontbakery on a computer; on Android, which runs this same JVM code, the checker that says it needs the desktop app. */
+actual fun platformLayerOneChecker(): LayerOneChecker = shared
+
+/** One checker for the whole process, so that where Fontbakery was found is remembered between visits to the Check page. */
+private val shared: LayerOneChecker by lazy {
+    if (isAndroidRuntime()) NeedsDesktopLayerOneChecker() else BackgroundLayerOneChecker(DesktopLayerOneChecker())
+}

@@ -2,6 +2,11 @@
 
 package com.asoc.typewright.qa
 
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import java.io.File
 import kotlin.io.path.createTempDirectory
@@ -51,6 +56,47 @@ class FontspectorCliCheckerTest {
         assertEquals(CheckStatus.SKIP, report.results.single().status)
         assertEquals(1, report.counts.skip)
         assertEquals(0, report.counts.pass + report.counts.warn + report.counts.fail)
+    }
+
+    @Test
+    fun cancellingTheCallerStopsFontspectorAndEverythingItStarted() =
+        runBlocking<Unit> {
+            val pids = File(createTempDirectory("fontspector-pids-").toFile().also { workDirs += it }, "pids")
+            val script =
+                fakeScript(
+                    """
+                    #!/bin/sh
+                    if [ "${'$'}1" = "--version" ]; then exit 0; fi
+                    sleep 120 &
+                    echo "${'$'}! ${'$'}${'$'}" > "${pids.absolutePath}"
+                    wait
+                    """.trimIndent() + "\n",
+                )
+            val checker = BackgroundLayerOneChecker(FontspectorCliChecker(binaryName = script))
+            val job = launch { checker.check(LayerOneInput("font.ttf", byteArrayOf(1))) }
+            withTimeout(20_000) { while (!(pids.isFile && pids.readText().isNotBlank())) delay(50) }
+            val (child, self) =
+                pids
+                    .readText()
+                    .trim()
+                    .split(' ')
+                    .map { it.toLong() }
+            job.cancelAndJoin()
+            for (pid in listOf(child, self)) {
+                withTimeout(10_000) { while (isRunning(pid)) delay(50) }
+            }
+        }
+
+    private fun isRunning(pid: Long): Boolean {
+        val stat = File("/proc/$pid/stat")
+        if (!stat.isFile) return false
+        val state =
+            stat
+                .readText()
+                .substringAfterLast(')')
+                .trim()
+                .firstOrNull()
+        return state != 'Z' && state != 'X'
     }
 
     @Test

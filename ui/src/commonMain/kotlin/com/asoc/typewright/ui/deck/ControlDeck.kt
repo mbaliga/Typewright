@@ -179,6 +179,8 @@ fun ControlDeck(
                         "More"
                     } else if (right == DeckRight.PLUS) {
                         "New project"
+                    } else if (right == DeckRight.REFRESH) {
+                        "Run again"
                     } else {
                         "Next"
                     },
@@ -462,11 +464,53 @@ private fun DrawScope.drawDeck(
             )
         }
 
+        DeckRight.REFRESH -> {
+            drawCircle(ink, DeckGeometry.FILLED_CIRCLE_RADIUS.toFloat(), rightAt, alpha = rightAlpha)
+            val color = paper.copy(alpha = paper.alpha * rightAlpha)
+            val r = REFRESH_RADIUS
+            val endAngle = REFRESH_END_DEGREES * PI.toFloat() / 180f
+            stroke(
+                Path().apply {
+                    arcTo(
+                        Rect(rightAt.x - r, rightAt.y - r, rightAt.x + r, rightAt.y + r),
+                        REFRESH_START_DEGREES,
+                        REFRESH_END_DEGREES - REFRESH_START_DEGREES,
+                        true,
+                    )
+                },
+                color,
+                2.2f,
+            )
+            // The arrowhead sits on the end of the arc and points the way it travels (clockwise).
+            val ex = rightAt.x + r * cos(endAngle)
+            val ey = rightAt.y + r * sin(endAngle)
+            val tx = -sin(endAngle)
+            val ty = cos(endAngle)
+            val tipX = ex + tx * 3f
+            val tipY = ey + ty * 3f
+            val baseX = tipX - tx * 5f
+            val baseY = tipY - ty * 5f
+            stroke(
+                Path().apply {
+                    moveTo(baseX - ty * 4f, baseY + tx * 4f)
+                    lineTo(tipX, tipY)
+                    lineTo(baseX + ty * 4f, baseY - tx * 4f)
+                },
+                color,
+                2.2f,
+            )
+        }
+
         DeckRight.NONE -> {
             Unit
         }
     }
 }
+
+/** Run again's arrow: an arc of this radius from the start to the end angle (degrees, clockwise from three o'clock), then a head. */
+private const val REFRESH_RADIUS = 8f
+private const val REFRESH_START_DEGREES = -60f
+private const val REFRESH_END_DEGREES = 230f
 
 private fun DrawScope.stroke(
     path: Path,
