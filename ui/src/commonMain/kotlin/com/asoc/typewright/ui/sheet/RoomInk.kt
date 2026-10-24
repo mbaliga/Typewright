@@ -42,13 +42,15 @@ fun WorldInkPass(
     cameraState: SheetCameraState,
     texture: CanvasTexture,
     modifier: Modifier = Modifier,
+    /** The rooms that get a placeholder: Draw draws the open glyph itself, so the sheet leaves it out. */
+    rooms: List<Room> = Room.ORDERED,
 ) {
     val ink = texture.ink.toColor()
 
     Box(modifier = modifier.fillMaxSize()) {
         Canvas(Modifier.fillMaxSize()) {
             val camera = cameraState.camera
-            for (room in Room.ORDERED) {
+            for (room in rooms) {
                 // Anchored near the room's own *left* edge, not its centre: a room is
                 // ROOM_WIDTH_DP (1280 dp) wide, far more than a phone viewport, and both
                 // TypewrightSheet's initial camera and every RoomFlight land on a room's left
@@ -77,7 +79,7 @@ fun WorldInkPass(
             }
         }
 
-        for (room in Room.ORDERED) {
+        for (room in rooms) {
             val centerX = room.worldBounds().left + 180.0
             // Just below the baseline (font-y -40, inside the descender's own headroom, well
             // clear of the shape sitting above the baseline), still comfortably on screen with

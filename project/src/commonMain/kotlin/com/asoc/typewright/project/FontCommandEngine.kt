@@ -5,6 +5,7 @@ package com.asoc.typewright.project
 import com.asoc.typewright.core.font.ufo.UfoKerning
 import com.asoc.typewright.core.font.ufo.writeGlif
 import com.asoc.typewright.core.geometry.Glyph
+import com.asoc.typewright.core.geometry.outlineBounds
 import kotlin.time.Instant
 
 /** [FontCommandEngine.apply]'s outcome before law 1 has had a chance to refuse it. */
@@ -149,9 +150,11 @@ internal object FontCommandEngine {
     ): RawOutcome {
         if (command.left == null && command.right == null) return RawOutcome.NoChange
         return updateGlyph(font, command.glyph) { glyph ->
-            val xs = glyph.contours.flatMap { c -> c.points.map { it.point.x } }
-            val minX = xs.minOrNull() ?: 0
-            val maxX = xs.maxOrNull() ?: 0
+            // The same measurement every readout shows (core-geometry's sidebearings), so the number
+            // set here is the number a reader sees afterwards.
+            val bounds = glyph.outlineBounds()
+            val minX = bounds?.xMin ?: 0
+            val maxX = bounds?.xMax ?: 0
             val dx = if (command.left != null) command.left - minX else 0
             val shifted = GlyphShape.shiftX(glyph, dx)
             val newMaxX = maxX + dx

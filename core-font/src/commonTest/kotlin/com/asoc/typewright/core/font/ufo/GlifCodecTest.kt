@@ -802,4 +802,107 @@ class GlifCodecTest {
         val order = listOf("<advance", "<unicode", "<guideline", "<anchor", "<outline>", "<lib>").map { xml.indexOf(it) }
         assertTrue(order.all { it >= 0 } && order == order.sorted(), xml)
     }
+
+    @Test
+    fun aSmoothOnCurvePointSurvivesAWriteAndAReadInACubicContour() {
+        val smoothFirst =
+            cubicLensContour().let {
+                it.copy(
+                    points =
+                        it.points.mapIndexed { i, p ->
+                            if (i ==
+                                0
+                            ) {
+                                p.copy(smooth = true)
+                            } else {
+                                p
+                            }
+                        },
+                )
+            }
+        val glyph = Glyph("o", 600, listOf(smoothFirst))
+
+        val xml = writeGlif(glyph)
+
+        assertTrue(xml.contains("<point x=\"0\" y=\"0\" type=\"curve\" smooth=\"yes\"/>"), xml)
+        assertTrue(!xml.contains("<point x=\"50\" y=\"50\" type=\"curve\" smooth"), "only the flagged point is smooth: $xml")
+        val parsed = parseGlif(xml)
+        assertEquals(glyph, parsed)
+        assertTrue(
+            parsed.contours
+                .single()
+                .points[0]
+                .smooth,
+        )
+        assertTrue(
+            !parsed.contours
+                .single()
+                .points[3]
+                .smooth,
+        )
+    }
+
+    @Test
+    fun aSmoothFlagOnAQuadraticOnCurvePointRoundTrips() {
+        val contour =
+            Contour(
+                listOf(
+                    ContourPoint(Point(0, 0), onCurve = true, smooth = true),
+                    ContourPoint(Point(50, 0), onCurve = false),
+                    ContourPoint(Point(50, 50), onCurve = true),
+                    ContourPoint(Point(0, 50), onCurve = false),
+                ),
+                CurveFormat.QUADRATIC,
+            )
+        val glyph = Glyph("q", 100, listOf(contour))
+
+        val parsed = parseGlif(writeGlif(glyph))
+
+        assertEquals(glyph, parsed)
+        assertTrue(
+            parsed.contours
+                .single()
+                .points[0]
+                .smooth,
+        )
+    }
+
+    @Test
+    fun smoothYesOnAnOffCurvePointIsIgnoredAndSmoothNoIsNotSmooth() {
+        val glif =
+            """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <glyph name="g" format="2">
+              <advance width="100"/>
+              <outline>
+                <contour>
+                  <point x="0" y="0" type="curve" smooth="no"/>
+                  <point x="10" y="0" smooth="yes"/>
+                  <point x="20" y="10" type="offcurve" smooth="yes"/>
+                  <point x="30" y="30" type="curve" smooth="yes"/>
+                  <point x="20" y="40"/>
+                  <point x="10" y="40"/>
+                </contour>
+              </outline>
+            </glyph>
+            """.trimIndent()
+
+        val points = parseGlif(glif).contours.single().points
+
+        assertEquals(listOf(false, false, false, true, false, false), points.map { it.smooth })
+    }
+
+    @Test
+    fun aGlyphWithNoSmoothFlagsIsWrittenByteForByteAsBefore() {
+        val xml = writeGlif(Glyph("o", 600, listOf(cubicLensContour())))
+        assertTrue(!xml.contains("smooth"), xml)
+    }
+
+    @Test
+    fun aSmoothFlagIsPartOfEqualityBecauseTogglingItIsARealEdit() {
+        val corner = cubicLensContour()
+        val smooth = corner.copy(points = corner.points.mapIndexed { i, p -> if (i == 0) p.copy(smooth = true) else p })
+        assertTrue(corner != smooth)
+        assertTrue(writeGlif(Glyph("o", 600, listOf(corner))) != writeGlif(Glyph("o", 600, listOf(smooth))))
+    }
 }

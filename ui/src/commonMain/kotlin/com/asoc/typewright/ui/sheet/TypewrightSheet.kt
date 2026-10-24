@@ -5,65 +5,122 @@ package com.asoc.typewright.ui.sheet
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.asoc.typewright.core.geometry.Axis
+import com.asoc.typewright.core.geometry.Glyph
 import com.asoc.typewright.core.geometry.Vec2
 import com.asoc.typewright.ui.deck.ControlDeck
 import com.asoc.typewright.ui.deck.DeckLeft
 import com.asoc.typewright.ui.deck.DeckRight
 import com.asoc.typewright.ui.deck.DeckSection
 import com.asoc.typewright.ui.deck.DeckToggle
+import com.asoc.typewright.ui.deck.SystemBackHandler
+import com.asoc.typewright.ui.draw.DesktopTopBar
+import com.asoc.typewright.ui.draw.DrawController
+import com.asoc.typewright.ui.draw.DrawEmptyState
+import com.asoc.typewright.ui.draw.DrawFrame
+import com.asoc.typewright.ui.draw.DrawGestureEnv
+import com.asoc.typewright.ui.draw.DrawGridLayer
+import com.asoc.typewright.ui.draw.DrawHeader
+import com.asoc.typewright.ui.draw.DrawInkLayer
+import com.asoc.typewright.ui.draw.DrawInspectorModel
+import com.asoc.typewright.ui.draw.DrawKeyAction
+import com.asoc.typewright.ui.draw.DrawNoticeBar
+import com.asoc.typewright.ui.draw.DrawPageMenu
+import com.asoc.typewright.ui.draw.DrawPageMenuItems
+import com.asoc.typewright.ui.draw.DrawPalette
+import com.asoc.typewright.ui.draw.DrawRadialOverlay
+import com.asoc.typewright.ui.draw.DrawReadout
+import com.asoc.typewright.ui.draw.DrawRichMenu
+import com.asoc.typewright.ui.draw.DrawRoom
+import com.asoc.typewright.ui.draw.DrawSelection
+import com.asoc.typewright.ui.draw.DrawShortcutSheet
+import com.asoc.typewright.ui.draw.DrawSpace
+import com.asoc.typewright.ui.draw.DrawSubject
+import com.asoc.typewright.ui.draw.FieldGroup
+import com.asoc.typewright.ui.draw.FieldSpec
+import com.asoc.typewright.ui.draw.GlyphLines
+import com.asoc.typewright.ui.draw.InspectorColumn
+import com.asoc.typewright.ui.draw.PointerKind
+import com.asoc.typewright.ui.draw.RadialState
+import com.asoc.typewright.ui.draw.ToolRail
+import com.asoc.typewright.ui.draw.drawKeys
+import com.asoc.typewright.ui.draw.drawPointerInput
+import com.asoc.typewright.ui.draw.rememberDrawRoom
+import com.asoc.typewright.ui.draw.toInspectorField
 import com.asoc.typewright.ui.glass.CommandPalette
-import com.asoc.typewright.ui.glass.InspectorField
+import com.asoc.typewright.ui.glass.InspectorEdit
 import com.asoc.typewright.ui.glass.InspectorRow
 import com.asoc.typewright.ui.glass.commandPaletteShortcut
 import com.asoc.typewright.ui.glass.constructInspectorFields
 import com.asoc.typewright.ui.glass.projectStatusText
 import com.asoc.typewright.ui.puck.Puck
 import com.asoc.typewright.ui.puck.PuckGestureConfig
+import com.asoc.typewright.ui.puck.PuckGestureState
+import com.asoc.typewright.ui.puck.PuckPinState
 import com.asoc.typewright.ui.puck.PuckUiState
 import com.asoc.typewright.ui.puck.Tool
 import com.asoc.typewright.ui.puck.rememberPuckPinState
 import com.asoc.typewright.ui.puck.rememberPuckUiState
 import com.asoc.typewright.ui.puck.viewCentreFontUnits
 import com.asoc.typewright.ui.shell.LocalSectionNav
-import com.asoc.typewright.ui.shell.PageMenu
-import com.asoc.typewright.ui.shell.PageMenuItem
 import com.asoc.typewright.ui.shell.ScreenHeader
+import com.asoc.typewright.ui.theme.LocalAppearance
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.CanvasTextures
+import com.asoc.typewright.ui.tokens.MeaningColors
 import com.asoc.typewright.ui.tokens.toColor
-import com.asoc.typewright.ui.tokens.toFixedString
 import kotlinx.coroutines.launch
 
 /**
- * The one-sheet UI (task P4b): Draw, Space and Learn as three regions of one continuous camera
- * space (`docs/ARCHITECTURE_REVIEW.md` §4.1/§5 finding 25), assembled exactly per the review's
- * recommendation 2: `Box { WorldPass(lines); Bloom(); WorldPass(ink); Glass() }` -- two world-space
- * passes so the bloom can sit between them in z-order without living inside either transformed
- * layer, glass drawn last so it both paints on top and wins hit-testing over the world beneath it
- * (this file's own "Hit testing" note below).
+ * The one-sheet UI: Draw and Space as two regions of one continuous camera space
+ * (`docs/ARCHITECTURE_REVIEW.md` §4.1/§5 finding 25), assembled in the review's order: the grid, the
+ * bloom, then the ink, then the glass. The grid is the only thing that dissolves near the glass; the
+ * ink (metric lines, construction, the glyph and its nodes) is above the bloom and never fades (C4).
  *
- * **Hit testing** (`docs/ARCHITECTURE_REVIEW.md` §4.1 "Hit testing on the glass"): Compose hit-
- * tests a `Box`'s children top-down and stops at the first one that consumes a pointer, so simply
- * adding glass children *after* the two world passes already gives them priority, with no
- * `pointer-events:none` equivalent needed on the world passes themselves (they carry no pointer
- * modifier of their own beyond the one root arbiter on this outer `Box`, so they are "transparent"
- * to hit-testing exactly as the review describes).
+ * Draw shows the glyph the open project has ([com.asoc.typewright.ui.draw.rememberDrawRoom]) and
+ * edits it through the project's undo history; with no project open it says so and draws nothing. On a
+ * phone the header, the inspector row, the puck and the deck are the glass; from 900 dp the frame is the
+ * desktop one, a top bar with a tool rail and an inspector column, and the puck is left off.
+ *
+ * **Hit testing** (`docs/ARCHITECTURE_REVIEW.md` §4.1 "Hit testing on the glass"): Compose hit-tests a
+ * `Box`'s children top-down and stops at the first one that consumes a pointer, so glass children
+ * added after the glyph's pointer layer take priority over it with nothing extra. The deck is the
+ * last child so a menu's scrim never covers the circle that closes the menu.
+ *
+ * GESTURE HONESTY (CLAUDE.md law 4): every touch gesture here is built on the tested pure machines
+ * and runs in the desktop harness; none has run on a touchscreen in this container. They are
+ * owner-verified on a device only.
  */
 @Composable
 fun TypewrightSheet(
@@ -76,7 +133,7 @@ fun TypewrightSheet(
     /** False while another screen covers the sheet: it keeps its camera and tool but draws no deck. */
     deckVisible: Boolean = true,
     initialTexture: CanvasTexture = CanvasTextures.DEFAULT,
-    initialGestureConfig: PuckGestureConfig = PuckGestureConfig(),
+    initialGestureConfig: PuckGestureConfig = remember { PuckGestureConfig() },
     /**
      * Exposed (rather than created unconditionally inside this function) so a test can pre-seed
      * the puck's gesture state -- e.g. into [com.asoc.typewright.ui.puck.PuckGestureState.
@@ -85,57 +142,152 @@ fun TypewrightSheet(
      * callers (the real apps) just take the default.
      */
     puckState: PuckUiState = rememberPuckUiState(),
+    /** Whether the glyph starts filled rather than outlined; the deck's Outline and Fill toggles change it. */
+    initialFill: Boolean = false,
+    /** Where the puck is pinned; a host that wants to read or place it passes its own, otherwise the sheet keeps one at the default edge. */
+    puckPin: PuckPinState? = null,
+    /** Told about the Draw room whenever the glyph or the project changes, so a host or a test can reach its controller. */
+    onDrawRoom: (DrawRoom) -> Unit = {},
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
+    val nav = LocalSectionNav.current
+    val haptics = LocalHapticFeedback.current
+    val hapticsOn = LocalAppearance.current?.settings?.haptics ?: true
 
-    // Not yet mutable at runtime: this task has no texture-switch control (UI_SPEC names one but
-    // it lives on a screen this task does not build). `initialTexture` is passed straight through
-    // so `SheetScreenshotTest` can render each of the four textures task item 9 asks for.
     val texture = initialTexture
     val cameraState =
         rememberSheetCameraState(
             initial =
                 SheetCamera(
-                    // y = -DEFAULT_BASELINE_SCREEN_Y_DP, not 0: `GridAndMetrics.kt`'s
-                    // `worldToScreenFontUp` puts font-unit y = 0 (the baseline) at screen y =
-                    // -offset.y, so an offset.y of 0 would pin the baseline to the very top
-                    // pixel row. This starting offset instead puts the baseline a sensible way
-                    // down a phone-sized canvas, matching roughly where the explorer's own
-                    // baseline sits (`draw-wide.png`) -- see that function's own KDoc for why
-                    // cap-height still falls outside the default view at zoom 1 (a documented
-                    // simplification: real font-unit-to-dp scaling is P5b's job).
-                    offset = initialRoom.worldBounds().let { Vec2(it.left, -DEFAULT_BASELINE_SCREEN_Y_DP) },
-                    zoom = 1.0,
+                    offset = initialRoom.worldBounds().let { Vec2(it.left, -RoomViews.REST_BASELINE_DP) },
+                    zoom = RoomViews.REST_ZOOM,
                 ),
         )
-    // A reasonable phone-sized guess until the first layout pass reports the real size (task
-    // P4b's own screenshot harness always renders at a known, fixed size, so this only matters
-    // for the very first frame in a host that measures asynchronously).
+    // A phone-sized guess until the first layout pass reports the real size.
     var canvasSizeDp by remember { mutableStateOf(Vec2(360.0, 780.0)) }
-    // P5b: the desktop command palette's own open/closed state (UI_SPEC §4, Ctrl/⌘ K) -- see
-    // CommandPalette.kt's own KDoc for why the shortcut lives in commonMain with no desktop gate.
+    var sizeMeasured by remember { mutableStateOf(false) }
     var paletteOpen by remember { mutableStateOf(false) }
+    var paletteGoTo by remember { mutableStateOf(false) }
+    var pageMenuOpen by remember { mutableStateOf(false) }
+    var shortcutsOpen by remember { mutableStateOf(false) }
+    var layersOpen by remember { mutableStateOf(false) }
+    var editingField by remember { mutableStateOf(false) }
+    var spaceHeld by remember { mutableStateOf(false) }
+    var ctrlHeld by remember { mutableStateOf(false) }
+    var shiftHeld by remember { mutableStateOf(false) }
+    var altHeld by remember { mutableStateOf(false) }
     // C4: construction geometry is drawn at full strength; this switch only turns it off by choice. On by default.
     var construction by remember { mutableStateOf(true) }
+    var fill by remember { mutableStateOf(initialFill) }
+
+    // Read through derivedStateOf so a pan, which changes the camera every frame, recomposes the sheet only when the room changes.
+    val currentRoom by remember(cameraState) { derivedStateOf { cameraState.currentRoom } }
+    val pin = puckPin ?: rememberPuckPinState(canvasSizeDp)
+    LaunchedEffect(pin, canvasSizeDp) { pin.fitTo(canvasSizeDp) }
+    val layers = rememberLayersState()
+    val statusBarDp = WindowInsets.statusBars.getTop(density) / density.density.toDouble()
+    val layout = SheetLayout.of(canvasSizeDp, statusBarDp, if (canvasSizeDp.x >= SheetLayout.WIDE_DP) null else pin.edge)
+
+    val drawRoom =
+        rememberDrawRoom(
+            cameraState = cameraState,
+            canvasSizeDp = canvasSizeDp,
+            sizeMeasured = sizeMeasured,
+            insets = layout.free,
+            puck = puckState,
+            onOpenPalette = { goToGlyph ->
+                paletteGoTo = goToGlyph
+                paletteOpen = true
+            },
+            onOpenMap = { nav?.openMap?.invoke() },
+            onShowShortcuts = { shortcutsOpen = true },
+            onTick = { if (hapticsOn) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
+            onThump = { if (hapticsOn) haptics.performHapticFeedback(HapticFeedbackType.LongPress) },
+        )
+    LaunchedEffect(drawRoom) { onDrawRoom(drawRoom) }
+    val controller = drawRoom.controller
+    val projectState =
+        drawRoom.session
+            ?.state
+            ?.collectAsState()
+            ?.value
+    val glyph = controller?.let { c -> projectState?.font?.glyph(c.editor.ref) }
+
     LaunchedEffect(section) {
         val target = if (section == DeckSection.SPACE) Room.SPACE else Room.DRAW
-        if (cameraState.currentRoom != target && (section == DeckSection.DRAW || section == DeckSection.SPACE)) cameraState.flyTo(target)
+        if (cameraState.currentRoom != target && (section == DeckSection.DRAW || section == DeckSection.SPACE)) {
+            val hadView = cameraState.hasView(target)
+            cameraState.flyTo(target)
+            // A first arrival in Draw has no view to go back to, so the glyph is fitted to the screen.
+            if (target == Room.DRAW && !hadView) drawRoom.fit()
+        }
     }
-    LaunchedEffect(cameraState.currentRoom) {
-        when (cameraState.currentRoom) {
+    LaunchedEffect(currentRoom) {
+        when (currentRoom) {
             Room.DRAW -> onSectionChanged(DeckSection.DRAW)
             Room.SPACE -> onSectionChanged(DeckSection.SPACE)
             Room.LEARN -> Unit
         }
     }
+    LaunchedEffect(paletteOpen, editingField, shortcutsOpen) {
+        if (!paletteOpen && !editingField) runCatching { focusRequester.requestFocus() }
+    }
 
-    val pin = rememberPuckPinState(canvasSizeDp)
-    // P5b item 4: background/sketch layers -- see Layers.kt's own KDoc for scope.
-    val layers = rememberLayersState()
+    val latestCanvas by rememberUpdatedState(canvasSizeDp)
+    val latestLayout by rememberUpdatedState(layout)
+    val latestCtrl by rememberUpdatedState(ctrlHeld)
+    val latestSection by rememberUpdatedState(section)
+    // While another screen covers the sheet it keeps its state but takes no pointer or key: a tap meant for Home must not edit a glyph under it.
+    val latestVisible by rememberUpdatedState(deckVisible)
+    val latestBlocked by rememberUpdatedState(paletteOpen || pageMenuOpen || shortcutsOpen)
+    val latestRoom by rememberUpdatedState(drawRoom)
+    val latestSpace by rememberUpdatedState(spaceHeld)
+    val latestShift by rememberUpdatedState(shiftHeld)
+    val latestAlt by rememberUpdatedState(altHeld)
+    val gestureEnv =
+        remember(cameraState, puckState) {
+            DrawGestureEnv(
+                cameraState = cameraState,
+                frame = { pointer, shift, alt ->
+                    DrawFrame(
+                        space = DrawSpace.of(cameraState.camera),
+                        canvasWidthDp = latestCanvas.x,
+                        canvasHeightDp = latestCanvas.y,
+                        topInsetDp = latestLayout.free.top,
+                        // The ring clears the whole block of glass at the foot: the deck and, on a phone, the inspector row above it.
+                        deckHeightDp = latestLayout.free.bottom,
+                        pointer = pointer,
+                        tool = if (latestCtrl) Tool.SELECT else puckState.currentTool,
+                        shift = shift,
+                        alt = alt,
+                        puckHeld = puckState.modifierHeld,
+                    )
+                },
+                puckHeld = { puckState.modifierHeld },
+                holdPuckOff = { puckState.takeHoldAsModifier() },
+                spaceHeld = { latestSpace },
+                shiftHeld = { latestShift },
+                altHeld = { latestAlt },
+                enabled = { latestVisible && latestSection == DeckSection.DRAW && !latestBlocked && latestRoom.controller != null },
+            )
+        }
 
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    val radial = controller?.radial
+    val lifted = radial?.state is RadialState.Lifted || controller?.menu != null
+    // While a ring is being swept, the object's or the puck's, the deck goes to 30% (S12).
+    val ringOpen = radial?.state is RadialState.Sweeping || puckState.gestureState is PuckGestureState.RadialOpen
+    val closeable = lifted || paletteOpen || pageMenuOpen || shortcutsOpen
+
+    fun closeAll() {
+        paletteOpen = false
+        pageMenuOpen = false
+        shortcutsOpen = false
+        controller?.closeOverlays()
+    }
+    SystemBackHandler(enabled = closeable && deckVisible) { closeAll() }
+    LaunchedEffect(deckVisible) { if (!deckVisible) closeAll() }
 
     Box(
         modifier =
@@ -147,169 +299,333 @@ fun TypewrightSheet(
                 .onGloballyPositioned { coordinates ->
                     canvasSizeDp =
                         Vec2(coordinates.size.width / density.density.toDouble(), coordinates.size.height / density.density.toDouble())
+                    sizeMeasured = true
                 }.roomKeyboardNavigation(cameraState, scope)
-                .sheetRootGestures(cameraState) { target -> scope.launch { cameraState.flyTo(target) } }
-                .commandPaletteShortcut { paletteOpen = !paletteOpen },
+                .sheetRootGestures(
+                    cameraState = cameraState,
+                    onGestureSettled = { target -> scope.launch { cameraState.flyTo(target) } },
+                    firstFingerBusy = { puckState.fingerOnPuck },
+                    onTwoFingerTap = {
+                        if (latestVisible && latestSection == DeckSection.DRAW && !latestBlocked) {
+                            latestRoom.controller?.onKey(DrawKeyAction.Undo, gestureEnv.frame(PointerKind.TOUCH, false, false))
+                        }
+                    },
+                    onThreeFingerTap = {
+                        if (latestVisible && latestSection == DeckSection.DRAW && !latestBlocked) {
+                            latestRoom.controller?.onKey(DrawKeyAction.Redo, gestureEnv.frame(PointerKind.TOUCH, false, false))
+                        }
+                    },
+                ).commandPaletteShortcut {
+                    paletteGoTo = false
+                    paletteOpen = !paletteOpen
+                }.drawKeys(
+                    controller = { latestRoom.controller },
+                    frame = { gestureEnv.frame(PointerKind.MOUSE, false, false) },
+                    enabled = {
+                        latestSection == DeckSection.DRAW && !latestBlocked && !editingField && latestRoom.controller?.menu == null
+                    },
+                    onSpace = { spaceHeld = it },
+                    onModifiers = { ctrl, shift, alt ->
+                        ctrlHeld = ctrl
+                        shiftHeld = shift
+                        altHeld = alt
+                    },
+                ).onKeyEvent { event ->
+                    // Esc closes what the glass has open before it does anything to the drawing.
+                    if (event.type == KeyEventType.KeyDown && event.key == Key.Escape && (pageMenuOpen || shortcutsOpen)) {
+                        closeAll()
+                        true
+                    } else {
+                        false
+                    }
+                },
     ) {
-        WorldLinesPass(cameraState = cameraState, texture = texture)
-        if (construction) WorldGuidesPass(cameraState = cameraState, texture = texture, guidelines = sampleGuidelines())
-        BloomLayer(zones = bloomZones(pin.center, canvasSizeDp), texture = texture)
-        WorldInkPass(cameraState = cameraState, texture = texture)
-
-        // --- Glass (drawn last: on top, and wins hit-testing) ---
-        if (deckVisible) {
-            ScreenHeader(
-                title = if (section == DeckSection.SPACE) "Space" else "Draw",
-                subtitle = projectStatusText(),
-                texture = texture,
-                modifier = Modifier.align(Alignment.TopStart),
+        // --- The sheet: the grid, the bloom, the ink (never under the bloom), then the glyph's pointer layer ---
+        DrawGridLayer(room = drawRoom, cameraState = cameraState, texture = texture)
+        BloomLayer(zones = bloomZones(if (layout.wide) null else pin.center, canvasSizeDp), texture = texture)
+        WorldInkPass(cameraState = cameraState, texture = texture, rooms = listOf(Room.SPACE, Room.LEARN))
+        DrawInkLayer(
+            room = drawRoom,
+            cameraState = cameraState,
+            texture = texture,
+            fill = fill,
+            construction = construction,
+            labelBand = layout.free.top..(canvasSizeDp.y - layout.free.bottom + LABEL_BAND_SLACK_DP),
+            labelEndInsetDp = layout.free.right,
+        )
+        if (section == DeckSection.DRAW) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .semantics {
+                            // What a screen reader says about the drawing: the glyph, and what is selected in it.
+                            contentDescription =
+                                glyph?.let { "Drawing. " + DrawSubject.describe(it, controller?.selection ?: DrawSelection.EMPTY) }
+                                    ?: "Drawing: nothing open"
+                        }.drawPointerInput(drawRoom, gestureEnv),
             )
         }
 
-        // P5b item 4: below the header, opposite the room-name/MAP corner.
-        LayersPanel(
-            state = layers,
-            texture = texture,
-            modifier = Modifier.align(Alignment.TopEnd).padding(top = LayersPanelTopPaddingDp.dp),
-        )
+        // --- Glass (drawn after the sheet: on top, and wins hit-testing) ---
+        val projectLine = projectStatusText()
+        if (deckVisible) {
+            when {
+                section == DeckSection.SPACE -> {
+                    ScreenHeader(
+                        title = "Space",
+                        subtitle = projectLine,
+                        texture = texture,
+                        modifier = Modifier.align(Alignment.TopStart),
+                    )
+                }
 
-        Puck(
-            state = puckState,
-            pin = pin,
-            texture = texture,
-            canvasSizeDp = canvasSizeDp,
-            viewCentreFontUnits = viewCentreFontUnits(cameraState.camera, canvasSizeDp),
-            config = initialGestureConfig,
-        )
+                layout.wide -> {
+                    DesktopTopBar(
+                        room = drawRoom,
+                        texture = texture,
+                        projectLine = projectLine,
+                        modifier = Modifier.align(Alignment.TopStart),
+                    )
+                }
 
-        // TopCenter, not Center: this room's own world-space placeholder ink (RoomInk.kt's room
-        // wordmark, positioned just below the baseline) sits at screen-centre by default, so a
-        // centred glass panel visibly collided with it. Matches LayersPanel's own "just below the
-        // header" offset, the one other fixed-position glass element that isn't pinned to an edge.
+                else -> {
+                    DrawHeader(
+                        room = drawRoom,
+                        texture = texture,
+                        projectLine = projectLine,
+                        modifier = Modifier.align(Alignment.TopStart),
+                    )
+                }
+            }
+        }
+
+        if (layout.wide && section == DeckSection.DRAW) {
+            ToolRail(
+                puck = puckState,
+                texture = texture,
+                modifier = Modifier.align(Alignment.TopStart).padding(top = SheetLayout.TOP_BAR_DP.dp),
+            )
+            InspectorColumn(
+                groups = inspectorGroups(glyph, controller, puckState),
+                texture = texture,
+                edit = controller?.let { inspectorEdit(it, puckState) },
+                onEditingChanged = { editingField = it },
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = SheetLayout.TOP_BAR_DP.dp),
+            )
+        } else if (layersOpen) {
+            LayersPanel(
+                state = layers,
+                texture = texture,
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = LayersPanelTopPaddingDp.dp),
+            )
+        }
+
+        if (section == DeckSection.DRAW) {
+            DrawEmptyState(room = drawRoom, texture = texture, modifier = Modifier.align(Alignment.Center))
+        }
+
+        if (!layout.wide) {
+            Puck(
+                state = puckState,
+                pin = pin,
+                texture = texture,
+                canvasSizeDp = canvasSizeDp,
+                viewCentreFontUnits = { viewCentreFontUnits(cameraState.camera, latestCanvas) },
+                config = initialGestureConfig,
+            )
+        }
+
+        // The Space room's own glass content; top-centre, clear of the room's placeholder ink at screen centre.
         SpaceRoomGlass(
-            room = cameraState.currentRoom,
+            room = currentRoom,
             texture = texture,
             kerning = sampleKerning(),
             modifier = Modifier.align(Alignment.TopCenter).padding(top = LayersPanelTopPaddingDp.dp),
         )
 
-        InspectorRow(
-            fields = inspectorFields(cameraState, puckState),
-            texture = texture,
-            modifier = Modifier.align(Alignment.BottomStart),
-        )
+        if (section == DeckSection.DRAW && controller != null && glyph != null) {
+            if (!layout.wide) {
+                val construct = puckState.activeConstruction.takeIf { puckState.currentTool == Tool.PRIMITIVES }
+                val snapTint = MeaningColors.CYAN.forTexture(texture)
+                val fields =
+                    if (construct != null) {
+                        constructInspectorFields(construct)
+                    } else {
+                        val snaps = controller.snaps
+                        DrawInspectorModel
+                            .fields(
+                                glyph = glyph,
+                                selection = controller.selection,
+                                lines = GlyphLines.of(glyph),
+                                snapX = snaps.any { it.axis == Axis.X },
+                                snapY = snaps.any { it.axis == Axis.Y },
+                                dragging = controller.editor.isDragging,
+                            ).map { it.toInspectorField(snapTint) }
+                    }
+                InspectorRow(
+                    fields = fields,
+                    texture = texture,
+                    modifier = Modifier.align(Alignment.BottomStart),
+                    edit = if (construct != null) null else inspectorEdit(controller, puckState),
+                    bottomInsetDp = layout.inspectorBottomDp,
+                    onEditingChanged = { editingField = it },
+                )
+            }
+            DrawNoticeBar(
+                controller = controller,
+                texture = texture,
+                modifier =
+                    Modifier
+                        .align(if (layout.wide) Alignment.BottomCenter else Alignment.BottomStart)
+                        .padding(
+                            bottom =
+                                (
+                                    if (layout.wide) {
+                                        layout.inspectorBottomDp
+                                    } else {
+                                        layout.inspectorBottomDp + SheetLayout.INSPECTOR_ROW_DP
+                                    } + NOTICE_GAP_DP
+                                ).dp,
+                        ),
+            )
+            DrawReadout(readout = controller.readout, texture = texture, canvasWidthDp = canvasSizeDp.x)
+        }
 
-        CommandPalette(
-            visible = paletteOpen,
-            onDismiss = { paletteOpen = false },
-            texture = texture,
-            modifier = Modifier.align(Alignment.TopCenter),
-        )
+        if (paletteOpen) {
+            val extra = remember(drawRoom, glyph) { if (section == DeckSection.DRAW) DrawPalette.entries(drawRoom) else emptyList() }
+            CommandPalette(
+                visible = true,
+                onDismiss = { paletteOpen = false },
+                texture = texture,
+                modifier = Modifier.align(Alignment.TopCenter),
+                extraCommands = extra,
+                directory = drawRoom.directory.takeIf { section == DeckSection.DRAW },
+                currentGlyph = drawRoom.glyphName,
+                onGoToGlyph = { name -> drawRoom.goTo(name) },
+                startInGoTo = paletteGoTo,
+            )
+        }
+
+        // --- Menus and the radial, below the deck so the deck's Close circle is always reachable ---
+        controller?.menu?.let { menu -> DrawRichMenu(controller = controller, menu = menu, texture = texture) }
+        if (controller != null) DrawRadialOverlay(controller = controller, texture = texture)
+        if (pageMenuOpen) {
+            DrawPageMenu(
+                texture = texture,
+                items =
+                    DrawPageMenuItems.build(
+                        room = drawRoom,
+                        layersShown = layersOpen,
+                        onCommand = {
+                            paletteGoTo = false
+                            paletteOpen = true
+                        },
+                        onGoTo = {
+                            paletteGoTo = true
+                            paletteOpen = true
+                        },
+                        onLayers = { layersOpen = !layersOpen },
+                    ),
+                onDismiss = { pageMenuOpen = false },
+            )
+        }
+        if (shortcutsOpen) DrawShortcutSheet(controller = controller, texture = texture, onClose = { shortcutsOpen = false })
 
         if (deckVisible) {
-            SheetDeck(
+            ControlDeck(
                 texture = texture,
+                modifier =
+                    Modifier
+                        .align(
+                            Alignment.BottomCenter,
+                        ).alpha(if (ringOpen) DECK_DIMMED_ALPHA else 1f),
                 section = section,
-                construction = construction,
-                onConstruction = { construction = it },
-                onOpenPalette = { paletteOpen = true },
+                left = if (closeable) DeckLeft.CLOSE else DeckLeft.BACK,
+                right = DeckRight.MENU,
+                toggles =
+                    if (section == DeckSection.DRAW) {
+                        listOf(
+                            DeckToggle("Outline", on = !fill),
+                            DeckToggle("Fill", on = fill),
+                            DeckToggle("Construction", on = construction, groupStart = true),
+                        )
+                    } else {
+                        emptyList()
+                    },
+                sectionStatus = nav?.statusOf ?: { null },
+                onLeft = { if (closeable) closeAll() else nav?.goTo?.invoke(DeckSection.HOME) },
+                onRight = { pageMenuOpen = !pageMenuOpen },
+                onToggle = { index ->
+                    when (index) {
+                        0 -> fill = false
+                        1 -> fill = true
+                        else -> construction = !construction
+                    }
+                },
+                onSection = nav?.goTo,
+                onMap = nav?.openMap,
             )
         }
     }
 }
 
-/**
- * UI_SPEC §3 "Inspector": placeholder content for task P4b -- "show the camera's own X/Y/zoom as
- * a proof the row renders and updates live as you pan" (task P4b item 7) -- for every tool but
- * Primitives; P5b's own real Construct-inspector content
- * ([com.asoc.typewright.ui.glass.constructInspectorFields]) takes over when the Primitives tool
- * is active and has already created something ([PuckUiState.activeConstruction]). The two field
- * sets are not shown together: five Construct fields (stem/contrast/exponent/width/state) plus
- * four camera fields would exceed [InspectorRow]'s own "never more than six pairs" rule, and
- * camera X/Y/zoom is far less relevant while parameterizing a primitive than what that primitive
- * actually holds -- this task's own judged call to replace rather than append (P5b's own explicit
- * "alongside... unless you judge replacing is cleaner"). [InspectorRow] itself reads
- * [SheetCameraState.camera]/[PuckUiState.activeConstruction] each recomposition here (a plain
- * composable read, not the draw-phase-only discipline the world passes use), which is the right
- * trade for this small, cheap row of text -- unlike the grid/ink passes, there is no expensive
- * geometry behind it.
- */
-private fun inspectorFields(
-    cameraState: SheetCameraState,
+/** How the inspector's values change the drawing: typed, or scrubbed with a sideways drag, one undo step each. */
+private fun inspectorEdit(
+    controller: DrawController,
     puckState: PuckUiState,
-): List<InspectorField> {
-    val active = puckState.activeConstruction
-    if (puckState.currentTool == Tool.PRIMITIVES && active != null) {
-        return constructInspectorFields(active)
+): InspectorEdit =
+    InspectorEdit(
+        onCommit = { key, text -> controller.commitField(key, text) },
+        onScrubStart = { key -> controller.scrubStart(key) },
+        onScrub = { key, units -> controller.scrubTo(key, units) },
+        onScrubEnd = { commit -> controller.scrubEnd(commit) },
+        slow = { puckState.modifierHeld },
+    )
+
+/** What the desktop inspector column shows: the construction being parameterised, or the selection and the glyph. */
+private fun inspectorGroups(
+    glyph: Glyph?,
+    controller: DrawController?,
+    puckState: PuckUiState,
+): List<FieldGroup> {
+    val construct = puckState.activeConstruction.takeIf { puckState.currentTool == Tool.PRIMITIVES }
+    if (construct != null) {
+        val fields = constructInspectorFields(construct).map { FieldSpec(it.label.lowercase(), it.value, emphasize = it.emphasize) }
+        return listOf(FieldGroup("Construct", fields.take(CONSTRUCT_FIRST_GROUP)), FieldGroup("State", fields.drop(CONSTRUCT_FIRST_GROUP)))
     }
-    val camera = cameraState.camera
-    return listOf(
-        InspectorField(label = "ROOM", value = cameraState.currentRoom.name),
-        InspectorField(label = "X", value = camera.offset.x.toFixedString(0)),
-        InspectorField(label = "Y", value = camera.offset.y.toFixedString(0)),
-        InspectorField(label = "ZOOM", value = "${camera.zoom.toFixedString(2)}x", emphasize = true),
+    if (glyph == null || controller == null) return emptyList()
+    val snaps = controller.snaps
+    return DrawInspectorModel.groups(
+        glyph = glyph,
+        selection = controller.selection,
+        lines = GlyphLines.of(glyph),
+        snapX = snaps.any { it.axis == Axis.X },
+        snapY = snaps.any { it.axis == Axis.Y },
+        dragging = controller.editor.isDragging,
     )
 }
 
-/** How far down a phone-sized canvas the baseline (font-unit y = 0) starts, in dp -- see [TypewrightSheet]'s own initial-camera comment. */
-private const val DEFAULT_BASELINE_SCREEN_Y_DP = 400.0
+private const val CONSTRUCT_FIRST_GROUP = 3
+private const val NOTICE_GAP_DP = 8.0
+private const val LABEL_BAND_SLACK_DP = 4.0
+private const val DECK_DIMMED_ALPHA = 0.3f
 
 /**
- * Bloom zones (task P4b item 3): the puck always; header and inspector "if time allows" (done
- * here, approximated). UI_SPEC's own CSS uses an `ellipse closest-side` gradient for the wide,
- * short header/inspector bands (`docs/ARCHITECTURE_REVIEW.md` §4.1 "Gradients": "the inspector's
- * `ellipse closest-side` needs a `scale()`"); [BloomZone] only models a circle, so a header/
- * inspector band is approximated here with three overlapping circles spanning its width rather
- * than one true scaled ellipse -- a documented simplification, not a literal port of the CSS.
+ * Bloom zones (UI_SPEC §1 layer 4): the puck when there is one, and the header and inspector bands,
+ * approximated with overlapping circles because [BloomZone] only models a circle (the CSS uses an
+ * `ellipse closest-side` gradient; a true scaled ellipse is a documented simplification away).
  */
 private fun bloomZones(
-    puckCenter: Vec2,
+    puckCenter: Vec2?,
     canvasSizeDp: Vec2,
 ): List<BloomZone> {
-    val zones = mutableListOf(BloomZone(center = puckCenter, radiusDp = 90.0))
+    val zones = mutableListOf<BloomZone>()
+    if (puckCenter != null) zones += BloomZone(center = puckCenter, radiusDp = 90.0)
     val bandRadius = (canvasSizeDp.x / 3.0).coerceAtLeast(60.0)
     for (fraction in listOf(0.2, 0.5, 0.8)) {
         zones += BloomZone(center = Vec2(canvasSizeDp.x * fraction, 24.0), radiusDp = bandRadius)
         zones += BloomZone(center = Vec2(canvasSizeDp.x * fraction, canvasSizeDp.y - 24.0), radiusDp = bandRadius)
     }
     return zones
-}
-
-/**
- * The sheet's deck: Back to Home on the left, ⋯ on the right (Command… first), and for Draw one
- * toggle, Construction, which shows the construction geometry (on by default). Space has no toggles
- * yet, because the views the explorer names for it (Spacing, Kerning) are not separate views here.
- */
-@Composable
-private fun SheetDeck(
-    texture: CanvasTexture,
-    section: DeckSection,
-    construction: Boolean,
-    onConstruction: (Boolean) -> Unit,
-    onOpenPalette: () -> Unit,
-) {
-    val nav = LocalSectionNav.current
-    var menuOpen by remember { mutableStateOf(false) }
-    Box(modifier = Modifier.fillMaxSize()) {
-        ControlDeck(
-            texture = texture,
-            modifier = Modifier.align(Alignment.BottomCenter),
-            section = section,
-            left = DeckLeft.BACK,
-            right = DeckRight.MENU,
-            toggles = if (section == DeckSection.DRAW) listOf(DeckToggle("Construction", on = construction)) else emptyList(),
-            sectionStatus = nav?.statusOf ?: { null },
-            onLeft = { nav?.goTo?.invoke(DeckSection.HOME) },
-            onRight = { menuOpen = !menuOpen },
-            onToggle = { onConstruction(!construction) },
-            onSection = nav?.goTo,
-            onMap = nav?.openMap,
-        )
-        if (menuOpen) {
-            PageMenu(texture = texture, items = listOf(PageMenuItem("Command…", "Ctrl or ⌘ K", onOpenPalette)), onDismiss = {
-                menuOpen =
-                    false
-            })
-        }
-    }
 }

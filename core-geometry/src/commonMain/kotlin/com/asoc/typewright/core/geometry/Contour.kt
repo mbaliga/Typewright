@@ -13,11 +13,24 @@ enum class CurveFormat {
     CUBIC,
 }
 
-/** One point of a [Contour]: a coordinate plus whether the curve actually passes through it. */
+/**
+ * One point of a [Contour]: a coordinate plus whether the curve actually passes through it.
+ *
+ * [smooth] is UFO's `smooth="yes"` on an on-curve point: the designer's statement that the two
+ * handles either side of it stay collinear, so the curve has no corner there. It is data, never
+ * inferred from the geometry, and it is meaningless on an off-curve point (always `false`). It
+ * defaults to `false` so every caller that builds a point from just a coordinate and a kind keeps
+ * compiling, and it is part of equality because toggling it is a real, undoable edit to the glyph.
+ */
 data class ContourPoint(
     val point: Point,
     val onCurve: Boolean,
-)
+    val smooth: Boolean = false,
+) {
+    init {
+        require(onCurve || !smooth) { "an off-curve point cannot be smooth; smooth belongs to the on-curve point it is a handle of" }
+    }
+}
 
 /**
  * A closed, cyclic sequence of tagged points, read according to [format]. See the module overview
