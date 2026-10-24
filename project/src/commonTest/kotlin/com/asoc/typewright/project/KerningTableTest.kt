@@ -142,7 +142,7 @@ class KerningTableTest {
     }
 
     @Test
-    fun aGlyphInTwoGroupsOfOneSideBelongsToTheFirstInFileOrder() {
+    fun aGlyphInTwoGroupsOfOneSideBelongsToTheFirstInFileOrderAndTheLaterGroupIsIgnoredWholeAsTheBuildDoesIt() {
         val kerning =
             KerningTable(
                 UfoKerning(
@@ -152,7 +152,47 @@ class KerningTableTest {
             )
         assertEquals("public.kern1.A1", kerning.groupOf("A", KernSide.FIRST))
         assertEquals(-50.0, kerning.value("A", "T"))
-        assertEquals(-100.0, kerning.value("Acircumflex", "T"))
+        // fontmake (ufo2ft) skips the whole later group when it claims a glyph an earlier one has (its log: the glyph is "already in" the
+        // first, "discarding"), so the group's other member gets nothing from it. KerningFeaturePythonIntegrationTest checks this against the tool.
+        assertNull(kerning.groupOf("Acircumflex", KernSide.FIRST))
+        assertEquals(0.0, kerning.value("Acircumflex", "T"))
+        assertEquals(listOf(IgnoredGroup("public.kern1.A2", "public.kern1.A1", listOf("A"))), kerning.ignoredGroups)
+        assertEquals(0, kerning.coverage(KernKey("public.kern1.A2", "T")), "a group that is ignored stands for no glyph pair")
+        assertEquals(2, kerning.coverage(KernKey("public.kern1.A1", "T")))
+    }
+
+    @Test
+    fun aFontThatFollowsTheOneGroupPerSideRuleHasNoIgnoredGroups() {
+        val kerning = KerningTable(UfoKerning(groups = groups + ("public.kern2.O" to listOf("O", "D"))))
+        assertEquals(emptyList(), kerning.ignoredGroups)
+        // The same glyph in a group of each side is not a clash.
+        val both = KerningTable(UfoKerning(groups = mapOf("public.kern1.x" to listOf("A"), "public.kern2.x" to listOf("A"))))
+        assertEquals(emptyList(), both.ignoredGroups)
+    }
+
+    @Test
+    fun clashesOnEachSideAreNamedWithTheGroupTheyClashWithAndTheSharedGlyphs() {
+        val kerning =
+            KerningTable(
+                UfoKerning(
+                    groups =
+                        mapOf(
+                            "public.kern1.a" to listOf("A", "B"),
+                            "public.kern1.b" to listOf("C", "B", "A"),
+                            "public.kern2.a" to listOf("X"),
+                            "public.kern2.b" to listOf("X", "Y"),
+                            "public.kern1.c" to listOf("C"),
+                        ),
+                ),
+            )
+        assertEquals(
+            listOf(
+                IgnoredGroup("public.kern1.b", "public.kern1.a", listOf("B", "A")),
+                IgnoredGroup("public.kern2.b", "public.kern2.a", listOf("X")),
+            ),
+            kerning.ignoredGroups,
+        )
+        assertEquals("public.kern1.c", kerning.groupOf("C", KernSide.FIRST), "C was never claimed, because b that held it is ignored")
     }
 
     @Test

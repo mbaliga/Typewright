@@ -96,6 +96,55 @@ class SpaceRowLayoutTest {
     }
 
     @Test
+    fun aStringLongerThanTheRowIsShownFromWhereTheSelectionIsInView() {
+        // 1000 units are in view of a string 3000 long.
+        assertEquals(0.0, SpaceRowLayout.scrollFor(100.0, 600.0, 1000.0, previous = 0.0, totalUnits = 3000.0), "in view already: stay")
+        assertEquals(
+            500.0,
+            SpaceRowLayout.scrollFor(600.0, 800.0, 1000.0, previous = 500.0, totalUnits = 3000.0),
+            "still in view: stay where it was",
+        )
+        assertEquals(
+            100.0,
+            SpaceRowLayout.scrollFor(100.0, 600.0, 1000.0, previous = 500.0, totalUnits = 3000.0),
+            "just off the left: back to it",
+        )
+        assertEquals(
+            1600.0,
+            SpaceRowLayout.scrollFor(2400.0, 2600.0, 1000.0, previous = 0.0, totalUnits = 3000.0),
+            "off the right: the row moves just far enough",
+        )
+        assertEquals(2000.0, SpaceRowLayout.scrollFor(2900.0, 3000.0, 1000.0, previous = 1500.0, totalUnits = 3000.0), "never past the end")
+        assertEquals(
+            300.0,
+            SpaceRowLayout.scrollFor(300.0, 500.0, 1000.0, previous = 1200.0, totalUnits = 3000.0),
+            "off the left: back to it",
+        )
+        assertEquals(0.0, SpaceRowLayout.scrollFor(0.0, 200.0, 1000.0, previous = 700.0, totalUnits = 3000.0))
+        assertEquals(
+            0.0,
+            SpaceRowLayout.scrollFor(0.0, 200.0, 1000.0, previous = 700.0, totalUnits = 900.0),
+            "a string that fits does not move",
+        )
+    }
+
+    @Test
+    fun aPressInAScrolledRowIsReadFromWhereTheRowIsAlong() {
+        val string = SpaceString.set(font, "nnonnonon")
+        val dpu = 0.05
+        val origin = string.cells[4].x
+        val target = SpaceRowTarget.at(string, SpaceMode.SPACING, selected = 4, xDp = 2.0, dpPerUnit = dpu, originUnits = origin)
+        assertEquals(SpaceRowTarget(4, SpaceField.LEFT), target, "2 dp in is 40 units past where the row starts, inside the fifth letter")
+        assertEquals(
+            SpaceRowTarget(0, SpaceField.LEFT),
+            SpaceRowTarget.at(string, SpaceMode.SPACING, 4, 2.0, dpu),
+            "the same press in an unscrolled row is the first letter",
+        )
+        val line = SpaceRowTarget.at(string, SpaceMode.SPACING, 4, (string.cells[4].right - origin) * dpu + 3.0, dpu, origin)
+        assertEquals(SpaceRowTarget(4, SpaceField.RIGHT), line)
+    }
+
+    @Test
     fun theGrabZoneIsAFingerWide() {
         assertTrue(SpaceRowLayout.nearLine(100.0 + SpaceRowLayout.HANDLE_ZONE_DP, 100.0))
         assertTrue(!SpaceRowLayout.nearLine(100.0 + SpaceRowLayout.HANDLE_ZONE_DP + 1.0, 100.0))

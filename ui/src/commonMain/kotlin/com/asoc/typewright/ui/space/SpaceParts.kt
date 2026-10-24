@@ -4,7 +4,9 @@ package com.asoc.typewright.ui.space
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -23,7 +25,10 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -71,6 +76,28 @@ internal fun SpaceSentence(
             ),
         modifier = modifier,
     )
+}
+
+/**
+ * The line that says what the last edit did, why it did nothing, or why it was refused, with Unlock beside it where the
+ * project refused because a glyph is approved. It is the one place a notice is drawn, on the string and in every sub-view
+ * alike, so no refusal happens out of sight; a screen reader is told when it changes.
+ */
+@Composable
+internal fun SpaceNoticeLine(
+    notice: SpaceNotice,
+    texture: CanvasTexture,
+    modifier: Modifier = Modifier,
+    onUnlock: (String) -> Unit = {},
+) {
+    Row(
+        modifier = modifier.fillMaxWidth().background(texture.canvas.toColor()).semantics { liveRegion = LiveRegionMode.Polite },
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SpaceSentence(notice.text, texture, modifier = Modifier.weight(1f))
+        notice.unlockGlyph?.let { locked -> SpaceAction("Unlock $locked", texture) { onUnlock(locked) } }
+    }
 }
 
 /** An action in the accent colour, a 44 dp target (the board's `Try 46 · 44 ›` link); dimmed and inert when not [enabled]. */

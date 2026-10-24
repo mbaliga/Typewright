@@ -3664,3 +3664,97 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     tasks. The steps were timed on a warm machine (see docs/CHECK_AND_COMPILE.md) and the job's limit set to a
     multiple of that sum; the first CI runs on a cold runner are the real measurement. Confirm the limit once they
     have run. Owner: Madhav.
+
+189. **Space: spacing a locked (approved) glyph, unlock or not? (Space).** The Space brief asked that
+    spacing a locked glyph need the same explicit Unlock as Draw. docs/PROJECT_MODEL.md D2 (and the lock
+    rules at section 7) say the opposite on purpose: sidebearings, advance, kerning and unicodes stay
+    editable on a locked glyph, because shape is compared modulo one horizontal translation, and an
+    opened font's glyphs are all locked by import, so Space would otherwise need every glyph unlocked
+    first. Draw's inspector already edits sidebearings with no refusal. Space follows D2: the drawing is
+    unchanged apart from a sideways shift, the approved snapshot shifts with it, and Unlock is offered
+    only if the project ever refuses. Confirm D2 stands for Space, or say what Unlock should gate.
+    Owner: Madhav.
+
+190. **Space: the `.fea` editor has a real parser on the desktop only (Space).** It now reads its text
+    with fontTools' feaLib in the same Python the build uses, with the font's glyph names as the glyph
+    set, and shows the line and column feaLib stops at, marked in the margin. On Android (no bundled
+    Python, D5) and the web the editor shows its own shape check, labelled as that, with the reason and
+    the statement that the language itself was not parsed. Decide whether Android's route should carry
+    feaLib, and whether the web should offer to send the text to the hosted build endpoint for a check
+    (law 3: opt-in, named every time, nothing kept). Owner: Madhav.
+
+191. **Space: a hand-written kern feature drops the Kerning page's pairs at build (Space).** Checked
+    against the real tools (fontmake 3.12.2, ufo2ft 3.9.1) by `KerningFeaturePythonIntegrationTest`: when
+    `features.fea` has its own `feature kern` and no `# Automatic Code` marker inside it, the compiled
+    font holds only the hand-written pairs; with the marker it holds both. The page says so on the
+    Kerning view and in the `.fea` editor and names the marker, but no longer quotes ufo2ft's log line
+    (the tool's wording can change; the test guards the behaviour instead). It blocks nothing. Decide
+    whether Space should refuse, offer to insert the marker, or keep warning; it must be settled before
+    Compile and Ship build a font from such a project. Owner: Madhav.
+
+192. **Space: the Shaping preview entry waits on a compiled font (Space).** SCREENS_V1 S13 lists Shaping
+    preview in the Space menu. shape-preview shapes real font bytes and the project holds none until
+    Compile runs. The desktop compile backend now exists, but it builds from the UFO and takes seconds,
+    so the entry would either run a build each time it is opened (named as running on this computer) or
+    wait for a build the session holds, which none does yet. The entry stays out rather than being faked.
+    Decide between the two; Android is owner-verified only and the web keeps it absent. Owner: Madhav.
+
+193. **Space: should the Before baseline persist or follow approvals? (Space).** Before is the project's
+    spacing, kerning, groups and features as opened, or since "Make this the Before" (the page says
+    which). It is held in memory and resets when the project is reopened. "Last approved" has no source
+    because approval is per glyph and nothing snapshots spacing. A durable Before needs a small stored
+    snapshot (the scrapbook or a comparisons file) and a decision on when it is taken. Owner: Madhav.
+
+194. **Space: control strings beyond the Workbook's two (Space).** The build brief names none. Space
+    ships the Workbook's nnonnonon and HHOHOHOH (docs/TYPEWRIGHT_HANDOFF.md M5) and lets the person add
+    their own, stored in project preferences. docs/RESEARCH_font_quality.md describes Paul Barnes style
+    sandwich strings that could be generated from the glyphs drawn so far; none are offered. Say whether
+    they should be. Owner: Madhav.
+
+195. **Space: the board's heuristic row has no measurement behind it (Space).** The S13 board draws
+    "Our heuristic: n's arch side is 5 units looser than its stem side, where most faces set it a little
+    tighter. Try 46 . 44". Nothing in the repository measures how far an arch side's sidebearing differs
+    from a stem side's: qa/corpus holds node-economy and style-atlas data, and the research file gives
+    only Glyphs' one-third and 1.5 times starting ratios and says no canonical numbers exist. Law 5 says
+    a number the app judges a person by comes from the corpus, so the row is left out. If it is wanted, a
+    sidebearing measurement over the exemplar faces (per style class) has to be made first; until then
+    a sentence without numbers could be shown as "our heuristic". Owner: Madhav.
+
+196. **Space: the arrow keys (Space).** The left and right arrows change the selected number (Shift: 10)
+    while a letter, or in Kerning a pair, is selected and After is showing, as Draw's do for a selected
+    point. With Ctrl or Cmd held, and wherever the page has no number to change (a sub-view open, no pair
+    in the string), they are left for the sheet and move between sections as on every other screen.
+    SCREENS_V1 2.6 and C1 keep the arrows for sections; this resolves the clash the way Draw does. Confirm
+    Ctrl or Cmd with the arrows is the right way to change section from Space with a letter selected, or
+    choose another (for instance Esc to deselect first). Owner: Madhav.
+
+197. **Space: unsaved `.fea` text survives leaving only while the project is open (Space).** Every way
+    out of the editor that the page can see asks first (the left circle, Esc, the seats, a section on the
+    arc, the Map, the other entries of the menu). The ways it cannot stop (the command palette, a swipe
+    to another room, Ctrl or Cmd with an arrow) leave the text where it is, in memory, and the page shows
+    it again marked as kept and not saved. Closing the project or the app loses it. Decide whether it
+    should also be written to a recovery file in the project folder; such a file would be a second copy
+    that no other editor knows to ignore. Owner: Madhav.
+
+198. **Space: Before's picture where letters were drawn since (Space).** A letter that was not drawn
+    when the Before was made is not in the Before picture: it fades in as the page moves to After, and a
+    sentence names it. The alternatives are to hide Before while the letters differ, or to compare only
+    the letters both have. Confirm by eye on a device. Owner: Madhav.
+
+199. **Space: groups that share a glyph (Space).** fontmake (ufo2ft 3.9.1) keeps the first group of a
+    side that claims a glyph and skips any later group that claims one of the same, with all its other
+    members; a test builds random fonts and compares every pair with the table. The table reads groups
+    that way and the Groups view flags the group the build ignores, but nothing repairs it. A font
+    opened from a binary can produce such groups. Should the import repair them, or only flag them?
+    Owner: Madhav.
+
+200. **Space on a wide screen (Space).** Space uses the phone-style header and the inspector row at the
+    foot of the page at every width, centred in a column. The explorer's desktop frame (top bar, tool
+    rail, inspector column) is not used, and SCREENS_V1 2.6 keeps the rail and the column for Draw. The
+    grab-handle square on the line a drag changes and the junction labels in Kerning are additions the
+    board does not show. Decide whether Space gets the desktop frame. Owner: Madhav.
+
+201. **Space is owner-verified on a device only (Space).** Touch drags of sidebearing edges and letters,
+    the soft keyboard for typed values and the `.fea` editor, a two-finger swipe out of Space, the system
+    back gesture, and how a control string longer than the row moves under a finger have only been run
+    with a mouse and keyboard on the desktop. Owner: Madhav.

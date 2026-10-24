@@ -27,6 +27,7 @@ import com.asoc.typewright.project.Unlock
 import com.asoc.typewright.ui.draw.ExprResult
 import com.asoc.typewright.ui.draw.ExprScope
 import com.asoc.typewright.ui.draw.NumericExpr
+import kotlin.math.round
 import kotlin.math.roundToInt
 
 /** The numbers Space edits: the selected glyph's sidebearings and advance, and the selected pair's kerning. */
@@ -63,11 +64,22 @@ sealed interface SpaceOutcome {
     ) : SpaceOutcome
 }
 
-/** What was typed into a number field: the whole number it comes to, or why it does not come to one. */
+/** Whether the project is as the edit asked: it went in, or was so already. A refused edit left it as it was, so what was typed to ask for it must stay. */
+val SpaceOutcome.went: Boolean get() = this is SpaceOutcome.Done || this is SpaceOutcome.Unchanged
+
+/**
+ * What was typed into a number field: the number it comes to, or why it does not come to one. [units] is the whole
+ * number a sidebearing or advance takes (integers at rest); [exact] keeps the fraction a kerning value may carry,
+ * so typing -12.5 into a kern field writes -12.5 and not -13.
+ */
 sealed interface SpaceValue {
     data class Units(
         val units: Int,
-    ) : SpaceValue
+        val exact: Double = units.toDouble(),
+    ) : SpaceValue {
+        /** The number to write to [field]: whole for a sidebearing or advance, as typed (to two decimals) for kerning. */
+        fun forField(field: SpaceField): Double = if (field == SpaceField.KERN) exact else units.toDouble()
+    }
 
     data class Bad(
         val message: String,
@@ -99,7 +111,8 @@ class SpaceEditor(
         val glyph: String,
         val pair: Pair<String, String>?,
         val key: KernKey?,
-        val start: Int,
+        /** The value the drag began on, exactly as stored: a drag adds to it and never rewrites it from a rounded copy. */
+        val start: Double,
     )
 
     private val ufo: UfoProject? get() =
@@ -119,23 +132,27 @@ class SpaceEditor(
     /** The preferences the project holds. */
     fun preferences(): ProjectPreferences = session.state.value.meta.manifest.preferences
 
-    /** The value [field] has now for [glyph] (and [pair], for kerning), or null where it has none (a glyph with no drawing has no sidebearings). */
+    /**
+     * The value [field] has now for [glyph] (and [pair], for kerning), exactly as the project stores it, or null where it has
+     * none (a glyph with no drawing has no sidebearings). Kerning may be fractional, so this is a Double: nudges and drags
+     * add to it, and rounding is only ever for showing it.
+     */
     fun valueOf(
         field: SpaceField,
         glyph: String?,
         pair: Pair<String, String>?,
-    ): Int? =
+    ): Double? =
         when (field) {
             SpaceField.KERN -> {
-                pair?.let { kerning().value(it.first, it.second).roundToInt() }
+                pair?.let { kerning().value(it.first, it.second) }
             }
 
             else -> {
                 val g = glyph?.let(::glyph)
                 when (field) {
-                    SpaceField.LEFT -> g?.sidebearings()?.left
-                    SpaceField.RIGHT -> g?.sidebearings()?.right
-                    else -> g?.advanceWidth
+                    SpaceField.LEFT -> g?.sidebearings()?.left?.toDouble()
+                    SpaceField.RIGHT -> g?.sidebearings()?.right?.toDouble()
+                    else -> g?.advanceWidth?.toDouble()
                 }
             }
         }
@@ -182,12 +199,20 @@ class SpaceEditor(
         second: String,
         units: Int,
         scope: KernScope,
+    ): SpaceOutcome = setKern(first, second, units.toDouble(), scope)
+
+    /** [setKern] for a value that may carry a fraction, as stored kerning may. */
+    fun setKern(
+        first: String,
+        second: String,
+        value: Double,
+        scope: KernScope,
     ): SpaceOutcome {
         endScrub(commit = true)
         val table = kerning()
         val key = KerningEdits.targetKey(table, first, second, scope)
         val command =
-            KerningEdits.setAt(master, table, first, second, key, units.toDouble())
+            KerningEdits.setAt(master, table, first, second, key, value)
                 ?: return SpaceOutcome.Unchanged("That is the value already.")
         val result = outcome(session.execute(command), first, "That is the value already.")
         if (result !is SpaceOutcome.Done) return result
@@ -210,15 +235,20 @@ class SpaceEditor(
         val after = kerning().resolve(first, second)
         val gone = if (removed != null && table.isGroupLevel(removed)) "Removed ${table.describe(removed)}. " else ""
         val now =
-            if (after.value !=
-                0.0
-            ) {
-                "The ${after.sourceWord()} value ${after.value.roundToInt()} applies to this pair now."
+            if (after.value != 0.0) {
+                "The ${after.sourceWord()} value ${formatUnits(after.value)} applies to this pair now."
             } else {
                 "This pair is not kerned now."
             }
         return SpaceOutcome.Done(gone + now)
     }
+
+    /** Whether [removeKern] for ([first], [second]) under [scope] would take an entry away: false where the pair gets nothing from that level. */
+    fun canRemoveKern(
+        first: String,
+        second: String,
+        scope: KernScope,
+    ): Boolean = KerningEdits.remove(master, kerning(), first, second, scope) != null
 
     /** What [text] comes to as a number of font units: a number, or `=` and an expression (`=n.lsb`, `=xheight/10`); a bare `lsb` is [glyph]'s. */
     fun evaluate(
@@ -227,7 +257,7 @@ class SpaceEditor(
     ): SpaceValue =
         when (val result = NumericExpr.evaluate(text, exprScope(glyph))) {
             is ExprResult.Error -> SpaceValue.Bad(result.message)
-            is ExprResult.Value -> SpaceValue.Units(result.units)
+            is ExprResult.Value -> SpaceValue.Units(result.units, exact = round(result.value * HUNDRED) / HUNDRED)
         }
 
     /**
@@ -247,7 +277,7 @@ class SpaceEditor(
             }
 
             is SpaceValue.Units -> {
-                when (val done = apply(field, value.units, glyph, pair, scope)) {
+                when (val done = apply(field, value.forField(field), glyph, pair, scope)) {
                     is SpaceOutcome.Done, is SpaceOutcome.Unchanged -> null
                     is SpaceOutcome.Refused -> done.message
                     is SpaceOutcome.Locked -> done.message
@@ -255,7 +285,7 @@ class SpaceEditor(
             }
         }
 
-    /** Moves [field] by [delta] units from where it is. */
+    /** Moves [field] by [delta] units from where it is stored, so a kerning value with a fraction keeps it. */
     fun nudge(
         field: SpaceField,
         delta: Int,
@@ -274,10 +304,19 @@ class SpaceEditor(
         glyph: String?,
         pair: Pair<String, String>?,
         scope: KernScope,
+    ): SpaceOutcome = apply(field, units.toDouble(), glyph, pair, scope)
+
+    /** [apply] for a value that may carry a fraction. A sidebearing or advance is a whole number, so it is rounded to one. */
+    fun apply(
+        field: SpaceField,
+        value: Double,
+        glyph: String?,
+        pair: Pair<String, String>?,
+        scope: KernScope,
     ): SpaceOutcome =
         when (field) {
-            SpaceField.KERN -> pair?.let { setKern(it.first, it.second, units, scope) } ?: noPair()
-            else -> glyph?.let { setGlyphField(field, it, units) } ?: SpaceOutcome.Refused("Pick a glyph first.")
+            SpaceField.KERN -> pair?.let { setKern(it.first, it.second, value, scope) } ?: noPair()
+            else -> glyph?.let { setGlyphField(field, it, value.roundToInt()) } ?: SpaceOutcome.Refused("Pick a glyph first.")
         }
 
     /** What `=` expressions in a field can name: the font's metrics, and any glyph's advance and sidebearings (`n.lsb`); a bare `lsb` is [current]'s. */
@@ -342,20 +381,21 @@ class SpaceEditor(
             endScrub(commit = false)
             return false
         }
+        // Added to the value as it is stored: a drag that comes back to where it began writes what was there, fraction and all.
         val target = drag.start + units
         val ref = GlyphRef(master, drag.glyph)
         val command: FontCommand? =
             when (drag.field) {
                 SpaceField.LEFT -> {
-                    SetSidebearings(ref, left = target, right = null)
+                    SetSidebearings(ref, left = target.roundToInt(), right = null)
                 }
 
                 SpaceField.RIGHT -> {
-                    SetSidebearings(ref, left = null, right = target)
+                    SetSidebearings(ref, left = null, right = target.roundToInt())
                 }
 
                 SpaceField.ADVANCE -> {
-                    SetAdvance(ref, target)
+                    SetAdvance(ref, target.roundToInt())
                 }
 
                 SpaceField.KERN -> {
@@ -366,7 +406,7 @@ class SpaceEditor(
                     ) {
                         null
                     } else {
-                        KerningEdits.setAt(master, kerning(), pair.first, pair.second, key, target.toDouble())
+                        KerningEdits.setAt(master, kerning(), pair.first, pair.second, key, target)
                     }
                 }
             }
@@ -454,5 +494,6 @@ class SpaceEditor(
 
     private companion object {
         const val DEFAULT_UPM = 1000
+        const val HUNDRED = 100.0
     }
 }

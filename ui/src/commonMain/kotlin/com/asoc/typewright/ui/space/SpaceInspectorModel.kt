@@ -8,7 +8,6 @@ import com.asoc.typewright.project.KernSource
 import com.asoc.typewright.project.KerningGroups
 import com.asoc.typewright.project.KerningTable
 import com.asoc.typewright.ui.glass.InspectorField
-import kotlin.math.roundToInt
 
 /**
  * What the Space inspector row shows (SCREENS_V1 S13: left, right, kern, group), as plain data a test
@@ -90,7 +89,7 @@ object SpaceInspectorModel {
             }
         return listOf(
             InspectorField("pair", "$first $second"),
-            InspectorField("kern", resolved.value.roundToInt().toString(), emphasize = true, key = if (editable) KEY_KERN else null),
+            InspectorField("kern", formatUnits(resolved.value), emphasize = true, key = if (editable) KEY_KERN else null),
             InspectorField("from", resolved.sourceWord()),
             InspectorField("applies to", applies),
         )

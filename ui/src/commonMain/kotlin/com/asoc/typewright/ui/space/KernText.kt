@@ -8,6 +8,8 @@ import com.asoc.typewright.project.KernSide
 import com.asoc.typewright.project.KernSource
 import com.asoc.typewright.project.KerningGroups
 import com.asoc.typewright.project.KerningTable
+import kotlin.math.round
+import kotlin.math.roundToLong
 
 /** Whether [key] names a kerning group on either side, so one value stands for several glyph pairs. */
 fun KerningTable.isGroupLevel(key: KernKey): Boolean =
@@ -31,6 +33,18 @@ fun KerningTable.describe(key: KernKey): String {
         else -> "group $first with $second ($pairs)"
     }
 }
+
+/**
+ * A spacing or kerning value as a person reads it: a whole number without a decimal point, anything else with
+ * up to two decimals ("-12.5"). Stored kerning may be fractional, and the page must not show it as a different number.
+ */
+fun formatUnits(value: Double): String {
+    val rounded = round(value * HUNDRED) / HUNDRED
+    val whole = rounded.roundToLong()
+    return if (rounded == whole.toDouble()) whole.toString() else rounded.toString()
+}
+
+private const val HUNDRED = 100.0
 
 /** What a junction's kerning reads as in a word: "pair" for an exception, "group" where the groups give the value, "none" where nothing kerns it. */
 fun KernResolution.sourceWord(): String =

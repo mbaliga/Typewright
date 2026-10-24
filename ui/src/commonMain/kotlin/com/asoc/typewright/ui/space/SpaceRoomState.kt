@@ -81,14 +81,67 @@ class SpaceRoomState {
     var cancelEditTick: Int by mutableIntStateOf(0)
         private set
 
+    /**
+     * The `.fea` text the person has typed and not saved, or null while the editor shows the saved text. It lives here, not
+     * in the editor, so it outlives the editor: a way out that nothing on this page can stop (the command palette, a swipe
+     * to another room, the keyboard) leaves it where it was, and Space shows it again, marked as not saved ([draftKept]).
+     */
+    var featuresDraft: String? by mutableStateOf(null)
+
     /** True while the `.fea` editor holds text that is not saved. */
     var featuresDirty: Boolean by mutableStateOf(false)
+
+    /** True when the page was left with unsaved `.fea` text and has been opened again: the editor says the text it shows was kept. */
+    var draftKept: Boolean by mutableStateOf(false)
+        private set
 
     /** True while the screen asks whether to throw the unsaved `.fea` text away. */
     var confirmingDiscard: Boolean by mutableStateOf(false)
 
+    /** What to do once the person has agreed to throw the unsaved `.fea` text away (open a sub-view, switch a seat, leave); null for closing the editor. */
+    private var pendingExit: (() -> Unit)? = null
+
     /** Whether the person can edit now: not while the string is shown as it stood at Before. */
     val editable: Boolean get() = showAfter
+
+    /** The unsaved `.fea` text is put away on purpose: saved, or put back to what the project holds. */
+    fun discardDraft() {
+        featuresDraft = null
+        draftKept = false
+    }
+
+    /** The page has been opened again: unsaved `.fea` text that is still held is said to have been kept. */
+    fun reopened() {
+        if (featuresDirty) draftKept = true
+    }
+
+    /**
+     * Runs [exit] now, unless unsaved `.fea` text would be lost by it: then it asks first, and runs [exit] only if the
+     * person agrees. Every way out of the editor that this page can see goes through here: the left circle, a seat on the toggle
+     * arc, a section on the section arc, the Map, and the other entries of the ⋯ menu.
+     */
+    fun guardExit(exit: () -> Unit) {
+        if (panel == SpacePanel.FEATURES && featuresDirty) {
+            pendingExit = exit
+            menuOpen = false
+            confirmingDiscard = true
+        } else {
+            exit()
+        }
+    }
+
+    /** The person agreed to throw the unsaved `.fea` text away: it goes, and what was asked for happens. */
+    fun confirmDiscard() {
+        val exit = pendingExit
+        closePanel()
+        exit?.invoke()
+    }
+
+    /** The person kept editing. */
+    fun cancelDiscard() {
+        confirmingDiscard = false
+        pendingExit = null
+    }
 
     fun showMode(next: SpaceMode) {
         if (mode == next) return
@@ -109,15 +162,31 @@ class SpaceRoomState {
     }
 
     fun open(panel: SpacePanel) {
+        // Text that is the same as what the project holds is not a draft, and must not outlive a change to what the project holds.
+        if (!featuresDirty) featuresDraft = null
         this.panel = panel
         menuOpen = false
         notice = null
     }
 
+    /** Opens a sub-view from the ⋯ menu, asking first if that would throw away unsaved `.fea` text. Asking for the editor already open changes nothing. */
+    fun requestPanel(next: SpacePanel) {
+        if (next == panel) {
+            menuOpen = false
+            return
+        }
+        guardExit { open(next) }
+    }
+
+    /** Leaves the sub-view and drops what it held: the unsaved `.fea` text and the last notice. */
     fun closePanel() {
         panel = null
         featuresDirty = false
+        featuresDraft = null
+        draftKept = false
         confirmingDiscard = false
+        pendingExit = null
+        notice = null
     }
 
     /** The left circle: Back, or Close while a value is being typed or `.fea` text would be lost. */
@@ -131,8 +200,8 @@ class SpaceRoomState {
         when {
             editingField -> cancelEditTick++
             menuOpen -> menuOpen = false
-            confirmingDiscard -> confirmingDiscard = false
-            panel == SpacePanel.FEATURES && featuresDirty -> confirmingDiscard = true
+            confirmingDiscard -> cancelDiscard()
+            panel == SpacePanel.FEATURES && featuresDirty -> guardExit(::closePanel)
             panel != null -> closePanel()
             else -> leave()
         }
@@ -151,16 +220,14 @@ class SpaceRoomState {
 
     /** A tap on seat [index] of [toggles]. */
     fun onToggle(index: Int) {
-        if (panel == SpacePanel.FEATURES && featuresDirty) {
-            confirmingDiscard = true
-            return
-        }
-        closePanel()
-        when (index) {
-            SEAT_SPACING -> showMode(SpaceMode.SPACING)
-            SEAT_KERNING -> showMode(SpaceMode.KERNING)
-            SEAT_BEFORE -> showAfter(false)
-            SEAT_AFTER -> showAfter(true)
+        guardExit {
+            closePanel()
+            when (index) {
+                SEAT_SPACING -> showMode(SpaceMode.SPACING)
+                SEAT_KERNING -> showMode(SpaceMode.KERNING)
+                SEAT_BEFORE -> showAfter(false)
+                SEAT_AFTER -> showAfter(true)
+            }
         }
     }
 

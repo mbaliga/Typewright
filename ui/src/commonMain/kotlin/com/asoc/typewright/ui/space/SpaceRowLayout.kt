@@ -56,6 +56,29 @@ object SpaceRowLayout {
         return SpaceRowFit(dpPerUnit, shown, string.cells[shown - 1].right * dpPerUnit)
     }
 
+    /**
+     * Where the row's left edge sits along the string, in font units, when the string is longer than the row: the
+     * selected span from [selectedLeft] to [selectedRight] is always whole in view, and the row stays where it was
+     * ([previous]) for as long as the selection is already in view, so stepping along the string moves it only at the edges.
+     * [availableUnits] is how many font units the row shows, [totalUnits] how long the string is.
+     */
+    fun scrollFor(
+        selectedLeft: Double,
+        selectedRight: Double,
+        availableUnits: Double,
+        previous: Double,
+        totalUnits: Double,
+    ): Double {
+        val furthest = (totalUnits - availableUnits).coerceAtLeast(0.0)
+        var left = previous.coerceIn(0.0, furthest)
+        if (selectedLeft < left) {
+            left = selectedLeft
+        } else if (selectedRight > left + availableUnits) {
+            left = selectedRight - availableUnits
+        }
+        return left.coerceIn(0.0, furthest)
+    }
+
     /** The font-unit x for a pointer [xDp] from the row's left edge. */
     fun unitsAt(
         xDp: Double,

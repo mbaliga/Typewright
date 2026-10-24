@@ -200,7 +200,7 @@ class SpaceEditorTest {
         val outcome = assertIs<SpaceOutcome.Done>(editor.setKern("o", "n", -30, KernScope.GROUPS))
         assertEquals(mapOf("public.kern1.round" to mapOf("public.kern2.straight" to -30.0)), session.kerning().kerning)
         assertTrue("group pair round – straight (4 glyph pairs)" in outcome.note.orEmpty(), outcome.note)
-        assertEquals(-30, editor.valueOf(SpaceField.KERN, null, "O" to "H"), "every letter of both groups follows")
+        assertEquals(-30.0, editor.valueOf(SpaceField.KERN, null, "O" to "H"), "every letter of both groups follows")
     }
 
     @Test
@@ -217,7 +217,7 @@ class SpaceEditorTest {
                 .getValue("o")
                 .getValue("n"),
         )
-        assertEquals(-30, editor.valueOf(SpaceField.KERN, null, "O" to "H"), "the others keep the group's value")
+        assertEquals(-30.0, editor.valueOf(SpaceField.KERN, null, "O" to "H"), "the others keep the group's value")
     }
 
     @Test
@@ -295,7 +295,7 @@ class SpaceEditorTest {
         val editor = SpaceEditor(session, master)
         assertNull(editor.beginScrub(SpaceField.KERN, "o", "o" to "n", KernScope.GROUPS))
         for (units in listOf(5, 10, 15, 8)) editor.scrubTo(units)
-        assertEquals(-2, editor.valueOf(SpaceField.KERN, null, "o" to "n"))
+        assertEquals(-2.0, editor.valueOf(SpaceField.KERN, null, "o" to "n"))
         editor.endScrub(commit = true)
         assertEquals(mapOf("public.kern1.round" to mapOf("public.kern2.straight" to -2.0)), session.kerning().kerning)
         assertEquals(1, session.undoSteps())
@@ -328,6 +328,96 @@ class SpaceEditorTest {
         assertIs<SpaceOutcome.Refused>(editor.beginScrub(SpaceField.KERN, "n", null, KernScope.GROUPS))
         assertFalse(editor.scrubbing)
         assertIs<SpaceOutcome.Refused>(editor.beginScrub(SpaceField.LEFT, null, null, KernScope.GROUPS))
+    }
+
+    // ---- kerning that is not a whole number ------------------------------------------------------------
+
+    private val fractional = UfoKerning(kerning = mapOf("n" to mapOf("o" to -12.5)))
+
+    private fun ProjectSession.stored(): Double? = kerning().kerning["n"]?.get("o")
+
+    @Test
+    fun aKerningValueWithAFractionIsReadExactlyAndNudgedFromWhereItIsStored() {
+        val session = session(fractional)
+        val editor = SpaceEditor(session, master)
+        assertEquals(-12.5, editor.valueOf(SpaceField.KERN, null, "n" to "o"), "read back as stored, not rounded to -12")
+        assertIs<SpaceOutcome.Done>(editor.nudge(SpaceField.KERN, 1, null, "n" to "o", KernScope.GROUPS))
+        assertEquals(-11.5, session.stored(), "one unit up from -12.5, not -11 or -12 from a rounded copy")
+        assertIs<SpaceOutcome.Done>(editor.nudge(SpaceField.KERN, -10, null, "n" to "o", KernScope.GROUPS))
+        assertEquals(-21.5, session.stored())
+    }
+
+    @Test
+    fun aDragThatComesBackToWhereItBeganWritesWhatWasThereFractionAndAll() {
+        val session = session(fractional)
+        val editor = SpaceEditor(session, master)
+        assertNull(editor.beginScrub(SpaceField.KERN, null, "n" to "o", KernScope.GROUPS))
+        assertTrue(editor.scrubTo(7))
+        assertEquals(-5.5, session.stored(), "the drag adds its distance to the stored value")
+        assertTrue(editor.scrubTo(0))
+        assertEquals(-12.5, session.stored(), "and back at its start the value is the one that was there, not -12")
+        editor.endScrub(commit = true)
+        assertEquals(-12.5, session.stored())
+        session.undo()
+        assertEquals(-12.5, session.stored())
+
+        val second = session(fractional)
+        val other = SpaceEditor(second, master)
+        assertNull(other.beginScrub(SpaceField.KERN, null, "n" to "o", KernScope.GROUPS))
+        other.scrubTo(3)
+        other.endScrub(commit = true)
+        assertEquals(-9.5, second.stored())
+    }
+
+    @Test
+    fun typingAFractionWritesItAndTypingWhatTheInspectorShowsChangesNothing() {
+        val session = session(fractional)
+        val editor = SpaceEditor(session, master)
+        val pair = "n" to "o"
+        assertNull(editor.commit(SpaceField.KERN, "-12.5", null, pair, KernScope.GROUPS), "the displayed value, typed back, is accepted")
+        assertEquals(0, session.undoSteps(), "and rewrites nothing")
+        assertNull(editor.commit(SpaceField.KERN, "7.25", null, pair, KernScope.GROUPS))
+        assertEquals(7.25, session.stored(), "a fraction typed is a fraction written")
+        assertNull(editor.commit(SpaceField.KERN, "7.256", null, pair, KernScope.GROUPS))
+        assertEquals(7.26, session.stored(), "to two decimals")
+        assertNull(editor.commit(SpaceField.KERN, "-12", null, pair, KernScope.GROUPS))
+        assertEquals(-12.0, session.stored())
+    }
+
+    @Test
+    fun aSidebearingIsStillAWholeNumberWhateverIsTyped() {
+        val session = session()
+        val editor = SpaceEditor(session, master)
+        assertNull(editor.commit(SpaceField.LEFT, "40.6", "n", null, KernScope.GROUPS))
+        assertEquals(41, session.glyph("n").sidebearings()!!.left)
+        assertNull(editor.commit(SpaceField.RIGHT, "=60.4", "n", null, KernScope.GROUPS))
+        assertEquals(60, session.glyph("n").sidebearings()!!.right)
+    }
+
+    @Test
+    fun removingAnExceptionSaysWhatTheGroupsGiveThePairNowWithItsFraction() {
+        val session =
+            session(
+                UfoKerning(
+                    kerning = mapOf("n" to mapOf("o" to -3.0), "public.kern1.straight" to mapOf("public.kern2.round" to -7.5)),
+                    groups = groups,
+                ),
+            )
+        val editor = SpaceEditor(session, master)
+        assertTrue(editor.canRemoveKern("n", "o", KernScope.PAIR_ONLY))
+        val outcome = assertIs<SpaceOutcome.Done>(editor.removeKern("n", "o", KernScope.PAIR_ONLY))
+        assertEquals("The group value -7.5 applies to this pair now.", outcome.note)
+        assertFalse(editor.canRemoveKern("n", "o", KernScope.PAIR_ONLY), "the exception is gone, so there is none to remove")
+        assertTrue(editor.canRemoveKern("n", "o", KernScope.GROUPS), "the group value is what is left to remove")
+    }
+
+    @Test
+    fun withThisPairOnlyChosenAValueFromTheGroupsHasNothingToRemove() {
+        val session = session(UfoKerning(kerning = mapOf("public.kern1.straight" to mapOf("public.kern2.round" to -7.5)), groups = groups))
+        val editor = SpaceEditor(session, master)
+        assertFalse(editor.canRemoveKern("n", "o", KernScope.PAIR_ONLY))
+        assertIs<SpaceOutcome.Unchanged>(editor.removeKern("n", "o", KernScope.PAIR_ONLY))
+        assertEquals(0, session.undoSteps())
     }
 
     // ---- groups, features, strings ---------------------------------------------------------------------

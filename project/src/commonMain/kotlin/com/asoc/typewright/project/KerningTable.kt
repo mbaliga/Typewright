@@ -63,19 +63,35 @@ data class KernResolution(
 )
 
 /**
+ * A kerning group that the build leaves out altogether because it shares glyphs with a group before it on the same side: the
+ * UFO 3 specification allows a glyph in one group per side, and fontmake (ufo2ft) keeps the first group that claims a glyph and
+ * skips any later group that claims one of the same, with all its other members. [sharedWith] is the earlier group, [shared] the glyphs.
+ */
+data class IgnoredGroup(
+    val group: String,
+    val sharedWith: String,
+    val shared: List<String>,
+)
+
+/**
  * A font's kerning read the way the UFO 3 specification's "Kerning Value Lookup Algorithm" reads
  * it: the glyph pair, then the first glyph with the second glyph's `public.kern2.*` group, then the
  * first glyph's `public.kern1.*` group with the second glyph, then the two groups; the first entry
- * found wins, even when its value is zero, and nothing found is zero. A glyph in more than one group
- * on a side (which the specification forbids) belongs to the first such group in `groups.plist`
- * order. This is the one place that order is written down: the specimen, Space and the group editor
- * all read it from here.
+ * found wins, even when its value is zero, and nothing found is zero. Groups that break the
+ * specification's one-group-per-side rule are read as fontmake builds them (see [IgnoredGroup]), so
+ * what the page shows is what the font gets. This is the one place that order is written down: the
+ * specimen, Space and the group editor all read it from here.
  */
 class KerningTable(
     val info: UfoKerning,
 ) {
-    private val firstGroupOf: Map<String, String> = membership(KernSide.FIRST)
-    private val secondGroupOf: Map<String, String> = membership(KernSide.SECOND)
+    private val firstSide = SideReading.of(info, KernSide.FIRST)
+    private val secondSide = SideReading.of(info, KernSide.SECOND)
+    private val firstGroupOf: Map<String, String> = firstSide.membership
+    private val secondGroupOf: Map<String, String> = secondSide.membership
+
+    /** The groups the build leaves out because they share a glyph with an earlier group of their side, first side then second; empty for a font that follows the rule. */
+    val ignoredGroups: List<IgnoredGroup> = firstSide.ignored + secondSide.ignored
 
     /** The kerning group [glyph] belongs to on [side], or null. */
     fun groupOf(
@@ -133,19 +149,37 @@ class KerningTable(
 
     private fun sideSize(name: String): Int {
         val side = KerningGroups.sideOf(name) ?: return 1
-        // Only the first group a glyph is in counts, so a duplicate member of a second group does not.
+        // A group the build ignores stands for nothing: none of its members belongs to it.
         return info.groups[name]
             ?.distinct()
             ?.count { glyph -> groupOf(glyph, side) == name } ?: 0
     }
 
-    private fun membership(side: KernSide): Map<String, String> =
-        buildMap {
-            for ((group, members) in info.groups) {
-                if (KerningGroups.sideOf(group) != side) continue
-                for (member in members) if (member !in this) put(member, group)
+    /** Which group each glyph of one side is in, and which groups of that side are ignored for sharing a glyph with an earlier one. */
+    private class SideReading(
+        val membership: Map<String, String>,
+        val ignored: List<IgnoredGroup>,
+    ) {
+        companion object {
+            fun of(
+                info: UfoKerning,
+                side: KernSide,
+            ): SideReading {
+                val membership = HashMap<String, String>()
+                val ignored = ArrayList<IgnoredGroup>()
+                for ((group, members) in info.groups) {
+                    if (KerningGroups.sideOf(group) != side) continue
+                    val shared = members.distinct().filter { it in membership }
+                    if (shared.isNotEmpty()) {
+                        ignored += IgnoredGroup(group, membership.getValue(shared.first()), shared)
+                        continue
+                    }
+                    for (member in members) membership[member] = group
+                }
+                return SideReading(membership, ignored)
             }
         }
+    }
 
     companion object {
         private val NOT_KERNED = KernResolution(0.0, KernSource.NONE, null)

@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -49,11 +51,15 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import com.asoc.typewright.compile.FeaChecker
+import com.asoc.typewright.compile.platformFeaChecker
 import com.asoc.typewright.core.geometry.Vec2
+import com.asoc.typewright.project.KernResolution
 import com.asoc.typewright.project.KernScope
 import com.asoc.typewright.project.KernSide
 import com.asoc.typewright.project.KernSource
 import com.asoc.typewright.project.KerningGroups
+import com.asoc.typewright.project.KerningTable
 import com.asoc.typewright.project.Master
 import com.asoc.typewright.ui.deck.ControlDeck
 import com.asoc.typewright.ui.deck.DeckRight
@@ -86,6 +92,9 @@ internal class SpaceBaseline(
     initial: Master?,
 ) {
     var master: Master? by mutableStateOf(initial)
+
+    /** When the Before was made, as the page says it ("this project was opened"). */
+    var since: String by mutableStateOf("this project was opened")
 }
 
 /**
@@ -99,6 +108,13 @@ internal class SpaceBaseline(
  * project was opened; it draws and takes input only while [active]. [onOpenPalette] opens the command
  * palette the sheet owns (the ⋯ menu's first item), and [paletteOpen] says it is open, so the page gives
  * back the keyboard and the system back to it.
+ *
+ * The keyboard: ← and → change the selected number by 1 (Shift: 10), and Tab steps along the letters, whenever
+ * a letter (in Kerning, a pair) is selected and After is showing. With Ctrl or ⌘ held, or when the page has nothing for
+ * them to change (no project, no letter drawn, a sub-view open), the arrows are not the page's: they move between
+ * sections as they do everywhere else. Unsaved `.fea` text is never lost by leaving: the page asks first wherever it can
+ * (the left circle, Esc, the seats, the section arc, the Map, the ⋯ menu), and where it cannot (the command palette, a
+ * swipe to another room) the text is kept in [SpaceRoomState] and shown again, marked as not saved, when Space is opened.
  */
 @Composable
 fun SpaceRoom(
@@ -109,6 +125,8 @@ fun SpaceRoom(
     paletteOpen: Boolean = false,
     /** Told about the page's state whenever it is made anew (a different project), so a host or a test can read and drive it. */
     onState: (SpaceRoomState) -> Unit = {},
+    /** Reads `.fea` text with the language's own parser where the platform has one; the platform's by default. */
+    feaChecker: FeaChecker = remember { platformFeaChecker() },
 ) {
     val project = rememberOpenProject()
     val session = project?.session
@@ -117,7 +135,7 @@ fun SpaceRoom(
     val baseline = remember(session) { SpaceBaseline(project?.master) }
     if (baseline.master == null && project?.master != null) baseline.master = project.master
     if (!active) return
-    SpacePage(project, state, baseline, texture, modifier, onOpenPalette, paletteOpen)
+    SpacePage(project, state, baseline, texture, modifier, onOpenPalette, paletteOpen, feaChecker)
 }
 
 @Composable
@@ -129,10 +147,13 @@ private fun SpacePage(
     modifier: Modifier,
     onOpenPalette: () -> Unit,
     paletteOpen: Boolean,
+    feaChecker: FeaChecker,
 ) {
     val nav = LocalSectionNav.current
     val focus = remember { FocusRequester() }
     val leave: () -> Unit = { nav?.goTo?.invoke(DeckSection.HOME) }
+    // Unsaved .fea text kept from before the page was left is said to have been kept.
+    LaunchedEffect(state) { state.reopened() }
     val master = project?.master
     val font = project?.font
     val session = project?.session
@@ -166,7 +187,7 @@ private fun SpacePage(
                 NoProjectState(texture = texture, what = "the control string", modifier = Modifier.padding(horizontal = PAGE_GUTTER_DP.dp))
             }
         } else {
-            SpaceContent(project, master, font, editor, state, baseline, texture, layout)
+            SpaceContent(project, master, font, editor, state, baseline, texture, layout, feaChecker)
         }
 
         ControlDeck(
@@ -180,8 +201,9 @@ private fun SpacePage(
             onLeft = { state.onLeft(leave) },
             onRight = { state.menuOpen = !state.menuOpen },
             onToggle = state::onToggle,
-            onSection = nav?.goTo,
-            onMap = nav?.openMap,
+            // A section on the arc and the Map leave the page, so unsaved .fea text is asked about first.
+            onSection = nav?.let { router -> { section: DeckSection -> state.guardExit { router.goTo(section) } } },
+            onMap = nav?.openMap?.let { open -> { state.guardExit(open) } },
         )
         if (state.menuOpen && project != null && master != null) {
             PageMenu(
@@ -196,8 +218,8 @@ private fun SpacePage(
                 message = "Throw away the changes to features.fea that you have not saved?",
                 confirmLabel = "Throw away",
                 cancelLabel = "Keep editing",
-                onConfirm = state::closePanel,
-                onCancel = { state.confirmingDiscard = false },
+                onConfirm = state::confirmDiscard,
+                onCancel = state::cancelDiscard,
             )
         }
     }
@@ -214,6 +236,7 @@ private fun SpaceContent(
     baseline: SpaceBaseline,
     texture: CanvasTexture,
     layout: SheetLayout,
+    feaChecker: FeaChecker,
 ) {
     val glyphNav = LocalGlyphNav.current
     val strings = ControlStrings.all(project.manifest.preferences)
@@ -221,6 +244,10 @@ private fun SpaceContent(
     val after = remember(font, activeText) { SpaceString.set(font, activeText) }
     val beforeFont = remember(baseline.master) { baseline.master?.let { ProjectFont(it) } }
     val before = remember(beforeFont, activeText) { beforeFont?.let { SpaceString.set(it, activeText) } }
+    // The two pictures put side by side by where each letter stands in the string and its glyph, so a string whose drawn letters
+    // changed since the Before is still compared letter by letter, and the letters it cannot compare are named.
+    val blend = remember(after, before) { SpaceBlend.of(after, before) }
+    val glyphNames = remember(font) { font.ufo.glyphs.map { it.name } }
     val progress by animateFloatAsState(if (state.showAfter) 1f else 0f, tween(SHIFT_MS))
     val paths = remember { GlyphPathCache() }
     val table = font.kerningTable
@@ -265,7 +292,7 @@ private fun SpaceContent(
 
                         is SpaceValue.Units -> {
                             state.field = field
-                            say(editor.apply(field, value.units, glyphName, pair, state.scope))
+                            say(editor.apply(field, value.forField(field), glyphName, pair, state.scope))
                             null
                         }
                     }
@@ -289,6 +316,8 @@ private fun SpaceContent(
             .take(TITLE_LETTERS)
             .joinToString(" ")
     val dockHeightDp = layout.inspectorBottomDp + SheetLayout.INSPECTOR_ROW_DP + DOCK_NOTICE_DP
+    // Where a sub-view's room ends: above the dock, which on the string lies over the string's foot instead.
+    val viewportFootDp = if (panel == null) 0.0 else layout.inspectorBottomDp + SheetLayout.INSPECTOR_ROW_DP + PANEL_NOTICE_DP
 
     Box(Modifier.fillMaxSize()) {
         if (panel == null) SpaceGrid(texture)
@@ -298,14 +327,26 @@ private fun SpaceContent(
                 subtitle = if (panel == null) state.mode.subtitle else panel.subtitle,
                 texture = texture,
             )
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            // A sub-view scrolls in the room above the dock, so its notice never lies over what is being edited; the string
+            // keeps the board's layout, with the dock over its foot.
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(bottom = viewportFootDp.dp),
+                contentAlignment = Alignment.TopCenter,
+            ) {
                 Column(
                     modifier =
                         Modifier
                             .widthIn(max = CONTENT_MAX_DP.dp)
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
-                            .padding(start = PAGE_GUTTER_DP.dp, end = PAGE_GUTTER_DP.dp, bottom = (dockHeightDp + 12.0).dp),
+                            .padding(
+                                start = PAGE_GUTTER_DP.dp,
+                                end = PAGE_GUTTER_DP.dp,
+                                bottom = (if (panel == null) dockHeightDp else 0.0).dp + SCROLL_END_DP.dp,
+                            ),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     when (panel) {
@@ -313,10 +354,11 @@ private fun SpaceContent(
                             SpaceGroupsPanel(
                                 kerning = font.ufo.kerningInfo,
                                 master = master.id,
+                                glyphNames = remember(glyphNames) { glyphNames.toSet() },
                                 selectedGlyph = glyphName,
                                 texture = texture,
                                 editable = state.editable,
-                                onEdit = { say(editor.applyGroupEdit(it)) },
+                                onEdit = { edit -> editor.applyGroupEdit(edit).also(say) },
                             )
                         }
 
@@ -326,7 +368,9 @@ private fun SpaceContent(
                                 state = state,
                                 texture = texture,
                                 editable = state.editable,
-                                onSave = { say(editor.setFeatures(it)) },
+                                glyphNames = glyphNames,
+                                checker = feaChecker,
+                                onSave = { text -> editor.setFeatures(text).also(say) },
                             )
                         }
 
@@ -367,6 +411,7 @@ private fun SpaceContent(
                                 proofFont = if (state.showAfter) font else beforeFont ?: font,
                                 after = after,
                                 before = before,
+                                blend = blend,
                                 progress = progress,
                                 paths = paths,
                                 activeText = activeText,
@@ -386,24 +431,26 @@ private fun SpaceContent(
                 }
             }
         }
-        if (panel == null) {
-            Column(modifier = Modifier.align(Alignment.BottomCenter).widthIn(max = DOCK_MAX_DP.dp)) {
-                val notice = state.notice ?: lockNote(editor, glyphName, state)
-                if (notice != null) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = PAGE_GUTTER_DP.dp),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        SpaceSentence(notice.text, texture, modifier = Modifier.weight(1f))
-                        notice.unlockGlyph?.let { locked -> SpaceAction("Unlock $locked", texture) { say(editor.unlock(locked)) } }
-                    }
-                }
+        // The dock: the notice, always at the same place above the deck - on the string and in every sub-view, so that no refusal
+        // happens out of sight - and, on the string, the inspector row under it.
+        Column(modifier = Modifier.align(Alignment.BottomCenter).widthIn(max = (if (panel == null) DOCK_MAX_DP else CONTENT_MAX_DP).dp)) {
+            val notice = state.notice ?: if (panel == null) lockNote(editor, glyphName, state) else readOnlyNote(state)
+            if (notice != null) {
+                SpaceNoticeLine(
+                    notice = notice,
+                    texture = texture,
+                    modifier = Modifier.padding(horizontal = PAGE_GUTTER_DP.dp),
+                    onUnlock = { locked -> say(editor.unlock(locked)) },
+                )
+            }
+            if (panel == null) {
+                // Under Before the row says what the picture says: the pair as it stood, not as it is.
+                val shownTable = if (state.showAfter) table else beforeFont?.kerningTable ?: table
                 val fields: List<InspectorField> =
                     if (state.mode == SpaceMode.SPACING) {
                         SpaceInspectorModel.spacing(cell, table, state.field, state.editable)
                     } else {
-                        SpaceInspectorModel.kerning(pair?.first, pair?.second, table, state.editable)
+                        SpaceInspectorModel.kerning(pair?.first, pair?.second, shownTable, state.editable)
                     }
                 InspectorRow(
                     fields = fields,
@@ -414,6 +461,9 @@ private fun SpaceContent(
                     cancelEditing = state.cancelEditTick,
                     horizontalPaddingDp = PAGE_GUTTER_DP.toDouble(),
                 )
+            } else {
+                // Where the inspector row is on the string: the notice keeps its place and the deck stays clear of it.
+                Spacer(Modifier.height((layout.inspectorBottomDp + SheetLayout.INSPECTOR_ROW_DP).dp))
             }
         }
     }
@@ -426,6 +476,7 @@ private fun StringView(
     proofFont: ProjectFont,
     after: SpaceString,
     before: SpaceString?,
+    blend: SpaceBlend,
     progress: Float,
     paths: GlyphPathCache,
     activeText: String,
@@ -454,6 +505,7 @@ private fun StringView(
     SpaceRow(
         after = after,
         before = before,
+        blend = blend,
         progress = progress,
         font = font,
         mode = state.mode,
@@ -488,7 +540,7 @@ private fun StringView(
     )
     after.leftOutText()?.let { SpaceLabel("Not drawn yet, so left out: $it", texture) }
 
-    if (state.mode == SpaceMode.KERNING) KerningNotes(font, pair, editor, state, baseline, texture, say)
+    if (state.mode == SpaceMode.KERNING) KerningNotes(font, pair, blend, editor, state, baseline, texture, say)
 
     SpaceLabel("Proof", texture, modifier = Modifier.padding(top = 8.dp))
     val others = strings.map { it.text }.filter { it != activeText }
@@ -503,6 +555,7 @@ private fun StringView(
 private fun KerningNotes(
     font: ProjectFont,
     pair: Pair<String, String>?,
+    blend: SpaceBlend,
     editor: SpaceEditor,
     state: SpaceRoomState,
     baseline: SpaceBaseline,
@@ -515,14 +568,20 @@ private fun KerningNotes(
     ) {
         SpaceSentence("no pairs yet. Tap between two letters, then type a value or drag it.", texture, muted = true)
     }
+    val diff = baseline.master?.let { SpaceDiff.of(it.ufo, font.ufo) }
     if (!state.showAfter) {
         SpaceSentence(
-            text = "Before: the spacing and kerning as they stood when this project was opened. Switch to After to change anything.",
+            text = "Before: the spacing and kerning as they stood when ${baseline.since}. Switch to After to change anything.",
             texture = texture,
             muted = true,
         )
+        // The Before is the string as it was. A letter that was not drawn then is not in it, and a letter that is not drawn now is
+        // not in After: the page says which, instead of showing one picture under both names.
+        blend.sentence()?.let { SpaceSentence(it, texture, bold = true) }
+        if (diff == null || diff.isEmpty) {
+            SpaceSentence("Nothing has changed since then, so Before looks the same as After.", texture, muted = true)
+        }
     } else {
-        val diff = baseline.master?.let { SpaceDiff.of(it.ufo, font.ufo) }
         SpaceSentence(diff?.summary()?.let { "Changed since Before: $it." } ?: "Nothing has changed since Before.", texture, muted = true)
     }
     val first = pair?.first
@@ -533,6 +592,7 @@ private fun KerningNotes(
         // An exception is edited where it is; the choice between the groups and this pair arises only where the value comes from the groups or is not set.
         val choice = grouped && resolved.source != KernSource.PAIR
         if (choice) SpaceLabel("A value you type or drag goes to", texture)
+        val removable = resolved.key != null && editor.canRemoveKern(first, second, state.scope)
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
             if (choice) {
                 SpaceChip("Groups", on = state.scope == KernScope.GROUPS, texture = texture) { state.scope = KernScope.GROUPS }
@@ -542,17 +602,42 @@ private fun KerningNotes(
                     texture = texture,
                 ) { state.scope = KernScope.PAIR_ONLY }
             }
-            if (resolved.key != null) SpaceAction("Remove", texture) { say(editor.removeKern(first, second, state.scope)) }
+            if (removable) SpaceAction("Remove", texture) { say(editor.removeKern(first, second, state.scope)) }
         }
-        val where =
-            resolved.key?.let { "The value comes from ${table.describe(it)}." }
-                ?: if (grouped) "Not kerned. A value typed here goes to the groups, so every letter in them follows." else "Not kerned yet."
-        SpaceSentence(where, texture, muted = true)
+        SpaceSentence(kernSourceSentence(table, grouped, resolved, state.scope, removable), texture, muted = true)
     }
     if (font.ufo.kerningInfo.features
             ?.let(FEA_OWN_KERN::containsMatchIn) == true
     ) {
-        SpaceSentence("features.fea writes its own kern feature, so the build drops these pairs. See ⋯ · .fea.", texture, bold = true)
+        SpaceSentence("features.fea writes its own kern feature, so the build leaves out these pairs. See ⋯ · .fea.", texture, bold = true)
+    }
+}
+
+/**
+ * Where the selected pair's value comes from and where a value typed now would go, in the terms of the scope that is chosen: a
+ * pair that is not kerned says where a value would be written (the groups, or this pair alone) and not the other, and a value
+ * that comes from the groups says plainly that, with This pair only chosen, there is no exception of its own to remove.
+ */
+internal fun kernSourceSentence(
+    table: KerningTable,
+    grouped: Boolean,
+    resolved: KernResolution,
+    scope: KernScope,
+    removable: Boolean,
+): String {
+    val key = resolved.key
+    if (key == null) {
+        return when {
+            !grouped -> "Not kerned yet."
+            scope == KernScope.GROUPS -> "Not kerned. A value typed here goes to the groups, so every letter in them follows."
+            else -> "Not kerned. A value typed here is kept for this pair only; the groups stay as they are."
+        }
+    }
+    val comes = "The value comes from ${table.describe(key)}."
+    return if (scope == KernScope.PAIR_ONLY && resolved.source != KernSource.PAIR && !removable) {
+        "$comes With This pair only chosen it has no exception of its own to remove; choose Groups to remove the group's value."
+    } else {
+        comes
     }
 }
 
@@ -634,6 +719,10 @@ private fun lockNote(
         null
     }
 
+/** The line that says a sub-view cannot be changed because the string is shown as it stood at Before, or null when it can. */
+private fun readOnlyNote(state: SpaceRoomState): SpaceNotice? =
+    if (state.editable) null else SpaceNotice("Before is a look back, so nothing here can be changed. Choose After to change anything.")
+
 private fun menuItems(
     project: OpenProject,
     master: Master,
@@ -650,23 +739,34 @@ private fun menuItems(
         PageMenuItem("Command…", "Ctrl or ⌘ K") { onOpenPalette() },
         PageMenuItem("Undo", history.undoLabels.lastOrNull() ?: "Nothing to undo") { session.undo() },
         PageMenuItem("Redo", history.redoLabels.lastOrNull() ?: "Nothing to redo") { session.redo() },
-        PageMenuItem("Groups", "$groupCount kerning ${if (groupCount == 1) "group" else "groups"}") { state.open(SpacePanel.GROUPS) },
+        // Opening a sub-view goes through the same guard as every other way out of the .fea editor.
+        PageMenuItem("Groups", "$groupCount kerning ${if (groupCount == 1) "group" else "groups"}") {
+            state.requestPanel(SpacePanel.GROUPS)
+        },
         PageMenuItem(".fea", features?.let { "features.fea · ${it.count { c -> c == '\n' } + 1} lines" } ?: "no features.fea yet") {
-            state.open(SpacePanel.FEATURES)
+            state.requestPanel(SpacePanel.FEATURES)
         },
         PageMenuItem(
             "Control strings",
             "In use: ${state.activeString ?: ControlStrings.WORKBOOK.first()}",
-        ) { state.open(SpacePanel.STRINGS) },
+        ) { state.requestPanel(SpacePanel.STRINGS) },
         PageMenuItem("Make this the Before", "Compare from now on") {
             baseline.master = project.master
+            baseline.since = "you made this the Before"
             state.showAfter(true)
             state.notice = SpaceNotice("Before is now the spacing and kerning as they stand.")
         },
     )
 }
 
-/** What a key does on the page, or false to leave it for the sheet (its arrow keys switch rooms). */
+/**
+ * What a key does on the page, or false to leave it for the sheet (its arrow keys switch rooms).
+ *
+ * The rule for ← and →: they are the page's - they change the selected number, by 1 or with Shift by 10 - only while there is a
+ * number for them to change: a project is open, a letter (in Kerning, a pair) is selected, and no sub-view is up. In
+ * Before they are still the page's, and say it is a look back. With Ctrl or ⌘ held, and wherever the page has no number to
+ * change, they are left for the sheet, which moves between rooms and sections with them as on every other screen.
+ */
 private fun pageKey(
     event: KeyEvent,
     state: SpaceRoomState,
@@ -686,17 +786,20 @@ private fun pageKey(
     }
     if (command || state.editingField) return false
     return when (event.key) {
-        // The arrows are the page's whenever it has the keyboard, so they never move the sheet's camera unseen behind it.
+        // The arrows are the page's while there is a number for them to change, so they never move the sheet's camera unseen behind
+        // it; where there is none they are left for the sheet, so the keyboard still moves between sections.
         Key.DirectionLeft, Key.DirectionRight -> {
             val target = state.target
-            if (editor == null || state.panel != null) {
-                // Nothing to nudge here.
-            } else if (!state.editable) {
+            val aimed =
+                editor != null && state.panel == null && target != null &&
+                    (if (state.mode == SpaceMode.KERNING) target.pair != null else target.glyph != null)
+            if (!aimed || target == null) return false
+            if (!state.editable) {
                 state.notice = SpaceNotice("Before is a look back. Switch to After to change anything.")
-            } else if (target != null) {
+            } else {
                 val step = if (event.isShiftPressed) BIG_STEP else 1
                 val delta = if (event.key == Key.DirectionRight) step else -step
-                state.notice = editor.nudge(state.field, delta, target.glyph, target.pair, state.scope).toNotice()
+                state.notice = editor?.nudge(state.field, delta, target.glyph, target.pair, state.scope)?.toNotice()
             }
             true
         }
@@ -730,6 +833,10 @@ private const val PAGE_GUTTER_DP = 22
 private const val CONTENT_MAX_DP = 720
 private const val DOCK_MAX_DP = 560
 private const val DOCK_NOTICE_DP = 24.0
+
+/** The room a sub-view leaves for its notice: two lines of it, so a long one does not climb over what is being edited. */
+private const val PANEL_NOTICE_DP = 44.0
+private const val SCROLL_END_DP = 12
 private const val WIDE_EM_DP = 96.0
 private const val PROOF_BIG_SP = 26f
 private const val PROOF_SMALL_SP = 17f

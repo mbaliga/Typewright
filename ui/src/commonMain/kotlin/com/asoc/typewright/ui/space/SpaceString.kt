@@ -18,6 +18,8 @@ data class SpaceCell(
     val x: Double,
     /** The kerning against the glyph before it, or null for the first glyph and for one that follows a space. */
     val kern: KernResolution?,
+    /** Where the character stands in the control string, spaces and left-out characters counted: what the same letter at the Before is matched by. */
+    val textIndex: Int,
 ) {
     /** The glyph's left sidebearing, or null for a glyph with no ink. */
     val lsb: Int? get() = glyph.sidebearings()?.left
@@ -119,7 +121,7 @@ data class SpaceString(
             val out = ArrayList<LeftOutChar>()
             var pen = 0.0
             var previous: SpaceCell? = null
-            for (char in text) {
+            for ((at, char) in text.withIndex()) {
                 if (char.isWhitespace()) {
                     val width = font.spaceAdvance()
                     gaps += SpaceGap(pen, width)
@@ -138,7 +140,7 @@ data class SpaceString(
                 }
                 val kern = previous?.let { font.kerningTable.resolve(it.glyph.name, glyph.name) }
                 if (kern != null) pen += kern.value
-                val cell = SpaceCell(cells.size, char, glyph, pen, kern)
+                val cell = SpaceCell(cells.size, char, glyph, pen, kern, at)
                 cells += cell
                 pen += glyph.advanceWidth
                 previous = cell

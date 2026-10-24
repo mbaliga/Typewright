@@ -12,8 +12,8 @@ data class FeaIssue(
  * A quick look at the shape of a `.fea` text, not a parser: whether strings end, braces and square
  * brackets match, and whether a named block (`feature kern { … } kern;`, a `lookup`, a `table`)
  * closes with its own name. It does not know the grammar, so a text it passes can still fail when the
- * font is built, and the screen says so. Where fontTools' feaLib is reachable the build's own parse is
- * the check; until then this catches the commonest slips and nothing else.
+ * font is built, and the screen says so. It is what the editor shows while fontTools' feaLib has not answered
+ * and where there is no feaLib to ask (see [FeaReport]); where feaLib runs, its parse is the check and this is not shown.
  */
 object FeaCheck {
     /** What this check looks at, as the screen states it beside the result. */

@@ -6,14 +6,27 @@ import androidx.compose.runtime.mutableStateOf
 import com.asoc.typewright.core.font.ufo.UfoKerning
 import com.asoc.typewright.core.font.ufo.UfoProject
 import com.asoc.typewright.core.geometry.Vec2
+import com.asoc.typewright.project.Brief
+import com.asoc.typewright.project.BriefSource
+import com.asoc.typewright.project.CreateResult
+import com.asoc.typewright.project.NewMaster
+import com.asoc.typewright.project.NewProjectSpec
+import com.asoc.typewright.project.OpenResult
+import com.asoc.typewright.project.ProjectWorkspace
 import com.asoc.typewright.ui.deck.DeckGeometry
 import com.asoc.typewright.ui.deck.DeckSection
 import com.asoc.typewright.ui.deck.DeckToggle
 import com.asoc.typewright.ui.draw.DrawSheetRig
 import com.asoc.typewright.ui.draw.DrawTestProjects
 import com.asoc.typewright.ui.draw.withDrawSheet
+import com.asoc.typewright.ui.project.InMemoryProjectFolderPicker
+import com.asoc.typewright.ui.project.InMemoryStorageProvider
+import com.asoc.typewright.ui.project.createProjectWorkspace
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.CanvasTextures
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlin.math.min
 
 /** Tests only: Hyle Deco's own outlines (the repository's font file), with the kerning, groups and features a test gives it. */
@@ -29,6 +42,32 @@ internal object SpaceTestProjects {
 
     fun hyleDeco(kerning: UfoKerning = UfoKerning()): UfoProject = DrawTestProjects.hyleDecoQuadratic().copy(kerningInfo = kerning)
 }
+
+/**
+ * A workspace whose open project refuses every edit, as one that another writer holds does: the project is made, closed, its write
+ * lease taken by someone else, and opened again. What the page does with a refusal can then be seen with the project's own.
+ */
+internal fun readOnlyWorkspaceWith(ufo: UfoProject): ProjectWorkspace =
+    runBlocking {
+        val storage = InMemoryStorageProvider()
+        val workspace = createProjectWorkspace(CoroutineScope(Dispatchers.Default), storage = storage)
+        val parent = checkNotNull(InMemoryProjectFolderPicker(workspace).pickNewProjectParent())
+        val spec =
+            NewProjectSpec(
+                name = "Hyle Deco Redraw",
+                brief = Brief(source = BriefSource.BLANK),
+                scripts = listOf("Latn"),
+                masters = listOf(NewMaster(id = "regular", styleName = "Regular", ufo = ufo)),
+            )
+        val created = workspace.create(parent, spec) as CreateResult.Created
+        val store = created.session.store
+        val location = storage.createChild(parent, spec.name)
+        workspace.closeCurrent()
+        checkNotNull(store.acquireWriteLease()) { "the lease was not free to take" }
+        check(workspace.open(location) is OpenResult.Opened) { "the project did not open read-only" }
+        check(checkNotNull(workspace.current.value).readOnly != null) { "the project is not read-only" }
+        workspace
+    }
 
 /** A sheet on Space over [ufo], settled; [block] drives it with the pointer and keyboard of the Draw rig. */
 internal fun withSpace(

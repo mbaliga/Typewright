@@ -79,6 +79,12 @@ class SpaceInspectorModelTest {
     @Test
     fun kerningHasNothingToEditWhileBeforeIsShownOrWithNoPair() {
         assertNull(SpaceInspectorModel.kerning("n", "o", table, editable = false)[1].key)
+        val fractional = KerningTable(UfoKerning(kerning = mapOf("n" to mapOf("o" to -12.5))))
+        assertEquals(
+            "-12.5",
+            SpaceInspectorModel.kerning("n", "o", fractional, editable = true)[1].value,
+            "the fraction is shown, not rounded to -12",
+        )
         assertEquals(listOf("—", "—", "—", "—"), SpaceInspectorModel.kerning(null, null, table, true).map { it.value })
     }
 

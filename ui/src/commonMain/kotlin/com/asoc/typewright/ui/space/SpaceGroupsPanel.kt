@@ -31,6 +31,7 @@ import com.asoc.typewright.project.GroupEdit
 import com.asoc.typewright.project.KernSide
 import com.asoc.typewright.project.KerningGroupEdits
 import com.asoc.typewright.project.KerningGroups
+import com.asoc.typewright.project.KerningTable
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.Typography
 import com.asoc.typewright.ui.tokens.toColor
@@ -41,16 +42,21 @@ import com.asoc.typewright.ui.tokens.toColor
  * and a new group. A letter is in one group on each side, so adding one that is already in another group of
  * that side moves it, and the page says so. Every change is one undo step. Groups that are not kerning
  * groups are listed and left as they are.
+ *
+ * [onEdit] runs an edit and answers how it went. What was typed to ask for an edit, and the row it was asked in, are put
+ * away only when the edit went in: a refused rename keeps its field and its row open, so the reason (drawn by the page where
+ * the notice always is) can be read against what was asked. A glyph can be added only by a name the font has: [glyphNames].
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun SpaceGroupsPanel(
     kerning: UfoKerning,
     master: String,
+    glyphNames: Set<String>,
     selectedGlyph: String?,
     texture: CanvasTexture,
     editable: Boolean,
-    onEdit: (GroupEdit) -> Unit,
+    onEdit: (GroupEdit) -> SpaceOutcome,
     modifier: Modifier = Modifier,
 ) {
     var open by remember { mutableStateOf<String?>(null) }
@@ -60,6 +66,7 @@ internal fun SpaceGroupsPanel(
     var newName by remember { mutableStateOf("") }
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()
+    val table = remember(kerning) { KerningTable(kerning) }
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         SpaceSentence(
@@ -78,6 +85,21 @@ internal fun SpaceGroupsPanel(
                         "No groups on this side yet.",
                         texture,
                         muted = true,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+                // A group that shares a glyph with an earlier one is left out whole by the build: said here, where it can be put right.
+                for (clash in table.ignoredGroups.filter { KerningGroups.sideOf(it.group) == side }) {
+                    val other = KerningGroups.displayName(clash.sharedWith)
+                    val mine = KerningGroups.displayName(clash.group)
+                    SpaceSentence(
+                        text =
+                            "◐ warn · $mine shares ${clash.shared.joinToString(
+                                " ",
+                            )} with $other, so the build ignores the whole of $mine. " +
+                                "A glyph belongs to one group on each side: take it out of one of them.",
+                        texture = texture,
+                        bold = true,
                         modifier = Modifier.padding(top = 6.dp),
                     )
                 }
@@ -143,18 +165,23 @@ internal fun SpaceGroupsPanel(
                                         texture = texture,
                                         modifier = Modifier.weight(1f),
                                         onSubmit = {
-                                            if (editable) onEdit(KerningGroupEdits.addMember(master, kerning, name, addText))
-                                            addText = ""
+                                            if (editable &&
+                                                onEdit(KerningGroupEdits.addMember(master, kerning, name, addText, glyphNames)).went
+                                            ) {
+                                                addText = ""
+                                            }
                                         },
                                     )
                                     SpaceAction("Add", texture, enabled = editable && addText.isNotBlank()) {
-                                        onEdit(KerningGroupEdits.addMember(master, kerning, name, addText))
-                                        addText = ""
+                                        if (onEdit(KerningGroupEdits.addMember(master, kerning, name, addText, glyphNames)).went) {
+                                            addText =
+                                                ""
+                                        }
                                     }
                                 }
                                 if (selectedGlyph != null && selectedGlyph !in members) {
                                     SpaceAction("Add $selectedGlyph, the letter selected on the page", texture, enabled = editable) {
-                                        onEdit(KerningGroupEdits.addMember(master, kerning, name, selectedGlyph))
+                                        onEdit(KerningGroupEdits.addMember(master, kerning, name, selectedGlyph, glyphNames))
                                     }
                                 }
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -165,15 +192,15 @@ internal fun SpaceGroupsPanel(
                                         texture = texture,
                                         modifier = Modifier.weight(1f),
                                         onSubmit = {
-                                            if (editable) {
-                                                onEdit(KerningGroupEdits.rename(master, kerning, name, renameText))
+                                            if (editable &&
+                                                onEdit(KerningGroupEdits.rename(master, kerning, name, renameText)).went
+                                            ) {
                                                 open = null
                                             }
                                         },
                                     )
                                     SpaceAction("Rename", texture, enabled = editable && renameText.isNotBlank()) {
-                                        onEdit(KerningGroupEdits.rename(master, kerning, name, renameText))
-                                        open = null
+                                        if (onEdit(KerningGroupEdits.rename(master, kerning, name, renameText)).went) open = null
                                     }
                                 }
                                 val named = KerningGroupEdits.entriesNaming(kerning, name)
@@ -189,8 +216,7 @@ internal fun SpaceGroupsPanel(
                                     texture = texture,
                                     enabled = editable,
                                 ) {
-                                    onEdit(KerningGroupEdits.delete(master, kerning, name))
-                                    open = null
+                                    if (onEdit(KerningGroupEdits.delete(master, kerning, name)).went) open = null
                                 }
                             }
                         }
@@ -213,10 +239,8 @@ internal fun SpaceGroupsPanel(
                     texture = texture,
                     modifier = Modifier.weight(1f),
                     onSubmit = {
-                        if (editable) {
-                            onEdit(KerningGroupEdits.create(master, kerning, newSide, newName, listOfNotNull(selectedGlyph)))
-                            newName = ""
-                        }
+                        val made = KerningGroupEdits.create(master, kerning, newSide, newName, listOfNotNull(selectedGlyph), glyphNames)
+                        if (editable && onEdit(made).went) newName = ""
                     },
                 )
                 SpaceAction(
@@ -224,8 +248,8 @@ internal fun SpaceGroupsPanel(
                     texture = texture,
                     enabled = editable && newName.isNotBlank(),
                 ) {
-                    onEdit(KerningGroupEdits.create(master, kerning, newSide, newName, listOfNotNull(selectedGlyph)))
-                    newName = ""
+                    val made = KerningGroupEdits.create(master, kerning, newSide, newName, listOfNotNull(selectedGlyph), glyphNames)
+                    if (onEdit(made).went) newName = ""
                 }
             }
         }
