@@ -37,8 +37,8 @@ import com.asoc.typewright.ui.settings.SettingsScreen
 import com.asoc.typewright.ui.settings.ThemeEditorScreen
 import com.asoc.typewright.ui.settings.ThemeEditorState
 import com.asoc.typewright.ui.sheet.TypewrightSheet
-import com.asoc.typewright.ui.shell.HomeScreen
 import com.asoc.typewright.ui.shell.GlyphNav
+import com.asoc.typewright.ui.shell.HomeScreen
 import com.asoc.typewright.ui.shell.LocalGlyphNav
 import com.asoc.typewright.ui.shell.LocalOpenProjects
 import com.asoc.typewright.ui.shell.LocalOpenSettings
