@@ -2,6 +2,7 @@
 
 package com.asoc.typewright.core.font.sfnt
 
+import com.asoc.typewright.core.font.ufo.PlistValue
 import com.asoc.typewright.core.font.ufo.UfoLib
 import com.asoc.typewright.core.font.ufo.readUfoProject
 import com.asoc.typewright.core.font.ufo.writeUfoProject
@@ -9,6 +10,8 @@ import com.asoc.typewright.core.geometry.CurveFormat
 import com.asoc.typewright.core.geometry.count
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * [toUfoProject] against the same embedded `fonts/HyleDeco-Regular.ttf` bytes
@@ -64,10 +67,66 @@ class SfntFontUfoBridgeTest {
     }
 
     @Test
+    fun fontInfoCarriesRightsPeopleAndTheRestOfTheMetrics() {
+        // Every value is what fontTools 4.66.0 reads from the same file.
+        val info = font.toUfoProject().fontInfo
+        assertEquals("Copyright 2026 The Hyle Deco Project Authors (https://github.com/mbaliga/HyleDeco-gf)", info.copyright)
+        assertEquals(
+            "This Font Software is licensed under the SIL Open Font License, Version 1.1. " +
+                "This license is available with a FAQ at: https://openfontlicense.org",
+            info.openTypeNameLicense,
+        )
+        assertEquals("https://openfontlicense.org", info.openTypeNameLicenseURL)
+        assertEquals("HyleDeco-Regular", info.postscriptFontName)
+        assertEquals("????", info.openTypeOS2VendorID)
+        assertEquals(1, info.versionMajor)
+        assertEquals(24, info.versionMinor)
+        assertEquals(984, info.openTypeHheaAscender)
+        assertEquals(-292, info.openTypeHheaDescender)
+        assertEquals(0, info.openTypeHheaLineGap)
+        assertEquals(984, info.openTypeOS2TypoAscender)
+        assertEquals(-292, info.openTypeOS2TypoDescender)
+        assertEquals(984, info.openTypeOS2WinAscent)
+        assertEquals(292, info.openTypeOS2WinDescent)
+        val other = info.other.toMap()
+        assertEquals(PlistValue.PInteger(400), other["openTypeOS2WeightClass"])
+        assertEquals(PlistValue.PInteger(5), other["openTypeOS2WidthClass"])
+        assertNull(other["openTypeOS2Type"], "fsType 0 sets no embedding bit")
+        assertNull(other["styleMapFamilyName"], "legacy and typographic names agree")
+    }
+
+    @Test
+    fun theSourcesUniqueIdAndFullNameAreLeftForTheCompilerToBuild() {
+        val keys =
+            font
+                .toUfoProject()
+                .fontInfo.other
+                .map { it.first }
+        assertTrue("openTypeNameUniqueID" !in keys)
+        assertTrue("postscriptFullName" !in keys)
+    }
+
+    @Test
+    fun compositeGlyphsAreCountedAndComeBackFlattened() {
+        // fontTools 4.66.0: 161 of Hyle Deco's 338 glyphs are composites (uni00C1 is A and an acute).
+        assertEquals(161, font.compositeGlyphCount)
+        val aacute = font.toUfoProject().glyphs.single { it.name == "uni00C1" }
+        assertTrue(aacute.contours.size > 1, "uni00C1 is the A and the acute, flattened to plain contours")
+    }
+
+    @Test
+    fun tableTagsListWhatTheFontHolds() {
+        assertTrue("GPOS" in font.tableTags)
+        assertTrue("glyf" in font.tableTags)
+        assertTrue("fvar" !in font.tableTags)
+    }
+
+    @Test
     fun anExplicitFamilyNameOverridesTheNameTable() {
         val info = font.toUfoProject(familyName = "Golden Path Seed").fontInfo
         assertEquals("Golden Path Seed", info.familyName)
         assertEquals("Regular", info.styleName)
+        assertNull(info.postscriptFontName, "the source's PostScript name would contradict the new family")
     }
 
     @Test

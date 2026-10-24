@@ -165,6 +165,26 @@ object DeckSeats {
         )
     }
 
+    /** What the right circle announces on the import audit (S03). */
+    const val IMPORT_LABEL = "Import"
+
+    /**
+     * S03's deck, the import licence audit: Close on the left (leaving discards the import), no seats,
+     * and ✓ on the right as the one action, Import. It stays visible but dimmed, with [whyNot] as the
+     * reason a tap gives, while the audit refuses the font or a new name is still needed.
+     */
+    fun importAudit(
+        canImport: Boolean,
+        whyNot: String?,
+    ): DeckLayout =
+        DeckLayout(
+            seats = emptyList(),
+            pressed = null,
+            left = DeckLeft.CLOSE,
+            action = DeckAction.DONE,
+            actionWhyNot = if (canImport) null else whyNot,
+        )
+
     /** What is wrong with [layout] against the rules for seats, or empty. */
     fun problems(layout: DeckLayout): List<String> =
         buildList {

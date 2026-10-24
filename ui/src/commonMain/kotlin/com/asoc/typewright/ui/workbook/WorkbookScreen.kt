@@ -50,8 +50,10 @@ import com.asoc.typewright.qa.NodeEconomyReport
 import com.asoc.typewright.ui.brief.LocalOpenBrief
 import com.asoc.typewright.ui.deck.DeckSection
 import com.asoc.typewright.ui.deck.DeckToggle
-import com.asoc.typewright.ui.learn.hyleDecoFontFamily
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
+import com.asoc.typewright.ui.project.ProjectFont
+import com.asoc.typewright.ui.project.ProjectText
+import com.asoc.typewright.ui.shell.LocalOpenProjects
 import com.asoc.typewright.ui.shell.SectionScaffold
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.CanvasTextures
@@ -130,6 +132,10 @@ public fun WorkbookScreen(
         onBack = onBack,
     ) {
         when (val snapshot = uiState.snapshot) {
+            is WorkbookCampaignSnapshot.NoProject -> {
+                WorkbookNoProjectBody(texture = texture, modifier = Modifier.fillMaxSize())
+            }
+
             is WorkbookCampaignSnapshot.Unavailable -> {
                 WorkbookUnavailableBody(texture = texture, reason = snapshot.reason, modifier = Modifier.fillMaxSize())
             }
@@ -195,6 +201,39 @@ private fun WorkbookAllTasks(
     }
 }
 
+/** The Workbook with no project open: the gates are measurements of a project's letters, so there is nothing to run them on. */
+@Composable
+private fun WorkbookNoProjectBody(
+    texture: CanvasTexture,
+    modifier: Modifier = Modifier,
+) {
+    val openProjects = LocalOpenProjects.current
+    Column(
+        modifier = modifier.fillMaxWidth().padding(horizontal = SpacingTokens.GUTTER_DP.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        BasicText(
+            text = "Open or start a project to work through the workbook.",
+            style = Typography.sentence.copy(color = texture.fg.toColor(), fontWeight = FontWeight.SemiBold),
+        )
+        BasicText(
+            text = "Every gate here measures your own letters, so it needs a project to measure.",
+            style = Typography.sentence.copy(color = texture.muted.toColor()),
+        )
+        if (openProjects != null) {
+            BasicText(
+                text = "Projects \u203A",
+                style =
+                    Typography.sentence.copy(
+                        color = MeaningColors.VIOLET.forTexture(texture).toColor(),
+                        fontWeight = FontWeight.SemiBold,
+                    ),
+                modifier = Modifier.clickable(onClick = openProjects).padding(vertical = 6.dp),
+            )
+        }
+    }
+}
+
 @Composable
 private fun WorkbookUnavailableBody(
     texture: CanvasTexture,
@@ -223,7 +262,7 @@ private fun WorkbookBody(
     val task = progress.task
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()
-    val hyleDeco = remember { hyleDecoFontFamily() }
+    val font = snapshot.font
 
     Column(
         modifier =
@@ -259,9 +298,9 @@ private fun WorkbookBody(
         WorkbookProgressStrip(progress = snapshot.progress, texture = texture, modifier = Modifier.padding(top = 10.dp, bottom = 18.dp))
 
         WorkbookProseSection(heading = "Why", body = task.why, texture = texture)
-        WorkbookDemonstrationSection(demonstration = task.demonstration, texture = texture, hyleDeco = hyleDeco)
-        WorkbookTaskSection(task = task, texture = texture, hyleDeco = hyleDeco)
-        WorkbookGateSection(progress = progress, task4Report = snapshot.task4Report, texture = texture, hyleDeco = hyleDeco)
+        WorkbookDemonstrationSection(demonstration = task.demonstration, texture = texture, font = font)
+        WorkbookTaskSection(task = task, texture = texture, font = font)
+        WorkbookGateSection(progress = progress, task4Report = snapshot.task4Report, texture = texture, font = font)
         WorkbookReflectionSection(task = task, texture = texture)
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -352,7 +391,7 @@ private fun WorkbookProseSection(
 private fun WorkbookDemonstrationSection(
     demonstration: Demonstration,
     texture: CanvasTexture,
-    hyleDeco: FontFamily,
+    font: ProjectFont,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth().padding(vertical = 12.dp)) {
@@ -363,10 +402,7 @@ private fun WorkbookDemonstrationSection(
                 val heroLabel = isHeroStatLabel(demonstration.label)
                 Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     if (heroLabel) {
-                        BasicText(
-                            text = demonstration.label,
-                            style = TextStyle(fontFamily = hyleDeco, fontSize = 40.sp, color = texture.ink.toColor()),
-                        )
+                        ProjectText(font = font, text = demonstration.label, sizeSp = 40f, color = texture.ink.toColor())
                     }
                     // weight(1f): the real fix, not just the heroLabel heuristic above -- this
                     // column always claims the Row's own remaining width explicitly, rather than
@@ -439,7 +475,7 @@ private fun WorkbookDemonstrationSection(
 private fun WorkbookTaskSection(
     task: WorkbookTask,
     texture: CanvasTexture,
-    hyleDeco: FontFamily,
+    font: ProjectFont,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth().padding(vertical = 12.dp)) {
@@ -463,9 +499,11 @@ private fun WorkbookTaskSection(
         }
         val controlString = task.controlString
         if (controlString != null) {
-            BasicText(
+            ProjectText(
+                font = font,
                 text = controlString,
-                style = TextStyle(fontFamily = hyleDeco, fontSize = 20.sp, color = texture.ink.toColor()),
+                sizeSp = 20f,
+                color = texture.ink.toColor(),
                 modifier = Modifier.padding(top = 8.dp),
             )
         }
@@ -505,9 +543,9 @@ private fun PickInTheBriefAction(
 @Composable
 private fun WorkbookGateSection(
     progress: WorkbookTaskProgress,
-    task4Report: NodeEconomyReport,
+    task4Report: NodeEconomyReport?,
     texture: CanvasTexture,
-    hyleDeco: FontFamily,
+    font: ProjectFont,
     modifier: Modifier = Modifier,
 ) {
     val gate = progress.gate
@@ -519,7 +557,7 @@ private fun WorkbookGateSection(
         WorkbookSectionHeading(text = "Gate · ${gate.gateSummary}", texture = texture)
         Spacer(modifier = Modifier.height(8.dp))
         if (useGrid) {
-            WorkbookGateGrid(rows = rows, texture = texture, hyleDeco = hyleDeco)
+            WorkbookGateGrid(rows = rows, texture = texture, font = font)
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 for (row in rows) WorkbookGateListRow(row = row, texture = texture)
@@ -548,13 +586,13 @@ private fun WorkbookGateSection(
 private fun WorkbookGateGrid(
     rows: List<WorkbookGateRow>,
     texture: CanvasTexture,
-    hyleDeco: FontFamily,
+    font: ProjectFont,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         for (rowChunk in rows.chunked(4)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 for (cell in rowChunk) {
-                    WorkbookGateGridCell(row = cell, texture = texture, hyleDeco = hyleDeco, modifier = Modifier.weight(1f))
+                    WorkbookGateGridCell(row = cell, texture = texture, font = font, modifier = Modifier.weight(1f))
                 }
                 repeat(4 - rowChunk.size) { Spacer(modifier = Modifier.weight(1f)) }
             }
@@ -567,11 +605,11 @@ private fun WorkbookGateGrid(
 private fun WorkbookGateGridCell(
     row: WorkbookGateRow,
     texture: CanvasTexture,
-    hyleDeco: FontFamily,
+    font: ProjectFont,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        BasicText(text = row.heroText, style = TextStyle(fontFamily = hyleDeco, fontSize = 26.sp, color = texture.ink.toColor()))
+        ProjectGlyphHero(font = font, glyphName = row.heroText, sizeSp = 26f, color = texture.ink.toColor())
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             SeverityMark(status = row.status, color = texture.fg.toColor())
             BasicText(
@@ -751,3 +789,25 @@ private const val WORKBOOK_REFLECTION_DISCLOSURE =
 private const val WORKBOOK_REFLECTION_LIVE_DISCLOSURE =
     "Saves a real reflection to the open project's own lessons file, and confirms this task if it is a judgment " +
         "call the project can't gate by itself (docs/PROJECT_MODEL.md §10.3)."
+
+/** A gate cell's glyph, large, drawn from the project's own outline for the glyph named [glyphName]; the name itself, in the UI's face, where the project has no such glyph. */
+@Composable
+private fun ProjectGlyphHero(
+    font: ProjectFont,
+    glyphName: String,
+    sizeSp: Float,
+    color: androidx.compose.ui.graphics.Color,
+) {
+    val glyph = font.glyph(glyphName)
+    val char =
+        glyph
+            ?.unicodes
+            ?.firstOrNull()
+            ?.takeIf { it in 0..0xFFFF }
+            ?.toChar()
+    if (glyph != null && char != null) {
+        ProjectText(font = font, text = char.toString(), sizeSp = sizeSp, color = color)
+    } else {
+        BasicText(text = glyphName, style = Typography.mono(sizeSp = 11.0).copy(color = color))
+    }
+}

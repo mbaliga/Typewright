@@ -7,27 +7,13 @@ import com.asoc.typewright.core.font.ufo.UfoProject
 import com.asoc.typewright.qa.corpus.NodeEconomyCorpus
 
 /**
- * The style class [runWorkbookGate] compares task 4's control characters against when
- * [WorkbookTask.gate] names no other -- `sans-geometric`, the same box
- * `HyleDecoTask4GateTest.kt`/`docs/OPEN_QUESTIONS.md` item 18 already use for this project's own
- * reference font. [WorkbookGateSpec] itself carries no style key (task 4's own YAML gate entry
- * has none -- `WorkbookTask.kt`'s own KDoc on [WorkbookGateSpec.glyphs]), so *some* caller has to
- * decide one; item 18's own closing line says this is "campaign['s]... call," not a decided
- * product fact, so this constant is that call, made once, here, rather than re-guessed at every
- * call site.
- */
-const val DEFAULT_TASK4_STYLE_KEY: String = "sans-geometric"
-
-/**
  * What task 12's ship-text gate ([WorkbookGates.task12Ship]) needs beyond a project's own
  * [UfoFontInfo]: the four extra strings/numbers real Google Fonts submission text always carries
- * (family, designer, year, git URL) but [UfoFontInfo] itself has no fields for. [from] defaults
- * every field to the most honest guess available from [UfoFontInfo] alone -- [UfoFontInfo.
- * familyName] for [family] when present, and placeholder values that read as placeholders rather
- * than invented facts (CLAUDE.md law 5) for the rest -- so [runWorkbookGate] never has to invent a
- * designer's name or a repository URL for a project it knows nothing about; a caller that has
- * real values (this build's own Hyle Deco stand-in, in `ui`) passes its own [ShipMetadata]
- * instead.
+ * (family, designer, year, git URL) but [UfoFontInfo] itself has no fields for. [from] reads each
+ * from what the font info really says: the family name, the designer, the year in the copyright
+ * line (`Copyright 2026 The Foo Project Authors`) and the first web address in it. What the font
+ * info does not say stays a visible placeholder (`Unknown`, no year, `(no repository yet)`), never
+ * an invented fact (CLAUDE.md law 5).
  */
 data class ShipMetadata(
     val family: String,
@@ -36,14 +22,19 @@ data class ShipMetadata(
     val gitUrl: String,
 ) {
     companion object {
-        /** The placeholder [ShipMetadata] used when a caller has no real ship metadata for [fontInfo]'s own project. */
-        fun from(fontInfo: UfoFontInfo): ShipMetadata =
-            ShipMetadata(
+        /** The [ShipMetadata] [fontInfo] supports, with placeholders only where it is silent. */
+        fun from(fontInfo: UfoFontInfo): ShipMetadata {
+            val copyright = fontInfo.copyright.orEmpty()
+            return ShipMetadata(
                 family = fontInfo.familyName ?: "Untitled",
-                designer = "Unknown",
-                year = UNKNOWN_YEAR,
-                gitUrl = "(no repository yet)",
+                designer = fontInfo.openTypeNameDesigner?.takeIf { it.isNotBlank() } ?: "Unknown",
+                year = YEAR.find(copyright)?.value?.toInt() ?: UNKNOWN_YEAR,
+                gitUrl = URL.find(copyright)?.value?.trimEnd('.', ',', ')') ?: "(no repository yet)",
             )
+        }
+
+        private val YEAR = Regex("""\b(?:19|20)\d{2}\b""")
+        private val URL = Regex("""https?://[^\s)]+""")
 
         /** Not a real year -- deliberately not "this build's current year" either, since `campaign` has no clock dependency and inventing one would be a fabricated fact (CLAUDE.md law 5), not a placeholder. */
         const val UNKNOWN_YEAR: Int = 0
@@ -72,7 +63,7 @@ fun runWorkbookGate(
     task: WorkbookTask,
     project: UfoProject,
     corpus: NodeEconomyCorpus,
-    task4StyleKey: String = DEFAULT_TASK4_STYLE_KEY,
+    task4StyleKey: String?,
     shipMetadata: ShipMetadata = ShipMetadata.from(project.fontInfo),
 ): WorkbookGateResult {
     val spec = task.gate
@@ -85,12 +76,21 @@ fun runWorkbookGate(
         }
 
         4 -> {
-            WorkbookGates.task4ControlCharacters(
-                project,
-                corpus,
-                task4StyleKey,
-                glyphNamesOrDefault(spec, WorkbookGates.TASK4_DEFAULT_GLYPHS),
-            )
+            if (task4StyleKey == null) {
+                WorkbookGates.notImplementedGate(
+                    4,
+                    spec.summary,
+                    "no style class to compare against yet -- declare the closest class in the brief, " +
+                        "or draw enough letters for the app to read one.",
+                )
+            } else {
+                WorkbookGates.task4ControlCharacters(
+                    project,
+                    corpus,
+                    task4StyleKey,
+                    glyphNamesOrDefault(spec, WorkbookGates.TASK4_DEFAULT_GLYPHS),
+                )
+            }
         }
 
         5 -> {
@@ -139,7 +139,7 @@ fun runAllWorkbookGates(
     tasks: List<WorkbookTask>,
     project: UfoProject,
     corpus: NodeEconomyCorpus,
-    task4StyleKey: String = DEFAULT_TASK4_STYLE_KEY,
+    task4StyleKey: String?,
     shipMetadata: ShipMetadata = ShipMetadata.from(project.fontInfo),
 ): Map<Int, WorkbookGateResult> = tasks.associate { it.index to runWorkbookGate(it, project, corpus, task4StyleKey, shipMetadata) }
 

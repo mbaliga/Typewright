@@ -68,7 +68,7 @@
     label: "overlay probe, Hyle Deco vs. two neighbours"
     stats:
       - "layers: Hyle Deco (project, yours) -- Roboto (device) -- Libre Baskerville (Google Fonts)"
-      - "probe: stem 44 -- bar 44 -- contrast 1.00, aligned at cap height"
+      - "probe: stem 44 -- bar 43 -- contrast 1.25, aligned at cap height"
       - "each layer carries a colour and a line pattern, never colour alone (law 8)"
   task: >
     Tap through your reference with the anatomy lens: it labels stem, bowl, counter, aperture,
@@ -169,7 +169,7 @@
     kind: stats
     label: "what a derivation copies forward"
     stats:
-      - "stem 44 (from H) feeds h m u's own stems"
+      - "stem 44 (n's two stems; H's two measure 43 and 45) feeds h m u's own stems"
       - "o's own construction, a rounded rectangle, r about 118 outer / 74 inner (brief section 7), feeds b d p q's own bowls"
       - "'rapid expansion before this is done will mean that the whole project will become harder to manage' (Design With FontForge, docs/RESEARCH_font_quality.md)"
   task: >

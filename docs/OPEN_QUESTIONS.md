@@ -3408,3 +3408,89 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     changed here; `ThemeTest` holds them where they are, and a duplicate of Paper or Vellum cannot be
     saved until those roles are adjusted. ΔE is CIE76 in CIELAB (OKLab × 100 would call a warm grey
     "within 20" of the close red). Owner: Madhav.
+
+150. **The sample opens declared as Geometric sans, which the owner has not said (P12).** "Try the
+    sample" imports Hyle Deco with its brief declaring `sans-geometric`, because `qa/corpus`'s own
+    `HyleDecoNodeEconomyTest` treats it as that class and the S01 and S04 boards read "against 30
+    geometric sans". Everything on Home that is judged (38 outliers, 7 above, 7 in range of 52 letters)
+    depends on it. With no class declared the detector reads one and every screen then says "our
+    heuristic". Should the sample open with no class, so its first Home shows the heuristic's reading,
+    or keep the declared one? Owner: Madhav.
+
+151. **What the no-fixture rule's allow-list leaves out (P12).** `NoFixtureFontInMainSourcesTest` scans
+    the Kotlin of every module's main source sets with comments removed, and allows two files:
+    `BundledSampleFont.kt` (the one loader) and `NoticeData.kt` (generated licence notices that must
+    name every font that ships). It does not read non-Kotlin resources: the Craft lesson
+    `a1-tracing-destroys-the-drawing.yaml` names `fonts/HyleDeco-Regular.ttf` as a teaching example and
+    nothing in code loads that path. Comments in `core-font`, `core-geometry`, `qa` and `learn/scenes`
+    cite the sample as where a measured number came from; they are left as documentation. Should the
+    lesson YAML be scanned and allow-listed too, or the lesson stop naming a path? Owner: Madhav.
+
+152. **Workbook figures that nothing here can check, and three that were wrong (P12).**
+    `WorkbookMeasuredNumbersTest` reads every figure the workbook quotes for the sample out of the
+    YAML and compares it with the font: n's sidebearings (46 and 51), baseline 0 and x-height 500,
+    stems 44, counter 292, overshoot 0 for task 3 and 4, the Overlay probe, and the stems task 5 copies
+    forward. Three were wrong and are corrected in the YAML: the probe's bar is 43 (not 44) and its
+    contrast 1.25 (not 1.00), which is what the app's own stroke probe measures, and task 5's "stem 44
+    (from H)" is n's stem (H's two measure 43 and 45). Not checkable and left as written: task 11's
+    "4 fail · 4 warn · 141 pass (run locally)" (no Fontbakery or fontspector on the build machine, so
+    the run could not be repeated), task 4's "round : straight = 1 : 1", and "r about 118 outer / 74
+    inner" (brief §7). Should task 11 quote a run that is repeated and dated? Owner: Madhav.
+
+153. **Desktop storage after an import (P12).** `app-desktop` now builds its workspace over
+    `DesktopImportStorage`: a disk folder for a `FileSystem` location, memory for the in-memory root
+    that "New project…" still uses. "Open a font" asks for a folder when Import is pressed and makes
+    `<name>/` in it; a UFO is adopted where it lies. The app config is still held in memory, so after a
+    restart the project is not in Recent and is opened with Open project…. There is no default folder
+    (`~/Fonts`? an XDG data directory?) and "New project…" still uses the in-memory root; moving it to
+    WP3's `DesktopFolderPicker` and a persistent config store is the same decision. Android asks for a
+    folder through its folder picker each time. Owner: Madhav.
+
+154. **Script codes: Hrkt, or Hira and Kana (P12).** An import records the scripts its cmap reaches as
+    `Latn`, `Hrkt` (kana as one), `Deva` and `Arab`; New project (S02) records Hiragana and Katakana
+    separately. Home names `Hrkt` "Kana" and counts characters per script, and nothing breaks, but one
+    project can now say "Kana" and another "Hiragana" for the same coverage. Which vocabulary should the
+    project file use? Owner: Madhav.
+
+155. **What a tap on Home's counts should do (P12).** The S04 board draws "● 38 outliers ◐ 7 above ✓ 7
+    in range of 52 letters ›" with a chevron. Check is not built, so the counts are not tappable and
+    the chevron is left out. When Check exists, should the tap open its Economy view, or the Glyphs view
+    filtered to that verdict (which exists today as the ● ◐ ✓ chips)? Owner: Madhav.
+
+156. **Outlines are drawn on the left side bearing, which changes what the sample's glyphs read (P12).**
+    `SfntFont.glyph` now places each outline with its `glyf` header `xMin` on its `hmtx` left side
+    bearing, as a rasteriser does. 49 glyphs of `fonts/HyleDeco-Regular.ttf` store a different value
+    (n at x = 61 with a left side bearing of 46; `head.flags` bit 1 is unset), and 9 of Limelight and 17 of
+    UnifrakturMaguntia do. Only x coordinates change, so no count or verdict does; the font file is
+    unchanged. `USE_MY_METRICS` on a composite is not honoured. Should the sample's `hmtx` be corrected
+    at the source so no reader needs the rule? Owner: Madhav.
+
+157. **What an import does not carry, and the kerning that follows (P12).** Refused with a plain
+    message: CFF (OpenType with PostScript outlines: "not built yet"), WOFF, WOFF2 and collections.
+    Not carried over, and listed on S03: GPOS kerning and layout features, GSUB, hinting, colour
+    tables, a variable font's other instances (the default instance is imported). Because GPOS is not
+    read, a TrueType import has no kerning, so Home's hero word is set with advances only for it, though
+    the font kerns; a UFO's own `kerning.plist` is used. Should GPOS pair kerning become UFO kerning on
+    import? Owner: Madhav.
+
+158. **The Android and web pickers are compile-verified only (P12).** Owner-verified on a device:
+    Android's document picker (a pick in flight is cancelled with its activity; a result delivered to a
+    recreated activity afterwards is dropped and the person chooses again, so please try a pick with the
+    screen rotated), the folder picker for where the project goes, and the browser's file input (the
+    `cancel` event is missing from older browsers; the import then waits until Close). Offline,
+    `:app-web:compileKotlinWasmJs` could not resolve `kotlinx-serialization-core-wasm-js` 1.7.3, so
+    `WebFontFilePicker.kt` was compiled once inside `:ui:compileKotlinWasmJs` and the lines added
+    to `app-web`'s `Main.kt` were not compiled. UFO folders are offered on the desktop only, and
+    Android and the browser say why on the Projects screen and on S03. Owner: Madhav.
+
+159. **Until the router is wired, three things are built but not on screen (P12).** The import flow
+    reaches the command palette and the S03 audit over any section only when `TypewrightApp` provides
+    `LocalFontImport` and hosts `FontImportHost` last in its root layout; the deck's status shapes
+    appear only when `SectionNav.statusOf` is `rememberProjectStationStatus()`; and the current glyph is
+    saved and restored only when `ProjectResumeEffect` is composed. Projects hosts its own import
+    until then. `TypewrightApp.kt` is outside this package, so the wiring lines are in its report.
+    Owner: the lead.
+
+160. **Draw's one-tap unlock, for the owner of Draw (P12).** An import locks every glyph (D1), so the
+    first thing a person does in Draw on their own font is unlock a glyph. `docs/PROJECT_MODEL.md` §15
+    asks Draw to make that one tap; `ui/draw` is not this package's and was not checked. Owner: Madhav.

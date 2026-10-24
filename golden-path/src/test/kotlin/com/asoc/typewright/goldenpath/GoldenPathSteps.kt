@@ -9,6 +9,7 @@ import com.asoc.typewright.compile.CompileSource
 import com.asoc.typewright.compile.ProjectDirectory
 import com.asoc.typewright.compile.platformCompileBackend
 import com.asoc.typewright.core.font.sfnt.NameId
+import com.asoc.typewright.core.font.sfnt.SfntFont
 import com.asoc.typewright.core.font.sfnt.readSfntFont
 import com.asoc.typewright.core.font.ufo.readKerningPlist
 import com.asoc.typewright.core.font.ufo.readUfoProject
@@ -41,10 +42,17 @@ import com.asoc.typewright.project.SetKerning
 import com.asoc.typewright.project.StyleClass
 import com.asoc.typewright.project.Unlock
 import com.asoc.typewright.project.UpdateFontInfo
+import com.asoc.typewright.project.imports.ImportAudit
+import com.asoc.typewright.project.imports.ImportReview
+import com.asoc.typewright.project.imports.ImportVerdict
+import com.asoc.typewright.project.imports.LicenceKind
+import com.asoc.typewright.project.imports.reviewFontFile
+import com.asoc.typewright.project.imports.toNewProjectSpec
 import com.asoc.typewright.project.scrapbook.ScrapbookPin
 import com.asoc.typewright.project.scrapbook.ScrapbookPinKind
 import com.asoc.typewright.qa.LayerOneAvailability
 import com.asoc.typewright.qa.platformLayerOneChecker
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.nio.file.Files
@@ -119,15 +127,101 @@ fun runChain(
  * method, not here; this object holds only what actually runs today.
  */
 object GoldenPathSteps {
-    fun step1aOpenExistingFont() {
-        notBuilt(
-            "1a",
-            "Open TTF/OTF/UFO",
-            "no font→project import into a project directory (no project dir, no licence audit; " +
-                "glyphs carry no unicodes (OPEN_QUESTIONS 124); the UFO writer is cubic-only, so a " +
-                "TrueType import can't be saved (OPEN_QUESTIONS 125))",
-            "P11 + P12",
-        )
+    /**
+     * Step 1a (docs/V1_SCOPE.md, PROJECT_MODEL.md §12): S-ttf (Hyle Deco) and S-ttf2 (Poppins) each
+     * open as a project through the same importer the app uses, the project is written to a real
+     * directory by a real [ProjectSession], and what is read back from disk is checked against the
+     * font file itself: glyph order, advances and contours, head/hhea/OS/2 metrics, and every cmap
+     * entry. The licence audit names the OFL 1.1 for both, and the two projects differ in glyph
+     * count and family, so the step cannot pass on a single canned project.
+     */
+    fun step1aOpenExistingFont() =
+        runBlocking {
+            val hyle = openFontAsProject("hyle-deco", "HyleDeco-Regular.ttf", Seeds.sTtfBytes, Seeds.sTtfFont, this)
+            val poppins = openFontAsProject("poppins", "Poppins-Regular.ttf", Seeds.sTtf2Bytes, Seeds.sTtf2Font, this)
+
+            for (opened in listOf(hyle, poppins)) {
+                assertEquals(LicenceKind.OFL, opened.audit.licence, "${opened.fileName}: the audit must name the OFL")
+                assertTrue("Open Font License 1.1" in opened.audit.licenceName, "${opened.fileName}: ${opened.audit.licenceName}")
+                assertEquals(ImportVerdict.FINE, opened.audit.verdict, "${opened.fileName}: ${opened.audit.verdictWords}")
+            }
+            // Anti-fake: two different real fonts give two different projects.
+            assertTrue(hyle.glyphCount != poppins.glyphCount, "glyph counts: ${hyle.glyphCount} vs ${poppins.glyphCount}")
+            assertEquals("Hyle Deco", hyle.family)
+            assertEquals("Poppins", poppins.family)
+            assertTrue(
+                poppins.glyphCount > 100 && hyle.glyphCount > 100,
+                "projects are real: ${hyle.glyphCount} and ${poppins.glyphCount} glyphs",
+            )
+        }
+
+    /** What step 1a keeps of one opened font. */
+    private class OpenedFont(
+        val fileName: String,
+        val audit: ImportAudit,
+        val family: String?,
+        val glyphCount: Int,
+    )
+
+    private suspend fun openFontAsProject(
+        label: String,
+        fileName: String,
+        bytes: ByteArray,
+        font: SfntFont,
+        scope: CoroutineScope,
+    ): OpenedFont {
+        val review = reviewFontFile(fileName, bytes)
+        val candidate = (review as? ImportReview.Ready)?.candidate ?: fail("$fileName was not ready to import: $review")
+        assertTrue(candidate.audit.canImport, "$fileName: ${candidate.audit.verdictWords}")
+        val renamed = if (candidate.audit.mustRename) "${candidate.ufo.fontInfo.familyName} Redraw" else null
+        val spec = candidate.toNewProjectSpec(projectName = candidate.ufo.fontInfo.familyName ?: label, newFamily = renamed)
+
+        val root = ProjectFixtures.tempDir("step1a-$label")
+        val store = FileSystemProjectStore(root.toPath())
+        val session = (ProjectSession.create(store, spec, ProjectFixtures.env(scope)) as CreateResult.Created).session
+        val master =
+            session.state.value.font.masters
+                .single()
+        session.flush()
+        session.close()
+
+        // The UFO read back from disk equals the session's project.
+        val fromDisk = readUfoProject(ProjectFixtures.readUfoDir(File(root, master.path)))
+        assertEquals(master.ufo, fromDisk, "$fileName: the UFO on disk must equal the project in the session")
+        ProjectFixtures.assertNoTempFiles(root)
+        assertTrue(File(root, "typewright.json").isFile, "$fileName: the project folder has no typewright.json")
+
+        // Glyph order, advances and contours equal the font's.
+        assertEquals(font.numGlyphs, fromDisk.glyphs.size, "$fileName: glyph count")
+        for ((gid, glyph) in fromDisk.glyphs.withIndex()) {
+            val original = font.glyph(gid)
+            assertEquals(font.glyphName(gid), glyph.name, "$fileName: glyph $gid is out of order")
+            assertEquals(original.advanceWidth, glyph.advanceWidth, "$fileName: advance of ${glyph.name}")
+            assertEquals(original.contours, glyph.contours, "$fileName: contours of ${glyph.name}")
+        }
+
+        // Metrics equal head, hhea and OS/2.
+        val info = fromDisk.fontInfo
+        assertEquals(font.head.unitsPerEm, info.unitsPerEm, "$fileName: unitsPerEm")
+        assertEquals(font.hhea.ascender, info.openTypeHheaAscender, "$fileName: hhea ascender")
+        assertEquals(font.hhea.descender, info.openTypeHheaDescender, "$fileName: hhea descender")
+        assertEquals(font.hhea.lineGap, info.openTypeHheaLineGap, "$fileName: hhea line gap")
+        val os2 = checkNotNull(font.os2) { "$fileName has no OS/2 table" }
+        assertEquals(os2.sTypoAscender, info.openTypeOS2TypoAscender, "$fileName: typo ascender")
+        assertEquals(os2.sTypoDescender, info.openTypeOS2TypoDescender, "$fileName: typo descender")
+        assertEquals(os2.sTypoLineGap, info.openTypeOS2TypoLineGap, "$fileName: typo line gap")
+        assertEquals(os2.usWinAscent, info.openTypeOS2WinAscent, "$fileName: win ascent")
+        assertEquals(os2.usWinDescent, info.openTypeOS2WinDescent, "$fileName: win descent")
+        assertEquals(os2.sxHeight, info.xHeight, "$fileName: x-height")
+        assertEquals(os2.sCapHeight, info.capHeight, "$fileName: cap height")
+
+        // Every cmap entry is a unicode of the glyph it maps to.
+        assertTrue(font.cmap.bestMapping.isNotEmpty(), "$fileName has an empty cmap")
+        for ((codePoint, gid) in font.cmap.bestMapping) {
+            assertTrue(codePoint in fromDisk.glyphs[gid].unicodes, "$fileName: U+${codePoint.toString(16)} is not on glyph $gid")
+        }
+        assertEquals(font.cmap.bestMapping.size, candidate.report.mappedCharacters, "$fileName: the report's cmap coverage")
+        return OpenedFont(fileName, candidate.audit, info.familyName, fromDisk.glyphs.size)
     }
 
     fun step1bNewProjectFromScan() {

@@ -5,6 +5,7 @@ package com.asoc.typewright.app.desktop
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import com.asoc.typewright.ui.TypewrightApp
+import com.asoc.typewright.ui.imports.PlatformImportSupport
 import com.asoc.typewright.ui.project.createProjectWorkspace
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,7 +20,10 @@ fun main() {
     // and held here rather than inside TypewrightApp's own default, so onCloseRequest below can
     // flush this exact instance even as the composition itself is torn down by exitApplication().
     val workspaceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    val workspace = createProjectWorkspace(workspaceScope)
+    // "Open a font…": the desktop's file dialogs, and a folder on disk for the project (docs/PROJECT_MODEL.md §13).
+    PlatformImportSupport.filePicker = DesktopFontFilePicker()
+    PlatformImportSupport.destination = DesktopImportDestination()
+    val workspace = createProjectWorkspace(workspaceScope, storage = DesktopImportStorage())
 
     application {
         Window(

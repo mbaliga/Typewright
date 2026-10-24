@@ -150,12 +150,23 @@ object NamePlatform {
 
 /** Well-known `nameID` values (OpenType spec, "name", "Name IDs") that a caller commonly wants. */
 object NameId {
+    const val COPYRIGHT = 0
     const val FAMILY = 1
     const val SUBFAMILY = 2
     const val UNIQUE_ID = 3
     const val FULL_NAME = 4
     const val VERSION = 5
     const val POSTSCRIPT_NAME = 6
+    const val TRADEMARK = 7
+    const val MANUFACTURER = 8
+    const val DESIGNER = 9
+    const val DESCRIPTION = 10
+    const val VENDOR_URL = 11
+    const val DESIGNER_URL = 12
+    const val LICENSE_DESCRIPTION = 13
+    const val LICENSE_URL = 14
+    const val TYPOGRAPHIC_FAMILY = 16
+    const val TYPOGRAPHIC_SUBFAMILY = 17
 }
 
 /** One decoded `name` table record. */

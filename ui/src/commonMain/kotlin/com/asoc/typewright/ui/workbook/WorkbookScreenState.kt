@@ -7,26 +7,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.asoc.typewright.ui.project.rememberOpenProject
 
 /** `#s-workbook`'s own fixed task count (`.t2`: "12 tasks -- a submission-ready font at the end"). */
 const val WORKBOOK_TASK_COUNT: Int = 12
 
 /**
- * [WorkbookScreen]'s own state: which one of the twelve tasks is showing, plus the real
- * [WorkbookCampaignSnapshot] it renders ([loadWorkbookCampaignSnapshot] by default -- a plain
- * function call, not `@Composable`, evaluated once per instance so a caller building one inside
- * `remember` only pays for the real font parse and corpus load once per composition, matching
- * [WorkbookCampaignSnapshot]'s own KDoc). [taskIndex] is a real Compose state field, the same
- * "GESTURE HONESTY" shape (CLAUDE.md law 4) [com.asoc.typewright.ui.learn.LearnScreenUiState]/
- * [com.asoc.typewright.ui.TypewrightAppNavState] already use, even though nothing in
- * [WorkbookScreen]'s own explorer reference (`#s-workbook`) has an on-screen affordance that ever
- * changes it -- the explorer shows exactly one task at a time with no in-screen task switcher, so
- * this class exists to be *constructed* at a caller-chosen task (the entry point opens it at the
- * real current/next task; a test or screenshot opens it at any task it wants to show), not to be
- * mutated from within [WorkbookScreen] itself.
+ * [WorkbookScreen]'s own state: which one of the twelve tasks is showing, and whether the deck's
+ * "All tasks" view is, plus the [WorkbookCampaignSnapshot] it renders, which is built from the open
+ * project ([loadWorkbookCampaignSnapshot]) and given here. The task opens on the real current/next
+ * task of the snapshot, or task 1 where there is none.
  */
 class WorkbookScreenUiState(
-    val snapshot: WorkbookCampaignSnapshot = loadWorkbookCampaignSnapshot(),
+    val snapshot: WorkbookCampaignSnapshot,
     initialTaskIndex: Int? = null,
 ) {
     var taskIndex: Int by mutableStateOf((initialTaskIndex ?: defaultTaskIndexFor(snapshot)).coerceIn(1, WORKBOOK_TASK_COUNT))
@@ -36,14 +29,22 @@ class WorkbookScreenUiState(
     var allTasks: Boolean by mutableStateOf(false)
 }
 
-/** [WorkbookCampaignSnapshot.Loaded.currentTaskIndex] when real data loaded; task 1 (the workbook's own first task) when it did not -- there is no real "current task" fact left to show, so this falls back to where the workbook itself starts rather than a task chosen for looks. */
+/** [WorkbookCampaignSnapshot.Loaded.currentTaskIndex] when data loaded; task 1 (the workbook's own first task) when it did not. */
 private fun defaultTaskIndexFor(snapshot: WorkbookCampaignSnapshot): Int =
     when (snapshot) {
         is WorkbookCampaignSnapshot.Loaded -> snapshot.currentTaskIndex
-        is WorkbookCampaignSnapshot.Unavailable -> 1
+        is WorkbookCampaignSnapshot.NoProject, is WorkbookCampaignSnapshot.Unavailable -> 1
     }
 
-/** Remembers a [WorkbookScreenUiState] for the composition's lifetime -- the real campaign snapshot loads once, here, not on every recomposition. */
+/**
+ * A [WorkbookScreenUiState] over the open project, rebuilt when the project's letters, its style
+ * class or its confirmed tasks change, so the gates always speak about the font as it is now.
+ */
 @Composable
-fun rememberWorkbookScreenUiState(initialTaskIndex: Int? = null): WorkbookScreenUiState =
-    remember { WorkbookScreenUiState(initialTaskIndex = initialTaskIndex) }
+fun rememberWorkbookScreenUiState(initialTaskIndex: Int? = null): WorkbookScreenUiState {
+    val project = rememberOpenProject()
+    val manifest = project?.manifest
+    return remember(project?.master?.ufo, manifest?.workbook, manifest?.brief?.styleClass) {
+        WorkbookScreenUiState(loadWorkbookCampaignSnapshot(project), initialTaskIndex)
+    }
+}

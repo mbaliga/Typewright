@@ -373,10 +373,14 @@ val NOTICE_SECTIONS: List<NoticeSection> =
                     " global install, not a project dependency.",
                 "Hyle Deco Regular and Italic in `fonts/` (Copyright 2026 The Hyle Deco Project Authors) — " +
                     "OFL-1.1 — Verified from the fonts' name table (IDs 0 and 13); the full licence text is now" +
-                    " in `fonts/OFL.txt`. Regular ships inside the app itself: `ui`'s `HyleDecoProjectFontBytes" +
-                    ".kt` embeds it in `ui`'s own main source set (Overlay tab's project layer, P6), not only a" +
-                    "s a test fixture (`core-font`'s `HyleDecoRegularTtfBase64.kt`, `commonTest`). Italic is no" +
-                    "t currently read by any module.",
+                    " in `fonts/OFL.txt`. Regular ships inside the app itself: `ui`'s `imports/BundledSampleFon" +
+                    "t.kt` embeds a byte-for-byte copy (base64 text, so every target can open it with no file a" +
+                    "ccess) in `ui`'s own main source set. It is read only when the person chooses \"Try the sam" +
+                    "ple\" on Projects, through the same licence check as any font they bring, and opens as an o" +
+                    "rdinary project in their own folder; no other screen reads it, and a test (`NoFixtureFontI" +
+                    "nMainSourcesTest`) fails if any other main source file names it. It is also a test fixture" +
+                    " (`core-font`'s `HyleDecoRegularTtfBase64.kt`, `commonTest`). Italic is not currently read" +
+                    " by any module.",
                 "Noto Sans Devanagari Regular and Noto Naskh Arabic Regular in `fonts/` (Copyright 2022 The" +
                     " Noto Project Authors, `github.com/notofonts/devanagari` and `github.com/notofonts/arabic`" +
                     ") — OFL-1.1 — Verified from the fonts' name table (IDs 0 and 13), same method as Hyle Deco" +

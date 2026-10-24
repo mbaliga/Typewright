@@ -10,7 +10,13 @@ import com.asoc.typewright.campaign.WorkbookGateSpec
 import com.asoc.typewright.campaign.WorkbookTask
 import com.asoc.typewright.campaign.WorkbookTaskProgress
 import com.asoc.typewright.campaign.WorkbookTaskState
+import com.asoc.typewright.core.font.ufo.UfoFontInfo
+import com.asoc.typewright.core.font.ufo.UfoProject
+import com.asoc.typewright.project.Master
 import com.asoc.typewright.qa.NodeEconomyReport
+import com.asoc.typewright.ui.project.ProjectFont
+import com.asoc.typewright.ui.project.ProjectStyle
+import com.asoc.typewright.ui.project.StyleOrigin
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -40,7 +46,7 @@ private fun syntheticTask(index: Int): WorkbookTask =
         reflection = "reflect $index",
     )
 
-/** A hand-built [WorkbookCampaignSnapshot.Loaded] -- every task TODO except [currentIndex] CURRENT -- portable across every target (no real font parse, corpus load or resource read, unlike [loadWorkbookCampaignSnapshot] itself; see `WorkbookScreenScreenshotTest`, `desktopTest`-only, for that real load, JVM-only for the same reason `HyleDecoTask4GateTest` already is). */
+/** A hand-built [WorkbookCampaignSnapshot.Loaded] -- every task TODO except [currentIndex] CURRENT -- portable across every target (no real font parse, corpus load or resource read, unlike [loadWorkbookCampaignSnapshot] itself; see `WorkbookScreenScreenshotTest`, `desktopTest`-only, for that real load, JVM-only because the campaign data is read with Node-only I/O on wasm). */
 private fun fixtureSnapshot(currentIndex: Int): WorkbookCampaignSnapshot.Loaded {
     val tasks = (1..WORKBOOK_TASK_COUNT).map { syntheticTask(it) }
     val progress =
@@ -54,7 +60,17 @@ private fun fixtureSnapshot(currentIndex: Int): WorkbookCampaignSnapshot.Loaded 
         tasks = tasks,
         progress = progress,
         currentTaskIndex = currentIndex,
-        task4StyleKey = "sans-geometric",
+        font =
+            ProjectFont(
+                Master(
+                    "regular",
+                    "Regular.ufo",
+                    "Regular",
+                    isDefault = true,
+                    ufo = UfoProject(UfoFontInfo(familyName = "Fixture"), emptyList()),
+                ),
+            ),
+        task4Style = ProjectStyle("sans-geometric", StyleOrigin.DECLARED),
         task4Report = NodeEconomyReport("sans-geometric", emptyList()),
     )
 }

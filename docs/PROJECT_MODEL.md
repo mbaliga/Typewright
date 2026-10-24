@@ -846,6 +846,37 @@ assertNoTempFiles(root)
 | R7 | The `fonttools==4.66.0` pin must exist | WP4 verifies it. |
 | R8 | Android: a kill within milliseconds of `onStop` can lose the last save | Stated in §8.6. |
 
+## 15. Opening a font the user brings (P12)
+
+"Your font" means the open project and nothing else. A font file or UFO folder becomes a project through `project/imports` (pure, Apache-2.0: it needs `UfoProject`, `NewProjectSpec` and the lock table, and `core-font` stays a reader). The path is `reviewFontFile` / `reviewUfoFolder` (read and audit, never throw, answer `Ready`, `Refused` or `Unreadable`) and then `ProjectImporter.create` (a new project folder) or `.adopt` (a UFO where it lies). `ui/imports` holds the flow (`FontImportController`, S03, the pickers behind `FontFilePicker`); no screen reads a font file directly.
+
+**What the report says** (`ImportReport`, shown on S03): glyph count, units per em, the `head`/`hhea`/`OS/2` metrics, cmap coverage by script, how the curves are held, and plain notes for what the project does not carry (composite glyphs flattened, a variable font's default instance only, hinting, GPOS/GSUB kerning and features, colour tables).
+
+**Outlines are kept exactly as drawn.** TrueType quadratics stay quadratic (`qcurve`, §9.2) and the audit labels them "Quadratic (TrueType) curves, kept exactly as drawn"; nothing is elevated to cubic or refitted. `SfntFont.glyph` draws an outline where a rasteriser does, with its left edge on the `hmtx` left side bearing, because the sample font stores `n` at x = 61 and gives it a left side bearing of 46, and a project that showed it at 61 would disagree with every other tool and with the workbook's own quoted sidebearings.
+
+**The licence audit (brief §4.5)** reads the name table (copyright, licence description and URL, trademark, designer, `OS/2` embedding bits) or `fontinfo.plist` plus any licence file beside a UFO:
+
+| The font says | Verdict | What Import does |
+|---|---|---|
+| SIL OFL or Apache 2.0, no Reserved Font Name | ✓ Fine to modify | on |
+| OFL with a Reserved Font Name | ◐ Modify, but rename | on only once a new family name is typed that does not use the reserved name (`validateFamilyName`) |
+| No licence, or one Typewright does not recognise | ◐ Read the licence first | on, with the warning |
+| A licence that withholds modification (proprietary, end-user, "may not be modified"), or restricted embedding with no open licence | ● Not licensed for modification | off |
+
+Every verdict is a shape and a word. A refused font is read no further than the audit. The Reserved Font Name parser handles quoted and unquoted names, a trailing `(http://…)`, dotted names, and ignores "no Reserved Font Name" and the licence's own template wording.
+
+**Renaming is how the project starts, not an edit.** `renameFamily` sets the family, preferred family and PostScript name from the new name and drops every key a compiler derives from the old one (style-map family, full and unique names, compatible full name, WWS names, and any `openTypeNameRecords` entry for those name IDs); it throws if a name key still uses the reserved name. The copyright line, trademark, licence and designer lines are kept as they are. The project is created with the renamed font info, so its history is empty and there is nothing to undo.
+
+**Where the files go.** A font file becomes `<parent>/<family>/` with its UFO inside (`<family> 2/` if the name is taken); the audit says which folder will be made, or says that it will ask when Import is pressed, or says nothing is written to disk (the browser). Adopting a UFO writes `typewright.json`, the lock table, `build/.gitignore` and the empty `scrapbook/`, `lessons/` and `comparisons/` folders into the folder that holds the `.ufo`, and never rewrites a file of the UFO itself; if that folder holds more than one `.ufo`, the audit names the one adopted and says the others are left alone. A folder that already holds a `typewright.json` is refused. A UFO folder can be chosen on the desktop only: Android's picker hands over one document at a time and gives no folder path to adopt in place, and a browser page cannot be given a folder to keep in place; both say so in words.
+
+**Imported glyphs are locked by design (D1).** The import approves every glyph with `ApprovalOrigin.IMPORT`, so each is locked (law 1: the font the person brought is their drawing, and nothing regenerates it). Editing an outline means unlocking that glyph, and **Draw is expected to make that one tap** on the glyph in hand (a person who opened their own font must not be sent looking for a setting); relocking stores the diff (§7). The unlock itself is `Unlock`, which works today; the one-tap control belongs to Draw. Sidebearings, advance, kerning and unicodes stay editable on a locked glyph (D2), so Space works without unlocking anything. Because the import approved the glyphs and the person has not looked at them, **Draw's station is not "done" after an import**: `drawProgress` counts only glyphs approved by the person (`ApprovalOrigin.TRACE` or `DRAW`), so an imported project reads ○ not started until they have, and ✓ only when every glyph that has an outline has been.
+
+**What Home reads.** The hero word and pangram are set in the project's own outlines with its advances and its kerning (the UFO group lookup order: pair, group with glyph, glyph with group, group pair). Counts and outliers come from `qa`'s node-economy check against `data/node-economy-*.json`, for the style class the one function `projectStyle` returns: the class the person confirmed, else the one they declared in the Brief, else the class the detector reads from the project's own letters, which every screen calls "our heuristic". The deck's Trace station reads the same function, so Home and the deck cannot disagree. The deck's status shapes (`projectStationStatus`) are Draw (above) and Trace (● when some letters are outliers to refit, ✓ when none are); Capture, Check, Ship and Space record nothing the project can read yet and show no shape.
+
+**Resume point.** The router records `ResumePoint(section, master, glyph)` against the project's entry in `recent-projects.json` whenever the section or the current glyph changes (`ProjectResumeEffect`), and restores the glyph when the project opens, only if the project still has a glyph of that name.
+
+**The fixture rule.** No main source set names the sample font except the loader that ships it as a labelled, user-chosen "Try the sample" (`NoFixtureFontInMainSourcesTest` scans every module's main sources, comments aside).
+
 ---
 
 ## Implementation plan

@@ -2,12 +2,15 @@
 
 package com.asoc.typewright.ui.workbook
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.toPixelMap
 import com.asoc.typewright.campaign.GateCheckStatus
 import com.asoc.typewright.ui.Screenshot
 import com.asoc.typewright.ui.ScreenshotHarness
 import com.asoc.typewright.ui.brief.LocalOpenBrief
+import com.asoc.typewright.ui.project.LocalProjectWorkspace
+import com.asoc.typewright.ui.project.SampleProject
 import com.asoc.typewright.ui.tokens.CanvasTextures
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -28,7 +31,7 @@ import kotlin.test.assertTrue
  *
  * **Real, verified findings behind the task indices chosen below** (a throwaway probe test run
  * before writing this file, per this task's own instruction not to guess): against this build's
- * own real Hyle Deco reference project, task 1's gate is [GateCheckStatus.NOT_IMPLEMENTED] (and is
+ * own sample project (the repository's OFL sample font, opened through the importer), task 1's gate is [GateCheckStatus.NOT_IMPLEMENTED] (and is
  * the real current/next task -- `currentWorkbookTaskIndex` never hardcodes "task 4"), task 4's
  * four checks are all real [GateCheckStatus.FAIL] (matching `HyleDecoTask4GateTest`'s own
  * finding), and task 6 is a real mix of [GateCheckStatus.PASS] (`x`, `k`) and
@@ -37,11 +40,21 @@ import kotlin.test.assertTrue
  * state.
  */
 class WorkbookScreenScreenshotTest {
+    private val workspace = SampleProject.workspace()
+
+    /** The screen over the open sample project; the Workbook reads "your font" from the open project. */
+    @Composable
+    private fun WithSample(content: @Composable () -> Unit) {
+        CompositionLocalProvider(LocalProjectWorkspace provides workspace, content = content)
+    }
+
+    private fun loadSnapshot(): WorkbookCampaignSnapshot = loadWorkbookCampaignSnapshot(SampleProject.openProject(workspace))
+
     @Test
     fun rendersTheRealCurrentTaskOnPaperWithoutCrashing() {
         val shot =
             ScreenshotHarness.capture(name = "workbook-screen-paper", width = 800, height = 2600, density = 2f) {
-                WorkbookScreen(texture = CanvasTextures.PAPER)
+                WithSample { WorkbookScreen(texture = CanvasTextures.PAPER) }
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
         assertTrue(inkFraction(shot) > 0.01, "workbook screen rendered blank -- expected real ink")
@@ -57,7 +70,7 @@ class WorkbookScreenScreenshotTest {
                     height = 2600,
                     density = 2f,
                 ) {
-                    WorkbookScreen(texture = texture)
+                    WithSample { WorkbookScreen(texture = texture) }
                 }
             assertTrue(shot.file.length() > 0, "PNG written to ${shot.file} for texture ${texture.id}")
         }
@@ -65,7 +78,7 @@ class WorkbookScreenScreenshotTest {
 
     @Test
     fun task1RealGateRowRendersTheNotImplementedDashedRingState() {
-        val snapshot = loadWorkbookCampaignSnapshot()
+        val snapshot = loadSnapshot()
         check(snapshot is WorkbookCampaignSnapshot.Loaded) { "expected the real campaign snapshot to load on desktop" }
         assertEquals(
             GateCheckStatus.NOT_IMPLEMENTED,
@@ -78,7 +91,12 @@ class WorkbookScreenScreenshotTest {
 
         val shot =
             ScreenshotHarness.capture(name = "workbook-screen-task1-not-implemented", width = 800, height = 2400, density = 2f) {
-                WorkbookScreen(texture = CanvasTextures.PAPER, uiState = WorkbookScreenUiState(snapshot = snapshot, initialTaskIndex = 1))
+                WithSample {
+                    WorkbookScreen(
+                        texture = CanvasTextures.PAPER,
+                        uiState = WorkbookScreenUiState(snapshot = snapshot, initialTaskIndex = 1),
+                    )
+                }
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
     }
@@ -88,7 +106,12 @@ class WorkbookScreenScreenshotTest {
         val shot =
             ScreenshotHarness.capture(name = "workbook-screen-task1-pick-in-the-brief", width = 800, height = 2600, density = 2f) {
                 CompositionLocalProvider(LocalOpenBrief provides { _, _ -> }) {
-                    WorkbookScreen(texture = CanvasTextures.PAPER, uiState = WorkbookScreenUiState(initialTaskIndex = 1))
+                    WithSample {
+                        WorkbookScreen(
+                            texture = CanvasTextures.PAPER,
+                            uiState = WorkbookScreenUiState(loadSnapshot(), initialTaskIndex = 1),
+                        )
+                    }
                 }
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
@@ -100,14 +123,19 @@ class WorkbookScreenScreenshotTest {
         // and renders fine -- this one says so explicitly for task 1, where the action would show.
         val shot =
             ScreenshotHarness.capture(name = "workbook-screen-task1-no-open-brief", width = 800, height = 2600, density = 2f) {
-                WorkbookScreen(texture = CanvasTextures.PAPER, uiState = WorkbookScreenUiState(initialTaskIndex = 1))
+                WithSample {
+                    WorkbookScreen(
+                        texture = CanvasTextures.PAPER,
+                        uiState = WorkbookScreenUiState(loadSnapshot(), initialTaskIndex = 1),
+                    )
+                }
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
     }
 
     @Test
     fun task4RealGateRowsRenderTheFailStateAsAFourGlyphGrid() {
-        val snapshot = loadWorkbookCampaignSnapshot()
+        val snapshot = loadSnapshot()
         check(snapshot is WorkbookCampaignSnapshot.Loaded) { "expected the real campaign snapshot to load on desktop" }
         val task4Checks =
             snapshot.progress
@@ -118,19 +146,24 @@ class WorkbookScreenScreenshotTest {
                 task4Checks.all {
                     it.status == GateCheckStatus.FAIL
                 },
-            "expected task 4's real checks to be FAIL on Hyle Deco: $task4Checks",
+            "expected task 4's real checks to be FAIL on the sample: $task4Checks",
         )
 
         val shot =
             ScreenshotHarness.capture(name = "workbook-screen-task4-fail", width = 800, height = 2600, density = 2f) {
-                WorkbookScreen(texture = CanvasTextures.PAPER, uiState = WorkbookScreenUiState(snapshot = snapshot, initialTaskIndex = 4))
+                WithSample {
+                    WorkbookScreen(
+                        texture = CanvasTextures.PAPER,
+                        uiState = WorkbookScreenUiState(snapshot = snapshot, initialTaskIndex = 4),
+                    )
+                }
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
     }
 
     @Test
     fun task6RealGateRowsRenderAMixOfPassAndWarn() {
-        val snapshot = loadWorkbookCampaignSnapshot()
+        val snapshot = loadSnapshot()
         check(snapshot is WorkbookCampaignSnapshot.Loaded) { "expected the real campaign snapshot to load on desktop" }
         val task6Statuses =
             snapshot.progress
@@ -140,12 +173,17 @@ class WorkbookScreenScreenshotTest {
                 .toSet()
         assertTrue(
             GateCheckStatus.PASS in task6Statuses && GateCheckStatus.WARN in task6Statuses,
-            "expected task 6's real checks to mix PASS and WARN on Hyle Deco: $task6Statuses",
+            "expected task 6's real checks to mix PASS and WARN on the sample: $task6Statuses",
         )
 
         val shot =
             ScreenshotHarness.capture(name = "workbook-screen-task6-pass-warn-mix", width = 800, height = 3800, density = 2f) {
-                WorkbookScreen(texture = CanvasTextures.PAPER, uiState = WorkbookScreenUiState(snapshot = snapshot, initialTaskIndex = 6))
+                WithSample {
+                    WorkbookScreen(
+                        texture = CanvasTextures.PAPER,
+                        uiState = WorkbookScreenUiState(snapshot = snapshot, initialTaskIndex = 6),
+                    )
+                }
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
     }
@@ -169,7 +207,7 @@ class WorkbookScreenScreenshotTest {
         var backCalls = 0
         val shot =
             ScreenshotHarness.capture(name = "workbook-screen-back-not-yet-tapped", width = 800, height = 2600, density = 2f) {
-                WorkbookScreen(texture = CanvasTextures.PAPER, onBack = { backCalls++ })
+                WithSample { WorkbookScreen(texture = CanvasTextures.PAPER, onBack = { backCalls++ }) }
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
         assertTrue(backCalls == 0, "onBack must not fire just from rendering")

@@ -54,6 +54,7 @@ import com.asoc.typewright.core.geometry.roundContourCoordinates
 import com.asoc.typewright.core.geometry.simplifyContour
 import com.asoc.typewright.project.ProjectWorkspace
 import com.asoc.typewright.ui.brief.LocalOpenNewProjectBrief
+import com.asoc.typewright.ui.imports.rememberFontImportPaletteEntries
 import com.asoc.typewright.ui.project.InMemoryProjectFolderPicker
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.project.LocalZipTransferSupported
@@ -115,9 +116,11 @@ fun CommandPalette(
     val zipTransferSupported = LocalZipTransferSupported.current
     val openNewProject = LocalOpenNewProjectBrief.current
     val scope = rememberCoroutineScope()
+    val fontImportEntries = rememberFontImportPaletteEntries(onDismiss)
     val entries =
-        remember(workspace, zipTransferSupported, openNewProject) {
-            paletteEntries() + projectPaletteEntries(workspace, zipTransferSupported, openNewProject, scope) { lastResult = it }
+        remember(workspace, zipTransferSupported, openNewProject, fontImportEntries) {
+            paletteEntries() + projectPaletteEntries(workspace, zipTransferSupported, openNewProject, scope) { lastResult = it } +
+                fontImportEntries
         }
     val filtered = remember(query, entries) { entries.filter { it.label.contains(query, ignoreCase = true) } }
     if (highlighted >= filtered.size) highlighted = 0
