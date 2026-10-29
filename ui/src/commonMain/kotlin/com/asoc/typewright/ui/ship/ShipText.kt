@@ -3,6 +3,7 @@
 package com.asoc.typewright.ui.ship
 
 import com.asoc.typewright.compile.CompileLocation
+import com.asoc.typewright.project.TreeReplacement
 import com.asoc.typewright.qa.ship.ShipGate
 import com.asoc.typewright.qa.ship.ShipMode
 
@@ -68,10 +69,22 @@ object ShipText {
 
     /** The one line the web page says about why it exports a zip. */
     const val WEB_WHY: String =
-        "Builds need the desktop app for now. This exports your UFO and the rest of the folder as a zip; the font is not in it."
+        "Builds need the desktop or Android app for now. This exports your UFO and the rest of the folder as a zip; the font is not in it."
 
     /** The one line a phone says about why the folder has no font. */
     const val PHONE_WHY: String = "Building the font on a phone is not available in this version, so the folder is written without it."
+
+    /** The line a page that cannot compile says about it, or null where the font is compiled here. */
+    fun withoutFontWhy(
+        exit: ShipExit,
+        compiles: Boolean,
+    ): String? =
+        when {
+            compiles -> null
+            exit == ShipExit.ZIP -> WEB_WHY
+            exit == ShipExit.DOCUMENT_TREE -> PHONE_WHY
+            else -> null
+        }
 
     /** The link under the target row. */
     fun chooseLink(
@@ -106,8 +119,51 @@ object ShipText {
     /** The heading of a build that stopped: `Ship stopped while compiling the project with fontmake`. */
     fun failureHeading(step: ShipStep): String = "Ship stopped while ${step.activity}"
 
-    /** What a cancelled build says. */
+    /** What a cancelled build says: it was stopped before anything was written. */
     const val CANCELLED: String = "Cancelled. Your project and the folder are as they were."
+
+    /** What the page says when Close came while the folder was being written: the writer finishes a move it has begun. */
+    const val CLOSED_DURING_WRITE: String =
+        "You closed the build while the folder was being written. The folder was already written, so it holds the whole repository; " +
+            "your project was not changed."
+
+    /** The deck's label and the page's line while a Close waits for the run to stop. */
+    const val CANCELLING: String = "Cancelling…"
+
+    /** Before a build: what choosing a place that already holds a copy will replace. */
+    fun replacingWarning(replacements: List<TreeReplacement>): String? =
+        replacements.takeIf { it.isNotEmpty() }?.let { list ->
+            "This folder already holds ${replacedWords(list)}. Building replaces " +
+                (
+                    if (list.any {
+                            it.directory
+                        }
+                    ) {
+                        "the whole sources folder (anything in it that this project does not hold is removed) and "
+                    } else {
+                        ""
+                    }
+                ) +
+                "those files with the new ones. Everything else in the folder is left alone."
+        }
+
+    /** After a build: what the write replaced, one line per folder or file. */
+    fun replacedLine(item: TreeReplacement): String =
+        if (item.directory) {
+            "${item.path}/ replaced whole" +
+                if (item.removed >
+                    0
+                ) {
+                    "; ${item.removed} ${if (item.removed == 1) "file" else "files"} in it that the project does not hold were removed"
+                } else {
+                    ""
+                }
+        } else {
+            "${item.path} replaced"
+        }
+
+    private fun replacedWords(list: List<TreeReplacement>): String =
+        list.joinToString(", ") { if (it.directory) "${it.path}/" else it.path }
 
     /** The note under a fresh build: what cancelling does. */
     const val CANCEL_NOTE: String = "Cancel leaves the project untouched"

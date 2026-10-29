@@ -46,7 +46,7 @@ internal class FakePython(
                     "  case \"${dollar}2\" in",
                     "    *typewright-google-fonts-fixes*)",
                     "      FONT=\"${dollar}3\"",
-                    "      echo \"${dollar}1 SCRIPT ${dollar}FONT\" > \"${dollar}DIR/fixes-args.txt\"",
+                    "      echo \"${dollar}1 SCRIPT ${dollar}FONT ${dollar}4 ${dollar}5\" > \"${dollar}DIR/fixes-args.txt\"",
                 ) + fixes.trimIndent().lines().map { "      $it" } + listOf("      ;;", "  esac")
             }
         val head =
@@ -162,8 +162,13 @@ private fun off(
     y: Int,
 ) = ContourPoint(Point(x, y), onCurve = false)
 
-/** A project with one UFO, `Fixture-Regular.ufo`, whose O has real quadratic curves (as a font opened from a TTF has). */
-internal fun fixtureProject(): InMemoryProjectFiles {
+/**
+ * A project with one UFO, `Fixture-Regular.ufo`, whose O has real quadratic curves (as a font opened from a TTF has), and whose font info
+ * is [info]: by default the family, the style and the em, and nothing else stated.
+ */
+internal fun fixtureProject(
+    info: UfoFontInfo = UfoFontInfo(familyName = "Fixture", styleName = "Regular", unitsPerEm = 1000),
+): InMemoryProjectFiles {
     val o =
         Glyph(
             name = "O",
@@ -188,7 +193,7 @@ internal fun fixtureProject(): InMemoryProjectFiles {
         )
     val ufo =
         UfoProject(
-            UfoFontInfo(familyName = "Fixture", styleName = "Regular", unitsPerEm = 1000),
+            info,
             listOf(o),
             lib = UfoLib(lineContourFormat = CurveFormat.QUADRATIC),
         )

@@ -28,7 +28,8 @@ import kotlin.concurrent.thread
  * PATH; otherwise the log says "not hinted: ttfautohint not found" and the build goes on. Then the
  * Google Fonts fix-ups ([GoogleFontsFixes]) make the binary what that checker asks of every font
  * (embedding allowed, `USE_TYPO_METRICS`, and for an unhinted font `gasp` and the smart-dropout
- * `prep`), and the log lists what they changed. Cancelling
+ * `prep`) wherever the project states nothing of its own, and the log lists what they changed and what
+ * they left alone because the project states it. Cancelling
  * the calling coroutine stops fontmake and every process it started and deletes the temporary
  * directory; the project is never written to. A build that runs past [timeoutMillis] is stopped.
  */
@@ -138,7 +139,7 @@ class SystemPythonFontmakeBackend internal constructor(
             log.info("Running fontmake…")
             val exit = runStreaming(command, work, log)
             if (exit.code == 0 && !exit.timedOut && outFile.isFile && request.options.googleFontsFixes) {
-                applyGoogleFontsFixes(python, outFile, log)
+                applyGoogleFontsFixes(python, outFile, GoogleFontsFixes.statedBy(prepared.files), log)
             }
             val binaries = collectBinaries(outFile, projectBinaryName(ufoPath))
             return when {
@@ -189,24 +190,29 @@ class SystemPythonFontmakeBackend internal constructor(
 
     /**
      * Makes [font] what Google Fonts' checker asks of every font, in the ways that belong to the build ([GoogleFontsFixes]), and says in the
-     * log what it changed. A font that cannot be fixed is still the font fontmake wrote: the log warns, and the build goes on, so the check on
-     * the binary reports what is wrong instead of the build failing here. An interpreter that does not run the script at all (a stand-in) is
-     * silent.
+     * log what it changed and what it left alone because the project states it ([stated]). A font that cannot be fixed is still the font
+     * fontmake wrote: the log warns, and the build goes on, so the check on the binary reports what is wrong instead of the build failing
+     * here. An interpreter that does not run the script at all (a stand-in) is silent.
      */
     private fun applyGoogleFontsFixes(
         python: FontmakePython,
         font: File,
+        stated: List<String>,
         log: BuildLog,
     ) {
-        val outcome = runner.run(listOf(python.python, "-c", GoogleFontsFixes.SCRIPT, font.absolutePath), FIXES_TIMEOUT_MILLIS)
-        val changes = if (outcome.succeeded) GoogleFontsFixes.parse(outcome.output) else null
+        val outcome =
+            runner.run(listOf(python.python, "-c", GoogleFontsFixes.SCRIPT, font.absolutePath) + stated, FIXES_TIMEOUT_MILLIS)
+        val report = if (outcome.succeeded) GoogleFontsFixes.parseReport(outcome.output) else null
+        val changes = report?.changes
         when {
             changes != null && changes.isEmpty() -> {
                 log.info("Google Fonts fix-ups: nothing to change.")
+                report.kept.forEach { log.warn("Google Fonts fix-up not applied: $it.") }
             }
 
             changes != null -> {
                 changes.forEach { log.info("Google Fonts fix-up: $it") }
+                report.kept.forEach { log.warn("Google Fonts fix-up not applied: $it.") }
             }
 
             outcome.succeeded -> {

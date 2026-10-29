@@ -58,6 +58,8 @@ internal object ShipFixtures {
         brief: ShipBrief = ShipBrief("Art deco display", listOf("Watch faces", "Posters")),
         layerOne: LayerOneSummary? = LayerOneSummary("Fontbakery 0.12.10", 0, 12, 147),
         font: ShipFont = this.font,
+        dateAdded: String? = "2026-10-24",
+        branch: String? = "main",
     ) = ShipInputs(
         mode = mode,
         facts = ShipFacts.of(info),
@@ -68,7 +70,8 @@ internal object ShipFixtures {
         binary = binary,
         category = category,
         layerOne = layerOne,
-        today = "2026-10-24",
+        dateAdded = dateAdded,
+        branch = branch,
     )
 
     fun plan(

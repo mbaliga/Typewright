@@ -254,8 +254,8 @@ internal fun namesItem(inputs: CheckInputs): CheckItem {
     val summary =
         if (worst == null) {
             "\"$family $style\" is present, within $MAX_FAMILY_AND_STYLE characters, keeps no reserved name, " +
-                "and matches no family in the " +
-                "Google Fonts faces this app measures against."
+                "and clashes with none of the ${taken.size.withThousands()} family names compared in our corpus. " +
+                "That is our heuristic: not every font in the world is in it."
         } else {
             problems.filter { it.first == severity }.joinToString(" ") { it.second }
         }
@@ -290,6 +290,12 @@ internal fun familyNameOddities(family: String): List<String> =
         val camel = family.split(' ').any { word -> word.zipWithNext().any { (a, b) -> a.isLowerCase() && b.isUpperCase() } }
         if (camel) add("camelCase")
     }
+
+/**
+ * How many family names the Names check compared the project's name with: the Google Fonts families in `qa/corpus` and the project's other
+ * masters, each name once. A clash is only ever found among these, so a page that says names are unique says this number with it.
+ */
+fun familyNamesCompared(inputs: CheckInputs): Int = knownFamilyNames(inputs).size
 
 /** Lower-cased family name to a plain description of what holds it, from the corpus faces and the other masters. */
 private fun knownFamilyNames(inputs: CheckInputs): Map<String, String> {

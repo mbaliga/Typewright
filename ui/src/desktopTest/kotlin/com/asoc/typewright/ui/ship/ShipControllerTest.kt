@@ -8,6 +8,9 @@ import com.asoc.typewright.compile.CompileResult
 import com.asoc.typewright.compile.FontBinary
 import com.asoc.typewright.compile.OutputFormat
 import com.asoc.typewright.project.FolderTreeWriter
+import com.asoc.typewright.project.InMemoryProjectStore
+import com.asoc.typewright.project.ProjectStore
+import com.asoc.typewright.project.StoreTreeWriter
 import com.asoc.typewright.project.TreeWriteException
 import com.asoc.typewright.project.TreeWriteReport
 import com.asoc.typewright.project.TreeWriter
@@ -27,9 +30,12 @@ import com.asoc.typewright.ui.project.SampleProject
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.nio.file.Files
@@ -101,7 +107,8 @@ class ShipControllerTest {
         target: ShipTarget,
         report: CheckReport? = cleanReport,
         mode: ShipMode = ShipMode.GOOGLE_FONTS,
-    ) = ShipRequest(subject, mode, null, target, report)
+        branch: String? = null,
+    ) = ShipRequest(subject, mode, null, target, report, branch = branch)
 
     private suspend fun ShipController.finished(): ShipRunState {
         settled()
@@ -425,7 +432,7 @@ class ShipControllerTest {
             }
 
             c.cancel()
-            assertEquals(ShipRunState.Cancelled, c.state.value)
+            assertTrue((c.state.value as ShipRunState.Building).cancelling, "Close shows at once; the run is still stopping")
             c.settled()
             gate.complete(Unit)
 
@@ -435,27 +442,219 @@ class ShipControllerTest {
             assertEquals(before, after, "the project's files are untouched")
         }
 
-    @Test
-    fun cancellingDuringTheWriteLeavesTheWriterToUndoItsOwnAndNeverRemembersTheShip() =
-        runBlocking {
-            val gate = CompletableDeferred<Unit>()
-            val spy = Spy(gate = gate)
-            val memory = ShipMemory()
-            val c = controller(memory = memory)
-            c.ship(request(ShipTarget("spy", spy)))
-            withTimeout(20_000) {
-                c.state.first {
-                    it is ShipRunState.Building &&
-                        it.steps.any { s -> s.step == ShipStep.WRITE && s.state == StepState.RUNNING }
+    /** A compiler whose first run waits until it is stopped and then takes [teardown] to let go, as the real one does of its process tree; a later run takes three times as long. */
+    private fun slowToStop(teardown: Long = 300L): FakeCompiler {
+        val runs =
+            java.util.concurrent.atomic
+                .AtomicInteger()
+        return FakeCompiler { _, _ ->
+            if (runs.incrementAndGet() == 1) {
+                try {
+                    CompletableDeferred<Unit>().await()
+                } finally {
+                    withContext(NonCancellable) { delay(teardown) }
                 }
+            } else {
+                // Still running when the first run has finished letting go.
+                delay(teardown * 3)
             }
-            withTimeout(20_000) { while (spy.calls == 0) kotlinx.coroutines.delay(10) }
+            CompileResult.Success(listOf(FontBinary("Fake.ttf", OutputFormat.TTF, binary)), emptyList())
+        }
+    }
+
+    private suspend fun ShipController.untilCompiling() {
+        withTimeout(20_000) {
+            state.first { it is ShipRunState.Building && it.steps.any { s -> s.step == ShipStep.COMPILE && s.state == StepState.RUNNING } }
+        }
+    }
+
+    private fun realTarget(
+        folder: File,
+        beforeCommit: () -> Unit = {},
+        beforeMove: (String) -> Unit = {},
+    ) = ShipTarget("repo", FolderTreeWriter(folder.toPath(), "repo", beforeCommit, beforeMove))
+
+    @Test
+    fun closeThenBuildAgainStartsAFreshRunThatTheEndingOneCannotOverwrite() =
+        runBlocking {
+            val parent = Files.createTempDirectory("typewright-ship-").toFile()
+            val folder = File(parent, "repo").apply { mkdir() }
+            val c = controller(slowToStop())
+            c.ship(request(realTarget(folder), branch = "main"))
+            c.untilCompiling()
 
             c.cancel()
+            assertEquals(ShipStart.Started, c.ship(request(realTarget(folder), branch = "main")))
+
+            // The old run has finished stopping by the time the new one is started: it cannot write over the new state.
+            val now = assertIs<ShipRunState.Building>(c.state.value)
+            assertFalse(now.cancelling, "the new build is not the one that was closed")
+            c.settled()
+            assertIs<ShipRunState.Done>(c.state.value, "the new build ran to the end")
+            assertTrue(File(folder, "OFL.txt").isFile && File(folder, "fonts/ttf/HyleDeco-Regular.ttf").isFile)
+            assertEquals(listOf("repo"), parent.list()!!.toList(), "no working folder is left beside it")
+        }
+
+    @Test
+    fun buildingAgainWhileOneIsRunningReplacesItAndTheFirstNeverOverwritesTheSecond() =
+        runBlocking {
+            val parent = Files.createTempDirectory("typewright-ship-").toFile()
+            val folder = File(parent, "repo").apply { mkdir() }
+            val c = controller(slowToStop())
+            c.ship(request(realTarget(folder), branch = "main"))
+            c.untilCompiling()
+
+            assertEquals(ShipStart.Started, c.ship(request(realTarget(folder), branch = "main")))
+
+            assertFalse((c.state.value as ShipRunState.Building).cancelling)
+            c.settled()
+            val done = assertIs<ShipRunState.Done>(c.state.value)
+            assertTrue(done.result.steps.all { it.state == StepState.DONE }, "the second run is the one that finished")
+            assertTrue(File(folder, "OFL.txt").isFile)
+        }
+
+    @Test
+    fun aCloseBeforeTheFolderIsMovedIntoPlaceLeavesARealFolderAsItWas() =
+        runBlocking {
+            val parent = Files.createTempDirectory("typewright-ship-").toFile()
+            val folder = File(parent, "repo").apply { mkdir() }
+            File(folder, "README.md").writeText("mine")
+            val before = hashes(folder)
+            val memory = ShipMemory()
+            lateinit var c: ShipController
+            c = controller(memory = memory)
+
+            c.ship(request(realTarget(folder, beforeCommit = { c.cancel() }), branch = "main"))
             c.settled()
 
             assertEquals(ShipRunState.Cancelled, c.state.value)
+            assertEquals(before, hashes(folder), "the folder holds what it held")
+            assertEquals(listOf("repo"), parent.list()!!.toList())
             assertNull(memory.resultFor(subject.version))
+        }
+
+    @Test
+    fun aCloseDuringTheMoveIntoPlaceReportsThatTheFolderWasWrittenAndTouchesNothingElse() =
+        runBlocking {
+            val parent = Files.createTempDirectory("typewright-ship-").toFile()
+            val folder = File(parent, "repo").apply { mkdir() }
+            File(folder, "README.md").writeText("mine")
+            val projectBefore = subject.check.snapshot().let { s -> s.listFiles().associateWith { sha(s.readBytes(it)) } }
+            val memory = ShipMemory()
+            lateinit var c: ShipController
+            c = controller(memory = memory)
+            var moves = 0
+
+            c.ship(
+                request(
+                    realTarget(folder, beforeMove = { if (moves++ == 0) c.cancel() }),
+                    branch = "main",
+                ),
+            )
+            c.settled()
+
+            val done = assertIs<ShipRunState.Done>(c.state.value, "the folder was written, so the page cannot say it was left as it was")
+            assertTrue(done.result.closedDuringWrite)
+            assertTrue(moves > 1, "the move was finished after the Close")
+            assertTrue(File(folder, "OFL.txt").isFile && File(folder, "fonts/ttf/HyleDeco-Regular.ttf").isFile)
+            assertEquals("mine", File(folder, "README.md").readText(), "a file the repository does not name is never touched")
+            assertEquals(done.result, memory.resultFor(subject.version))
+            val projectAfter = subject.check.snapshot().let { s -> s.listFiles().associateWith { sha(s.readBytes(it)) } }
+            assertEquals(projectBefore, projectAfter, "the project is untouched")
+        }
+
+    @Test
+    fun aCloseWhileAStoreIsBeingWrittenPutsTheStoreBack() =
+        runBlocking {
+            val inner =
+                InMemoryProjectStore("repo", mapOf("README.md" to "mine".encodeToByteArray(), "OFL.txt" to "old".encodeToByteArray()))
+            lateinit var c: ShipController
+            val store =
+                object : ProjectStore by inner {
+                    var writes = 0
+
+                    override suspend fun writeAtomic(
+                        path: String,
+                        bytes: ByteArray,
+                    ) {
+                        if (writes++ == 1) c.cancel()
+                        inner.writeAtomic(path, bytes)
+                    }
+                }
+            c = controller()
+
+            c.ship(request(ShipTarget("repo", StoreTreeWriter(store, "repo"), withoutFontOk = true), branch = "main"))
+            c.settled()
+
+            assertEquals(ShipRunState.Cancelled, c.state.value)
+            assertEquals(listOf("OFL.txt", "README.md"), inner.list(), "what the write created is gone again")
+            assertEquals("old", inner.read("OFL.txt")!!.decodeToString(), "what it replaced is back")
+        }
+
+    @Test
+    fun noReportBlocksTheShipBecauseCheckHasNotRun() =
+        runBlocking {
+            val compiler = FakeCompiler.succeeding(binary)
+            val spy = Spy()
+            val started = controller(compiler).ship(request(ShipTarget("spy", spy), report = null))
+            val blocked = assertIs<ShipStart.Blocked>(started)
+            assertFalse(blocked.gate.checkRun)
+            assertEquals(0, compiler.calls.get())
+            assertEquals(0, spy.calls)
+        }
+
+    @Test
+    fun underOwnLicenceNothingIsPatchedForGoogleFontsAndItsProfileDoesNotStopTheShip() =
+        runBlocking {
+            val compiler = FakeCompiler.succeeding(binary)
+            val failing = LayerOneReport(listOf(CheckOutcome("com.google.fonts/check/gasp", CheckStatus.FAIL, "missing gasp")))
+            val spy = Spy()
+            val c = controller(compiler, FakeChecker(report = failing))
+            c.ship(request(ShipTarget("spy", spy), mode = ShipMode.OWN_LICENCE))
+            assertIs<ShipRunState.Done>(c.finished(), "Google Fonts' profile is not this font's")
+            assertFalse(
+                compiler.requests
+                    .single()
+                    .options.googleFontsFixes,
+                "the compiler's own binary, not one patched for Google Fonts",
+            )
+
+            val gf = FakeCompiler.succeeding(binary)
+            controller(gf).apply { ship(request(ShipTarget("spy", Spy()))) }.settled()
+            assertTrue(
+                gf.requests
+                    .single()
+                    .options.googleFontsFixes,
+            )
+        }
+
+    @Test
+    fun theBranchAndTheDayTheyStateGoIntoTheFolderAndNothingElseDoes() =
+        runBlocking {
+            val withBranch = Spy()
+            val c = controller()
+            c.ship(
+                ShipRequest(
+                    subject,
+                    ShipMode.GOOGLE_FONTS,
+                    null,
+                    ShipTarget("spy", withBranch),
+                    cleanReport,
+                    branch = "trunk",
+                    dateAdded = "2026-10-24",
+                ),
+            )
+            c.finished()
+            assertTrue("branch: trunk" in withBranch.files.getValue("upstream.yaml").decodeToString())
+            assertTrue("date_added: \"2026-10-24\"" in withBranch.files.getValue("METADATA.pb").decodeToString())
+
+            val without = Spy()
+            val d = controller()
+            d.ship(request(ShipTarget("spy", without)))
+            val done = assertIs<ShipRunState.Done>(d.finished())
+            assertFalse("upstream.yaml" in without.files, "no branch is guessed")
+            assertFalse("date_added" in without.files.getValue("METADATA.pb").decodeToString(), "no day is made up")
+            assertTrue(done.result.omissions.any { it.path == "upstream.yaml" })
         }
 
     @Test
@@ -515,7 +714,7 @@ class ShipControllerTest {
 
             // And the clean ship, to the same folder, writes the whole repository.
             val clean = controller()
-            clean.ship(request(real()))
+            clean.ship(request(real(), branch = "main"))
             assertIs<ShipRunState.Done>(clean.finished())
             val written = hashes(folder)
             assertTrue(

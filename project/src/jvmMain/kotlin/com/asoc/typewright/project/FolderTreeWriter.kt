@@ -12,9 +12,11 @@ import java.io.IOException
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
+import java.nio.file.InvalidPathException
 import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.random.Random
 
 /**
@@ -22,13 +24,17 @@ import kotlin.random.Random
  * move is a rename), and only when every file is there is it moved into place. If [target] does not exist, the sibling is renamed to it in one
  * step. If it does (the person chose their repository), each file is moved over its old one after the old one is set aside, and an
  * [ownedDirectories][TreeWriter.write] folder is replaced as a whole; any failure puts every set-aside file back and removes what was created, so
- * [target] holds what it held. Cancelling before the move leaves [target] untouched and removes the sibling. Files in [target] that the tree
- * does not name (a `.git` folder, a README) are never touched.
+ * [target] holds what it held. Cancelling before the move leaves [target] untouched and removes the sibling. The move itself is not cancelled
+ * half-way, and a write whose move finished is reported as finished even when the caller was cancelled during or just after it, because the
+ * folder was in fact written. Files in [target] that the tree does not name (a `.git` folder, a README) are never touched. A name this
+ * computer's file-name encoding cannot hold is a [TreeWriteException] naming it, with nothing changed.
  */
-class FolderTreeWriter internal constructor(
+class FolderTreeWriter(
     private val target: Path,
     override val description: String,
+    /** Called once the whole tree is staged, before the point after which the write is no longer cancelled. For tests that need to cancel there. */
     private val beforeCommit: () -> Unit,
+    /** Called before each file or owned folder is moved into place, inside the part that is not cancelled. For tests that need to cancel there. */
     private val beforeMove: (String) -> Unit,
 ) : TreeWriter {
     constructor(target: Path, description: String = target.toString()) : this(target, description, {}, {})
@@ -38,41 +44,103 @@ class FolderTreeWriter internal constructor(
         ownedDirectories: Collection<String>,
     ): TreeWriteReport {
         TreeLayout.check(files, ownedDirectories)
-        return withContext(Dispatchers.IO) {
-            val absolute = target.toAbsolutePath().normalize()
-            val parent = absolute.parent ?: throw TreeWriteException("“$description” has no folder to be made in.")
-            if (!Files.isDirectory(parent)) {
-                throw TreeWriteException("The folder “$parent” does not exist, so “${absolute.fileName}” cannot be made in it.")
-            }
-            if (Files.exists(absolute) && !Files.isDirectory(absolute)) throw TreeWriteException("“$description” is a file, not a folder.")
-            val replaced = files.keys.count { Files.isRegularFile(absolute.resolve(it)) }
-            var staging: Path? = null
+        val committed = AtomicReference<TreeWriteReport?>(null)
+        try {
+            return withContext(Dispatchers.IO) { writeBlocking(files, ownedDirectories, committed) }
+        } catch (e: CancellationException) {
+            // The move is not cancelled half-way. If it finished, the folder holds the whole tree whatever became of the caller, and the caller
+            // is told that and not that it was cancelled.
+            committed.get()?.let { return it }
+            throw e
+        }
+    }
+
+    override suspend fun replacements(
+        paths: Collection<String>,
+        ownedDirectories: Collection<String>,
+    ): List<TreeReplacement> =
+        withContext(Dispatchers.IO) {
             try {
-                staging = uniqueSibling(parent, ".${absolute.fileName}.ship-")
-                for ((path, bytes) in files) {
-                    currentCoroutineContext().ensureActive()
-                    val file = staging.resolve(path)
-                    Files.createDirectories(file.parent)
-                    Files.write(file, bytes)
-                }
-                currentCoroutineContext().ensureActive()
-                beforeCommit()
-                currentCoroutineContext().ensureActive()
-                // From here on the move is not cancelled half-way: it completes, or it puts everything back.
-                val owned = ownedDirectories.toSet().filter { Files.isDirectory(staging.resolve(it)) }
-                withContext(NonCancellable) { commit(staging, absolute, files.keys, owned) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: TreeWriteException) {
-                throw e
+                val absolute = target.toAbsolutePath().normalize()
+                if (!Files.isDirectory(absolute)) return@withContext emptyList()
+                TreeLayout.replacementsIn(filesUnder(absolute, paths, ownedDirectories), paths, ownedDirectories)
             } catch (e: IOException) {
-                throw TreeWriteException("Typewright could not write to $description: ${explain(e)} Nothing was changed.", e)
+                emptyList()
+            } catch (e: InvalidPathException) {
+                emptyList()
             } catch (e: SecurityException) {
-                throw TreeWriteException("Typewright was not allowed to write to $description. Nothing was changed.", e)
-            } finally {
-                staging?.let { deleteTree(it) }
+                emptyList()
             }
-            TreeWriteReport(files.size, replaced, files.values.sumOf { it.size.toLong() })
+        }
+
+    /** The files of [absolute] that matter to a write of [paths]: the ones at those paths, and every file inside an owned directory. */
+    private fun filesUnder(
+        absolute: Path,
+        paths: Collection<String>,
+        ownedDirectories: Collection<String>,
+    ): List<String> {
+        val found = HashSet<String>()
+        for (path in paths) if (Files.isRegularFile(absolute.resolve(path))) found += path
+        for (directory in ownedDirectories) {
+            val root = absolute.resolve(directory)
+            if (!Files.isDirectory(root)) continue
+            Files.walk(root).use { walk ->
+                walk.filter { Files.isRegularFile(it, LinkOption.NOFOLLOW_LINKS) }.forEach {
+                    found += absolute.relativize(it).joinToString("/") { part -> part.toString() }
+                }
+            }
+        }
+        return found.toList()
+    }
+
+    private suspend fun writeBlocking(
+        files: Map<String, ByteArray>,
+        ownedDirectories: Collection<String>,
+        committed: AtomicReference<TreeWriteReport?>,
+    ): TreeWriteReport {
+        val absolute = target.toAbsolutePath().normalize()
+        val parent = absolute.parent ?: throw TreeWriteException("“$description” has no folder to be made in.")
+        if (!Files.isDirectory(parent)) {
+            throw TreeWriteException("The folder “$parent” does not exist, so “${absolute.fileName}” cannot be made in it.")
+        }
+        if (Files.exists(absolute) && !Files.isDirectory(absolute)) throw TreeWriteException("“$description” is a file, not a folder.")
+        var staging: Path? = null
+        try {
+            val replacements = TreeLayout.replacementsIn(filesUnder(absolute, files.keys, ownedDirectories), files.keys, ownedDirectories)
+            val replaced = files.keys.count { Files.isRegularFile(absolute.resolve(it)) }
+            staging = uniqueSibling(parent, ".${absolute.fileName}.ship-")
+            for ((path, bytes) in files) {
+                currentCoroutineContext().ensureActive()
+                val file = staging.resolve(path)
+                Files.createDirectories(file.parent)
+                Files.write(file, bytes)
+            }
+            currentCoroutineContext().ensureActive()
+            beforeCommit()
+            currentCoroutineContext().ensureActive()
+            // From here on the move is not cancelled half-way: it completes, or it puts everything back.
+            val owned = ownedDirectories.toSet().filter { Files.isDirectory(staging.resolve(it)) }
+            val staged = staging
+            withContext(NonCancellable) { commit(staged, absolute, files.keys, owned) }
+            val report = TreeWriteReport(files.size, replaced, files.values.sumOf { it.size.toLong() }, replacements)
+            committed.set(report)
+            return report
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: TreeWriteException) {
+            throw e
+        } catch (e: InvalidPathException) {
+            val name = e.input?.takeIf { it.isNotBlank() }?.let { "“$it”" } ?: "one of the names"
+            throw TreeWriteException(
+                "Typewright could not write to $description: this computer's file-name encoding cannot hold $name. Nothing was changed.",
+                e,
+            )
+        } catch (e: IOException) {
+            throw TreeWriteException("Typewright could not write to $description: ${explain(e)} Nothing was changed.", e)
+        } catch (e: SecurityException) {
+            throw TreeWriteException("Typewright was not allowed to write to $description. Nothing was changed.", e)
+        } finally {
+            staging?.let { deleteTree(it) }
         }
     }
 

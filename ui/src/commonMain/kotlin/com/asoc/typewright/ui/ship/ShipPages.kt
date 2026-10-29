@@ -3,20 +3,31 @@
 package com.asoc.typewright.ui.ship
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.LinkAnnotation
@@ -24,6 +35,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,10 +44,13 @@ import com.asoc.typewright.qa.report.SeverityBar
 import com.asoc.typewright.qa.ship.BlockerSource
 import com.asoc.typewright.qa.ship.ShipBlocker
 import com.asoc.typewright.qa.ship.ShipChoices
+import com.asoc.typewright.qa.ship.ShipInput
 import com.asoc.typewright.qa.ship.ShipItem
 import com.asoc.typewright.qa.ship.ShipItemId
 import com.asoc.typewright.qa.ship.ShipMark
 import com.asoc.typewright.qa.ship.ShipRoute
+import com.asoc.typewright.qa.ship.detailRows
+import com.asoc.typewright.qa.ship.mainRows
 import com.asoc.typewright.ui.check.ActionLink
 import com.asoc.typewright.ui.check.RawPanel
 import com.asoc.typewright.ui.check.SegmentChip
@@ -61,35 +76,58 @@ internal class ShipPageActions(
     val onToggleRequest: () -> Unit,
     val onCopyRequest: (String) -> Unit,
     val onTryAgain: () -> Unit,
+    val onToggleDetails: () -> Unit,
+    /** Sets the short text of the line [ShipInput.Kind]; answers a sentence when it is refused, null when it was taken. */
+    val onInput: (ShipInput.Kind, String) -> String?,
 )
 
 private val MARK_WIDTH = 14.dp
-private const val BLOCKERS_SHOWN = 6
+private val BLOCKERS_MAX_HEIGHT = 120.dp
 
 // ---- S16: the checklist -------------------------------------------------------------------------------
 
-/** The Ready page (S16): the checklist, where the folder goes and what is in it, and, while Check has fails, the block. */
+/**
+ * The Ready page (S16): the board's rows, the folder as the board's five lines, and, while Check has fails, the ink block that says so, which
+ * sits above the lines behind Details so it is on screen at phone size. The rows that are not the board's (category, repository address,
+ * vendor ID, the branch and the day for METADATA) are behind Details, with a count of how many still need the person.
+ */
 @Composable
 internal fun ChecklistPage(
     texture: CanvasTexture,
     sheet: ShipSheet,
     targetLabel: String?,
     message: String?,
+    showDetails: Boolean,
     actions: ShipPageActions,
 ) {
     val muted = texture.muted.toColor()
+    val main = sheet.checklist.mainRows()
+    val details = sheet.checklist.detailRows()
     Column(verticalArrangement = Arrangement.spacedBy(15.dp)) {
         if (message != null) Notice(texture, message)
-        for (item in sheet.checklist) {
-            ChecklistRow(texture, item, sheet, actions)
+        ShipText.withoutFontWhy(sheet.platform.exit, sheet.platform.compiles)?.let { why ->
+            BasicText(text = why, style = sentenceStyle(muted, size = 12.0))
         }
+        for (item in main) ChecklistRow(texture, item, sheet, actions)
         TargetBlock(texture, sheet, targetLabel, actions)
-        if (sheet.gate.blocked) {
-            BasicText(
-                text = ShipText.blockedBlock(sheet.gate),
-                style = sentenceStyle(texture.canvas.toColor(), size = 12.5),
-                modifier = Modifier.fillMaxWidth().background(texture.ink.toColor()).padding(horizontal = 12.dp, vertical = 10.dp),
+        ShipText.replacingWarning(sheet.replacements)?.let { Notice(texture, it) }
+        if (sheet.gate.blocked) Notice(texture, ShipText.blockedBlock(sheet.gate))
+        if (details.isNotEmpty()) {
+            val needYou = details.count { it.mark == ShipMark.WARN }
+            ActionLink(
+                label = (if (showDetails) "Hide details" else "Details") + if (needYou > 0) " · $needYou still need you" else "",
+                texture = texture,
+                onClick = actions.onToggleDetails,
             )
+            if (showDetails) {
+                for (item in details) ChecklistRow(texture, item, sheet, actions)
+                if (sheet.preview.alsoWritten.isNotEmpty()) {
+                    BasicText(
+                        text = "Also written: " + sheet.preview.alsoWritten.joinToString(" · "),
+                        style = Typography.mono(sizeSp = 10.5).copy(color = muted, letterSpacing = 0.sp),
+                    )
+                }
+            }
         }
         BasicText(text = ShipText.GITHUB_NOTE.uppercase(), style = labelStyle(muted, size = 9.0, tracking = 0.1))
     }
@@ -97,7 +135,7 @@ internal fun ChecklistPage(
 
 /** A line at the head of a page that says what just happened (a cancelled build, a chooser that could not be shown), as an ink block. */
 @Composable
-private fun Notice(
+internal fun Notice(
     texture: CanvasTexture,
     text: String,
 ) {
@@ -173,40 +211,104 @@ private fun ChecklistRow(
                     }
                 }
             }
+            item.input?.let { input ->
+                InlineInput(texture, input.hint, input.value.orEmpty()) { typed -> actions.onInput(input.kind, typed) }
+            }
             if (item.id == ShipItemId.CHECK && sheet.gate.blocked) {
-                BlockerList(texture, sheet.gate.blockers) { actions.onRoute(ShipRoute.Check) }
+                BlockerList(texture, sheet.gate.blockers, actions)
             }
         }
     }
 }
 
-/** Every fail that stops the build, each as its mono title and one sentence, and a link to Check; long lists are cut and say how many more. */
+/** A short text typed in place on a line: the field, the hint under it, and a Set link; [onSet] answers a sentence when the text is refused. */
+@Composable
+private fun InlineInput(
+    texture: CanvasTexture,
+    hint: String,
+    initial: String,
+    onSet: (String) -> String?,
+) {
+    val muted = texture.muted.toColor()
+    var text by remember(initial) { mutableStateOf(initial) }
+    var problem by remember { mutableStateOf<String?>(null) }
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.padding(top = 2.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            BasicTextField(
+                value = text,
+                onValueChange = {
+                    text = it
+                    problem = null
+                },
+                singleLine = true,
+                textStyle = Typography.mono(sizeSp = 12.0).copy(color = texture.fg.toColor(), letterSpacing = 0.sp),
+                cursorBrush = SolidColor(texture.ink.toColor()),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { problem = onSet(text) }),
+                modifier =
+                    Modifier
+                        .widthIn(min = 96.dp, max = 180.dp)
+                        .background(texture.canvas.toColor())
+                        .border(1.dp, texture.ink.toColor())
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
+            )
+            ActionLink("Set", texture, onClick = { problem = onSet(text) })
+        }
+        BasicText(text = problem ?: hint, style = sentenceStyle(muted, size = 11.5))
+    }
+}
+
+/**
+ * Every fail that stops the build, each as its mono title, one sentence and a link to where it is put right (Check, or the Font info value
+ * it is about). The list scrolls inside its own height, so the lines below it stay on the screen however many fails there are.
+ */
 @Composable
 private fun BlockerList(
     texture: CanvasTexture,
     blockers: List<ShipBlocker>,
-    onOpenCheck: () -> Unit,
+    actions: ShipPageActions,
 ) {
-    val fg = texture.fg.toColor()
-    val muted = texture.muted.toColor()
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-        for (blocker in blockers.take(BLOCKERS_SHOWN)) {
-            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                BasicText(
-                    text = "● ${blocker.title}".uppercase() + if (blocker.source == BlockerSource.LAYER_ONE) " · LAYER ONE" else "",
-                    style = labelStyle(fg, size = 9.5, tracking = 0.08),
-                )
-                BasicText(text = blocker.sentence, style = sentenceStyle(muted, size = 12.0))
-            }
-        }
-        if (blockers.size > BLOCKERS_SHOWN) {
-            BasicText(text = "… and ${blockers.size - BLOCKERS_SHOWN} more in Check.", style = sentenceStyle(muted, size = 12.0))
-        }
-        ActionLink("Open Check", texture, onClick = onOpenCheck)
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(top = 8.dp).heightIn(max = BLOCKERS_MAX_HEIGHT).verticalScroll(rememberScrollState()),
+    ) {
+        for (blocker in blockers) BlockerRow(texture, blocker, actions)
     }
 }
 
-/** "Writes to": where the folder goes, the files it will hold, and the link that chooses another place. */
+@Composable
+private fun BlockerRow(
+    texture: CanvasTexture,
+    blocker: ShipBlocker,
+    actions: ShipPageActions,
+) {
+    val fg = texture.fg.toColor()
+    val muted = texture.muted.toColor()
+    val accent = texture.accent.toColor()
+    val link = if (blocker.route == ShipRoute.Check) "Open it in Check" else "Set it in Font info"
+    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        BasicText(
+            text = "● ${blocker.title}".uppercase() + if (blocker.source == BlockerSource.LAYER_ONE) " · LAYER ONE" else "",
+            style = labelStyle(fg, size = 9.5, tracking = 0.08),
+        )
+        // The sentence and its link in one run, as the board's own rows do.
+        BasicText(
+            text =
+                buildAnnotatedString {
+                    append("${blocker.sentence} ")
+                    withLink(
+                        LinkAnnotation.Clickable(
+                            tag = link,
+                            styles = TextLinkStyles(SpanStyle(color = accent, fontWeight = FontWeight.SemiBold)),
+                        ) { actions.onRoute(blocker.route) },
+                    ) { append("$link ›") }
+                },
+            style = sentenceStyle(muted, size = 12.0),
+        )
+    }
+}
+
+/** "Writes to": where the folder goes, the five lines of what it holds as the board draws them, and the link that chooses another place. */
 @Composable
 private fun TargetBlock(
     texture: CanvasTexture,
@@ -226,10 +328,7 @@ private fun TargetBlock(
             )
         }
         BasicText(
-            text =
-                sheet.preview.tree
-                    .sortedBy(::treeRank)
-                    .joinToString("\n"),
+            text = sheet.preview.boardLines.joinToString("\n"),
             style = Typography.mono(sizeSp = 11.0).copy(color = fg, letterSpacing = 0.sp, lineHeight = 19.25.sp),
         )
         ShipText.chooseLink(exit, targetLabel != null)?.let { link ->
@@ -258,6 +357,7 @@ internal fun BuildingPage(
     steps: List<ShipStepStatus>,
     startedAt: TimeMark,
     log: List<CompileLogLine>,
+    cancelling: Boolean,
     showOutput: Boolean,
     actions: ShipPageActions,
 ) {
@@ -289,7 +389,10 @@ internal fun BuildingPage(
             SeverityBarView(SeverityBar(solid = fraction, hatched = 0.0, plain = 1.0 - fraction), texture, height = 3.dp)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 BasicText(text = "Elapsed ${ShipText.elapsed(seconds)}".uppercase(), style = labelStyle(fg))
-                BasicText(text = ShipText.CANCEL_NOTE.uppercase(), style = labelStyle(muted, size = 8.5, tracking = 0.06))
+                BasicText(
+                    text = (if (cancelling) ShipText.CANCELLING else ShipText.CANCEL_NOTE).uppercase(),
+                    style = labelStyle(muted, size = 8.5, tracking = 0.06),
+                )
             }
             if (log.isNotEmpty()) {
                 ActionLink(if (showOutput) "Hide fontmake output" else "Show fontmake output", texture, onClick = actions.onToggleOutput)
@@ -389,10 +492,20 @@ internal fun DonePage(
             text = ShipText.size(result.files, result.bytes) + " · $took",
             style = Typography.mono(sizeSp = 10.5).copy(color = muted, letterSpacing = 0.sp),
         )
+        if (result.closedDuringWrite) Notice(texture, ShipText.CLOSED_DURING_WRITE)
         BasicText(
             text = result.tree.sortedBy(::treeRank).joinToString("\n"),
             style = Typography.mono(sizeSp = 11.0).copy(color = fg, letterSpacing = 0.sp, lineHeight = 19.25.sp),
         )
+        if (result.replaced.isNotEmpty()) {
+            BasicText(text = "REPLACED IN THE FOLDER", style = labelStyle(muted, size = 9.0), modifier = Modifier.padding(top = 4.dp))
+            for (item in result.replaced) {
+                BasicText(
+                    text = ShipText.replacedLine(item),
+                    style = Typography.mono(sizeSp = 10.5).copy(color = fg, letterSpacing = 0.sp),
+                )
+            }
+        }
         when {
             result.checkLine != null -> {
                 BasicText(
@@ -523,15 +636,7 @@ internal fun StoppedPage(
             text = "Nothing was written, because Ship stops while Check has fails. Your project and the folder are as they were.",
             style = sentenceStyle(muted, size = 12.0),
         )
-        for (blocker in blockers.take(BLOCKERS_SHOWN)) {
-            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                BasicText(text = "● ${blocker.title}".uppercase(), style = labelStyle(fg, size = 9.5, tracking = 0.08))
-                BasicText(text = blocker.sentence, style = sentenceStyle(muted, size = 12.0))
-            }
-        }
-        if (blockers.size > BLOCKERS_SHOWN) {
-            BasicText(text = "… and ${blockers.size - BLOCKERS_SHOWN} more in Check.", style = sentenceStyle(muted, size = 12.0))
-        }
+        for (blocker in blockers) BlockerRow(texture, blocker, actions)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
             ActionLink("Open Check", texture, onClick = { actions.onRoute(ShipRoute.Check) })
             if (log.isNotEmpty()) {

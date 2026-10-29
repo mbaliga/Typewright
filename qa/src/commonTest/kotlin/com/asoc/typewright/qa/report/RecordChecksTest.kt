@@ -8,6 +8,7 @@ import com.asoc.typewright.core.geometry.Point
 import com.asoc.typewright.core.geometry.polygonContour
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -201,6 +202,21 @@ class RecordChecksTest {
         assertEquals(Severity.PASS, ok.severity)
         assertEquals("Fixture Sans Regular", ok.detail)
         assertNull(ok.action)
+    }
+
+    @Test
+    fun aPassSaysWhatWasComparedAndThatItIsOurHeuristicNeverThatTheNameIsUniqueInTheWorld() {
+        val ok = names()
+        assertTrue("clashes with none of the 4 family names compared in our corpus" in ok.summary, ok.summary)
+        assertTrue("our heuristic" in ok.summary && "not every font in the world" in ok.summary, ok.summary)
+        assertFalse("unique" in ok.summary, ok.summary)
+        assertEquals(4, familyNamesCompared(fx.inputs()), "the families of the corpus")
+        assertEquals(
+            5,
+            familyNamesCompared(fx.inputs(otherMasters = listOf(MasterNames("Other", "Bold")))),
+            "and the project's other masters",
+        )
+        assertEquals(0, familyNamesCompared(fx.inputs(corpus = null)), "with no corpus nothing was compared")
     }
 
     @Test

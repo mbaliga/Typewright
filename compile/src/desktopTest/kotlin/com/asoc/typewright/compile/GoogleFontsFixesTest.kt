@@ -2,6 +2,9 @@
 
 package com.asoc.typewright.compile
 
+import com.asoc.typewright.core.font.ufo.PlistValue
+import com.asoc.typewright.core.font.ufo.UfoFontInfo
+import com.asoc.typewright.project.ProjectFiles
 import kotlinx.coroutines.runBlocking
 import java.io.File
 import kotlin.test.AfterTest
@@ -63,6 +66,60 @@ class GoogleFontsFixesTest {
         )
     }
 
+    private fun stating(vararg entries: Pair<String, PlistValue>) =
+        fixtureProject(UfoFontInfo(familyName = "Fixture", styleName = "Regular", unitsPerEm = 1000, other = entries.toList()))
+
+    private val restrictedEmbedding = "openTypeOS2Type" to PlistValue.PArray(listOf(PlistValue.PInteger(1)))
+
+    @Test
+    fun aProjectThatStatesItsEmbeddingTellsTheScriptToLeaveItAndTheLogSaysSo() {
+        val python =
+            fake(
+                """
+                echo "typewright-kept: OS/2 fsType stays 2: the project states it (openTypeOS2Type); Google Fonts asks for 0"
+                echo "typewright-fix: gasp table added (grid-fit and smooth at every size)"
+                echo "typewright-fix: done"
+                exit 0
+                """.trimIndent(),
+            )
+        val result = runBlocking { python.backend().compile(CompileRequest(stating(restrictedEmbedding), request.source)) }
+        assertIs<CompileResult.Success>(result)
+        val ran = File(python.directory, "fixes-args.txt").readText().trim()
+        assertTrue(ran.endsWith("/out/font.ttf fsType"), "the script is told the project states fsType: $ran")
+        val left = result.log.single { it.message.startsWith("Google Fonts fix-up not applied") }
+        assertEquals(CompileLogLine.Level.WARNING, left.level, "a value left alone is something the person should see")
+        assertContains(left.message, "OS/2 fsType stays 2")
+        assertContains(left.message, "openTypeOS2Type")
+        assertContains(result.log.map { it.message }, "Google Fonts fix-up: gasp table added (grid-fit and smooth at every size)")
+    }
+
+    @Test
+    fun aProjectThatStatesNothingTellsTheScriptNothing() {
+        val python = fake(says)
+        runBlocking { python.backend().compile(request) }
+        val ran = File(python.directory, "fixes-args.txt").readText().trim()
+        assertTrue(ran.endsWith("/out/font.ttf"), "nothing is stated, so nothing follows the font: $ran")
+    }
+
+    @Test
+    fun theScriptIsToldEveryValueTheProjectStates() {
+        assertEquals(emptyList(), GoogleFontsFixes.statedBy(emptyMap()), "no fontinfo.plist states nothing")
+        assertEquals(emptyList(), GoogleFontsFixes.statedBy(ufoFiles(stating())), "a font info with neither key states nothing")
+        assertEquals(listOf("fsType"), GoogleFontsFixes.statedBy(ufoFiles(stating(restrictedEmbedding))))
+        val selection = "openTypeOS2Selection" to PlistValue.PArray(listOf(PlistValue.PInteger(8)))
+        assertEquals(listOf("fsSelection"), GoogleFontsFixes.statedBy(ufoFiles(stating(selection))))
+        assertEquals(listOf("fsType", "fsSelection"), GoogleFontsFixes.statedBy(ufoFiles(stating(restrictedEmbedding, selection))))
+        val emptyArray = "openTypeOS2Type" to PlistValue.PArray(emptyList())
+        assertEquals(listOf("fsType"), GoogleFontsFixes.statedBy(ufoFiles(stating(emptyArray))), "an empty list is still a statement")
+        assertEquals(emptyList(), GoogleFontsFixes.statedBy(mapOf("fontinfo.plist" to "not a plist".encodeToByteArray())))
+    }
+
+    private fun ufoFiles(project: ProjectFiles): Map<String, ByteArray> =
+        project.listFiles().filter { it.startsWith("Fixture-Regular.ufo/") }.associate {
+            it.removePrefix("Fixture-Regular.ufo/") to
+                project.readBytes(it)
+        }
+
     @Test
     fun aFontThatNeedsNothingSaysSo() {
         val python = fake("echo \"typewright-fix: done\"\nexit 0")
@@ -121,10 +178,21 @@ class GoogleFontsFixesTest {
     }
 
     @Test
+    fun theReportCarriesTheValuesLeftAloneApartFromTheChanges() {
+        val finished = "typewright-fix: a change\ntypewright-kept: left alone\nnoise\ntypewright-fix: done\n"
+        val report = assertNotNull(GoogleFontsFixes.parseReport(finished))
+        assertEquals(listOf("a change"), report.changes)
+        assertEquals(listOf("left alone"), report.kept)
+        assertNull(GoogleFontsFixes.parseReport("typewright-kept: left alone\n"), "no 'done' means the script did not finish")
+    }
+
+    @Test
     fun theScriptIsPythonThatNamesEveryFixItDoesAndThePrepProgramTheCheckerLooksFor() {
         val script = GoogleFontsFixes.SCRIPT
         assertTrue(script.contains("# typewright-google-fonts-fixes"), "the stand-in finds the script by this comment")
         assertTrue(script.contains("os2.fsType = 0"))
+        assertTrue(script.contains("stated = set(sys.argv[2:])"), "the script is told what the project states")
+        assertTrue(script.contains("\"fsType\" in stated") && script.contains("\"fsSelection\" in stated"))
         assertTrue(script.contains("1 << 7"))
         assertTrue(script.contains("gaspRange = {0xFFFF: 0x000F}"))
         assertTrue(script.contains("\"PUSHW[]\", \"511\", \"SCANCTRL[]\", \"PUSHB[]\", \"4\", \"SCANTYPE[]\""))

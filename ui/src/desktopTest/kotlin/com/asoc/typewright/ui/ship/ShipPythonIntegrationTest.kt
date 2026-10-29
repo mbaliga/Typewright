@@ -89,6 +89,9 @@ class ShipPythonIntegrationTest {
                     GfCategory.DISPLAY,
                     ShipTarget(target.path, FolderTreeWriter(target.toPath())),
                     report,
+                    // The two facts the project cannot know, stated as a person would on the checklist's Details.
+                    branch = "main",
+                    dateAdded = "2026-10-24",
                 )
             assertIs<ShipStart.Started>(runBlocking { controller.ship(request) })
             val finished = runBlocking { withTimeout(10.minutes) { controller.state.first { it !is ShipRunState.Building } } }

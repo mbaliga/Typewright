@@ -38,6 +38,11 @@ data class ShipFacts(
     /** The OS/2 weight class, when the project states one. */
     val weightClass: Int?,
     val unitsPerEm: Int?,
+    /**
+     * Whether the project states the font's embedding setting (`openTypeOS2Type`). When it does, the build keeps it, and a restriction in it is
+     * a fail of Google Fonts' profile that the person has to put right; when it does not, the build makes the embedding installable.
+     */
+    val embeddingStated: Boolean = false,
 ) {
     /** Whether the style is an italic or an oblique, by its name. */
     val italic: Boolean get() = style?.let { ITALIC.containsMatchIn(it) } == true
@@ -45,7 +50,10 @@ data class ShipFacts(
     /** The weight METADATA states: the project's own OS/2 weight class, else the weight the style name stands for, else null. */
     val weight: Int? get() = weightClass ?: style?.let(::weightOfStyleName)
 
-    /** `HyleDeco-Regular`: the family and style without spaces, which names the font file, the UFO and the PostScript name. */
+    /**
+     * `HyleDeco-Regular`: the family and style without spaces, in plain ASCII (`Hylé Deco` is `HyleDeco`), which names the font file and the UFO
+     * and, when the project states no PostScript name, stands for it. The family keeps its own letters everywhere else.
+     */
     val fileStem: String?
         get() {
             val f = family?.let(::pathSafe)?.takeIf { it.isNotEmpty() } ?: return null
@@ -61,11 +69,12 @@ data class ShipFacts(
             return "$f $s"
         }
 
-    /** `hyle-deco-gf`: the folder name the screen proposes, from the family name alone. */
+    /** `hyle-deco-gf`: the folder name the screen proposes, from the family name alone, in plain ASCII. */
     val folderName: String?
         get() {
             val words =
-                family?.let { WORDS.findAll(it).map { m -> m.value.lowercase() }.toList() }?.takeIf { it.isNotEmpty() } ?: return null
+                family?.let { WORDS.findAll(asciiFolded(it)).map { m -> m.value.lowercase() }.toList() }?.takeIf { it.isNotEmpty() }
+                    ?: return null
             return words.joinToString("-") + "-gf"
         }
 
@@ -108,6 +117,7 @@ data class ShipFacts(
                         ?.value
                         ?.toInt(),
                 unitsPerEm = info.unitsPerEm,
+                embeddingStated = info.other.any { it.first == "openTypeOS2Type" },
             )
         }
 
@@ -117,11 +127,13 @@ data class ShipFacts(
         private val ITALIC = Regex("""italic|oblique""", RegexOption.IGNORE_CASE)
         private val WORDS = Regex("""[A-Za-z0-9]+""")
 
-        /** [name] with the characters a file name cannot hold removed, and spaces too: `Hyle Deco` is `HyleDeco`. */
-        internal fun pathSafe(name: String): String = name.filterNot { it.isWhitespace() || it in UNSAFE || it.code < SPACE }
+        /**
+         * [name] as a file name the folder can hold on every computer: plain ASCII ([asciiFolded]), with the characters a file name cannot hold
+         * removed, and spaces too: `Hyle Deco` is `HyleDeco` and `Hylé Deco` is `HyleDeco` as well.
+         */
+        internal fun pathSafe(name: String): String = asciiFolded(name).filterNot { it.isWhitespace() || it in UNSAFE }
 
         private const val UNSAFE = "/\\:*?\"<>|"
-        private const val SPACE = 0x20
     }
 }
 

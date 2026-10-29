@@ -100,8 +100,18 @@ class ShipInputs(
     val binary: ByteArray?,
     val category: GfCategory?,
     val layerOne: LayerOneSummary?,
-    /** The day the folder is made, `2026-10-24`. */
-    val today: String,
+    /**
+     * The day Google Fonts added the family, `2026-10-24`, when the person states it; null otherwise, and then `METADATA.pb` has no
+     * `date_added` line. The project does not know this day (Google Fonts sets it when it accepts a family), and the day the folder is made is
+     * not it, so it is never filled in.
+     */
+    val dateAdded: String? = null,
+    /**
+     * The branch of the person's repository that Google Fonts' tooling should follow, when the person states it; null otherwise, and then there
+     * is no `upstream.yaml`: the project is not a git repository and does not know it, and a file with a guessed branch would send the tooling
+     * to a branch that may not exist.
+     */
+    val branch: String? = null,
 )
 
 /** A file the plan leaves out and the reason, in a sentence the screen can show. */
@@ -130,14 +140,46 @@ class ShipPlan(
     val paths: List<String> get() = files.keys.sorted()
 
     /**
-     * The folder as a person reads it: every file, with the UFO's files folded into the one line `sources/<name>.ufo/`, sorted. This is the
-     * list the page shows under "Writes to" and the list a finished write reports.
+     * The folder as a person reads it: every file, with the UFO's files folded into the one line `sources/<name>.ufo/`, sorted. A write reports
+     * its files by these names, and a page that says what an existing folder loses lists them.
      */
     val tree: List<String>
         get() =
             paths
                 .map { path -> ownedDirectories.firstOrNull { path.startsWith("$it/") }?.let { "$it/" } ?: path }
                 .distinct()
+
+    /**
+     * The folder as the board draws it, five lines at most: the font, the UFO, the licence and authors files, the description, and the
+     * METADATA and upstream files, each line holding the files of its kind that are in this folder (`OFL.txt · AUTHORS.txt`). A line with no
+     * file in it is left out. Everything else in the folder is in [alsoWritten].
+     */
+    val boardLines: List<String>
+        get() = boardGroups().first
+
+    /** The files in the folder that are on none of the [boardLines], by name (the request text under `documentation/`). */
+    val alsoWritten: List<String>
+        get() = boardGroups().second
+
+    private fun boardGroups(): Pair<List<String>, List<String>> {
+        val entries = tree.map { it.removeSuffix("/") }
+        val taken = HashSet<String>()
+
+        fun line(vararg wanted: (String) -> Boolean): String? {
+            val found = wanted.flatMap { match -> entries.filter(match) }.distinct()
+            taken += found
+            return found.takeIf { it.isNotEmpty() }?.joinToString(" · ")
+        }
+        val lines =
+            listOfNotNull(
+                line({ it.startsWith("fonts/") }),
+                line({ it.startsWith("sources/") }),
+                line({ it == "OFL.txt" || it == "LICENSE.txt" }, { it == "AUTHORS.txt" }),
+                line({ it == "DESCRIPTION.en_us.html" }),
+                line({ it == "METADATA.pb" }, { it == "upstream.yaml" }),
+            )
+        return lines to entries.filter { it !in taken }
+    }
 }
 
 /** The path of the request text in the folder. */
@@ -184,7 +226,11 @@ fun buildShipPlan(inputs: ShipInputs): ShipPlan {
             put("DESCRIPTION.en_us.html", descriptionHtml(inputs))
             if (inputs.binary != null) {
                 put("METADATA.pb", metadataPb(inputs, stem, omissions))
-                put("upstream.yaml", upstreamYaml(facts, stem, files.keys, omissions))
+                if (inputs.branch != null) {
+                    put("upstream.yaml", upstreamYaml(facts, stem, files.keys, inputs.branch, omissions))
+                } else {
+                    omissions += Omission("upstream.yaml", UPSTREAM_WITHOUT_BRANCH)
+                }
             } else {
                 omissions += Omission("METADATA.pb", "it describes the font file, and nothing was compiled here")
                 omissions += Omission("upstream.yaml", "it maps the font file, and nothing was compiled here")
@@ -210,18 +256,23 @@ fun buildShipPlan(inputs: ShipInputs): ShipPlan {
     )
 }
 
+/** Why there is no `upstream.yaml`: the reason the plan lists and the page shows. */
+const val UPSTREAM_WITHOUT_BRANCH: String = "it names the branch your repository publishes from, and the project does not know it"
+
 /**
  * What the folder calls the font, its UFO and its request: `HyleDeco-Regular` from the family and the style the project states, and only
- * when it states no family or no style the name of the UFO folder it already has. The compiled binary is checked under this name too, since
- * Google Fonts' profile judges a file by its name, and a UFO that was adopted from elsewhere can be called anything.
+ * when it states no family or no style the name of the UFO folder it already has. The name is plain ASCII, as the compile backend's own
+ * files are, so a family called `Hylé Deco` ships as `HyleDeco-Regular` and the same name is used for the font, the UFO and the family
+ * directory. The compiled binary is checked under this name too, since Google Fonts' profile judges a file by its name, and a UFO that was
+ * adopted from elsewhere can be called anything.
  */
 fun shipFileStem(
     facts: ShipFacts,
     ufoFolderName: String,
-): String = facts.fileStem ?: ufoFolderName.removeSuffix(".ufo")
+): String = facts.fileStem ?: ShipFacts.pathSafe(ufoFolderName.removeSuffix(".ufo")).ifEmpty { "font" }
 
-/** `ofl/<directory>` for [family]: lower case, letters and digits only, as Google Fonts' own check expects it. */
-fun googleFontsDirectoryName(family: String): String = family.lowercase().filter { it.isLetterOrDigit() }
+/** `ofl/<directory>` for [family]: lower case, ASCII letters and digits only (`Hylé Deco` is `hyledeco`), as Google Fonts' own check expects it. */
+fun googleFontsDirectoryName(family: String): String = asciiFolded(family).lowercase().filter { it in 'a'..'z' || it in '0'..'9' }
 
 private fun familyFilesOf(
     inputs: ShipInputs,

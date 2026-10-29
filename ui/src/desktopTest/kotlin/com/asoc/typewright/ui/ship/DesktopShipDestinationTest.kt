@@ -71,7 +71,16 @@ class DesktopShipDestinationTest {
     @Test
     fun cancellingTheChooserIsCancelledNotAnError() =
         runBlocking {
-            assertEquals(ShipChoice.Cancelled, DesktopShipDestination(chooser = { _, _ -> null }, home = home).choose("x", null))
+            val destination = DesktopShipDestination(chooser = { _, _ -> null }, home = home, headless = { false })
+            assertEquals(ShipChoice.Cancelled, destination.choose("x", null))
+        }
+
+    @Test
+    fun aPickerThatShowedNothingOnAComputerWithNoScreenIsNotACancel() =
+        runBlocking {
+            val destination = DesktopShipDestination(chooser = { _, _ -> null }, home = home, headless = { true })
+            val failed = assertIs<ShipChoice.Failed>(destination.choose("x", null))
+            assertTrue("no screen" in failed.message, failed.message)
         }
 
     @Test

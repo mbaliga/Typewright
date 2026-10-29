@@ -6,13 +6,16 @@ import com.asoc.typewright.brief.genreByKey
 import com.asoc.typewright.brief.useById
 import com.asoc.typewright.qa.corpus.NodeEconomyCorpus
 import com.asoc.typewright.qa.corpus.StyleAtlas
+import com.asoc.typewright.qa.report.CheckInputs
 import com.asoc.typewright.qa.report.CheckReport
 import com.asoc.typewright.qa.report.ReviewOrder
-import com.asoc.typewright.qa.report.Severity
+import com.asoc.typewright.qa.report.familyNamesCompared
 import com.asoc.typewright.qa.ship.GfCategory
 import com.asoc.typewright.qa.ship.ShipBrief
 import com.asoc.typewright.qa.ship.ShipFacts
 import com.asoc.typewright.qa.ship.ShipFont
+import com.asoc.typewright.qa.ship.ShipNames
+import com.asoc.typewright.qa.ship.firstSentence
 import com.asoc.typewright.ui.check.CheckSubject
 import com.asoc.typewright.ui.check.checkSubjectOf
 import com.asoc.typewright.ui.deck.StationStatus
@@ -97,5 +100,14 @@ fun shipStationStatus(
         else -> StationStatus.NOT_STARTED
     }
 
-/** What the Names check found in [report], or null when there is none. */
-internal fun namesSeverity(report: CheckReport?): Severity? = report?.item(ReviewOrder.NAMES)?.severity
+/**
+ * What the Names check found in [report]: its severity, its first sentence, and how many family names it compared this one with (from
+ * [inputs]), or null when there is no report or Check has no Names item.
+ */
+internal fun namesFound(
+    report: CheckReport?,
+    inputs: CheckInputs,
+): ShipNames? {
+    val item = report?.item(ReviewOrder.NAMES) ?: return null
+    return ShipNames(item.severity, firstSentence(item.summary), familyNamesCompared(inputs).takeIf { it > 0 })
+}

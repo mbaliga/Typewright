@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.asoc.typewright.compile.BackendAvailability
 import com.asoc.typewright.compile.CompileLocation
 import com.asoc.typewright.compile.platformCompileBackend
+import com.asoc.typewright.project.TreeReplacement
 import com.asoc.typewright.qa.platformLayerOneChecker
 import com.asoc.typewright.qa.report.CheckReport
 import com.asoc.typewright.qa.report.buildCheckReport
@@ -34,6 +35,7 @@ import com.asoc.typewright.qa.ship.ShipCapability
 import com.asoc.typewright.qa.ship.ShipChoices
 import com.asoc.typewright.qa.ship.ShipFontInfoField
 import com.asoc.typewright.qa.ship.ShipGate
+import com.asoc.typewright.qa.ship.ShipInput
 import com.asoc.typewright.qa.ship.ShipItem
 import com.asoc.typewright.qa.ship.ShipMark
 import com.asoc.typewright.qa.ship.ShipMode
@@ -50,6 +52,7 @@ import com.asoc.typewright.ui.project.ProjectFont
 import com.asoc.typewright.ui.project.rememberOpenProject
 import com.asoc.typewright.ui.shell.FontInfoEditor
 import com.asoc.typewright.ui.shell.FontInfoField
+import com.asoc.typewright.ui.shell.FontInfoRules
 import com.asoc.typewright.ui.shell.FontInfoScreen
 import com.asoc.typewright.ui.shell.LicenceChoice
 import com.asoc.typewright.ui.shell.LocalSectionNav
@@ -131,10 +134,29 @@ fun ShipScreen(
             )
     }
     val run by runner.state.collectAsState()
+    val replacements by produceState(emptyList<TreeReplacement>(), page.target, subject?.version, page.mode, page.branch, page.dateAdded) {
+        val target = page.target
+        val s = subject
+        value =
+            if (target == null || s == null) {
+                emptyList()
+            } else {
+                // What the chosen place already holds of what this build would write; the UFO's folder is replaced whole.
+                val plan =
+                    previewPlan(s, page.mode, page.chosenCategory ?: s.categoryReading, platform.compiles, page.branch, page.dateAdded)
+                target.writer.replacements(plan.paths, plan.ownedDirectories)
+            }
+    }
     DisposableEffect(runner) { onDispose { runner.cancel() } }
 
     fun route(to: ShipRoute) {
         when (to) {
+            is ShipRoute.FontInfoAt -> {
+                val info = project?.master?.ufo?.fontInfo
+                page.fontInfoField = info?.let { FontInfoRules.landing(to.target, it) }
+                page.view = ShipView.FONT_INFO
+            }
+
             ShipRoute.Check -> {
                 nav?.goTo?.invoke(DeckSection.CHECK)
             }
@@ -152,7 +174,17 @@ fun ShipScreen(
         page.target = target
         page.message = null
         scope.launch {
-            val request = ShipRequest(s, page.mode, page.chosenCategory ?: s.categoryReading, target, report, fromCheck)
+            val request =
+                ShipRequest(
+                    s,
+                    page.mode,
+                    page.chosenCategory ?: s.categoryReading,
+                    target,
+                    report,
+                    fromCheck,
+                    branch = page.branch,
+                    dateAdded = page.dateAdded,
+                )
             when (val started = runner.ship(request)) {
                 ShipStart.Started -> Unit
                 is ShipStart.Blocked -> page.message = started.gate.explanation()
@@ -189,16 +221,15 @@ fun ShipScreen(
         actions =
             ShipFrameActions(
                 onPrimary = { if (page.target == null) choose(thenShip = true) else start(page.target) },
-                onCancel = {
-                    runner.cancel()
-                    page.message = ShipText.CANCELLED
-                },
+                onCancel = runner::cancel,
                 onChooseTarget = { choose(thenShip = false) },
                 onTryAgain = { if (page.target == null) choose(thenShip = true) else start(page.target) },
                 onCopy = { clipboard.setText(AnnotatedString(it)) },
                 onDone = runner::reset,
             ),
+        replacements = replacements,
         onChoice = { kind, id -> choice(project, page, kind, id) },
+        onInput = { kind, typed -> input(project, page, kind, typed) },
         onRoute = ::route,
         modifier = modifier,
     )
@@ -206,7 +237,7 @@ fun ShipScreen(
 
 private fun compileTitle(location: CompileLocation): String =
     when (location) {
-        is CompileLocation.OnThisComputer -> "Compiled on this computer"
+        is CompileLocation.OnThisComputer -> "Compiled on this device"
         is CompileLocation.OnThisDevice -> "Compiled on this device"
         is CompileLocation.HostedEndpoint -> "Compiled by a hosted build"
     }
@@ -237,6 +268,41 @@ private fun choice(
     }
 }
 
+/** A short text typed on a checklist line: the vendor ID goes into the project's font info; the branch and the day stay with this page. */
+private fun input(
+    project: OpenProject?,
+    page: ShipPageState,
+    kind: ShipInput.Kind,
+    typed: String,
+): String? {
+    val text = typed.trim()
+    return when (kind) {
+        ShipInput.Kind.VENDOR_ID -> {
+            val master = project?.master ?: return "No project is open."
+            FontInfoEditor(project.session, master.id).commit(FontInfoField.VENDOR_ID, text).problem
+        }
+
+        ShipInput.Kind.BRANCH -> {
+            branchProblem(text) ?: run {
+                page.branch = text.ifEmpty { null }
+                null
+            }
+        }
+
+        ShipInput.Kind.DATE_ADDED -> {
+            if (text.isEmpty()) {
+                page.dateAdded = null
+                null
+            } else {
+                dayProblem(text) ?: run {
+                    page.dateAdded = text
+                    null
+                }
+            }
+        }
+    }
+}
+
 /** The word set at the top of the building page: a proofing word when the font can set it, else the family's own name. */
 internal fun buildWord(
     font: ProjectFont?,
@@ -258,7 +324,9 @@ internal fun ShipFrame(
     page: ShipPageState,
     platform: ShipPlatform,
     actions: ShipFrameActions,
+    replacements: List<TreeReplacement>,
     onChoice: (ShipChoices.Kind, String) -> Unit,
+    onInput: (ShipInput.Kind, String) -> String?,
     onRoute: (ShipRoute) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -276,7 +344,7 @@ internal fun ShipFrame(
     }
     val sheet =
         if (subject != null && subject.check.hasGlyphs && report != null) {
-            ShipSheet(subject, page.mode, report, page.chosenCategory, platform)
+            ShipSheet(subject, page.mode, report, page.chosenCategory, platform, page.branch, page.dateAdded, replacements)
         } else {
             null
         }
@@ -289,6 +357,8 @@ internal fun ShipFrame(
             onToggleRequest = { page.showRequest = !page.showRequest },
             onCopyRequest = actions.onCopy,
             onTryAgain = actions.onTryAgain,
+            onToggleDetails = { page.showDetails = !page.showDetails },
+            onInput = onInput,
         )
     val title = subject?.title.orEmpty()
     val primary = sheet?.primary ?: shipPrimary(ShipGate(emptyList()), platform)
@@ -384,6 +454,7 @@ internal fun ShipFrame(
                                 steps = run.steps,
                                 startedAt = run.startedAt,
                                 log = run.log,
+                                cancelling = run.cancelling,
                                 showOutput = page.showOutput,
                                 actions = pageActions,
                             )
@@ -416,7 +487,8 @@ internal fun ShipFrame(
                                 texture = texture,
                                 sheet = sheet,
                                 targetLabel = page.target?.label,
-                                message = page.message,
+                                message = page.message ?: ShipText.CANCELLED.takeIf { run is ShipRunState.Cancelled },
+                                showDetails = page.showDetails,
                                 actions = pageActions,
                             )
                         }

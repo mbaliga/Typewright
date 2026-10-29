@@ -3758,3 +3758,80 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     the soft keyboard for typed values and the `.fea` editor, a two-finger swipe out of Space, the system
     back gesture, and how a control string longer than the row moves under a finger have only been run
     with a mouse and keyboard on the desktop. Owner: Madhav.
+
+202. **Check's layer-one run names the compiled file after the UFO folder (Ship).** The Check page
+    passes the compiler's file name, derived from the UFO folder (`Regular.ufo` gives
+    `Regular.ttf`), to layer one. For a project whose UFO folder is not `Family-Style.ufo` (an
+    adopted UFO), Google Fonts' canonical_filename check FAILs there, and because Ship counts the
+    Check page's layer-one fails, that false FAIL can block Ship. Ship itself checks the binary
+    under the name the folder gives it (`shipFileStem`). Suggest Check use the same name; not
+    changed here, it is Check's file. Owner: Madhav.
+
+203. **ARTICLE.en_us.html or DESCRIPTION.en_us.html (Ship).** Google Fonts now prefers an ARTICLE
+    for long-form text; Fontbakery 0.12.10 still requires a DESCRIPTION.en_us.html over 200 bytes
+    and warns about a missing article. Ship writes a DESCRIPTION draft and no ARTICLE. Decide
+    whether Ship should also draft an ARTICLE. Owner: Madhav.
+
+204. **upstream.yaml and date_added are written only from what the person states (Ship).** The
+    project knows neither the branch of the person's repository nor the day Google Fonts accepts a
+    family. Ship writes `upstream.yaml` only when the person types a branch, and `date_added` only
+    when they type a day; otherwise the file or line is left out and the checklist's Details say so.
+    docs/ARCHITECTURE_REVIEW.md item 52 says gftools treats `upstream.yaml` as legacy. Confirm with
+    the Google Fonts onboarding checklist that this is what is wanted, and whether the branch should
+    be read from a `.git` folder in a chosen repository. Owner: Madhav.
+
+205. **Should new projects and imports write Google Fonts fontinfo defaults at creation? (Ship).**
+    The compile step fixes `fsType` (4 to 0), USE_TYPO_METRICS and, for an unhinted font, gasp and
+    prep on the compiled binary only when the project does not state them; a stated
+    `openTypeOS2Type` or `openTypeOS2Selection` is kept and Google Fonts' profile then fails on it
+    with a link to Font info. Alternatively the project could state these in fontinfo.plist from
+    creation. Owner decision. Owner: Madhav.
+
+206. **Campaign Task 12 still uses the old scaffold generators with placeholders (Ship).**
+    `campaign/WorkbookGates.kt` calls the legacy string generators in `qa/ship/ShipPipeline.kt` with
+    its own family, year and address. Ship uses `buildShipPlan`. The campaign gate should move to
+    `buildShipPlan`, or the old generators should be removed. Owner: Madhav.
+
+207. **Real Hyle Deco is blocked by Check in the app, so Ship's acceptance used a flipped-clean
+    report (Ship).** Hyle Deco has four layer-two fails (node economy, curves are polygons, anchors,
+    source is a fossil), so Ship refuses it in the app by design. The acceptance 'the real Hyle Deco
+    project that passed Check in-app' cannot be met literally; `ShipPythonIntegrationTest` and the
+    Ship screenshots flip those fails to passes in a test-only fixture, and everything after is
+    real. If the owner wants a Hyle Deco that passes Check in-app, it has to be redrawn. Owner:
+    Madhav.
+
+208. **The shared Python venv was broken by another agent's pip install (Ship).** An install into
+    the shared venv pulled in protobuf 7.x, and Fontbakery 0.12.10, gflanguages and axisregistry
+    require protobuf<4, so every Fontbakery check that touches those packages errors with
+    'Descriptors cannot be created directly'. A private venv built from tools/requirements-golden-
+    path.txt (protobuf 3.20.3) was used for the Python-backed gates. Later packages should use a
+    private venv, or the shared one needs protobuf<4 restored. Owner: Madhav.
+
+209. **Layer-one warnings the owner may want to act on (Ship).** On the real Hyle Deco folder:
+    vendor_id is '????' (set four letters in Font info or on Ship's Own licence line),
+    gpos_kerning_info (no kerning), unreachable_glyphs and metadata/unreachable_subsetting. None
+    blocks Ship. Owner: Madhav.
+
+210. **Check's layer-one compile judges a patched binary (Ship).** Check and Ship share the compile
+    default, which applies Google Fonts' fix-ups (fsType, USE_TYPO_METRICS, gasp, prep). Check's
+    layer one therefore reports what Ship would write, not a plain fontmake binary, so it cannot
+    show those four fails when the sources would cause them; it does show them when the project
+    states the setting itself. The alternative, a plain compile in Check, would make every font fail
+    four checks that the build fixes. Confirm which Check should judge. Owner: Madhav.
+
+211. **Ship on Android writes into the folder the person picks, not a new folder inside it (Ship).**
+    On a computer the person picks the repository folder itself and Ship writes into it. Android
+    does the same: the tree the person grants is the repository. A person who picks Documents gets
+    the files in Documents. The alternative is to make `<family>-gf` inside the picked folder, as
+    the new-project flow does. Owner-verified on a device only. Owner: Madhav.
+
+212. **Ship replaces a repository's whole sources/<name>.ufo (Ship).** Choosing an existing
+    repository replaces the whole UFO folder, so that a deleted glyph does not linger, and removes
+    anything in it that the project does not hold (for example files another editor added). Ship
+    says so before Build and lists what was replaced after. Decide whether it should merge instead,
+    or ask before removing files the project does not hold. Owner: Madhav.
+
+213. **Own licence does not count Google Fonts' profile (Ship).** Under Own licence the font is not
+    going to Google Fonts, so layer one's Google Fonts fails no longer stop the ship and the Google
+    Fonts fix-ups are not applied to the binary; the compiled font is the compiler's own. Confirm
+    that a proprietary font should skip those fix-ups, for example fsType. Owner: Madhav.

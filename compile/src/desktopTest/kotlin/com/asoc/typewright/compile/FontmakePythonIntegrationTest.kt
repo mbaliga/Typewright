@@ -3,6 +3,8 @@
 package com.asoc.typewright.compile
 
 import com.asoc.typewright.core.font.sfnt.readSfntFont
+import com.asoc.typewright.core.font.ufo.PlistValue
+import com.asoc.typewright.core.font.ufo.UfoFontInfo
 import com.asoc.typewright.core.geometry.CurveFormat
 import com.asoc.typewright.core.geometry.Glyph
 import com.asoc.typewright.core.geometry.outlineBounds
@@ -218,6 +220,42 @@ class FontmakePythonIntegrationTest {
             assertEquals(before.glyph(gid).contours, after.glyph(gid).contours, "outline of glyph $gid")
             assertEquals(before.glyph(gid).advanceWidth, after.glyph(gid).advanceWidth, "advance of glyph $gid")
         }
+    }
+
+    @Test
+    fun aValueTheProjectStatesIsKeptAndOneItDoesNotStateIsFixedByTheRealScript() {
+        fun build(vararg stated: Pair<String, PlistValue>): CompileResult.Success {
+            val info = UfoFontInfo(familyName = "Fixture", styleName = "Regular", unitsPerEm = 1000, other = stated.toList())
+            val result =
+                runBlocking { realBackend().compile(CompileRequest(fixtureProject(info), CompileSource.Ufo("Fixture-Regular.ufo"))) }
+            if (result !is CompileResult.Success) {
+                fail("the build did not succeed: $result\n" + result.log.joinToString("\n") { "[${it.level}] ${it.message}" })
+            }
+            return result
+        }
+
+        // Nothing stated: ufo2ft's own default is preview-and-print embedding (4), and the fix-up makes it installable.
+        val silent = build()
+        assertEquals(0, readSfntFont(silent.binaries.single().bytes).os2!!.fsType)
+        assertTrue(silent.log.any { it.message.startsWith("Google Fonts fix-up:") && "fsType" in it.message }, "the change is in the log")
+        assertTrue(silent.log.none { it.message.startsWith("Google Fonts fix-up not applied") })
+
+        // The project states restricted licence embedding (bit 1, fsType 2): the build leaves it, says so, and still does the rest.
+        val restricted = build("openTypeOS2Type" to PlistValue.PArray(listOf(PlistValue.PInteger(1))))
+        val font = readSfntFont(restricted.binaries.single().bytes)
+        assertEquals(2, font.os2!!.fsType, "the embedding restriction the project states is not changed")
+        val left = restricted.log.single { it.message.startsWith("Google Fonts fix-up not applied") }
+        assertContains(left.message, "OS/2 fsType stays 2")
+        assertTrue(font.os2!!.fsSelection and (1 shl 7) != 0, "what the project does not state is still fixed")
+        assertTrue("gasp" in font.tableTags && "prep" in font.tableTags)
+        assertTrue(restricted.log.none { it.message.startsWith("Google Fonts fix-up:") && "fsType" in it.message })
+
+        // The project states its style flags without USE_TYPO_METRICS: they are kept too.
+        val flags = build("openTypeOS2Selection" to PlistValue.PArray(listOf(PlistValue.PInteger(8))))
+        val flagged = readSfntFont(flags.binaries.single().bytes)
+        assertEquals(0, flagged.os2!!.fsSelection and (1 shl 7), "the selection flags the project states are not changed")
+        assertEquals(0, flagged.os2!!.fsType, "an unstated fsType is still fixed")
+        assertContains(flags.log.single { it.message.startsWith("Google Fonts fix-up not applied") }.message, "USE_TYPO_METRICS")
     }
 
     @Test

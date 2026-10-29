@@ -279,7 +279,15 @@ internal object ShipStepRun {
         report: CheckReport,
         target: File,
         category: GfCategory? = GfCategory.DISPLAY,
-    ) = ShipRequest(subject, ShipMode.GOOGLE_FONTS, category, ShipTarget(target.path, FolderTreeWriter(target.toPath())), report)
+    ) = ShipRequest(
+        subject,
+        ShipMode.GOOGLE_FONTS,
+        category,
+        ShipTarget(target.path, FolderTreeWriter(target.toPath())),
+        report,
+        branch = "main",
+        dateAdded = "2026-10-24",
+    )
 
     /**
      * A stand-in for Google Fonts' own tree, under a fresh root that is returned: its `<directory>` folder holds each file `upstream.yaml`

@@ -5,10 +5,12 @@ package com.asoc.typewright.ui.ship
 import com.asoc.typewright.compile.BackendAvailability
 import com.asoc.typewright.compile.CompileBackend
 import com.asoc.typewright.compile.CompileLogLine
+import com.asoc.typewright.compile.CompileOptions
 import com.asoc.typewright.compile.CompileRequest
 import com.asoc.typewright.compile.CompileResult
 import com.asoc.typewright.compile.CompileSource
 import com.asoc.typewright.compile.OutputFormat
+import com.asoc.typewright.project.TreeReplacement
 import com.asoc.typewright.project.TreeWriteException
 import com.asoc.typewright.project.TreeWriter
 import com.asoc.typewright.qa.LayerOneAvailability
@@ -23,6 +25,7 @@ import com.asoc.typewright.qa.ship.ShipBlocker
 import com.asoc.typewright.qa.ship.ShipGate
 import com.asoc.typewright.qa.ship.ShipInputs
 import com.asoc.typewright.qa.ship.ShipMode
+import com.asoc.typewright.qa.ship.binaryGate
 import com.asoc.typewright.qa.ship.buildShipPlan
 import com.asoc.typewright.qa.ship.shipFileStem
 import com.asoc.typewright.qa.ship.shipGate
@@ -31,13 +34,15 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlin.time.Clock
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
 
@@ -93,6 +98,13 @@ data class ShipResult(
     val checkSkipped: String?,
     val totalMillis: Long,
     val steps: List<ShipStepStatus>,
+    /** What the write replaced in a place that already held it, folder by folder and file by file; empty for a new place and for a zip. */
+    val replaced: List<TreeReplacement> = emptyList(),
+    /**
+     * Whether the person closed the build while the folder was being written. The writer finishes a move it has begun, so the folder was
+     * written whole; the page says so and does not say it was left as it was.
+     */
+    val closedDuringWrite: Boolean = false,
 )
 
 /** Where a ship stands. */
@@ -100,11 +112,15 @@ sealed interface ShipRunState {
     /** Nothing has been started. */
     data object Idle : ShipRunState
 
-    /** A build is running: its [steps], when it [startedAt], and what the compiler has printed so far. */
+    /**
+     * A build is running: its [steps], when it [startedAt], and what the compiler has printed so far. [cancelling] is true from the moment
+     * the person closes it until the run has stopped and cleaned up after itself, which is when the state becomes [Cancelled].
+     */
     data class Building(
         val steps: List<ShipStepStatus>,
         val startedAt: TimeMark,
         val log: List<CompileLogLine>,
+        val cancelling: Boolean = false,
     ) : ShipRunState
 
     /** It finished and the folder is written. */
@@ -127,7 +143,7 @@ sealed interface ShipRunState {
         val log: List<CompileLogLine>,
     ) : ShipRunState
 
-    /** The person cancelled. The project and the target are as they were. */
+    /** The person cancelled before anything was written. The project and the target are as they were. */
     data object Cancelled : ShipRunState
 }
 
@@ -148,10 +164,14 @@ class ShipRequest(
     val mode: ShipMode,
     val category: GfCategory?,
     val target: ShipTarget,
-    /** Layer two's report for [subject], which the block rule reads. Without one nothing is built. */
+    /** Layer two's report for [subject], which the block rule reads. Without one Check has not run, and the ship is blocked. */
     val report: CheckReport?,
     /** Layer one's result for this drawing from the Check page, if it has run, which counts toward the block as well. */
     val layerOne: LayerOneReport? = null,
+    /** The branch the person stated for `upstream.yaml`; with none stated that file is left out. */
+    val branch: String? = null,
+    /** The day the person stated Google Fonts added the family; with none stated METADATA.pb has no `date_added`. */
+    val dateAdded: String? = null,
 )
 
 /** The answer to [ShipController.ship]: it began, or it did not and why. */
@@ -204,7 +224,6 @@ class ShipController(
     private val compile: CompileBackend,
     private val layerOne: LayerOneChecker,
     private val memory: ShipMemory = ShipMemory.shared,
-    private val clock: Clock = Clock.System,
     private val work: CoroutineDispatcher = Dispatchers.Default,
 ) {
     private val mutable = MutableStateFlow<ShipRunState>(ShipRunState.Idle)
@@ -213,36 +232,60 @@ class ShipController(
     val state: StateFlow<ShipRunState> = mutable.asStateFlow()
 
     private var job: Job? = null
+    private var runId = 0L
+    private val starting = Mutex()
 
     /**
-     * Starts shipping [request]. Answers [ShipStart.Blocked] without starting while Check has fails (layer two's, and layer one's when
-     * [ShipRequest.layerOne] holds them), and [ShipStart.CannotBuild] where there is no compiler and the target cannot take a folder without a
-     * font. Otherwise the page follows [state].
+     * Starts shipping [request]. Answers [ShipStart.Blocked] without starting while Check has fails or has not run (layer two's, and layer
+     * one's when [ShipRequest.layerOne] holds them), and [ShipStart.CannotBuild] where there is no compiler and the target cannot take a
+     * folder without a font. Otherwise the page follows [state]. A run still going is stopped and **joined** first: only then does the new run
+     * take over the state, so a run that is ending can never write over the one that follows it.
      */
     suspend fun ship(request: ShipRequest): ShipStart {
-        val gate = shipGate(request.report, request.layerOne)
+        val gate =
+            shipGate(
+                request.report,
+                request.layerOne,
+                countLayerOne = request.mode == ShipMode.GOOGLE_FONTS,
+                embeddingStated = request.subject.facts.embeddingStated,
+            )
         if (gate.blocked) return ShipStart.Blocked(gate)
         val compiler = compile.availability()
         if (compiler is BackendAvailability.Unavailable && !request.target.withoutFontOk) {
             return ShipStart.CannotBuild(compiler.reason)
         }
-        job?.cancel()
-        mutable.value =
-            ShipRunState.Building(initialSteps(compiler is BackendAvailability.Available), TimeSource.Monotonic.markNow(), emptyList())
-        job = scope.launch { run(request, compiler) }
+        starting.withLock {
+            job?.cancelAndJoin()
+            val id = ++runId
+            mutable.value =
+                ShipRunState.Building(initialSteps(compiler is BackendAvailability.Available), TimeSource.Monotonic.markNow(), emptyList())
+            job = scope.launch { run(id, request, compiler) }
+        }
         return ShipStart.Started
     }
 
-    /** Stops a build in progress. The project and the target are as they were. */
+    /**
+     * Stops a build in progress. The state shows [ShipRunState.Building.cancelling] at once and becomes [ShipRunState.Cancelled] when the
+     * run has stopped and cleaned up, which leaves the project and the target as they were; a write that had already begun to move the
+     * folder into place is finished, and then the state is [ShipRunState.Done] with [ShipResult.closedDuringWrite].
+     */
     fun cancel() {
-        if (mutable.value !is ShipRunState.Building) return
-        job?.cancel()
-        mutable.value = ShipRunState.Cancelled
+        val job = job ?: return
+        var requested = false
+        mutable.update { now ->
+            if (now is ShipRunState.Building) {
+                requested = true
+                now.copy(cancelling = true)
+            } else {
+                now
+            }
+        }
+        if (requested) job.cancel()
     }
 
     /** Back to nothing started, from a finished or stopped state. */
     fun reset() {
-        if (mutable.value !is ShipRunState.Building) mutable.value = ShipRunState.Idle
+        mutable.update { if (it is ShipRunState.Building) it else ShipRunState.Idle }
     }
 
     /** Returns when the run in hand has stopped and cleaned up after itself. A test waits on this instead of on the clock. */
@@ -256,7 +299,22 @@ class ShipController(
             ShipStepStatus(step, if (left) StepState.SKIPPED else StepState.WAITING)
         }
 
+    /** Moves the state to [next] when run [id] is still the current one and building. A run that was cancelled ends as [ShipRunState.Cancelled]. */
+    private fun finish(
+        id: Long,
+        next: ShipRunState,
+    ) {
+        mutable.update { now ->
+            when {
+                id != runId || now !is ShipRunState.Building -> now
+                now.cancelling && next !is ShipRunState.Done -> ShipRunState.Cancelled
+                else -> next
+            }
+        }
+    }
+
     private suspend fun run(
+        id: Long,
         request: ShipRequest,
         compiler: BackendAvailability,
     ) {
@@ -266,7 +324,13 @@ class ShipController(
 
         fun publish() {
             mutable.update { now ->
-                if (now is ShipRunState.Building) now.copy(steps = steps.toList(), log = log.value.takeLast(LOG_KEPT)) else now
+                if (id == runId &&
+                    now is ShipRunState.Building
+                ) {
+                    now.copy(steps = steps.toList(), log = log.value.takeLast(LOG_KEPT))
+                } else {
+                    now
+                }
             }
         }
 
@@ -285,7 +349,7 @@ class ShipController(
             cause: String,
         ) {
             steps[step.ordinal] = ShipStepStatus(step, StepState.FAILED, note = cause)
-            mutable.value = ShipRunState.Failed(step, cause, steps.toList(), log.value)
+            finish(id, ShipRunState.Failed(step, cause, steps.toList(), log.value))
         }
         try {
             // 1. The project's files, as one consistent snapshot, so an autosave cannot race the build.
@@ -310,7 +374,15 @@ class ShipController(
                 set(ShipStep.COMPILE, StepState.RUNNING)
                 val compileStart = TimeSource.Monotonic.markNow()
                 val result =
-                    compile.compile(CompileRequest(snapshot, CompileSource.Ufo(request.subject.masterPath))) { line ->
+                    compile.compile(
+                        // Google Fonts' fix-ups are for a font that is going to Google Fonts; under the person's own licence the binary is the
+                        // compiler's, untouched.
+                        CompileRequest(
+                            snapshot,
+                            CompileSource.Ufo(request.subject.masterPath),
+                            CompileOptions(googleFontsFixes = request.mode == ShipMode.GOOGLE_FONTS),
+                        ),
+                    ) { line ->
                         log.update { it + line }
                         publish()
                     }
@@ -353,9 +425,14 @@ class ShipController(
                                 set(ShipStep.CHECK, StepState.SKIPPED, note = checkSkipped)
                             } else {
                                 layerOneReport = checked
-                                val binaryGate = shipGate(null, checked)
+                                // Google Fonts' profile only stops a font that is going to Google Fonts.
+                                val binaryGate =
+                                    binaryGate(checked, request.subject.facts.embeddingStated).takeIf {
+                                        request.mode ==
+                                            ShipMode.GOOGLE_FONTS
+                                    }
                                 checkLine = layerOneLine(checked)
-                                if (binaryGate.blocked) {
+                                if (binaryGate != null && binaryGate.blocked) {
                                     steps[ShipStep.CHECK.ordinal] =
                                         ShipStepStatus(
                                             ShipStep.CHECK,
@@ -363,7 +440,7 @@ class ShipController(
                                             checkStart.elapsedNow().inWholeMilliseconds,
                                             checkLine,
                                         )
-                                    mutable.value = ShipRunState.Stopped(binaryGate.blockers, steps.toList(), log.value)
+                                    finish(id, ShipRunState.Stopped(binaryGate.blockers, steps.toList(), log.value))
                                     return
                                 }
                                 set(ShipStep.CHECK, StepState.DONE, checkStart.elapsedNow().inWholeMilliseconds, checkLine)
@@ -389,7 +466,8 @@ class ShipController(
                             binary = binary,
                             category = request.category,
                             layerOne = layerOneReport?.let(::summaryOf),
-                            today = clock.now().toString().take(DATE_LENGTH),
+                            dateAdded = request.dateAdded,
+                            branch = request.branch,
                         ),
                     )
                 }
@@ -416,11 +494,14 @@ class ShipController(
                     checkSkipped = checkSkipped,
                     totalMillis = startedAt.elapsedNow().inWholeMilliseconds,
                     steps = steps.toList(),
+                    replaced = report.replacements,
+                    closedDuringWrite = (mutable.value as? ShipRunState.Building)?.cancelling == true,
                 )
+            // The folder is written whatever became of the person's Close, so this is what the page says.
             memory.remember(request.subject.version, result)
-            mutable.value = ShipRunState.Done(result)
+            finish(id, ShipRunState.Done(result))
         } catch (cancelled: CancellationException) {
-            mutable.update { if (it is ShipRunState.Building) ShipRunState.Cancelled else it }
+            finish(id, ShipRunState.Cancelled)
             throw cancelled
         } catch (failure: Throwable) {
             val running = steps.firstOrNull { it.state == StepState.RUNNING }?.step ?: ShipStep.UFO
@@ -430,7 +511,6 @@ class ShipController(
 
     private companion object {
         const val LOG_KEPT = 200
-        const val DATE_LENGTH = 10
     }
 }
 

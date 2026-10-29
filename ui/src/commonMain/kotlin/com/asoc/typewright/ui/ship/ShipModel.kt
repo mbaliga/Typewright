@@ -7,7 +7,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.asoc.typewright.compile.CompileLocation
+import com.asoc.typewright.project.TreeReplacement
+import com.asoc.typewright.qa.report.CheckInputs
 import com.asoc.typewright.qa.report.CheckReport
+import com.asoc.typewright.qa.report.ReviewOrder
+import com.asoc.typewright.qa.report.familyNamesCompared
 import com.asoc.typewright.qa.ship.GfCategory
 import com.asoc.typewright.qa.ship.ShipBuilt
 import com.asoc.typewright.qa.ship.ShipCapability
@@ -15,9 +19,11 @@ import com.asoc.typewright.qa.ship.ShipGate
 import com.asoc.typewright.qa.ship.ShipInputs
 import com.asoc.typewright.qa.ship.ShipItem
 import com.asoc.typewright.qa.ship.ShipMode
+import com.asoc.typewright.qa.ship.ShipNames
 import com.asoc.typewright.qa.ship.ShipPlan
 import com.asoc.typewright.qa.ship.ShipSituation
 import com.asoc.typewright.qa.ship.buildShipPlan
+import com.asoc.typewright.qa.ship.firstSentence
 import com.asoc.typewright.qa.ship.shipChecklist
 import com.asoc.typewright.qa.ship.shipGate
 import com.asoc.typewright.ui.deck.DeckLeft
@@ -42,6 +48,9 @@ class ShipPageState(
     showOutput: Boolean = false,
     showRequest: Boolean = false,
     message: String? = null,
+    showDetails: Boolean = false,
+    branch: String? = null,
+    dateAdded: String? = null,
 ) {
     var mode by mutableStateOf(mode)
     var view by mutableStateOf(view)
@@ -58,6 +67,15 @@ class ShipPageState(
 
     /** Whether the finished page shows the request text. */
     var showRequest by mutableStateOf(showRequest)
+
+    /** Whether the checklist shows the lines behind its Details link. */
+    var showDetails by mutableStateOf(showDetails)
+
+    /** The branch the person stated for `upstream.yaml`, kept for this run only: the project has no place for it. */
+    var branch by mutableStateOf(branch)
+
+    /** The day the person stated Google Fonts added the family, kept for this run only. */
+    var dateAdded by mutableStateOf(dateAdded)
 
     /** A line the page shows at its head: a cancelled build, a chooser that could not be shown. */
     var message by mutableStateOf(message)
@@ -89,28 +107,24 @@ class ShipSheet(
     val report: CheckReport?,
     chosenCategory: GfCategory?,
     val platform: ShipPlatform,
+    val branch: String? = null,
+    val dateAdded: String? = null,
+    /** What writing to the chosen place would replace in it, when the place already holds a copy; empty otherwise. */
+    val replacements: List<TreeReplacement> = emptyList(),
 ) {
-    val gate: ShipGate = shipGate(report)
+    val gate: ShipGate =
+        shipGate(
+            report,
+            report?.layerOne,
+            countLayerOne = mode == ShipMode.GOOGLE_FONTS,
+            embeddingStated = subject.facts.embeddingStated,
+        )
 
     /** The category METADATA will carry: the person's choice, else the reading of their style class, else none. */
     val category: GfCategory? = chosenCategory ?: subject.categoryReading
 
     /** What the folder would hold, by name. Nothing here is a file's contents but the description draft and the text files, which are the real text. */
-    val preview: ShipPlan =
-        buildShipPlan(
-            ShipInputs(
-                mode = mode,
-                facts = subject.facts,
-                font = subject.font,
-                brief = subject.brief,
-                ufoFolderName = subject.ufoFolderName,
-                ufo = mapOf(PREVIEW_ENTRY to ByteArray(0)),
-                binary = if (platform.compiles) ByteArray(0) else null,
-                category = category,
-                layerOne = null,
-                today = PREVIEW_DATE,
-            ),
-        )
+    val preview: ShipPlan = previewPlan(subject, mode, category, platform.compiles, branch, dateAdded)
 
     private val categoryClass: String? = if (chosenCategory == null && category != null) subject.categoryFromClass else null
 
@@ -120,7 +134,9 @@ class ShipSheet(
             facts = subject.facts,
             gate = gate,
             checkTally = report?.counts?.line()?.let { "${report.items.size} checks · $it" },
-            names = namesSeverity(report),
+            names = namesFound(report, subject.check.inputs),
+            branch = branch,
+            dateAdded = dateAdded,
             category = category,
             categoryClass = categoryClass,
             descriptionBytes = preview.files["DESCRIPTION.en_us.html"]?.size ?: 0,
@@ -142,7 +158,6 @@ class ShipSheet(
 
     private companion object {
         const val PREVIEW_ENTRY = "metainfo.plist"
-        const val PREVIEW_DATE = "0000-00-00"
         const val MILLIS_PER_SECOND = 1000L
     }
 }
@@ -234,3 +249,60 @@ fun afterChrome(
         rightLabel = again,
         rightWhy = primary.why,
     )
+
+/** The folder Ship would write, with placeholder files where the real ones are made later (the UFO and the font), for its names and sizes. */
+internal fun previewPlan(
+    subject: ShipSubject,
+    mode: ShipMode,
+    category: GfCategory?,
+    compiles: Boolean,
+    branch: String?,
+    dateAdded: String?,
+): ShipPlan =
+    buildShipPlan(
+        ShipInputs(
+            mode = mode,
+            facts = subject.facts,
+            font = subject.font,
+            brief = subject.brief,
+            ufoFolderName = subject.ufoFolderName,
+            ufo = mapOf("metainfo.plist" to ByteArray(0)),
+            binary = if (compiles) ByteArray(0) else null,
+            category = category,
+            layerOne = null,
+            dateAdded = dateAdded,
+            branch = branch,
+        ),
+    )
+
+/** Why [text] cannot be the branch of the person's repository, or null when it can (an empty text clears it). */
+internal fun branchProblem(text: String): String? =
+    when {
+        text.any { it.isWhitespace() } -> {
+            "A branch name has no spaces."
+        }
+
+        text.length > MAX_BRANCH -> {
+            "That branch name is longer than $MAX_BRANCH characters."
+        }
+
+        text.any { it.code < ' '.code || it == '\\' || it == ':' || it == '~' || it == '^' || it == '?' || it == '*' || it == '[' } -> {
+            "That holds a character git does not allow in a branch name."
+        }
+
+        else -> {
+            null
+        }
+    }
+
+/** Why [text] cannot be a day (`2026-10-24`), or null when it can (an empty text clears it). */
+internal fun dayProblem(text: String): String? {
+    val parts = text.split('-')
+    val ok =
+        parts.size == 3 && parts[0].length == 4 && parts[1].length == 2 && parts[2].length == 2 &&
+            parts.all { part -> part.all { it in '0'..'9' } } &&
+            parts[1].toInt() in 1..12 && parts[2].toInt() in 1..31
+    return if (ok) null else "Write the day as year-month-day, such as 2026-10-24."
+}
+
+private const val MAX_BRANCH = 100

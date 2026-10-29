@@ -5,8 +5,16 @@ package com.asoc.typewright.qa.ship
 import com.asoc.typewright.qa.CheckOutcome
 import com.asoc.typewright.qa.CheckStatus
 import com.asoc.typewright.qa.LayerOneReport
+import com.asoc.typewright.qa.report.Basis
+import com.asoc.typewright.qa.report.CheckAction
+import com.asoc.typewright.qa.report.CheckGroup
+import com.asoc.typewright.qa.report.CheckItem
+import com.asoc.typewright.qa.report.CheckReport
+import com.asoc.typewright.qa.report.CheckRoute
+import com.asoc.typewright.qa.report.FontInfoTarget
 import com.asoc.typewright.qa.report.ReportFixtures
 import com.asoc.typewright.qa.report.ReviewOrder
+import com.asoc.typewright.qa.report.Severity
 import com.asoc.typewright.qa.unavailableReport
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -116,8 +124,96 @@ class ShipGateTest {
     }
 
     @Test
-    fun noReportMeansNoBlockersBecauseThereIsNothingToCount() {
-        assertFalse(shipGate(null).blocked)
+    fun noReportBlocksBecauseCheckHasNotRunAndNothingMakesUpForIt() {
+        val gate = shipGate(null)
+        assertTrue(gate.blocked, "a report that does not exist is not a clean one")
+        assertFalse(gate.checkRun)
+        assertEquals("Check has not run yet", gate.title())
+        assertEquals("Build is blocked until Check has run.", gate.blockedSentence())
+        assertEquals("Ship is blocked until Check has run: it has not looked at this project yet.", gate.explanation())
+        assertEquals(0, gate.failCount, "it has no fails: it has not been run")
+        assertTrue(shipGate(null, layerOne(CheckStatus.PASS)).blocked, "a layer one alone is not Check")
+        assertTrue(shipGate(clean).checkRun)
+    }
+
+    @Test
+    fun theGateOfACompiledBinaryAloneIsItsLayerOneFailsAndNeverBlocksOnWhatItDoesNotHave() {
+        val gate = binaryGate(layerOne(CheckStatus.PASS, CheckStatus.FAIL))
+        assertTrue(gate.blocked)
+        assertTrue(gate.checkRun, "the binary's own gate is not the one that waits for Check")
+        assertEquals(listOf("Check 1"), gate.blockers.map { it.title })
+        assertFalse(binaryGate(layerOne(CheckStatus.PASS, CheckStatus.WARN)).blocked)
+        assertFalse(binaryGate(unavailableReport("no Python")).blocked, "a layer one that did not run counts nothing")
+    }
+
+    @Test
+    fun layerOneIsLeftOutOfTheGateForARepositoryThatIsNotGoingToGoogleFonts() {
+        val binaryFails = layerOne(CheckStatus.FAIL)
+        assertEquals(1, shipGate(clean, binaryFails).failCount)
+        assertFalse(shipGate(clean, binaryFails, countLayerOne = false).blocked)
+        // Layer two still blocks in that mode.
+        assertEquals(failing.counts.fail, shipGate(failing, binaryFails, countLayerOne = false).failCount)
+    }
+
+    @Test
+    fun everyLayerTwoFailNamesWhereItIsPutRight() {
+        val blockers = shipGate(failing).blockers
+        assertEquals(ShipRoute.FontInfoAt(FontInfoTarget.NAMES), blockers.single { it.id == ReviewOrder.NAMES }.route)
+        assertEquals(ShipRoute.FontInfoAt(FontInfoTarget.LICENCE), blockers.single { it.id == ReviewOrder.LICENCE }.route)
+        // A fail whose own action is not Font info goes to Check.
+        val economy =
+            CheckItem(
+                id = ReviewOrder.NODE_ECONOMY,
+                group = CheckGroup.OUTLINES,
+                title = "Node economy",
+                detail = null,
+                severity = Severity.FAIL,
+                summary = "Your T has 1,763 points.",
+                reviewerQuote = null,
+                action = CheckAction("Open Economy", CheckRoute.OpenEconomy),
+                basis = Basis.MEASURED,
+                basisNote = "",
+                raw = "",
+            )
+        val gate = shipGate(CheckReport(listOf(economy), null, null))
+        assertEquals(ShipRoute.Check, gate.blockers.single().route)
+    }
+
+    @Test
+    fun aFailOfGoogleFontsProfileOnTheBinaryGoesToTheFontInfoValueItReadsOrToCheck() {
+        fun route(id: String) = binaryGate(LayerOneReport(listOf(CheckOutcome(id, CheckStatus.FAIL, "bad")))).blockers.single().route
+        assertEquals(ShipRoute.FontInfo(ShipFontInfoField.LICENCE_TEXT), route("com.google.fonts/check/fstype"))
+        assertEquals(ShipRoute.FontInfo(ShipFontInfoField.FAMILY), route("com.google.fonts/check/canonical_filename"))
+        assertEquals(ShipRoute.FontInfo(ShipFontInfoField.COPYRIGHT), route("com.google.fonts/check/font_copyright"))
+        assertEquals(ShipRoute.FontInfo(ShipFontInfoField.VENDOR_ID), route("com.google.fonts/check/vendor_id"))
+        assertEquals(ShipRoute.Check, route("com.google.fonts/check/gasp"))
+        assertEquals(ShipRoute.Check, route("com.google.fonts/check/something_new"))
+    }
+
+    @Test
+    fun anEmbeddingRestrictionTheProjectStatesIsNamedAsTheProjectsAndSaysTheBuildLeftIt() {
+        val fstype =
+            LayerOneReport(
+                listOf(
+                    CheckOutcome("com.google.fonts/check/fstype", CheckStatus.FAIL, "In this font fsType is set to 2 meaning that:\nmore"),
+                ),
+            )
+        val stated = binaryGate(fstype, embeddingStated = true).blockers.single()
+        assertEquals(EMBEDDING_STATED_SENTENCE, stated.sentence)
+        assertTrue("openTypeOS2Type" in stated.sentence && "left it as you stated it" in stated.sentence)
+        assertEquals(ShipRoute.FontInfo(ShipFontInfoField.LICENCE_TEXT), stated.route)
+        val notStated = binaryGate(fstype, embeddingStated = false).blockers.single()
+        assertEquals(
+            "In this font fsType is set to 2 meaning that:",
+            notStated.sentence,
+            "when the project says nothing the tool's own words stand",
+        )
+        val other = LayerOneReport(listOf(CheckOutcome("com.google.fonts/check/gasp", CheckStatus.FAIL, "Missing gasp")))
+        assertEquals(
+            "Missing gasp",
+            binaryGate(other, embeddingStated = true).blockers.single().sentence,
+            "only the fsType fail is reworded",
+        )
     }
 
     @Test

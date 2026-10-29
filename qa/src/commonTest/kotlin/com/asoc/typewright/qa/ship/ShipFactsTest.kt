@@ -149,4 +149,27 @@ class ShipFactsTest {
         val odd = ShipFacts.of(UfoFontInfo(familyName = "A/B: C*", styleName = "Re?gular"))
         assertEquals("ABC-Regular", odd.fileStem)
     }
+
+    @Test
+    fun aFileStemIsPlainAsciiWhateverTheFamilyIsCalledAndTheFamilyKeepsItsLetters() {
+        val accented = ShipFacts.of(UfoFontInfo(familyName = "Hylé Deco", styleName = "Regular"))
+        assertEquals("HyleDeco-Regular", accented.fileStem)
+        assertEquals("Hylé Deco", accented.family, "the name itself is the person's")
+        assertEquals("Hylé Deco Regular", accented.fullName)
+        assertEquals("hyle-deco-gf", accented.folderName)
+        val styled = ShipFacts.of(UfoFontInfo(familyName = "Julián", styleName = "Bold Itálic"))
+        assertEquals("Julian-BoldItalic", styled.fileStem)
+        assertNull(ShipFacts.of(UfoFontInfo(familyName = "あいう", styleName = "Regular")).fileStem)
+    }
+
+    @Test
+    fun theEmbeddingIsStatedOnlyWhenTheProjectHasTheKey() {
+        assertEquals(false, ShipFacts.of(UfoFontInfo()).embeddingStated)
+        val restricted = UfoFontInfo(other = listOf("openTypeOS2Type" to PlistValue.PArray(listOf(PlistValue.PInteger(1)))))
+        assertEquals(true, ShipFacts.of(restricted).embeddingStated)
+        val installable = UfoFontInfo(other = listOf("openTypeOS2Type" to PlistValue.PArray(emptyList())))
+        assertEquals(true, ShipFacts.of(installable).embeddingStated, "an empty list is still a statement")
+        val unrelated = UfoFontInfo(other = listOf("openTypeOS2WeightClass" to PlistValue.PInteger(400)))
+        assertEquals(false, ShipFacts.of(unrelated).embeddingStated)
+    }
 }

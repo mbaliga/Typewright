@@ -88,10 +88,14 @@ private val SCRIPT_NAMES: Map<String, String> =
         "Kana" to "Katakana",
     )
 
+/** Why there is no `date_added` line: the reason the plan lists and the page shows. */
+const val DATE_ADDED_UNKNOWN: String = "Google Fonts sets it on the day it accepts the family, and the project does not know that day"
+
 /**
- * `METADATA.pb`, Google Fonts' record of the family in protobuf text format: name, designer, licence, category, the day the folder was
- * made, the font file with its names and copyright, the subsets the font's characters belong in, and the repository. A line whose fact the
- * project does not state is left out and recorded in [omissions]: no designer line without a designer, no category line until one is chosen.
+ * `METADATA.pb`, Google Fonts' record of the family in protobuf text format: name, designer, licence, category, the day Google Fonts added the
+ * family when the person states it, the font file with its names and copyright, the subsets the font's characters belong in, and the
+ * repository. A line whose fact the project does not state is left out and recorded in [omissions]: no designer line without a designer, no
+ * category line until one is chosen, no `date_added` line until the person gives the day (the day the folder is made is not it).
  */
 internal fun metadataPb(
     inputs: ShipInputs,
@@ -113,7 +117,11 @@ internal fun metadataPb(
     } else {
         omissions += Omission("METADATA.pb category", "no category is chosen")
     }
-    text.appendLine("date_added: ${protoString(inputs.today)}")
+    if (inputs.dateAdded != null) {
+        text.appendLine("date_added: ${protoString(inputs.dateAdded)}")
+    } else {
+        omissions += Omission("METADATA.pb date_added", DATE_ADDED_UNKNOWN)
+    }
     text.appendLine("fonts {")
     text.appendLine("  name: ${protoString(family)}")
     text.appendLine("  style: ${protoString(if (facts.italic) "italic" else "normal")}")
@@ -156,13 +164,14 @@ private val LATIN_EXTENDED = listOf(0x100..0x24F, 0x1E00..0x1EFF, 0x2C60..0x2C7F
 
 /**
  * `upstream.yaml`: where each file of this repository goes in Google Fonts' family directory (`files:`, from where in the repository to where
- * in the family directory), on which branch, and the repository when the copyright line names one. The branch is `main`, which is the
- * convention for a repository the person has yet to make; the screen says so.
+ * in the family directory), on the [branch] the person says their repository publishes from, and the repository when the copyright line names
+ * one. There is no default branch: the plan writes this file only when the person has stated one.
  */
 internal fun upstreamYaml(
     facts: ShipFacts,
     stem: String,
     present: Collection<String>,
+    branch: String,
     omissions: MutableList<Omission>,
 ): String {
     val text = StringBuilder()
@@ -172,7 +181,7 @@ internal fun upstreamYaml(
     } else {
         omissions += Omission("upstream.yaml repository_url", "the copyright line names no repository address")
     }
-    text.appendLine("branch: main")
+    text.appendLine("branch: ${yamlScalar(branch)}")
     text.appendLine("files:")
     for ((from, to) in upstreamFileMap(stem, present)) text.appendLine("  ${yamlScalar(from)}: ${yamlScalar(to)}")
     return text.toString()

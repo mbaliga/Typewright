@@ -12,6 +12,7 @@ import com.asoc.typewright.project.storage.AndroidFolderPicker
 import com.asoc.typewright.ui.TypewrightApp
 import com.asoc.typewright.ui.deck.SystemBack
 import com.asoc.typewright.ui.imports.PlatformImportSupport
+import com.asoc.typewright.ui.ship.AndroidShipSupport
 
 /** Hosts the shared UI. On-device behaviour is owner-verified only (CLAUDE.md law 4). */
 class MainActivity : ComponentActivity() {
@@ -30,6 +31,9 @@ class MainActivity : ComponentActivity() {
         fontPicker = AndroidFontFilePicker(activityResultRegistry, contentResolver)
         PlatformImportSupport.filePicker = fontPicker
         PlatformImportSupport.destination = AndroidImportDestination { pickProjectParentFolder() }
+        // Ship writes its repository folder through the same document tree.
+        val shipFolder = AndroidShipFolderChooser({ pickProjectParentFolder() }, (application as TypewrightApplication).storage)
+        AndroidShipSupport.chooseFolder = shipFolder::choose
         onBackPressedDispatcher.addCallback(
             this,
             object : OnBackPressedCallback(true) {
@@ -49,6 +53,7 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         // A pick in flight belongs to this activity; end it rather than leave it waiting for a screen that is gone.
         fontPicker.release()
+        AndroidShipSupport.chooseFolder = null
         super.onDestroy()
     }
 

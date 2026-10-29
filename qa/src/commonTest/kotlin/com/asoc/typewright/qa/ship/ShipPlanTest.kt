@@ -66,11 +66,51 @@ class ShipPlanTest {
                         it.binary,
                         it.category,
                         it.layerOne,
-                        it.today,
+                        it.dateAdded,
+                        it.branch,
                     )
                 },
             )
         assertEquals(emptyList(), noUfo.ownedDirectories)
+    }
+
+    @Test
+    fun theTreeOnThePageIsTheBoardsFiveLinesAndTheRequestTextIsAlsoWritten() {
+        assertEquals(
+            listOf(
+                "fonts/ttf/HyleDeco-Regular.ttf",
+                "sources/HyleDeco-Regular.ufo",
+                "OFL.txt · AUTHORS.txt",
+                "DESCRIPTION.en_us.html",
+                "METADATA.pb · upstream.yaml",
+            ),
+            plan.boardLines,
+        )
+        assertEquals(listOf(REQUEST_TEXT_PATH), plan.alsoWritten)
+        // Every file of the folder is on exactly one of the two, so the page cannot promise less than is written.
+        assertEquals(
+            plan.tree.map { it.removeSuffix("/") }.sorted(),
+            (plan.boardLines.flatMap { it.split(" · ") } + plan.alsoWritten).sorted(),
+        )
+    }
+
+    @Test
+    fun aLineOfTheBoardsTreeHoldsOnlyTheFilesThatAreThere() {
+        val noDesigner = ShipFixtures.plan(ShipFixtures.completeInfo.copy(openTypeNameDesigner = null))
+        assertEquals("OFL.txt", noDesigner.boardLines[2])
+        val noFont = ShipFixtures.plan(binary = null)
+        assertEquals(listOf("sources/HyleDeco-Regular.ufo", "OFL.txt · AUTHORS.txt", "DESCRIPTION.en_us.html"), noFont.boardLines)
+        val noBranch = buildShipPlan(ShipFixtures.inputs(branch = null))
+        assertEquals("METADATA.pb", noBranch.boardLines.last())
+        val own = ShipFixtures.plan(mode = ShipMode.OWN_LICENCE)
+        assertEquals(listOf("fonts/ttf/HyleDeco-Regular.ttf", "sources/HyleDeco-Regular.ufo", "OFL.txt"), own.boardLines)
+        assertEquals(emptyList(), own.alsoWritten)
+        val proprietary =
+            ShipFixtures.plan(
+                ShipFixtures.completeInfo.copy(openTypeNameLicense = "Proprietary. Licensed to one studio.", openTypeNameLicenseURL = null),
+                mode = ShipMode.OWN_LICENCE,
+            )
+        assertEquals("LICENSE.txt", proprietary.boardLines[2])
     }
 
     @Test
@@ -278,6 +318,74 @@ files:
         val plan = buildShipPlan(inputs)
         assertTrue(plan.paths.contains("sources/HyleDeco-Regular.ufo/metainfo.plist"))
         assertTrue(plan.paths.contains("fonts/ttf/HyleDeco-Regular.ttf"))
+    }
+
+    // ---- what only the person can state --------------------------------------------------------------
+
+    @Test
+    fun aDateAddedThePersonDidNotStateIsNotWrittenAndNoOtherDateStandsInForIt() {
+        val plan = buildShipPlan(ShipFixtures.inputs(dateAdded = null))
+        val metadata = plan.text("METADATA.pb")
+        assertFalse(metadata.contains("date_added"))
+        assertFalse(
+            Regex("""\d{4}-\d{2}-\d{2}""").containsMatchIn(metadata),
+            "no date at all: the day the folder is made is not the day Google adds it",
+        )
+        assertEquals(DATE_ADDED_UNKNOWN, plan.omissions.single { it.path == "METADATA.pb date_added" }.reason)
+        assertTrue(
+            buildShipPlan(ShipFixtures.inputs()).text("METADATA.pb").contains("date_added: \"2026-10-24\"\n"),
+            "a stated day is written as stated",
+        )
+    }
+
+    @Test
+    fun withoutABranchThePersonStatedThereIsNoUpstreamYamlAndNothingIsGuessed() {
+        val plan = buildShipPlan(ShipFixtures.inputs(branch = null))
+        assertFalse("upstream.yaml" in plan.files)
+        assertEquals(UPSTREAM_WITHOUT_BRANCH, plan.omissions.single { it.path == "upstream.yaml" }.reason)
+        assertTrue("METADATA.pb" in plan.files, "the rest of the folder is written")
+        assertFalse(plan.paths.any { it.endsWith("upstream.yaml") })
+    }
+
+    @Test
+    fun aBranchThePersonStatesIsWrittenAsStatedAndNoOtherBranchAppears() {
+        val yaml = buildShipPlan(ShipFixtures.inputs(branch = "trunk")).text("upstream.yaml")
+        assertTrue(yaml.contains("\nbranch: trunk\n"), yaml)
+        assertFalse(yaml.contains("main"))
+    }
+
+    // ---- names that are not ASCII ----------------------------------------------------------------------
+
+    @Test
+    fun aFamilyWithAnAccentShipsUnderOneAsciiNameAndKeepsItsLettersInsideTheFiles() {
+        val info = ShipFixtures.completeInfo.copy(familyName = "Hylé Deco", postscriptFontName = null)
+        val plan = ShipFixtures.plan(info)
+        // Every path of the folder, the font, the UFO and the request, is plain ASCII, and they all use the one stem.
+        assertTrue(plan.paths.all { path -> path.all { it.code in 0x20..0x7E } }, plan.paths.toString())
+        assertTrue("fonts/ttf/HyleDeco-Regular.ttf" in plan.files)
+        assertTrue("sources/HyleDeco-Regular.ufo/metainfo.plist" in plan.files)
+        assertEquals("hyledeco", plan.familyDirectory)
+        assertEquals(setOf("OFL.txt", "DESCRIPTION.en_us.html", "METADATA.pb", "HyleDeco-Regular.ttf"), plan.familyFiles.keys)
+        assertEquals("hyle-deco-gf", ShipFacts.of(info).folderName, "the proposed folder name is ASCII too, and is not cut at the accent")
+        // The names inside the files keep the person's letters.
+        val metadata = plan.text("METADATA.pb")
+        assertTrue(metadata.contains("name: \"Hylé Deco\"\n"), metadata)
+        assertTrue(metadata.contains("  full_name: \"Hylé Deco Regular\"\n"), metadata)
+        assertTrue(metadata.contains("  filename: \"HyleDeco-Regular.ttf\"\n"), metadata)
+        assertTrue(metadata.contains("  post_script_name: \"HyleDeco-Regular\"\n"), "a PostScript name is ASCII by the specification")
+        assertTrue(plan.text("upstream.yaml").contains("name: \"Hylé Deco\"\n"))
+        assertTrue(plan.text("DESCRIPTION.en_us.html").contains("Hylé Deco is"))
+    }
+
+    @Test
+    fun aFamilyThatHasNoAsciiLettersAtAllIsNamedAfterItsUfoFolderAndNeverEmpty() {
+        val info = ShipFixtures.completeInfo.copy(familyName = "あいう", postscriptFontName = null)
+        val facts = ShipFacts.of(info)
+        assertNull(facts.fileStem, "nothing of it is left to name a file")
+        assertEquals("HyleDeco-Regular", shipFileStem(facts, "HyleDeco-Regular.ufo"))
+        assertEquals("font", shipFileStem(facts, "あ.ufo"), "even the folder has no ASCII letter: a plain name, never an empty one")
+        assertEquals("", googleFontsDirectoryName("あいう"))
+        assertNull(facts.folderName)
     }
 
     // ---- Own licence ---------------------------------------------------------------------------------

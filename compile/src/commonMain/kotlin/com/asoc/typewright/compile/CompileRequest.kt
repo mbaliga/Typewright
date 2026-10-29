@@ -49,7 +49,9 @@ data class CompileOptions(
     /**
      * Make the binary what Google Fonts' own checker asks of every font it takes, in the ways that are the build's and not the drawing's: OS/2
      * `fsType` 0 (no embedding restrictions), `USE_TYPO_METRICS` set, and, for a font that is not hinted, the `gasp` table and the smart-dropout
-     * `prep` program that `gftools fix-nonhinting` adds. The project's own files are never changed; the build log lists what was done.
+     * `prep` program that `gftools fix-nonhinting` adds. **A value the project states is left as it is** (`openTypeOS2Type` for the embedding
+     * bits, `openTypeOS2Selection` for the style flags): the build log says what it left, and Google Fonts' checker names it on the binary. The
+     * project's own files are never changed; the build log lists what was done.
      */
     val googleFontsFixes: Boolean = true,
 )

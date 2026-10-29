@@ -55,6 +55,12 @@ kotlin {
                 implementation(project(":shape-preview"))
             }
         }
+        named("desktopMain") {
+            dependencies {
+                // Ship's folder is chosen with the same picker (zenity, kdialog, Swing) as the project folder.
+                implementation(project(":project:storage"))
+            }
+        }
         named("desktopTest") {
             dependencies {
                 implementation(compose.desktop.currentOs)
