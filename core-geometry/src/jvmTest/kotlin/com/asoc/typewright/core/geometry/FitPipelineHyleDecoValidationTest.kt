@@ -269,6 +269,32 @@ class FitPipelineHyleDecoValidationTest {
         )
     }
 
+    /**
+     * CLAUDE.md's fitted targets, met: `T` 8 on - 0 off, `o` 16 - 16, `n` 14 - 8, `H` 12 - 0, counted as the file
+     * writes them (a straight side has no off-curve point), through the line-aware outline fitter
+     * ([fitClosedOutline] then [snapOutline]) on the font's own polygons. The older Schneider-only pipeline the
+     * tests above exercise reaches the targets only for `T`'s on-curve count (see their printed numbers); the
+     * outline fitter is the one the trace chain uses, and `engine-trace`'s `HyleDecoTraceQualityTest` holds it to the
+     * same numbers starting from a raster instead of from this polygon.
+     */
+    @Test
+    fun theOutlineFitterMeetsTheFittedTargetsOnTheFontsOwnPolygons() {
+        val expected = mapOf('T' to (8 to 0), 'o' to (16 to 16), 'n' to (14 to 8), 'H' to (12 to 0))
+        for ((char, counts) in expected) {
+            val glyph = font.glyphForCodePoint(char.code) ?: error("no glyph for '$char'")
+            val fitted =
+                glyph.contours.map { contour ->
+                    val polyline = contour.points.map { it.point.toVec2() }
+                    snapOutline(fitClosedOutline(polyline).contour, metricLines)
+                }
+            val directed = enforceContourDirections(fitted)
+            val on = directed.sumOf { it.writtenCount().onCurveEquivalent }
+            val off = directed.sumOf { it.writtenCount().offCurve }
+            println("outline fitter '$char': $on on / $off off (target ${counts.first} / ${counts.second})")
+            assertEquals(counts, on to off, "'$char' on/off points")
+        }
+    }
+
     private fun printReport(
         label: String,
         targetOnCurve: Int,

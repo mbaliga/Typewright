@@ -25,6 +25,18 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.core)
 }
 
+// Step 1b photographs the printed Latin sheets with the SAME synthetic-photograph generator engine-trace's own accuracy tests use
+// (a test-only class in engine-trace/src/jvmTest), so the golden path and the unit tests can never disagree about what a
+// "photograph" is. The two files are copied into this module's generated test sources rather than duplicated in the tree.
+val sharedPhotoSources =
+    tasks.register<Copy>("copySharedPhotoSources") {
+        val trace = isolated.rootProject.projectDirectory.dir("engine-trace/src/jvmTest/kotlin/com/asoc/typewright/engine/trace")
+        from(trace.file("HyleDecoFixture.kt"))
+        from(trace.file("capture/SyntheticPhoto.kt"))
+        into(layout.buildDirectory.dir("generated/sharedPhotoSources"))
+    }
+kotlin.sourceSets.getByName("test").kotlin.srcDir(sharedPhotoSources)
+
 val goldenPathTest =
     tasks.named<Test>("test") {
         // The golden path is an acceptance harness, not a gate: a step that fails because it
