@@ -11,6 +11,7 @@ import com.asoc.typewright.core.geometry.Vec2
 import com.asoc.typewright.core.geometry.extrema
 import com.asoc.typewright.core.geometry.pointAt
 import com.asoc.typewright.core.geometry.segments
+import com.asoc.typewright.core.geometry.withSmoothKept
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -69,9 +70,14 @@ data class AffineTransform(
 
 private fun Vec2.roundToPoint(): Point = Point(x.roundToInt(), y.roundToInt())
 
-/** [AffineTransform.apply], applied to every [ContourPoint] of [contour] (on-curve and off-curve alike), preserving [Contour.format]. */
+/**
+ * [AffineTransform.apply], applied to every [ContourPoint] of [contour] (on-curve and off-curve alike), preserving
+ * [Contour.format] and every smooth flag. An affine map keeps straight lines straight, but rounding every
+ * point to a whole unit can leave a smooth node a fraction of a unit out of line; those are put back in line
+ * ([withSmoothKept]), so a flag the file stores stays true to its outline.
+ */
 fun AffineTransform.apply(contour: Contour): Contour =
-    Contour(contour.points.map { cp -> ContourPoint(apply(cp.point), cp.onCurve) }, contour.format)
+    Contour(contour.points.map { cp -> ContourPoint(apply(cp.point), cp.onCurve, cp.smooth) }, contour.format).withSmoothKept(contour)
 
 /** [AffineTransform.apply], applied to every contour and every anchor of [glyph]. [Glyph.advanceWidth] is left unchanged: a scalar advance has no single correct meaning under an arbitrary affine map (rotation, shear), so this function deliberately transforms only geometry — a caller that also wants to rescale the advance (for a pure horizontal [scale], say) does that itself. */
 fun AffineTransform.apply(glyph: Glyph): Glyph =

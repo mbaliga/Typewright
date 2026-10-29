@@ -19,10 +19,13 @@ import kotlinx.coroutines.SupervisorJob
  * intends; [ProjectWorkspace.reopenLast] then rebuilds it from disk.
  */
 class TypewrightApplication : Application() {
+    /** The document-tree storage the workspace and Ship's folder both write through. */
+    val storage: AndroidStorageProvider by lazy { AndroidStorageProvider(this) }
+
     val workspace: ProjectWorkspace by lazy {
         createProjectWorkspace(
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
-            storage = AndroidStorageProvider(this),
+            storage = storage,
             config = AndroidAppConfigStore(filesDir),
         )
     }

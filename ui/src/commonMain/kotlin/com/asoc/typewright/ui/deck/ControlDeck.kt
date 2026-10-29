@@ -179,6 +179,12 @@ fun ControlDeck(
                         "More"
                     } else if (right == DeckRight.PLUS) {
                         "New project"
+                    } else if (right == DeckRight.REFRESH) {
+                        "Run again"
+                    } else if (right == DeckRight.BUILD) {
+                        "Build"
+                    } else if (right == DeckRight.DOWNLOAD) {
+                        "Export"
                     } else {
                         "Next"
                     },
@@ -413,6 +419,7 @@ private fun DrawScope.drawDeck(
     }
     val rightAlpha = if (rightDimmed) 0.35f else 1f
     val rightAt = Offset(DeckGeometry.RIGHT_CIRCLE_X.toFloat(), cy)
+    val refreshPath = if (right == DeckRight.REFRESH) DeckGlyphs.refresh() else null
     when (right) {
         DeckRight.MENU -> {
             drawCircle(paper, DeckGeometry.CIRCLE_RADIUS.toFloat(), rightAt, alpha = rightAlpha)
@@ -460,6 +467,30 @@ private fun DrawScope.drawDeck(
                 paper.copy(alpha = paper.alpha * rightAlpha),
                 2.4f,
             )
+        }
+
+        DeckRight.REFRESH -> {
+            drawCircle(ink, DeckGeometry.FILLED_CIRCLE_RADIUS.toFloat(), rightAt, alpha = rightAlpha)
+            // The board's own path (Deck.dc.html), about the circle's centre, with the board's width and the plain ends it draws it with.
+            withTransform({ translate(rightAt.x, rightAt.y) }) {
+                drawPath(
+                    checkNotNull(refreshPath),
+                    paper.copy(alpha = paper.alpha * rightAlpha),
+                    style = Stroke(width = DeckGlyphs.REFRESH_STROKE, cap = StrokeCap.Butt),
+                )
+            }
+        }
+
+        DeckRight.BUILD, DeckRight.DOWNLOAD -> {
+            drawCircle(ink, DeckGeometry.FILLED_CIRCLE_RADIUS.toFloat(), rightAt, alpha = rightAlpha)
+            val arrow = if (right == DeckRight.BUILD) DeckGlyphs.build() else DeckGlyphs.download()
+            withTransform({ translate(rightAt.x, rightAt.y) }) {
+                drawPath(
+                    arrow,
+                    paper.copy(alpha = paper.alpha * rightAlpha),
+                    style = Stroke(width = DeckGlyphs.ARROW_STROKE, cap = StrokeCap.Butt),
+                )
+            }
         }
 
         DeckRight.NONE -> {

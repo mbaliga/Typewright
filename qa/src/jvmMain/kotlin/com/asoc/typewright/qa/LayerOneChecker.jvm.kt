@@ -36,11 +36,18 @@ import kotlin.io.path.createTempDirectory
  * nothing recognisable is found, [check] falls back to [unavailableReport] with the raw text
  * attached, rather than silently reporting zero checks as if that meant "all clear".
  */
-class FontspectorCliChecker(
-    private val binaryName: String = "fontspector",
-    private val profile: String = "googlefonts",
-    private val timeoutSeconds: Long = 120,
+class FontspectorCliChecker internal constructor(
+    private val binaryName: String,
+    private val profile: String,
+    private val timeoutSeconds: Long,
+    private val runner: CommandRunner,
 ) : LayerOneChecker {
+    constructor(
+        binaryName: String = "fontspector",
+        profile: String = "googlefonts",
+        timeoutSeconds: Long = 120,
+    ) : this(binaryName, profile, timeoutSeconds, RealCommandRunner)
+
     override val name: String = "Fontspector (CLI)"
 
     override suspend fun availability(): LayerOneAvailability =
@@ -53,10 +60,17 @@ class FontspectorCliChecker(
             onFailure = { LayerOneAvailability.Unavailable(NOT_FOUND_REASON) },
         )
 
+    override suspend fun runtime(): LayerOneRuntime? {
+        val answer = runner.run(listOf(binaryName, "--version"), VERSION_TIMEOUT_MILLIS)
+        if (answer.problem != null) return null
+        val version = Regex("""\d+(\.\d+)+\S*""").find(answer.output)?.value
+        return LayerOneRuntime("Fontspector", version, "on this computer")
+    }
+
     override suspend fun check(input: LayerOneInput): LayerOneReport {
         val workDir = createTempDirectory("fontspector-").toFile()
         try {
-            val fontFile = File(workDir, sanitizeFileName(input.fileName))
+            val fontFile = File(workDir, asciiFileName(input.fileName))
             fontFile.writeBytes(input.bytes)
             val jsonFile = File(workDir, "report.json")
 
@@ -72,23 +86,21 @@ class FontspectorCliChecker(
                     jsonFile.absolutePath,
                     fontFile.absolutePath,
                 )
-            val process =
-                runCatching {
-                    ProcessBuilder(args).redirectErrorStream(false).start()
-                }.getOrElse { return unavailableReport(NOT_FOUND_REASON) }
-
-            val finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
-            val stdout = process.inputStream.bufferedReader().use { it.readText() }
-            val stderr = process.errorStream.bufferedReader().use { it.readText() }
-            if (!finished) {
-                process.destroyForcibly()
-                return unavailableReport("Unavailable: fontspector did not finish within ${timeoutSeconds}s.")
+            // The runner reads what the tool prints while it runs (a long console report would otherwise fill the pipe
+            // and stop the tool), stops it and everything it started when the time is up, and does the same when the
+            // caller is cancelled.
+            val ran = runner.run(args, timeoutSeconds * MILLIS_PER_SECOND)
+            val problem = ran.problem
+            if (problem != null) {
+                return unavailableReport(
+                    if (problem.startsWith(COULD_NOT_START)) NOT_FOUND_REASON else "Unavailable: fontspector $problem.",
+                )
             }
-
             if (!jsonFile.exists()) {
                 return unavailableReport(
-                    "Fontspector ran (exit ${process.exitValue()}) but wrote no JSON report. " +
-                        "stdout: ${stdout.take(RAW_OUTPUT_LIMIT)} stderr: ${stderr.take(RAW_OUTPUT_LIMIT)}",
+                    "Fontspector ran (exit ${ran.exitCode}) but wrote no JSON report. What it printed: ${ran.output.take(
+                        RAW_OUTPUT_LIMIT,
+                    )}",
                 )
             }
             val reportText = jsonFile.readText()
@@ -110,14 +122,11 @@ class FontspectorCliChecker(
 
     private companion object {
         const val NOT_FOUND_REASON = "Unavailable: fontspector not found on PATH."
+        const val COULD_NOT_START = "could not be started"
         const val RAW_OUTPUT_LIMIT = 2000
+        const val VERSION_TIMEOUT_MILLIS = 10_000L
+        const val MILLIS_PER_SECOND = 1_000L
     }
-}
-
-/** A safe-enough basename for a temporary file: strips any path separators out of a caller-given name. */
-private fun sanitizeFileName(name: String): String {
-    val base = name.substringAfterLast('/').substringAfterLast('\\')
-    return base.ifBlank { "font.ttf" }
 }
 
 /**
@@ -163,19 +172,26 @@ private fun walkForOutcomes(
 private fun JsonObject.stringField(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
 /**
- * Maps one of Fontspector's severities onto [CheckStatus]'s four words. `info` becomes [CheckStatus.WARN]
- * (a note worth the user's attention, folded in since this pipeline has no separate INFO level) and
- * `error` (a check that itself crashed) becomes [CheckStatus.FAIL] (something is wrong, conservatively);
- * both are simplifications this KDoc states rather than hides. An unrecognised word is not a status
- * at all -- returns `null`, so [walkForOutcomes] keeps looking rather than inventing one.
+ * Maps one of Fontspector's severities onto [CheckStatus]. `info` stays [CheckStatus.INFO], a note that is
+ * not counted as a warning, and `error` (a check that itself crashed) becomes [CheckStatus.FAIL]
+ * (something is wrong, conservatively), a simplification this KDoc states rather than hides. An
+ * unrecognised word is not a status at all -- returns `null`, so [walkForOutcomes] keeps looking rather
+ * than inventing one.
  */
 private fun parseFontspectorStatus(word: String): CheckStatus? =
     when (word.lowercase()) {
         "pass" -> CheckStatus.PASS
-        "warn", "info" -> CheckStatus.WARN
+        "warn" -> CheckStatus.WARN
+        "info" -> CheckStatus.INFO
         "fail", "error" -> CheckStatus.FAIL
         "skip" -> CheckStatus.SKIP
         else -> null
     }
 
-actual fun platformLayerOneChecker(): LayerOneChecker = FontspectorCliChecker()
+/** Fontspector or Fontbakery on a computer; on Android, which runs this same JVM code, the checker that says it needs the desktop app. */
+actual fun platformLayerOneChecker(): LayerOneChecker = shared
+
+/** One checker for the whole process, so that where Fontbakery was found is remembered between visits to the Check page. */
+private val shared: LayerOneChecker by lazy {
+    if (isAndroidRuntime()) NeedsDesktopLayerOneChecker() else BackgroundLayerOneChecker(DesktopLayerOneChecker())
+}

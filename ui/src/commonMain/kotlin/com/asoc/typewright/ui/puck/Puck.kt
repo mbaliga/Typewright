@@ -27,6 +27,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
@@ -80,6 +82,33 @@ class PuckUiState(
         internal set
 
     val currentTool: Tool get() = tools[((toolIndex % tools.size) + tools.size) % tools.size]
+
+    /** True while a finger is down on the puck, whatever it is becoming (a tap, a swipe, the radial, a grip drag). */
+    var fingerOnPuck: Boolean by mutableStateOf(false)
+        internal set
+
+    /** True once a touch on the canvas has taken the held puck as its modifier: the puck's own tap, swipe and radial are then off until the finger lifts. */
+    var usedAsModifier: Boolean by mutableStateOf(false)
+        internal set
+
+    /**
+     * True while the puck is held as a modifier for the other hand (INTERACTION_V1 §4.1: hold the puck
+     * and drag on the canvas to keep a move on one axis). A finger resting on the puck that has not yet
+     * become a swipe, the radial or a grip drag counts, and so does one a canvas touch already took.
+     */
+    val modifierHeld: Boolean
+        get() = fingerOnPuck && (usedAsModifier || gestureState is PuckGestureState.HoldTimerRunning)
+
+    /** A canvas touch takes the held puck as its modifier: the puck stops waiting to become a tap or the radial, and its release does nothing. */
+    fun takeHoldAsModifier() {
+        if (modifierHeld) usedAsModifier = true
+    }
+
+    /** Makes [tool] the current tool (a tool key, the desktop rail); does nothing if this puck does not offer it. */
+    fun selectTool(tool: Tool) {
+        val at = tools.indexOf(tool)
+        if (at >= 0) toolIndex = at
+    }
 }
 
 @Composable
@@ -113,7 +142,7 @@ fun Puck(
      * afterwards (the on-canvas point-picking/dragging flow this would need is this task's own
      * documented deferral, see [PrimitiveKind]'s KDoc).
      */
-    viewCentreFontUnits: Point = Point(0, 0),
+    viewCentreFontUnits: () -> Point = { Point(0, 0) },
     config: PuckGestureConfig = PuckGestureConfig(),
     modifier: Modifier = Modifier,
 ) {
@@ -195,21 +224,25 @@ fun Puck(
     val scale by animateFloatAsState(targetValue = targetScale, animationSpec = if (dragging) snap() else tween(150))
 
     val diameterDp = PuckGestureDefaults.PUCK_DIAMETER_DP
+    val placement = remember { PuckPlacement() }
+    // The pointer layer sits outside the scale, so the positions it reports are the box's own unscaled ones.
     Box(
         modifier =
             modifier
                 .offset { (pin.center - Vec2(diameterDp / 2.0, diameterDp / 2.0)).toIntOffset(density) }
                 .size(diameterDp.dp)
-                .scale(scale)
-                .pointerInput(config, texture) {
+                .onGloballyPositioned { placement.topLeftDp = it.positionInParent().toVec2(density) }
+                .pointerInput(config) {
                     puckGestureArbiter(
                         density = density,
                         config = config,
                         geometryProvider = ::geometryNow,
+                        placement = placement,
                         machine = machine,
+                        state = state,
                         onOutputs = ::handleOutputs,
                     )
-                },
+                }.scale(scale),
         contentAlignment = Alignment.Center,
     ) {
         PuckBody(
@@ -249,7 +282,7 @@ fun Puck(
                 state.selectedPrimitiveKind = kind
                 if (kind.entryMethodLabels.size == 1) {
                     // Only one entry method (Stem, Bowl): create it directly, no second list.
-                    state.activeConstruction = defaultPrimitiveInstance(kind, 0, viewCentreFontUnits)
+                    state.activeConstruction = defaultPrimitiveInstance(kind, 0, viewCentreFontUnits())
                     state.primitivesMenuStage = PrimitivesMenuStage.CLOSED
                 } else {
                     state.primitivesMenuStage = PrimitivesMenuStage.ENTRY_METHOD
@@ -263,7 +296,7 @@ fun Puck(
                 state.primitivesMenuStage = PrimitivesMenuStage.CLOSED
             } else {
                 PrimitiveEntryMethodMenu(pin = pin, kind = kind, texture = texture, canvasSizeDp = canvasSizeDp) { methodIndex ->
-                    state.activeConstruction = defaultPrimitiveInstance(kind, methodIndex, viewCentreFontUnits)
+                    state.activeConstruction = defaultPrimitiveInstance(kind, methodIndex, viewCentreFontUnits())
                     state.primitivesMenuStage = PrimitivesMenuStage.CLOSED
                 }
             }
@@ -284,59 +317,86 @@ private suspend fun PointerInputScope.puckGestureArbiter(
     density: Density,
     config: PuckGestureConfig,
     geometryProvider: () -> PuckGeometry,
+    placement: PuckPlacement,
     machine: PuckGestureMachine,
+    state: PuckUiState,
     onOutputs: (List<PuckOutputEvent>) -> Unit,
 ) {
     val clockOrigin = TimeSource.Monotonic.markNow()
 
     fun nowMs(): Long = clockOrigin.elapsedNow().inWholeMilliseconds
 
+    // Pointer positions are reported inside the puck's box; the machine works in the parent's dp.
+    fun parentPosition(local: Offset): Vec2 = placement.toParent(local.toVec2(density))
+
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
         down.consume()
-        val downTimeMs = nowMs()
-        onOutputs(machine.onEvent(PuckInputEvent.PointerDown(down.position.toVec2(density), downTimeMs), geometryProvider()))
+        state.usedAsModifier = false
+        state.fingerOnPuck = true
+        try {
+            val downTimeMs = nowMs()
+            onOutputs(machine.onEvent(PuckInputEvent.PointerDown(parentPosition(down.position), downTimeMs), geometryProvider()))
 
-        // review §4.2 recommendation 2: "withTimeoutOrNull(max(380, longPressTimeoutMillis))".
-        // PuckGestureConfig.holdTimeoutMs already applies that floor (PuckGestureConfig.kt).
-        val deadlineMs = downTimeMs + config.holdTimeoutMs
-        var holdArmed = true
-        val pointerId = down.id
+            // review §4.2 recommendation 2: "withTimeoutOrNull(max(380, longPressTimeoutMillis))".
+            // PuckGestureConfig.holdTimeoutMs already applies that floor (PuckGestureConfig.kt).
+            val deadlineMs = downTimeMs + config.holdTimeoutMs
+            var holdArmed = true
+            var handedOver = false
+            val pointerId = down.id
 
-        while (true) {
-            val remaining = deadlineMs - nowMs()
-            val event =
-                when {
-                    holdArmed && remaining > 0 -> withTimeoutOrNull(remaining) { awaitPointerEvent() }
-                    holdArmed -> null
-                    else -> awaitPointerEvent()
+            while (true) {
+                val remaining = deadlineMs - nowMs()
+                val event =
+                    when {
+                        holdArmed && remaining > 0 -> withTimeoutOrNull(remaining) { awaitPointerEvent() }
+                        holdArmed -> null
+                        else -> awaitPointerEvent()
+                    }
+
+                // A touch on the canvas took this hold as its modifier: the puck stops being a tap, a swipe or the radial.
+                if (!handedOver && state.usedAsModifier) {
+                    handedOver = true
+                    holdArmed = false
+                    onOutputs(machine.onEvent(PuckInputEvent.PointerCancel(nowMs()), geometryProvider()))
                 }
 
-            if (event == null) {
-                holdArmed = false
-                onOutputs(machine.onEvent(PuckInputEvent.HoldTimeout(nowMs()), geometryProvider()))
-                continue
-            }
+                if (event == null) {
+                    holdArmed = false
+                    if (!handedOver) onOutputs(machine.onEvent(PuckInputEvent.HoldTimeout(nowMs()), geometryProvider()))
+                    continue
+                }
 
-            val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
+                val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
 
-            if (change.isConsumed && !change.pressed) {
-                // Consumed elsewhere (e.g. the root sheet arbiter) and released: treated as a
-                // platform cancel (review §4.2 rec. 2: "... and on pointer cancel").
+                if (change.isConsumed && !change.pressed) {
+                    // Consumed elsewhere (e.g. the root sheet arbiter) and released: treated as a
+                    // platform cancel (review §4.2 rec. 2: "... and on pointer cancel").
+                    change.consume()
+                    if (!handedOver) onOutputs(machine.onEvent(PuckInputEvent.PointerCancel(nowMs()), geometryProvider()))
+                    break
+                }
+
+                if (!change.pressed) {
+                    change.consume()
+                    if (!handedOver) onOutputs(machine.onEvent(PuckInputEvent.PointerUp(nowMs()), geometryProvider()))
+                    break
+                }
+
                 change.consume()
+                if (handedOver) continue
+                onOutputs(machine.onEvent(PuckInputEvent.PointerMove(parentPosition(change.position), nowMs()), geometryProvider()))
+                if (machine.state !is PuckGestureState.HoldTimerRunning) holdArmed = false
+            }
+        } finally {
+            // Whatever ended the gesture (a lift, a cancel, the composable leaving), nothing stays open.
+            if (machine.state !=
+                PuckGestureState.Idle
+            ) {
                 onOutputs(machine.onEvent(PuckInputEvent.PointerCancel(nowMs()), geometryProvider()))
-                break
             }
-
-            if (!change.pressed) {
-                change.consume()
-                onOutputs(machine.onEvent(PuckInputEvent.PointerUp(nowMs()), geometryProvider()))
-                break
-            }
-
-            change.consume()
-            onOutputs(machine.onEvent(PuckInputEvent.PointerMove(change.position.toVec2(density), nowMs()), geometryProvider()))
-            if (machine.state !is PuckGestureState.HoldTimerRunning) holdArmed = false
+            state.fingerOnPuck = false
+            state.usedAsModifier = false
         }
     }
 }

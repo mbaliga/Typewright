@@ -20,6 +20,11 @@ dependencies {
     testImplementation(project(":qa:corpus"))
     testImplementation(project(":compile"))
     testImplementation(project(":project"))
+    // Step 6 drives Ship's controller (ui/ship/ShipController.kt), which holds the block rule and the order of the build and has no Compose in
+    // it; nothing of the UI's screens is touched.
+    testImplementation(project(":ui"))
+    // Step 6 reads Fontbakery's --json report the way the app's own checker does.
+    testImplementation(libs.kotlinx.serialization.json)
     // CompileBackend.compile is suspend (compile/src/commonMain/.../CompileBackend.kt); step 5
     // calls it from a plain JUnit test with kotlinx.coroutines.runBlocking.
     testImplementation(libs.kotlinx.coroutines.core)

@@ -50,8 +50,10 @@ import com.asoc.typewright.qa.NodeEconomyReport
 import com.asoc.typewright.ui.brief.LocalOpenBrief
 import com.asoc.typewright.ui.deck.DeckSection
 import com.asoc.typewright.ui.deck.DeckToggle
-import com.asoc.typewright.ui.learn.hyleDecoFontFamily
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
+import com.asoc.typewright.ui.project.ProjectFont
+import com.asoc.typewright.ui.project.ProjectText
+import com.asoc.typewright.ui.shell.LocalOpenProjects
 import com.asoc.typewright.ui.shell.SectionScaffold
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.CanvasTextures
@@ -130,6 +132,14 @@ public fun WorkbookScreen(
         onBack = onBack,
     ) {
         when (val snapshot = uiState.snapshot) {
+            is WorkbookCampaignSnapshot.NoProject -> {
+                WorkbookNoProjectBody(texture = texture, modifier = Modifier.fillMaxSize())
+            }
+
+            is WorkbookCampaignSnapshot.Loading -> {
+                WorkbookLoadingBody(texture = texture, modifier = Modifier.fillMaxSize())
+            }
+
             is WorkbookCampaignSnapshot.Unavailable -> {
                 WorkbookUnavailableBody(texture = texture, reason = snapshot.reason, modifier = Modifier.fillMaxSize())
             }
@@ -195,6 +205,60 @@ private fun WorkbookAllTasks(
     }
 }
 
+/** The Workbook with no project open: the gates are measurements of a project's letters, so there is nothing to run them on. */
+@Composable
+private fun WorkbookNoProjectBody(
+    texture: CanvasTexture,
+    modifier: Modifier = Modifier,
+) {
+    val openProjects = LocalOpenProjects.current
+    Column(
+        modifier = modifier.fillMaxWidth().padding(horizontal = SpacingTokens.GUTTER_DP.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        BasicText(
+            text = "Open or start a project to work through the workbook.",
+            style = Typography.sentence.copy(color = texture.fg.toColor(), fontWeight = FontWeight.SemiBold),
+        )
+        BasicText(
+            text = "Every gate here measures your own letters, so it needs a project to measure.",
+            style = Typography.sentence.copy(color = texture.muted.toColor()),
+        )
+        if (openProjects != null) {
+            BasicText(
+                text = "Projects \u203A",
+                style =
+                    Typography.sentence.copy(
+                        color = MeaningColors.VIOLET.forTexture(texture).toColor(),
+                        fontWeight = FontWeight.SemiBold,
+                    ),
+                modifier = Modifier.clickable(onClick = openProjects).padding(vertical = 6.dp),
+            )
+        }
+    }
+}
+
+/** The Workbook while the twelve gates run on the open project, which happens off the UI thread: nothing is shown as measured until they have. */
+@Composable
+private fun WorkbookLoadingBody(
+    texture: CanvasTexture,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth().padding(horizontal = SpacingTokens.GUTTER_DP.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        BasicText(
+            text = "Measuring your letters against the twelve gates…",
+            style = Typography.sentence.copy(color = texture.fg.toColor(), fontWeight = FontWeight.SemiBold),
+        )
+        BasicText(
+            text = "The tasks appear as soon as the gates have run on your font.",
+            style = Typography.sentence.copy(color = texture.muted.toColor()),
+        )
+    }
+}
+
 @Composable
 private fun WorkbookUnavailableBody(
     texture: CanvasTexture,
@@ -223,7 +287,7 @@ private fun WorkbookBody(
     val task = progress.task
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()
-    val hyleDeco = remember { hyleDecoFontFamily() }
+    val font = snapshot.font
 
     Column(
         modifier =
@@ -259,9 +323,9 @@ private fun WorkbookBody(
         WorkbookProgressStrip(progress = snapshot.progress, texture = texture, modifier = Modifier.padding(top = 10.dp, bottom = 18.dp))
 
         WorkbookProseSection(heading = "Why", body = task.why, texture = texture)
-        WorkbookDemonstrationSection(demonstration = task.demonstration, texture = texture, hyleDeco = hyleDeco)
-        WorkbookTaskSection(task = task, texture = texture, hyleDeco = hyleDeco)
-        WorkbookGateSection(progress = progress, task4Report = snapshot.task4Report, texture = texture, hyleDeco = hyleDeco)
+        WorkbookDemonstrationSection(taskIndex = task.index, demonstration = task.demonstration, texture = texture, font = font)
+        WorkbookTaskSection(task = task, texture = texture, font = font)
+        WorkbookGateSection(progress = progress, task4Report = snapshot.task4Report, texture = texture, font = font)
         WorkbookReflectionSection(task = task, texture = texture)
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -338,80 +402,45 @@ private fun WorkbookProseSection(
 }
 
 /**
- * `.wsec` "Demonstration · sample font": [Demonstration.StatDemonstration] reproduces `.demo`
- * (`.dl` hero + `.dc` stat lines) when its own [Demonstration.StatDemonstration.label] genuinely
- * reads as a short sample ([isHeroStatLabel] -- task 4's own real `"noHO"`, `#s-workbook`'s only
- * worked example); every other real label in `workbook-latin.yaml` is a longer descriptive phrase
- * (task 6's own real `"on-curve range across 13 open fonts..."`), shown as a plain caption instead
- * -- seeded by a real bug this screen's own screenshot pass found (see [isHeroStatLabel]'s own
- * KDoc). [Demonstration.SceneDemonstration] has no `#s-workbook` worked example at all (only task
- * 4 is ever shown there) -- see this file's own top KDoc for why this screen still needs to handle
- * it, honestly, rather than only the one shape the mockup happens to show.
+ * `.wsec` "Demonstration": what the lesson shows, kept apart from what the open font measures so no figure of
+ * the lesson's sample can pass for the person's. For a task whose demonstration quotes the sample font's
+ * measurements ([yourFontDemonstration]) the section opens with **your font, measured now**: the same kind of
+ * figures, read off the open project's own letters (`.demo`'s `.dl` hero set in the person's outlines, and its
+ * `.dc` lines beside it). Under a rule, in muted type, comes **the lesson's sample**: the figures the lesson
+ * quotes for its own sample font or from published sources, said to be not the person's. A lesson scene is
+ * shown as before. The sample's hero is never set in the person's letters: only their own measurements are.
  */
 @Composable
 private fun WorkbookDemonstrationSection(
+    taskIndex: Int,
     demonstration: Demonstration,
     texture: CanvasTexture,
-    hyleDeco: FontFamily,
+    font: ProjectFont,
     modifier: Modifier = Modifier,
 ) {
+    val view = remember(font.master, taskIndex, demonstration) { demonstrationView(taskIndex, demonstration, font) }
+    val yours = view.yourFont
     Column(modifier = modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-        WorkbookSectionHeading(text = "Demonstration · sample font", texture = texture)
+        if (yours != null) {
+            WorkbookSectionHeading(text = "Demonstration · your font, measured now", texture = texture)
+            Spacer(modifier = Modifier.height(6.dp))
+            YourFontBlock(yours = yours, texture = texture, font = font)
+            Spacer(modifier = Modifier.height(14.dp))
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(texture.ink.toColor().copy(alpha = 0.12f)))
+            Spacer(modifier = Modifier.height(14.dp))
+        }
+        WorkbookSectionHeading(text = view.lessonHeading, texture = texture)
         Spacer(modifier = Modifier.height(6.dp))
         when (demonstration) {
             is Demonstration.StatDemonstration -> {
-                val heroLabel = isHeroStatLabel(demonstration.label)
-                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    if (heroLabel) {
-                        BasicText(
-                            text = demonstration.label,
-                            style = TextStyle(fontFamily = hyleDeco, fontSize = 40.sp, color = texture.ink.toColor()),
-                        )
-                    }
-                    // weight(1f): the real fix, not just the heroLabel heuristic above -- this
-                    // column always claims the Row's own remaining width explicitly, rather than
-                    // relying on the hero's own natural width happening to leave room for it (the
-                    // exact assumption that broke on task 6's own real long label).
-                    Column(modifier = Modifier.weight(1f)) {
-                        if (!heroLabel) {
-                            BasicText(
-                                text = demonstration.label,
-                                style =
-                                    TextStyle(
-                                        fontFamily = FontFamily.Default,
-                                        fontSize = 12.5.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        lineHeight = 12.5.sp * 1.4,
-                                        color = texture.fg.toColor(),
-                                    ),
-                                modifier = Modifier.padding(bottom = 4.dp),
-                            )
-                        }
-                        for (stat in demonstration.stats) {
-                            BasicText(
-                                text = stat,
-                                style =
-                                    TextStyle(
-                                        fontFamily = FontFamily.Default,
-                                        fontSize = 11.sp,
-                                        lineHeight = 11.sp * 1.5,
-                                        color = texture.muted.toColor(),
-                                    ),
-                            )
-                        }
-                    }
-                }
+                LessonSampleBlock(demonstration = demonstration, texture = texture)
             }
 
             is Demonstration.SceneDemonstration -> {
                 // No `#s-workbook` worked example exists for a scene demonstration (CLAUDE.md
-                // law 6) -- this reuses the same `.demo`-shaped container rather than a second,
-                // invented look, and says plainly that the live scene itself lives elsewhere.
-                // Stacked, not a `.demo`-style side-by-side row: the note line wraps to several
-                // lines at phone width, and bottom-aligning a wrapped multi-line note against a
-                // single-line hero (the row shape [Demonstration.StatDemonstration] below uses,
-                // for a *big glyph* baseline) reads as visually staggered, not aligned -- a real,
-                // screenshot-caught layout problem this task's own instructions asked to check for.
+                // law 6) -- this reuses the same container rather than a second, invented look,
+                // and says plainly that the live scene itself lives elsewhere. Stacked, not a
+                // side-by-side row: the note line wraps to several lines at phone width.
                 Column {
                     BasicText(
                         text = demonstration.sceneId,
@@ -434,12 +463,81 @@ private fun WorkbookDemonstrationSection(
     }
 }
 
+/** `.demo`: the sample [YourFontDemonstration.heroText] set in the person's own outlines (when the font can set it), and the measured lines beside it. */
+@Composable
+private fun YourFontBlock(
+    yours: YourFontDemonstration,
+    texture: CanvasTexture,
+    font: ProjectFont,
+) {
+    val hero = yours.heroText?.takeIf { font.canSet(it) }
+    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        if (hero != null) ProjectText(font = font, text = hero, sizeSp = 40f, color = texture.ink.toColor())
+        Column(modifier = Modifier.weight(1f)) {
+            for (line in yours.lines) {
+                BasicText(
+                    text = line,
+                    style =
+                        TextStyle(
+                            fontFamily = FontFamily.Default,
+                            fontSize = 11.sp,
+                            lineHeight = 11.sp * 1.5,
+                            color = texture.fg.toColor(),
+                        ),
+                )
+            }
+        }
+    }
+}
+
+/** The lesson's own figures, in muted type and without the person's letters: a short label such as `noHO` is spelled, a long one is a caption. */
+@Composable
+private fun LessonSampleBlock(
+    demonstration: Demonstration.StatDemonstration,
+    texture: CanvasTexture,
+) {
+    Column {
+        if (isHeroStatLabel(demonstration.label)) {
+            BasicText(
+                text = demonstration.label,
+                style = Typography.mono(sizeSp = 15.0, weight = FontWeight.SemiBold).copy(color = texture.muted.toColor()),
+                modifier = Modifier.padding(bottom = 4.dp),
+            )
+        } else {
+            BasicText(
+                text = demonstration.label,
+                style =
+                    TextStyle(
+                        fontFamily = FontFamily.Default,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        lineHeight = 12.5.sp * 1.4,
+                        color = texture.muted.toColor(),
+                    ),
+                modifier = Modifier.padding(bottom = 4.dp),
+            )
+        }
+        for (stat in demonstration.stats) {
+            BasicText(
+                text = stat,
+                style =
+                    TextStyle(
+                        fontFamily = FontFamily.Default,
+                        fontSize = 11.sp,
+                        lineHeight = 11.sp * 1.5,
+                        color = texture.muted.toColor(),
+                    ),
+            )
+        }
+    }
+}
+
 /** `.wsec` "Task": prose, then [WorkbookTask.controlString] (when present) on its own line in the user's own font, the app's own established control-string display convention (`ui/typewright-explorer.html`'s `.cstr hy`, the Space room). */
 @Composable
 private fun WorkbookTaskSection(
     task: WorkbookTask,
     texture: CanvasTexture,
-    hyleDeco: FontFamily,
+    font: ProjectFont,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth().padding(vertical = 12.dp)) {
@@ -463,9 +561,11 @@ private fun WorkbookTaskSection(
         }
         val controlString = task.controlString
         if (controlString != null) {
-            BasicText(
+            ProjectText(
+                font = font,
                 text = controlString,
-                style = TextStyle(fontFamily = hyleDeco, fontSize = 20.sp, color = texture.ink.toColor()),
+                sizeSp = 20f,
+                color = texture.ink.toColor(),
                 modifier = Modifier.padding(top = 8.dp),
             )
         }
@@ -505,9 +605,9 @@ private fun PickInTheBriefAction(
 @Composable
 private fun WorkbookGateSection(
     progress: WorkbookTaskProgress,
-    task4Report: NodeEconomyReport,
+    task4Report: NodeEconomyReport?,
     texture: CanvasTexture,
-    hyleDeco: FontFamily,
+    font: ProjectFont,
     modifier: Modifier = Modifier,
 ) {
     val gate = progress.gate
@@ -519,7 +619,7 @@ private fun WorkbookGateSection(
         WorkbookSectionHeading(text = "Gate · ${gate.gateSummary}", texture = texture)
         Spacer(modifier = Modifier.height(8.dp))
         if (useGrid) {
-            WorkbookGateGrid(rows = rows, texture = texture, hyleDeco = hyleDeco)
+            WorkbookGateGrid(rows = rows, texture = texture, font = font)
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 for (row in rows) WorkbookGateListRow(row = row, texture = texture)
@@ -548,13 +648,13 @@ private fun WorkbookGateSection(
 private fun WorkbookGateGrid(
     rows: List<WorkbookGateRow>,
     texture: CanvasTexture,
-    hyleDeco: FontFamily,
+    font: ProjectFont,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         for (rowChunk in rows.chunked(4)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 for (cell in rowChunk) {
-                    WorkbookGateGridCell(row = cell, texture = texture, hyleDeco = hyleDeco, modifier = Modifier.weight(1f))
+                    WorkbookGateGridCell(row = cell, texture = texture, font = font, modifier = Modifier.weight(1f))
                 }
                 repeat(4 - rowChunk.size) { Spacer(modifier = Modifier.weight(1f)) }
             }
@@ -567,11 +667,11 @@ private fun WorkbookGateGrid(
 private fun WorkbookGateGridCell(
     row: WorkbookGateRow,
     texture: CanvasTexture,
-    hyleDeco: FontFamily,
+    font: ProjectFont,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        BasicText(text = row.heroText, style = TextStyle(fontFamily = hyleDeco, fontSize = 26.sp, color = texture.ink.toColor()))
+        ProjectGlyphHero(font = font, glyphName = row.heroText, sizeSp = 26f, color = texture.ink.toColor())
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             SeverityMark(status = row.status, color = texture.fg.toColor())
             BasicText(
@@ -751,3 +851,25 @@ private const val WORKBOOK_REFLECTION_DISCLOSURE =
 private const val WORKBOOK_REFLECTION_LIVE_DISCLOSURE =
     "Saves a real reflection to the open project's own lessons file, and confirms this task if it is a judgment " +
         "call the project can't gate by itself (docs/PROJECT_MODEL.md §10.3)."
+
+/** A gate cell's glyph, large, drawn from the project's own outline for the glyph named [glyphName]; the name itself, in the UI's face, where the project has no such glyph. */
+@Composable
+private fun ProjectGlyphHero(
+    font: ProjectFont,
+    glyphName: String,
+    sizeSp: Float,
+    color: androidx.compose.ui.graphics.Color,
+) {
+    val glyph = font.glyph(glyphName)
+    val char =
+        glyph
+            ?.unicodes
+            ?.firstOrNull()
+            ?.takeIf { it in 0..0xFFFF }
+            ?.toChar()
+    if (glyph != null && char != null) {
+        ProjectText(font = font, text = char.toString(), sizeSp = sizeSp, color = color)
+    } else {
+        BasicText(text = glyphName, style = Typography.mono(sizeSp = 11.0).copy(color = color))
+    }
+}

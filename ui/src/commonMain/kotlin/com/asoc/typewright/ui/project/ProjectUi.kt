@@ -19,6 +19,7 @@ import com.asoc.typewright.project.NewProjectSpec
 import com.asoc.typewright.project.OpenResult
 import com.asoc.typewright.project.ProjectLocation
 import com.asoc.typewright.project.ProjectSession
+import com.asoc.typewright.project.ProjectState
 import com.asoc.typewright.project.ProjectWorkspace
 import com.asoc.typewright.project.ProjectZip
 import com.asoc.typewright.project.SaveStatus
@@ -134,7 +135,13 @@ fun createProjectWorkspace(
     io: CoroutineDispatcher = Dispatchers.Default,
     storage: StorageProvider = InMemoryStorageProvider(),
     config: AppConfigStore = InMemoryAppConfigStore(),
-): ProjectWorkspace = ProjectWorkspace(storage, config) { SessionEnvironment(scope = scope, io = io) }
+): ProjectWorkspace = ProjectWorkspace(storage, config, outlierCount = ::outliersIn) { SessionEnvironment(scope = scope, io = io) }
+
+/** How many of [state]'s glyphs are node-economy outliers against the project's style class, or null when that cannot be measured. */
+private fun outliersIn(state: ProjectState): Int? {
+    val master = state.font.masters.firstOrNull { it.isDefault } ?: state.font.masters.firstOrNull() ?: return null
+    return projectEconomy(state.meta.manifest, ProjectFont.of(master))?.outliers
+}
 
 /** [createProjectWorkspace], remembered for the composition's lifetime -- [com.asoc.typewright.ui.TypewrightApp]'s own default when no platform `main()` supplies one. */
 @Composable

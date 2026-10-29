@@ -55,6 +55,12 @@ kotlin {
                 implementation(project(":shape-preview"))
             }
         }
+        named("desktopMain") {
+            dependencies {
+                // Ship's folder is chosen with the same picker (zenity, kdialog, Swing) as the project folder.
+                implementation(project(":project:storage"))
+            }
+        }
         named("desktopTest") {
             dependencies {
                 implementation(compose.desktop.currentOs)
@@ -65,9 +71,33 @@ kotlin {
 
 // The screenshot harness (PlaceholderScreenshotTest and the ones P4+ add) writes PNGs here.
 val screenshotDir = layout.buildDirectory.dir("screenshots")
+val repoRoot = isolated.rootProject.projectDirectory.asFile.absolutePath
 tasks.named<Test>("desktopTest") {
     systemProperty("typewright.screenshotDir", screenshotDir.get().asFile.absolutePath)
+    systemProperty("typewright.repoRoot", repoRoot)
     outputs.dir(screenshotDir)
+    // The tests that run the real fontmake and Fontbakery are their own task (below), so a machine without them, such as the Android
+    // CI job that runs this one, keeps a green desktopTest.
+    filter { excludeTestsMatching("*PythonIntegrationTest") }
+}
+
+// The same compiled tests as desktopTest, taken from the compilation so that running this task does not first run all of desktopTest.
+val desktopTestCompilation = kotlin.targets.getByName("desktop").compilations.getByName("test")
+
+tasks.register<Test>("pythonIntegrationTest") {
+    description =
+        "Runs the Check page against the real fontmake and Fontbakery from the Python TYPEWRIGHT_PYTHON names; fails, never skips, without one."
+    group = "verification"
+    testClassesDirs = desktopTestCompilation.output.classesDirs
+    classpath = files(desktopTestCompilation.output.allOutputs, desktopTestCompilation.runtimeDependencyFiles)
+    systemProperty("typewright.screenshotDir", screenshotDir.get().asFile.absolutePath)
+    systemProperty("typewright.repoRoot", repoRoot)
+    // Real processes on the machine: the result depends on what is installed, so it is never cached or up to date.
+    doNotTrackState("runs fontmake and Fontbakery from the Python on this machine")
+    filter {
+        includeTestsMatching("*PythonIntegrationTest")
+        isFailOnNoMatchingTests = true
+    }
 }
 
 // P4a tried `wasmJs { nodejs() }` first, the same way :compile and :shape-preview run their own

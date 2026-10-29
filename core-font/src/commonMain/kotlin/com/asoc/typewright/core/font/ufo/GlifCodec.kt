@@ -34,7 +34,9 @@ import kotlin.math.roundToInt
  *   one (an `angle` without both `x` and `y`, or a non-numeric value) is rejected; see [Guideline];
  * - `<lib>` is read only for [LINE_CONTOUR_FORMAT_LIB_KEY]; its other keys, `<image>` and `<note>`
  *   are skipped, since [Glyph] has nowhere to keep them;
- * - a `<point>`'s `smooth`, `name` and `identifier` attributes are dropped for the same reason.
+ * - a `<point>`'s `smooth="yes"` on an on-curve point becomes [ContourPoint.smooth] and is written
+ *   back, so a smooth/corner choice survives a save and a reopen. A `<point>`'s `name` and
+ *   `identifier` attributes are dropped, since [Glyph] has nowhere to keep them.
  *
  * **Points.** `type="line"`, `"curve"` and `"qcurve"` mark on-curve points; a point with no type,
  * or with `type="offcurve"`, is off-curve. `type="move"` (an open contour) has no [Contour] to
@@ -239,6 +241,7 @@ private fun readOutline(reader: XmlReader): List<List<RawPoint>> {
 private class RawPoint(
     val point: Point,
     val type: String?,
+    val smooth: Boolean = false,
 )
 
 private val ON_CURVE_TYPES = setOf("move", "line", "curve", "qcurve")
@@ -259,7 +262,8 @@ private fun readContourPoints(reader: XmlReader): List<RawPoint> {
                 in ON_CURVE_TYPES -> written
                 else -> throw IllegalArgumentException("<point type=\"$written\"> is not a UFO point type")
             }
-        raw += RawPoint(Point(x, y), type)
+        val smooth = type != null && reader.getAttributeValue(null, "smooth") == "yes"
+        raw += RawPoint(Point(x, y), type, smooth)
         reader.skipElement()
         event = skipToStartOrEnd(reader, reader.next())
     }
@@ -289,12 +293,13 @@ private fun ownFormat(raw: List<RawPoint>): CurveFormat? =
 
 /** [raw] as a quadratic contour: file order kept, typed points on-curve, the rest off-curve. */
 private fun buildQuadraticContour(raw: List<RawPoint>): Contour =
-    Contour(raw.map { ContourPoint(it.point, onCurve = it.type != null) }, CurveFormat.QUADRATIC)
+    Contour(raw.map { ContourPoint(it.point, onCurve = it.type != null, smooth = it.smooth) }, CurveFormat.QUADRATIC)
 
 private class Vertex(
     val point: Point,
     val type: String,
     val incomingOffs: List<Point>,
+    val smooth: Boolean,
 )
 
 /** [raw] as a cubic contour in `core-geometry`'s normal form; see [parseGlif]'s KDoc for the convention this reconstructs. */
@@ -309,7 +314,7 @@ private fun buildCubicContour(raw: List<RawPoint>): Contour {
         if (type == null) {
             pending.add(p.point)
         } else {
-            vertices += Vertex(p.point, type, pending)
+            vertices += Vertex(p.point, type, pending, p.smooth)
             pending = mutableListOf()
         }
     }
@@ -341,7 +346,7 @@ private fun buildCubicContour(raw: List<RawPoint>): Contour {
                     )
                 }
             }
-        points += ContourPoint(current.point, onCurve = true)
+        points += ContourPoint(current.point, onCurve = true, smooth = current.smooth)
         points += ContourPoint(c1, onCurve = false)
         points += ContourPoint(c2, onCurve = false)
     }
@@ -499,6 +504,7 @@ private fun writePoint(
     out: StringBuilder,
     point: Point,
     type: String?,
+    smooth: Boolean = false,
 ) {
     out
         .append("      <point x=\"")
@@ -507,6 +513,7 @@ private fun writePoint(
         .append(point.y)
         .append('"')
     if (type != null) out.append(" type=\"").append(type).append('"')
+    if (smooth && type != null) out.append(" smooth=\"yes\"")
     out.append("/>\n")
 }
 
@@ -519,7 +526,7 @@ private fun writeCubicContour(
     out.append("    <contour>\n")
     for (i in 0 until m) {
         val incomingIsLine = contour.isLineTriple((i - 1 + m) % m)
-        writePoint(out, points[3 * i].point, if (incomingIsLine) "line" else "curve")
+        writePoint(out, points[3 * i].point, if (incomingIsLine) "line" else "curve", points[3 * i].smooth)
         if (!contour.isLineTriple(i)) {
             writePoint(out, points[3 * i + 1].point, null)
             writePoint(out, points[3 * i + 2].point, null)
@@ -543,7 +550,7 @@ private fun writeQuadraticContour(
                 !points[(i - 1 + n) % n].onCurve -> "qcurve"
                 else -> "line"
             }
-        writePoint(out, current.point, type)
+        writePoint(out, current.point, type, current.smooth)
     }
     out.append("    </contour>\n")
 }

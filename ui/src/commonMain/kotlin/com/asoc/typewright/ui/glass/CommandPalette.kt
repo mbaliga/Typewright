@@ -9,10 +9,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,24 +40,10 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.asoc.typewright.core.geometry.Contour
-import com.asoc.typewright.core.geometry.ContourLocation
-import com.asoc.typewright.core.geometry.ContourPoint
-import com.asoc.typewright.core.geometry.CurveFormat
-import com.asoc.typewright.core.geometry.PaletteCommand
-import com.asoc.typewright.core.geometry.Point
-import com.asoc.typewright.core.geometry.closePolylineToContour
-import com.asoc.typewright.core.geometry.count
-import com.asoc.typewright.core.geometry.direction
-import com.asoc.typewright.core.geometry.enforceContourDirections
-import com.asoc.typewright.core.geometry.harmoniseCurvatureAtJoin
-import com.asoc.typewright.core.geometry.insertExtremaOnCurvePoints
-import com.asoc.typewright.core.geometry.knifeContour
-import com.asoc.typewright.core.geometry.reverseContour
-import com.asoc.typewright.core.geometry.roundContourCoordinates
-import com.asoc.typewright.core.geometry.simplifyContour
 import com.asoc.typewright.project.ProjectWorkspace
 import com.asoc.typewright.ui.brief.LocalOpenNewProjectBrief
+import com.asoc.typewright.ui.draw.GlyphDirectory
+import com.asoc.typewright.ui.imports.rememberFontImportPaletteEntries
 import com.asoc.typewright.ui.project.InMemoryProjectFolderPicker
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.project.LocalZipTransferSupported
@@ -69,35 +59,19 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * The desktop command palette (`UI_SPEC.md` §4 and brief §5.2/§10 item 6: "command palette on
- * Ctrl/⌘ K"; the explorer's own worked example, `ui/typewright-explorer.html` `.palette`/`.li`/
- * `.in`, grepped directly, around line 928: a 520 dp-wide panel centred 70 dp from the top, an
- * input row with a `›_` prompt glyph and cursor, and a list of icon-less rows (label + small muted
- * description + right-aligned `kbd` shortcut), the current row a quiet ink tint).
+ * The command palette (`UI_SPEC.md` §4 and brief §5.2/§10 item 6: Ctrl/⌘ K, and the first item of every
+ * ⋯ menu): the explorer's `.palette` (a 520 dp panel 70 dp from the top, an input row with a `›_`
+ * prompt, icon-less rows of label, a small muted description and a right-aligned shortcut, the current
+ * row a quiet ink tint, square corners as its brutalist pass resets them).
  *
- * **Border radius.** The explorer's base `.palette` rule gives it `border-radius:12px`, but the
- * later "brutalist pass" stylesheet (around line 466) explicitly lists `.palette` among the
- * selectors it resets to `border-radius:0` -- a plain, unconditional, later `<style>` block with
- * no toggle, so it is what actually renders. This panel is drawn with square corners to match.
- *
- * **No desktop-only source set exists in `ui` yet** (only `commonMain`/`commonTest`/`desktopTest`;
- * confirmed by listing `ui/src` before writing this). Rather than invent one for a single
- * composable, this follows the precedent `SheetGestures.kt`'s own `roomKeyboardNavigation` already
- * set: a plain `commonMain` composable and keyboard modifier that only a physical keyboard's
- * Ctrl/⌘+K chord ever triggers in practice -- harmless to compile everywhere, meaningfully
- * reachable only where a keyboard exists. `docs/OPEN_QUESTIONS.md`'s P5b UI entry states this
- * plainly rather than claiming a real desktop/common split.
- *
- * **Wired to real functions, on a small demo shape.** This module has no live contour-selection
- * model yet (P5b's puck/primitives half is a sibling task, not this one), so each of the eight
- * Palette commands below runs its real `core-geometry` function against a small, fixed demo
- * contour ([demoSquare]/[demoCircle]/[demoTriangleForClose]) rather than a stub -- see
- * [paletteEntries]'s own KDoc for exactly which demo each command uses and why, and
- * `docs/OPEN_QUESTIONS.md` for the honest statement that this is a demo, not a real selection.
- * "Run the gate on this glyph" and "Compare with…" are the explorer's own two non-Palette rows
- * (`qa`'s Ship/gate pipeline and Google Fonts comparison) -- shown with the explorer's exact copy
- * for visual completeness, but left unwired (their `run` is `null`): both are out of this task's
- * reach in the time available, and this is stated here rather than pretended otherwise.
+ * What it lists comes from where it is opened. [extraCommands] are the open page's own commands (Draw
+ * passes its registry, so each row is the real command with its measured consequence and its reason when
+ * it cannot run); the project rows (new, open, save, close) follow when a workspace is provided. With a
+ * [directory] and [onGoToGlyph] it also offers "Go to glyph…" and lists glyphs: first when the query is
+ * one character or the person chose go-to, after the commands otherwise ([PaletteRanking]). Enter runs
+ * the highlighted row, a glyph row goes to that glyph, and the highlight returns to the first row
+ * whenever the query changes ([PaletteState]). The rows that need a feature this build does not have
+ * (the gate, a comparison font) are shown with the explorer's copy and say so when run.
  */
 @Composable
 fun CommandPalette(
@@ -105,22 +79,32 @@ fun CommandPalette(
     onDismiss: () -> Unit,
     texture: CanvasTexture,
     modifier: Modifier = Modifier,
+    extraCommands: List<PaletteEntry> = emptyList(),
+    directory: GlyphDirectory? = null,
+    currentGlyph: String? = null,
+    onGoToGlyph: ((String) -> Unit)? = null,
+    startInGoTo: Boolean = false,
 ) {
     if (!visible) return
 
-    var query by remember { mutableStateOf("") }
-    var highlighted by remember { mutableStateOf(0) }
+    var state by remember(startInGoTo) { mutableStateOf(PaletteState(goToMode = startInGoTo && directory != null)) }
     var lastResult by remember { mutableStateOf<String?>(null) }
     val workspace = LocalProjectWorkspace.current
     val zipTransferSupported = LocalZipTransferSupported.current
     val openNewProject = LocalOpenNewProjectBrief.current
     val scope = rememberCoroutineScope()
+    val fontImportEntries = rememberFontImportPaletteEntries(onDismiss)
+    val canGoTo = directory != null && onGoToGlyph != null && directory.glyphs.isNotEmpty()
     val entries =
-        remember(workspace, zipTransferSupported, openNewProject) {
-            paletteEntries() + projectPaletteEntries(workspace, zipTransferSupported, openNewProject, scope) { lastResult = it }
+        remember(workspace, zipTransferSupported, openNewProject, extraCommands, canGoTo, fontImportEntries) {
+            extraCommands +
+                listOfNotNull(if (canGoTo) goToGlyphEntry() else null) +
+                projectPaletteEntries(workspace, zipTransferSupported, openNewProject, scope) { lastResult = it } +
+                fontImportEntries +
+                unwiredEntries()
         }
-    val filtered = remember(query, entries) { entries.filter { it.label.contains(query, ignoreCase = true) } }
-    if (highlighted >= filtered.size) highlighted = 0
+    val rows = remember(state, entries, directory) { PaletteRanking.arrange(state, entries, directory.takeIf { canGoTo }) }
+    val highlighted = state.highlighted.coerceIn(0, (rows.size - 1).coerceAtLeast(0))
 
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(visible) { if (visible) focusRequester.requestFocus() }
@@ -130,15 +114,33 @@ fun CommandPalette(
     val muted = texture.muted.toColor()
     val ink = texture.ink.toColor()
 
-    fun runHighlighted() {
-        val entry = filtered.getOrNull(highlighted) ?: return
-        lastResult = entry.run?.invoke() ?: "${entry.label}: not wired in this build"
+    fun runRow(index: Int) {
+        when (val row = rows.getOrNull(index)) {
+            null -> {
+                Unit
+            }
+
+            is PaletteItem.GlyphRow -> {
+                onGoToGlyph?.invoke(row.match.entry.name)
+                onDismiss()
+            }
+
+            is PaletteItem.Command -> {
+                val entry = row.entry
+                if (entry.id == GO_TO_GLYPH_ID) {
+                    state = state.enteringGoTo()
+                } else {
+                    val result = entry.run?.invoke() ?: "${entry.label}: not wired in this build"
+                    if (entry.closesPalette) onDismiss() else lastResult = result
+                }
+            }
+        }
     }
 
-    Box(
+    Column(
         modifier =
             modifier
-                .width(PALETTE_WIDTH_DP.dp)
+                .widthIn(max = PALETTE_WIDTH_DP.dp)
                 .padding(top = PALETTE_TOP_DP.dp)
                 .background(panelBg)
                 .onPreviewKeyEvent { event ->
@@ -150,17 +152,17 @@ fun CommandPalette(
                         }
 
                         Key.DirectionDown -> {
-                            if (filtered.isNotEmpty()) highlighted = (highlighted + 1) % filtered.size
+                            state = state.moved(1, rows.size)
                             true
                         }
 
                         Key.DirectionUp -> {
-                            if (filtered.isNotEmpty()) highlighted = (highlighted - 1 + filtered.size) % filtered.size
+                            state = state.moved(-1, rows.size)
                             true
                         }
 
                         Key.Enter, Key.NumPadEnter -> {
-                            runHighlighted()
+                            runRow(highlighted)
                             true
                         }
 
@@ -170,64 +172,98 @@ fun CommandPalette(
                     }
                 },
     ) {
-        Column {
-            // --- Input row: ">_" prompt, typed query, blinking cursor (from BasicTextField's own
-            // cursor), "esc" hint right-aligned -- the explorer's own `.in` row exactly.
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                BasicText(text = "›_", style = Typography.sentence.copy(color = muted))
-                Spacer(Modifier.width(10.dp))
-                Box(modifier = Modifier.weight(1f)) {
-                    BasicTextField(
-                        value = query,
-                        onValueChange = { query = it },
-                        textStyle = Typography.sentence.copy(color = fg),
-                        singleLine = true,
-                        cursorBrush = SolidColor(fg),
-                        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
-                    )
+        // The input row: the `›_` prompt, the query, and the esc hint, as the explorer's `.in` row.
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BasicText(text = "›_", style = Typography.sentence.copy(color = muted))
+            Spacer(Modifier.width(10.dp))
+            Box(modifier = Modifier.weight(1f)) {
+                if (state.query.isEmpty() && state.goToMode) {
+                    BasicText(text = "Go to a glyph: a name, a character or U+0041", style = Typography.sentence.copy(color = muted))
                 }
-                BasicText(text = "esc", style = Typography.sentence.copy(color = muted))
+                BasicTextField(
+                    value = state.query,
+                    onValueChange = { state = state.withQuery(it) },
+                    textStyle = Typography.sentence.copy(color = fg),
+                    singleLine = true,
+                    cursorBrush = SolidColor(fg),
+                    modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                )
             }
+            BasicText(text = "esc", style = Typography.sentence.copy(color = muted))
+        }
 
-            // --- The command rows themselves ---
-            for ((index, entry) in filtered.withIndex()) {
+        Column(modifier = Modifier.heightIn(max = PALETTE_MAX_LIST_DP.dp).verticalScroll(rememberScrollState())) {
+            for ((index, row) in rows.withIndex()) {
                 val current = index == highlighted
+                val text =
+                    when (row) {
+                        is PaletteItem.Command -> RowText(row.entry.label, row.entry.description, row.entry.shortcut, row.entry.dimmed)
+                        is PaletteItem.GlyphRow -> glyphRowText(row, currentGlyph)
+                    }
                 Row(
                     modifier =
                         Modifier
                             .fillMaxWidth()
                             .let { if (current) it.background(ink.copy(alpha = PALETTE_CURRENT_ROW_TINT)) else it }
-                            .clickable {
-                                highlighted = index
-                                runHighlighted()
-                            }.padding(horizontal = 16.dp, vertical = 9.dp),
+                            .clickable { runRow(index) }
+                            .padding(horizontal = 16.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    BasicText(text = entry.label, style = Typography.sentence.copy(fontSize = PALETTE_ROW_SIZE_SP.sp, color = fg))
+                    val strength = if (text.dimmed) PALETTE_DIMMED_ALPHA else 1f
+                    BasicText(
+                        text = text.label,
+                        style = Typography.sentence.copy(fontSize = PALETTE_ROW_SIZE_SP.sp, color = fg.copy(alpha = strength)),
+                    )
                     Spacer(Modifier.width(10.dp))
                     BasicText(
-                        text = "· ${entry.description}",
+                        text = "· ${text.description}",
                         style = Typography.sentence.copy(color = muted),
                         modifier = Modifier.weight(1f),
                     )
-                    entry.shortcut?.let { shortcut ->
-                        BasicText(text = shortcut, style = Typography.mono(sizeSp = 11.0).copy(color = muted))
-                    }
+                    text.shortcut?.let { BasicText(text = it, style = Typography.mono(sizeSp = 11.0).copy(color = muted)) }
                 }
             }
-
-            lastResult?.let { result ->
+            if (rows.isEmpty()) {
                 BasicText(
-                    text = result,
-                    style = Typography.mono(sizeSp = 10.0).copy(color = muted),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                    text = if (state.goToMode) "No glyph is called that." else "Nothing is called that.",
+                    style = Typography.sentence.copy(color = muted),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                 )
             }
         }
+
+        lastResult?.let { result ->
+            BasicText(
+                text = result,
+                style = Typography.mono(sizeSp = 10.0).copy(color = muted),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+            )
+        }
     }
+}
+
+private data class RowText(
+    val label: String,
+    val description: String,
+    val shortcut: String?,
+    val dimmed: Boolean,
+)
+
+private fun glyphRowText(
+    row: PaletteItem.GlyphRow,
+    currentGlyph: String?,
+): RowText {
+    val entry = row.match.entry
+    val description =
+        listOfNotNull(
+            entry.character?.takeIf { it != entry.name },
+            entry.unicodeLabel,
+            if (entry.name == currentGlyph) "open now" else null,
+        ).joinToString(" · ").ifEmpty { "no unicode" }
+    return RowText(label = entry.name, description = description, shortcut = null, dimmed = false)
 }
 
 /** Opens/closes [CommandPalette] on Ctrl+K (desktop/Linux/Windows) or ⌘+K (macOS) key-down, per UI_SPEC's own repeated "command palette on Ctrl/⌘ K" -- see [CommandPalette]'s own KDoc on why this lives in commonMain with no desktop-only gate. */
@@ -243,76 +279,41 @@ fun Modifier.commandPaletteShortcut(onToggle: () -> Unit): Modifier =
     }
 
 private const val PALETTE_WIDTH_DP = 520.0
+private const val PALETTE_MAX_LIST_DP = 420.0
+private const val PALETTE_DIMMED_ALPHA = 0.5f
+private const val GO_TO_GLYPH_ID = "go-to-glyph"
 private const val PALETTE_TOP_DP = 70.0
 private const val PALETTE_ROW_SIZE_SP = 12.5
 private const val PALETTE_CURRENT_ROW_TINT = 0.06f
 
-/** One command-palette row: what it shows, and what running it actually does (`null` = shown but not wired, per [CommandPalette]'s own KDoc). */
+/**
+ * One command-palette row: what it shows, and what running it actually does ([run] null is a row shown
+ * but not wired in this build, and says so when chosen). [closesPalette] says the effect is visible on
+ * the page behind (an edit), so the palette gets out of its way; [dimmed] draws a row that cannot run
+ * right now at half strength, with the reason as its description.
+ */
 data class PaletteEntry(
     val id: String,
     val label: String,
     val description: String,
     val shortcut: String? = null,
     val run: (() -> String)?,
+    val closesPalette: Boolean = false,
+    val dimmed: Boolean = false,
 )
 
-/**
- * The eight `PaletteCommand`s (`core-geometry`, the sibling P5b report) plus the explorer's own two
- * extra rows, in the explorer's own displayed order first (`Add extremes`, `Correct path
- * direction`, `Round coordinates`, `Run the gate on this glyph`, `Compare with…` -- copy and
- * shortcuts reused verbatim from `ui/typewright-explorer.html` lines 929-933), then the five brief
- * commands the explorer's own worked example does not show (`harmonise curvature`, `tidy/simplify`,
- * `reverse contour`, `cut/knife`, `close/open contour`) in new rows written in the same
- * label-plus-"· description" copy style, with no shortcut invented for any of them (this task's own
- * choice, not the explorer's).
- *
- * **The demo shapes each `run` closure uses**, since none of them operate on a live selection yet:
- * [demoSquare] (a plain 4-corner square, [closePolylineToContour]) for add-extremes, correct-
- * direction, reverse, round-coordinates and knife; [demoSquareWithRedundantPoint] (the same square
- * with one extra, genuinely collinear point on its bottom edge) for tidy, so there is something
- * real to remove; [demoCircle] (a standard 4-arc kappa-circle approximation, the same construction
- * `ArcTest`/`HobbySpline.kt` already use elsewhere in this codebase) for harmonise-curvature, since
- * a straight-edged square has zero curvature on both sides of every join and so nothing to
- * harmonise; [demoTriangleForClose] (a bare 3-point polyline, not yet a `Contour`) for
- * close-contour, the one command whose own input is a point list rather than a contour
- * ([com.asoc.typewright.core.geometry.PaletteTarget.POINT_LIST]).
- */
-private fun paletteEntries(): List<PaletteEntry> =
+private fun goToGlyphEntry() =
+    PaletteEntry(
+        id = GO_TO_GLYPH_ID,
+        label = "Go to glyph…",
+        description = "by name, character or code point",
+        shortcut = "Ctrl G",
+        run = { "" },
+    )
+
+/** The explorer's two rows that need features this build does not have: shown with its copy, and they say so. */
+private fun unwiredEntries(): List<PaletteEntry> =
     listOf(
-        PaletteEntry(
-            id = PaletteCommand.ADD_EXTREMES.id,
-            label = "Add extremes",
-            description = "insert on-curve points at the 4 extremes",
-            shortcut = "⇧E",
-            run = {
-                val before = demoCircle().count()
-                val after = insertExtremaOnCurvePoints(demoCircle()).count()
-                "add extremes: ${before.onCurveEquivalent}·${before.offCurve} → ${after.onCurveEquivalent}·${after.offCurve}"
-            },
-        ),
-        PaletteEntry(
-            id = PaletteCommand.CORRECT_DIRECTION.id,
-            label = "Correct path direction",
-            description = "outer counter-clockwise",
-            shortcut = "⇧R",
-            run = {
-                val reversedFirst = reverseContour(demoSquare())
-                val before = reversedFirst.direction()
-                val corrected = enforceContourDirections(listOf(reversedFirst)).first()
-                val after = corrected.direction()
-                "correct direction: $before → $after"
-            },
-        ),
-        PaletteEntry(
-            id = PaletteCommand.ROUND_COORDINATES.id,
-            label = "Round coordinates",
-            description = "to integer units",
-            shortcut = null,
-            run = {
-                roundContourCoordinates(demoSquare())
-                "round coordinates: identity (Point.x/y are already Int -- core-geometry's own honesty note)"
-            },
-        ),
         PaletteEntry(
             id = "gate",
             label = "Run the gate on this glyph",
@@ -326,64 +327,6 @@ private fun paletteEntries(): List<PaletteEntry> =
             description = "overlay another font at cap height",
             shortcut = null,
             run = null,
-        ),
-        PaletteEntry(
-            id = PaletteCommand.HARMONISE_CURVATURE.id,
-            label = "Harmonise curvature",
-            description = "match curvature across a smooth join",
-            shortcut = null,
-            run = {
-                val before = demoCircle()
-                val after = harmoniseCurvatureAtJoin(before, onCurveIndex = 0)
-                // index 1 is the outgoing segment's own near handle -- the one point
-                // harmoniseCurvatureAtJoin is allowed to move for this join (see its own KDoc:
-                // "without moving the anchor" -- index 0 -- "and without changing... tangent
-                // direction" -- the far control at index 2 is untouched either).
-                val moved = before.points[1].point != after.points[1].point
-                "harmonise curvature: join 0's outgoing handle ${if (moved) "adjusted" else "already matched"}"
-            },
-        ),
-        PaletteEntry(
-            id = PaletteCommand.TIDY.id,
-            label = "Tidy / simplify",
-            description = "remove redundant points, with a live count",
-            shortcut = null,
-            run = {
-                val result = simplifyContour(demoSquareWithRedundantPoint())
-                "tidy: ${result.before.onCurveEquivalent}·${result.before.offCurve} → " +
-                    "${result.after.onCurveEquivalent}·${result.after.offCurve}"
-            },
-        ),
-        PaletteEntry(
-            id = PaletteCommand.REVERSE_CONTOUR.id,
-            label = "Reverse contour",
-            description = "flip point winding order",
-            shortcut = null,
-            run = {
-                val before = demoSquare()
-                val after = reverseContour(before)
-                "reverse contour: ${before.direction()} → ${after.direction()}"
-            },
-        ),
-        PaletteEntry(
-            id = PaletteCommand.KNIFE.id,
-            label = "Cut / knife",
-            description = "split a contour at two picked points",
-            shortcut = null,
-            run = {
-                val (a, b) = knifeContour(demoSquare(), ContourLocation(0, 0.5), ContourLocation(2, 0.5))
-                "knife: split into ${a.count().onCurveEquivalent} + ${b.count().onCurveEquivalent} on-curve points"
-            },
-        ),
-        PaletteEntry(
-            id = PaletteCommand.CLOSE_CONTOUR.id,
-            label = "Close contour",
-            description = "connect the last point back to the first",
-            shortcut = null,
-            run = {
-                val closed = closePolylineToContour(demoTriangleForClose())
-                "close contour: ${closed.count().onCurveEquivalent}·${closed.count().offCurve} points"
-            },
         ),
     )
 
@@ -466,54 +409,4 @@ private fun projectPaletteEntries(
             )
     }
     return entries
-}
-
-/** A plain 4-corner square, closed with [closePolylineToContour] -- straight (degenerate-cubic) edges, no curvature. */
-private fun demoSquare(): Contour = closePolylineToContour(listOf(Point(0, 0), Point(200, 0), Point(200, 200), Point(0, 200)))
-
-/** [demoSquare]'s own corners plus one genuinely collinear extra point on the bottom edge, for [simplifyContour] to have something real to remove. */
-private fun demoSquareWithRedundantPoint(): Contour =
-    closePolylineToContour(listOf(Point(0, 0), Point(100, 0), Point(200, 0), Point(200, 200), Point(0, 200)))
-
-/** A bare 3-point polyline (not yet a [Contour]) for [closePolylineToContour]'s own demo. */
-private fun demoTriangleForClose(): List<Point> = listOf(Point(0, 0), Point(150, 0), Point(150, 150))
-
-private const val DEMO_CIRCLE_RADIUS = 200
-private const val DEMO_CIRCLE_KAPPA = 0.5522847498307936
-
-/**
- * A 4-arc circle-*like* approximation (radius [DEMO_CIRCLE_RADIUS], the textbook
- * `kappa = 0.5522847498307936` constant this codebase already cites elsewhere -- `HobbySpline.kt`'s
- * own top KDoc, `ArcTest`'s own fixture) -- genuinely curved and tangent-continuous at every join
- * (every handle is purely horizontal or vertical, so direction always matches exactly), unlike
- * [demoSquare]. The east->north segment's own handle length is deliberately shortened
- * ([kShort], not the shared [k] the other three segments use), so the join at east (on-curve index
- * `0`, the one [PaletteEntry.run] for harmonise-curvature harmonises) has a real, non-zero
- * curvature mismatch to correct -- a perfectly uniform circle would already be curvature-matched
- * everywhere and give that demo nothing to do.
- */
-private fun demoCircle(): Contour {
-    val r = DEMO_CIRCLE_RADIUS
-    val k = kotlin.math.round(DEMO_CIRCLE_RADIUS * DEMO_CIRCLE_KAPPA).toInt()
-    val kShort = kotlin.math.round(k * 0.6).toInt()
-    val e = Point(r, 0)
-    val n = Point(0, r)
-    val w = Point(-r, 0)
-    val s = Point(0, -r)
-    val points =
-        listOf(
-            ContourPoint(e, true),
-            ContourPoint(Point(r, kShort), false),
-            ContourPoint(Point(kShort, r), false),
-            ContourPoint(n, true),
-            ContourPoint(Point(-k, r), false),
-            ContourPoint(Point(-r, k), false),
-            ContourPoint(w, true),
-            ContourPoint(Point(-r, -k), false),
-            ContourPoint(Point(-k, -r), false),
-            ContourPoint(s, true),
-            ContourPoint(Point(k, -r), false),
-            ContourPoint(Point(r, -k), false),
-        )
-    return Contour(points, CurveFormat.CUBIC)
 }

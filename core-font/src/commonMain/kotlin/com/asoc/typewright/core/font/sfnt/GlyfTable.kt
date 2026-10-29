@@ -101,6 +101,24 @@ fun readGlyfRecord(
     }
 }
 
+/**
+ * The `xMin` written in glyph [gid]'s `glyf` header, or null for a glyph with no outline data. A
+ * rasteriser places the outline so that this edge lands on the glyph's `hmtx` left side bearing
+ * (the TrueType phantom-point rule), which is why [SfntFont.glyph] needs it.
+ */
+fun readGlyfHeaderXMin(
+    fontBytes: ByteArray,
+    glyfTableOffset: Int,
+    loca: LocaTable,
+    gid: Int,
+): Int? {
+    val start = loca.offsets[gid]
+    if (start == loca.offsets[gid + 1]) return null
+    val cursor = ByteCursor(fontBytes, glyfTableOffset + start)
+    cursor.skip(2) // numberOfContours
+    return cursor.i16()
+}
+
 private fun readSimpleGlyphContours(
     cursor: ByteCursor,
     numberOfContours: Int,

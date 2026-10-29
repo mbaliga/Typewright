@@ -26,8 +26,11 @@ enum class DeckSection(
 /** The left circle: Back leaves, Close leaves without committing (red, with a white ✕), or nothing. */
 enum class DeckLeft { BACK, CLOSE, NONE }
 
-/** The right circle: the page menu, or the one primary action Next (filled), or nothing. */
-enum class DeckRight { MENU, NEXT, CHECK, PLUS, NONE }
+/**
+ * The right circle: the page menu, or the one primary action Next (filled), or nothing. [REFRESH] is Check's Run again; [BUILD] is Ship's
+ * build and write (an arrow rising from a base), and [DOWNLOAD] its export where the browser can only offer a file (an arrow falling to one).
+ */
+enum class DeckRight { MENU, NEXT, CHECK, PLUS, REFRESH, BUILD, DOWNLOAD, NONE }
 
 /** How far along a station's work is, drawn beside its label on the section arc (the explorer's Home stations). */
 enum class StationStatus(
