@@ -14,13 +14,12 @@ kotlin {
                 api(project(":scripts"))
             }
         }
-        // The capture and trace accuracy tests render the repository's own Hyle Deco outlines into
-        // synthetic photographs, so they read `fonts/HyleDeco-Regular.ttf` through core-font. That is
-        // JVM-only on purpose (a file read), and a test-only dependency back onto a downstream
-        // module creates no cycle, the same arrangement core-geometry's own jvmTest uses.
-        jvmTest {
+        // The capture and trace tests draw synthetic photographs (capture-testkit) from the repository's own Hyle Deco outlines.
+        // A test-only dependency back onto a module that itself depends on engine-trace creates no cycle: Gradle builds engine-trace's main
+        // output first, then the testkit, then engine-trace's tests.
+        commonTest {
             dependencies {
-                implementation(project(":core-font"))
+                implementation(project(":capture-testkit"))
             }
         }
     }

@@ -8,6 +8,8 @@ import com.asoc.typewright.engine.trace.CleanedCell
 import com.asoc.typewright.engine.trace.GrayscaleRaster
 import com.asoc.typewright.engine.trace.RasterFrame
 import com.asoc.typewright.engine.trace.cleanCell
+import com.asoc.typewright.scripts.sheets.CellFrame
+import com.asoc.typewright.scripts.sheets.MmRect
 import com.asoc.typewright.scripts.sheets.PrintSheetSpec
 import com.asoc.typewright.scripts.sheets.SheetLayout
 import kotlin.math.max
@@ -25,11 +27,22 @@ import kotlin.math.sqrt
  * after the threshold (the soft edge of a line, a speck of paper texture) is dropped by lifting everything under
  * [PAPER_FLOOR] to white, so the raster handed on is ink on white, as the trace expects.
  *
+ * **Every threshold here is our heuristic** ([GUIDE_CEILING], [PAPER_FLOOR], [MIN_INK_PIXELS], [FAINT_DARKNESS] and the faint-pass
+ * numbers): they were set by looking at synthetic photographs (ink from 0.25 to 0.65 darkness) and are not measured on real pens,
+ * pencils or printers, so a screen that shows one says so. Light pencil is not silently lost: see [readFaint].
+ *
  * A cell is **empty** when its cleaned ink is a few specks (under [MIN_INK_PIXELS]); **uncertain** when the ink touches the edge of
  * the drawing area (cut off, or running in from a neighbour) or is faint; otherwise **read**. Which glyph a cell holds is not
  * judged: it is the template's.
  */
 internal object CellReader {
+    /**
+     * How wide, in millimetres, the band round each printed guide is inside which a thin mark is taken for the guide's leftover: the
+     * guide's own width, a printer's wider toner and a few tenths of a millimetre out of register (our heuristic). A pen line a
+     * millimetre wide or more cannot lie wholly inside it.
+     */
+    const val GHOST_BAND_MM: Double = 1.8
+
     /** The lowest darkness taken as ink. */
     const val GUIDE_CEILING: Double = 0.33
 
@@ -41,6 +54,18 @@ internal object CellReader {
 
     /** Ink whose strongest darkness is under this is faint. */
     const val FAINT_DARKNESS: Double = 0.5
+
+    /** The lowest darkness taken as ink when a cell is read again for faint pencil (our heuristic). */
+    const val FAINT_LEVEL: Double = 0.12
+
+    /** Fewer ink pixels than this, at the faint level, is residue of a printed guide or the paper and not a drawing (our heuristic). */
+    const val FAINT_MIN_INK_PIXELS: Int = 80
+
+    /** Strokes narrower than this many pixels (0.4 mm at the default 10 pixels a millimetre) are taken for a printed guide's leftovers (our heuristic). */
+    const val FAINT_MIN_STROKE_PX: Double = 4.0
+
+    /** The darkness a faint drawing's strongest pixel is stretched to, so the trace, which wants to see ink, can. */
+    const val FAINT_STRETCH_TO: Double = 0.8
 
     private class Read(
         val cell: CapturedCell,
@@ -66,7 +91,21 @@ internal object CellReader {
                 PrintedGuides.coverage(layout, layout.cellBoxes[it], areas[it], flat[it].width, flat[it].height, pxPerMm, blurSigmaMm)
             }
         val strength = PrintedGuides.estimateStrength(flat, coverages)
-        val reads = spec.glyphs.indices.map { readOne(PrintedGuides.correct(flat[it], coverages[it], strength), layout, spec, it, pxPerMm) }
+        val reads =
+            spec.glyphs.indices.map {
+                val band =
+                    PrintedGuides.band(
+                        layout,
+                        layout.cellBoxes[it],
+                        areas[it],
+                        flat[it].width,
+                        flat[it].height,
+                        pxPerMm,
+                        GHOST_BAND_MM,
+                    )
+                val corrected = PrintedGuides.correct(flat[it], coverages[it], strength)
+                readOne(PrintedGuides.withoutGhosts(corrected, band), layout, spec, it, pxPerMm, blurSigmaMm)
+            }
         // Second pass: the relabel list of every uncertain cell is ranked against the drawings of the others.
         return reads.mapIndexed { index, read ->
             val reason = read.reason
@@ -83,6 +122,7 @@ internal object CellReader {
                     read.cell.inkBounds,
                     read.cell.strokeWidthUnits,
                     read.cell.inkFraction,
+                    read.cell.edgeSoftnessUnits,
                 )
             }
         }
@@ -94,6 +134,7 @@ internal object CellReader {
         spec: PrintSheetSpec,
         index: Int,
         pxPerMm: Double,
+        blurSigmaMm: Double,
     ): Read {
         val glyph = spec.glyphs[index]
         val box = layout.cellBoxes[index]
@@ -101,15 +142,14 @@ internal object CellReader {
         val clean = cleanCell(gray, CleanParameters(minimumLevel = GUIDE_CEILING))
         val inkPixels = clean.mask.ink.count { it }
         val empty = CapturedCell(index, glyph.glyphName, CellStatus.Empty, null, null, null, null, 0.0)
-        if (!clean.inkFound || inkPixels < MIN_INK_PIXELS) return Read(empty, null, null)
-
         val frame = layout.frame
-        val cellFrame =
-            RasterFrame(
-                pxPerUnit = pxPerMm * frame.mmPerUnit,
-                leftUnits = frame.leftUnits + (area.left - box.left) / frame.mmPerUnit,
-                topUnits = frame.topUnits - (area.top - box.top) / frame.mmPerUnit,
-            )
+        if (!clean.inkFound ||
+            inkPixels < MIN_INK_PIXELS
+        ) {
+            return readFaint(gray, empty, glyph.glyphName, index, area, box, frame, pxPerMm, blurSigmaMm)
+        }
+
+        val cellFrame = cellFrameOf(frame, area, box, pxPerMm)
         val raster = inkOnWhite(clean)
         val bounds = inkBounds(clean, cellFrame)
         val touches = touchesEdge(clean)
@@ -133,8 +173,71 @@ internal object CellReader {
                 bounds,
                 clean.strokeWidthPx * cellFrame.unitsPerPx,
                 inkPixels.toDouble() / clean.mask.ink.size,
+                blurSigmaMm * frame.unitsPerMm,
             )
         return Read(cell, signature(clean), reason)
+    }
+
+    private fun cellFrameOf(
+        frame: CellFrame,
+        area: MmRect,
+        box: MmRect,
+        pxPerMm: Double,
+    ): RasterFrame =
+        RasterFrame(
+            pxPerUnit = pxPerMm * frame.mmPerUnit,
+            leftUnits = frame.leftUnits + (area.left - box.left) / frame.mmPerUnit,
+            topUnits = frame.topUnits - (area.top - box.top) / frame.mmPerUnit,
+        )
+
+    /**
+     * A cell with nothing at the pen level may still hold a light pencil drawing, and silently calling that cell empty would lose
+     * the person's work without a word. So the cell is read again at [FAINT_LEVEL], and if what turns up is a drawing and not the
+     * residue of a printed guide (enough ink, and strokes at least [FAINT_MIN_STROKE_PX] wide, which a guide is not) it is returned as
+     * a faint cell for the person to confirm, its darkness stretched so the trace can see it. Otherwise it is empty.
+     */
+    private fun readFaint(
+        gray: GrayscaleRaster,
+        empty: CapturedCell,
+        glyphName: String,
+        index: Int,
+        area: MmRect,
+        box: MmRect,
+        frame: CellFrame,
+        pxPerMm: Double,
+        blurSigmaMm: Double,
+    ): Read {
+        val faint = cleanCell(gray, CleanParameters(minimumLevel = FAINT_LEVEL, minimumInk = FAINT_LEVEL))
+        val inkPixels = faint.mask.ink.count { it }
+        if (!faint.inkFound || inkPixels < FAINT_MIN_INK_PIXELS || faint.strokeWidthPx < FAINT_MIN_STROKE_PX) return Read(empty, null, null)
+        val strongest =
+            faint.darkness.indices
+                .filter { faint.mask.ink[it] }
+                .maxOf { faint.darkness[it] }
+        val stretch = FAINT_STRETCH_TO / strongest
+        val cellFrame = cellFrameOf(frame, area, box, pxPerMm)
+        val raster =
+            GrayscaleRaster(
+                faint.width,
+                faint.height,
+                IntArray(faint.darkness.size) {
+                    val d = faint.darkness[it]
+                    if (d < FAINT_LEVEL) 255 else (255.0 * (1.0 - (d * stretch).coerceAtMost(1.0))).roundToInt().coerceIn(0, 255)
+                },
+            )
+        val cell =
+            CapturedCell(
+                index,
+                glyphName,
+                CellStatus.Read,
+                raster,
+                cellFrame,
+                inkBounds(faint, cellFrame),
+                faint.strokeWidthPx * cellFrame.unitsPerPx,
+                inkPixels.toDouble() / faint.mask.ink.size,
+                blurSigmaMm * frame.unitsPerMm,
+            )
+        return Read(cell, signature(faint), UncertainReason.FAINT)
     }
 
     /** The cell as ink on white: darkness at or above [PAPER_FLOOR] kept, everything fainter paper. */

@@ -2,6 +2,7 @@
 
 package com.asoc.typewright.engine.trace
 
+import com.asoc.typewright.capturetestkit.HyleDecoFixture
 import com.asoc.typewright.core.geometry.Contour
 import com.asoc.typewright.core.geometry.Glyph
 import com.asoc.typewright.core.geometry.outlineBounds

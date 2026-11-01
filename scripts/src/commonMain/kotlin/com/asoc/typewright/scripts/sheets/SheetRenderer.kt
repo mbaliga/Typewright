@@ -25,6 +25,15 @@ object SheetRenderer {
     /** The length of a dash, and of the gap after it, in the dashed guides, in millimetres. */
     const val GUIDE_DASH_MM: Double = 1.2
 
+    /** The size, in points, of the name printed on each guide inside a box. */
+    const val GUIDE_LABEL_SIZE_PT: Double = 3.6
+
+    /** How far in from the box's left edge a guide's name starts, in millimetres. */
+    const val GUIDE_LABEL_INSET_MM: Double = 0.8
+
+    /** How far above its guide line the baseline of the guide's name sits, in millimetres. */
+    const val GUIDE_LABEL_RISE_MM: Double = 0.6
+
     private const val LABEL_GRAY = 0.25
     private const val NOTE_GRAY = 0.45
 
@@ -132,7 +141,15 @@ object SheetRenderer {
                         if (line.solid) GUIDE_SOLID_MM else GUIDE_DASHED_MM,
                         if (line.solid) null else GUIDE_DASH_MM,
                     )
-                ops += DrawOp.Text(box.left + 0.8, y - 0.6, pdfSafe(line.label), SheetFont.HELVETICA, 3.6, GUIDE_GRAY)
+                ops +=
+                    DrawOp.Text(
+                        box.left + GUIDE_LABEL_INSET_MM,
+                        y - GUIDE_LABEL_RISE_MM,
+                        pdfSafe(line.label),
+                        SheetFont.HELVETICA,
+                        GUIDE_LABEL_SIZE_PT,
+                        GUIDE_GRAY,
+                    )
             }
             for (x in listOf(layout.guides.advanceLeft, layout.guides.advanceRight)) {
                 val px = box.left + frame.boxMm(x.toDouble(), 0.0).x

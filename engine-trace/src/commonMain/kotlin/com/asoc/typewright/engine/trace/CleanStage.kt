@@ -30,11 +30,14 @@ data class CleanParameters(
     val despeckleMinArea: Int = DEFAULT_CLEAN_DESPECKLE_AREA,
     /** Enclosed pinholes in the ink smaller than this many pixels are filled. */
     val holeFillMaxArea: Int = DEFAULT_CLEAN_HOLE_AREA,
+    /** The darkness the strongest pixel of a cell must reach for the cell to hold ink at all; fainter is paper texture. */
+    val minimumInk: Double = 0.3,
 ) {
     init {
         require(fixedDarkness in 0.05..0.95) { "fixedDarkness must be between 0.05 and 0.95, was $fixedDarkness" }
         require(minimumLevel in 0.05..0.8) { "minimumLevel must be between 0.05 and 0.8, was $minimumLevel" }
         require(despeckleMinArea >= 0 && holeFillMaxArea >= 0) { "areas must not be negative" }
+        require(minimumInk in 0.05..0.8) { "minimumInk must be between 0.05 and 0.8, was $minimumInk" }
     }
 }
 
@@ -64,7 +67,7 @@ class CleanedCell(
 /**
  * The Clean stage (handoff M1 step 2): measures each pixel against the paper around it so uneven light cancels,
  * takes the edge of the ink at Otsu's level (or [CleanParameters.fixedDarkness]), removes specks and fills
- * pinholes, and estimates the stroke width. A cell with nothing darker than 0.3 on the paper scale has no ink.
+ * pinholes, and estimates the stroke width. A cell with nothing darker than [CleanParameters.minimumInk] (0.3 on the paper scale) has no ink.
  */
 fun cleanCell(
     raster: GrayscaleRaster,
@@ -79,7 +82,7 @@ fun cleanCell(
             ThresholdMode.OTSU -> otsuThreshold(darkness).coerceIn(params.minimumLevel, 0.8)
             ThresholdMode.FIXED -> params.fixedDarkness
         }
-    val inkFound = strongest >= max(0.3, level)
+    val inkFound = strongest >= max(params.minimumInk, level)
     val rawMask = BinaryRaster(w, h, BooleanArray(w * h) { inkFound && darkness[it] >= level })
     val despeckled = despeckle(rawMask, params.despeckleMinArea)
     val filled = fillHoles(despeckled, params.holeFillMaxArea)

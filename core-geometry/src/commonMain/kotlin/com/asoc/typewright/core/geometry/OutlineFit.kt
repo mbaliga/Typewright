@@ -12,6 +12,34 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+/** How many times [OutlineFitParameters.wobble] a point may sit from a line and the line still be straight. */
+const val LINE_TOLERANCE_WOBBLES: Double = 4.0
+
+/**
+ * How far a straight side may drift from its line, as a share of its length, beyond the line tolerance: a 650-unit stem that
+ * leans a few units over its whole height is straight to the eye. Applies only to a whole side between two corners and to
+ * sides joined into one, never to the search for runs along a curve.
+ */
+const val LINE_SLOPE_FRACTION: Double = 0.01
+
+/** How many times [OutlineFitParameters.wobble] a fitted curve may stray beyond the fit tolerance. */
+const val CURVE_TOLERANCE_WOBBLES: Double = 1.5
+
+/** How many times [OutlineFitParameters.wobble] a line's ends are trimmed and regrown against. */
+const val TRIM_TOLERANCE_WOBBLES: Double = 2.0
+
+/** How many times [OutlineFitParameters.wobble] a straight run may bow: a window of correlated wobble bows by about its own size. */
+const val BOW_TOLERANCE_WOBBLES: Double = 2.5
+
+/** The longest curve, in multiples of [OutlineFitParameters.softness], that is squared up into a single corner between two straight sides. */
+const val FILLET_SOFTNESS_LENGTHS: Double = 5.0
+
+/** The longest bit of curve, in font units, that [mergeCollinearSides] looks through between two straight sides. */
+const val MAX_NICK_UNITS: Double = 12.0
+
+/** How far, in multiples of [OutlineFitParameters.softness], a curve may depart from the sharp corner it is squared up to. */
+const val FILLET_DEVIATION_SOFTNESS: Double = 1.0
+
 /** [OutlineFitParameters.fitTolerance]'s default, in font units: 2 on a 1000-unit em, a fifth of a percent of the em. */
 const val DEFAULT_OUTLINE_FIT_TOLERANCE: Double = 2.0
 
@@ -41,21 +69,39 @@ data class OutlineFitParameters(
     val sampleSpacing: Double = DEFAULT_OUTLINE_SAMPLE_SPACING,
     /** The shortest stretch, away from a corner, that may be called a straight line; 24 tolerances unless set. */
     val minLineLength: Double = 24.0 * fitTolerance,
+    /**
+     * The wobble of the traced edge, in font units (the root mean square distance of a nearly straight stretch from the smooth
+     * curve through it), when it is known to be more than the pixel grid of a clean render leaves. It widens only the tests that
+     * decide whether a stretch is straight, to [LINE_TOLERANCE_WOBBLES] and [BOW_TOLERANCE_WOBBLES] times it, so a side that
+     * a camera shook by a unit is still one line while the curves are fitted to [fitTolerance]. Zero for a clean edge.
+     */
+    val wobble: Double = 0.0,
+    /**
+     * How soft the traced edge is, in font units: the standard deviation of the blur that rounded it (a photograph is never
+     * sharper than its lens). A short curve between two straight sides, no longer than [FILLET_SOFTNESS_LENGTHS] times this, is
+     * taken for a blurred sharp corner and squared up to where the two sides meet; a rounding longer than that was drawn.
+     * Zero (the default) squares nothing up.
+     */
+    val softness: Double = 0.0,
 ) {
     init {
         require(fitTolerance > 0.0) { "fitTolerance must be positive, was $fitTolerance" }
         require(cornerTurnDegrees in 1.0..179.0) { "cornerTurnDegrees must be between 1 and 179, was $cornerTurnDegrees" }
         require(cornerLookUnits > 0.0 && sampleSpacing > 0.0 && minLineLength > 0.0) { "look, spacing and line length must be positive" }
+        require(wobble >= 0.0 && softness >= 0.0) { "wobble and softness must not be negative, was $wobble and $softness" }
     }
 
+    /** How far a curve may stray from the samples it is fitted to: the fit tolerance and room for the edge's wobble, which a curve cannot follow. */
+    internal val curveTolerance: Double get() = fitTolerance + CURVE_TOLERANCE_WOBBLES * wobble
+
     /** How far a sample may sit from a line and the line still be straight. */
-    internal val lineTolerance: Double get() = 0.6 * fitTolerance
+    internal val lineTolerance: Double get() = max(0.6 * fitTolerance, LINE_TOLERANCE_WOBBLES * wobble)
 
     /** The tighter distance a line's two ends are trimmed and regrown against, so they stop where the curve beside them starts. */
-    internal val trimTolerance: Double get() = 0.4 * fitTolerance
+    internal val trimTolerance: Double get() = max(0.4 * fitTolerance, TRIM_TOLERANCE_WOBBLES * wobble)
 
     /** How much a straight run may bow before it is called a curve: the systematic bulge of its middle over its ends. */
-    internal val bowTolerance: Double get() = 0.4 * lineTolerance
+    internal val bowTolerance: Double get() = max(0.4 * 0.6 * fitTolerance, BOW_TOLERANCE_WOBBLES * wobble)
 }
 
 /** A closed boundary re-sampled at even steps ([samples]) and the indices of its corners ([cornerIndices], ascending). */
@@ -79,6 +125,8 @@ data class OutlineFit(
     val cornerCount: Int,
     /** The largest distance from any sample of the traced boundary to the fitted outline, in font units. */
     val maxDeviation: Double,
+    /** How many short roundings between straight sides were squared up into corners ([OutlineFitParameters.softness]); 0 when none. */
+    val squaredCorners: Int = 0,
 )
 
 /**
@@ -101,7 +149,7 @@ fun detectOutlineCorners(
     return OutlineCorners(samples, cornersFromTurns(turns, threshold))
 }
 
-private fun turnProfile(
+internal fun turnProfile(
     samples: List<Vec2>,
     params: OutlineFitParameters,
 ): DoubleArray {
@@ -112,7 +160,7 @@ private fun turnProfile(
     return DoubleArray(n) { i -> turnAt(smooth[(i - k + n) % n], smooth[i], smooth[(i + k) % n]) }
 }
 
-private fun cornersFromTurns(
+internal fun cornersFromTurns(
     turns: DoubleArray,
     threshold: Double,
 ): List<Int> {
@@ -231,7 +279,8 @@ fun fitOutline(
     val samples = detected.samples
     val n = samples.size
     require(n >= 3) { "an outline needs at least 3 samples, had $n" }
-    val pieces = buildPieces(detected, params)
+    val squared = intArrayOf(0)
+    val pieces = buildPieces(detected, params, squared)
     val segments = fitPieces(pieces, params)
     val contour = buildCubicContour(segments.map { it.segment })
     val smoothed = markDesignedSmooth(contour, segments.map { it.smoothAtStart })
@@ -241,6 +290,7 @@ fun fitOutline(
         curveCount = segments.count { it.fromCurve },
         cornerCount = detected.cornerIndices.size,
         maxDeviation = maxDeviationFrom(samples, smoothed),
+        squaredCorners = squared[0],
     )
 }
 
@@ -254,6 +304,190 @@ private class FittedSegment(
 // ---- pieces ---------------------------------------------------------------------------------
 
 private fun buildPieces(
+    detected: OutlineCorners,
+    params: OutlineFitParameters,
+    squared: IntArray,
+): List<Piece> = mergeCollinearSides(squareUpBlurredCorners(buildRawPieces(detected, params), params, squared), params)
+
+/**
+ * Joins two straight sides that are really one: neighbours (or neighbours with a nick of curve between them no longer than
+ * [MAX_NICK_UNITS]) whose samples together still lie within the line tolerance of a single line, turn by under 8 degrees, and
+ * do not bow. A side the corner finder cut in two where the edge wobbled, or a stem a smudge nicked, is one side.
+ */
+private fun mergeCollinearSides(
+    pieces: List<Piece>,
+    params: OutlineFitParameters,
+): List<Piece> {
+    if (pieces.size < 3) return pieces
+    val kept = pieces.toMutableList()
+    val maxTurn = sin(8.0 * PI / 180.0)
+    var changed = true
+    while (changed && kept.size >= 3) {
+        changed = false
+        for (i in kept.indices) {
+            val first = kept[i]
+            val second = kept[(i + 1) % kept.size]
+            val nick = second.kind == OutlinePieceKind.CURVE && pathLength(second.samples) <= max(MAX_NICK_UNITS, 4.0 * params.fitTolerance)
+            val last = if (nick) kept[(i + 2) % kept.size] else second
+            val span = if (nick) 3 else 2
+            if (span > kept.size) continue
+            val a = first.line
+            val b = last.line
+            if (first.kind != OutlinePieceKind.LINE || last.kind != OutlinePieceKind.LINE || a == null || b == null ||
+                first === last
+            ) {
+                continue
+            }
+            if (abs(a.direction.cross(b.direction)) > maxTurn) continue
+            val union = first.samples + (if (nick) second.samples else emptyList()) + last.samples
+            val moments = PointMoments(union)
+            // Judged without the zone beside an outer corner, which a blur or a raster's chamfer has bent, as a whole arc is.
+            val zone = ceil(max(0.5 * params.cornerLookUnits, 2.0 * params.softness) / params.sampleSpacing).toInt()
+            val from = if (first.startCorner) min(zone, union.size / 4) else 0
+            val to = union.size - 1 - (if (last.endCorner) min(zone, union.size / 4) else 0)
+            if (to - from < 4) continue
+            val line = moments.fit(from, to)
+            // One line holds them both; or each is straight and they meet end to end, in line, without a step at the join.
+            val allowed = max(params.lineTolerance, LINE_SLOPE_FRACTION * (to - from) * params.sampleSpacing)
+            val oneLine = moments.maxDistance(line, from, to) <= allowed && abs(bowOf(union, from, to, line)) <= params.bowTolerance
+            val joinStep = max(a.distance(last.samples.first()), b.distance(first.samples.last()))
+            val endToEnd = abs(a.direction.cross(b.direction)) <= sin(4.0 * PI / 180.0) && joinStep <= allowed
+            if (!oneLine && !endToEnd) continue
+            val merged = Piece(OutlinePieceKind.LINE, union, first.startCorner, last.endCorner, line)
+            val indices = (0 until span).map { (i + it) % kept.size }.sortedDescending()
+            val insertAt = indices.last()
+            for (index in indices) kept.removeAt(index)
+            // The merged side takes the earliest place of the pieces it replaced (the wrap-around case puts it first).
+            kept.add(min(insertAt, kept.size), merged)
+            changed = true
+            break
+        }
+    }
+    return kept
+}
+
+/**
+ * A blurred sharp corner reads as a short curve between two straight sides, and the blurred top of a narrow stem (two corners
+ * and a short flat between them) as one longer curve. Where such a curve, no longer than [FILLET_SOFTNESS_LENGTHS] (one corner)
+ * or twice that (two corners) times the edge's softness, stays within [FILLET_DEVIATION_SOFTNESS] softnesses plus the fit
+ * tolerance of the sharp-cornered polyline through the sides' meeting points, it is replaced by that polyline: one corner where
+ * the two sides meet, or a short straight side between two corners. A rounding that departs further from a sharp corner than
+ * that was drawn, and stays a curve.
+ */
+private fun squareUpBlurredCorners(
+    pieces: List<Piece>,
+    params: OutlineFitParameters,
+    squared: IntArray,
+): List<Piece> {
+    if (params.softness <= 0.0 || pieces.size < 3) return pieces
+    val kept = pieces.toMutableList()
+    var i = 0
+    while (i < kept.size && kept.size >= 3) {
+        val piece = kept[i]
+        val before = kept[(i - 1 + kept.size) % kept.size]
+        val after = kept[(i + 1) % kept.size]
+        val a = before.line
+        val b = after.line
+        if (piece.kind == OutlinePieceKind.CURVE && before.kind == OutlinePieceKind.LINE && after.kind == OutlinePieceKind.LINE &&
+            a != null && b != null && before !== after
+        ) {
+            val replacement = squaredReplacement(piece, a, b, params)
+            if (replacement != null) {
+                before.endCorner = true
+                after.startCorner = true
+                squared[0]++
+                if (replacement.isEmpty()) kept.removeAt(i) else kept[i] = replacement.single()
+                i += replacement.size
+                continue
+            }
+        }
+        i++
+    }
+    return kept
+}
+
+/** The pieces to put where [curve] is: none (a single corner between [a] and [b]), one straight side, or null to leave the curve. */
+private fun squaredReplacement(
+    curve: Piece,
+    a: FittedLine,
+    b: FittedLine,
+    params: OutlineFitParameters,
+): List<Piece>? {
+    val arc = curve.samples
+    val length = pathLength(arc)
+    // A narrow flat between two blurred corners: the two corners' zones and the flat that is too short to be found as a line.
+    if (length > FILLET_SOFTNESS_LENGTHS * params.softness + max(params.minLineLength, 2.5 * params.softness) || arc.size < 4) return null
+    val limit = FILLET_DEVIATION_SOFTNESS * params.softness + params.fitTolerance
+    val minSin = sin(20.0 * PI / 180.0)
+    val squareSin = sin(65.0 * PI / 180.0)
+    val first = a.project(arc.first())
+    val last = b.project(arc.last())
+    var best: List<Piece>? = null
+    var bestDeviation = Double.MAX_VALUE
+    val crossAB = a.direction.cross(b.direction)
+    if (length <= FILLET_SOFTNESS_LENGTHS * params.softness && abs(crossAB) > minSin) {
+        val hit = a.origin + a.direction * ((b.origin - a.origin).cross(b.direction) / crossAB)
+        val deviation = polylineDeviation(arc, listOf(first, hit, last))
+        if (deviation <= limit) {
+            best = emptyList()
+            bestDeviation = deviation
+        }
+    }
+    // The flat between two blurred corners: the line through the middle of the curve, away from its rounded ends.
+    val trim = 2.5 * params.softness
+    val total = pathLength(arc)
+    var run = 0.0
+    val middle = ArrayList<Vec2>()
+    for (k in arc.indices) {
+        if (k > 0) run += (arc[k] - arc[k - 1]).length()
+        if (run in trim..(total - trim)) middle += arc[k]
+    }
+    if (middle.size < 4) {
+        // The flat is shorter than the two rounded ends: take the middle two fifths of the curve as its direction.
+        middle.clear()
+        run = 0.0
+        for (k in arc.indices) {
+            if (k > 0) run += (arc[k] - arc[k - 1]).length()
+            if (run in 0.3 * total..(0.7 * total)) middle += arc[k]
+        }
+    }
+    if (middle.size >= 4) {
+        val m = PointMoments(middle).fit(0, middle.size - 1)
+        val c1 = a.direction.cross(m.direction)
+        val c2 = m.direction.cross(b.direction)
+        // A flat between two corners meets both sides squarely; a middle at 45 degrees is a rounded corner being chamfered, not a flat.
+        if (abs(c1) > squareSin && abs(c2) > squareSin) {
+            val h1 = a.origin + a.direction * ((m.origin - a.origin).cross(m.direction) / c1)
+            val h2 = m.origin + m.direction * ((b.origin - m.origin).cross(b.direction) / c2)
+            val deviation = polylineDeviation(arc, listOf(first, h1, h2, last))
+            if (deviation <= limit && deviation < bestDeviation) {
+                best = listOf(Piece(OutlinePieceKind.LINE, arc, startCorner = true, endCorner = true, line = m))
+            }
+        }
+    }
+    return best
+}
+
+/** The largest distance from any of [points] to the open polyline [path]. */
+private fun polylineDeviation(
+    points: List<Vec2>,
+    path: List<Vec2>,
+): Double {
+    var worst = 0.0
+    for (p in points) {
+        var best = Double.MAX_VALUE
+        for (k in 0 until path.size - 1) {
+            val ab = path[k + 1] - path[k]
+            val len2 = ab.dot(ab)
+            val t = if (len2 > 1e-12) ((p - path[k]).dot(ab) / len2).coerceIn(0.0, 1.0) else 0.0
+            best = min(best, (path[k] + ab * t - p).length())
+        }
+        worst = max(worst, best)
+    }
+    return worst
+}
+
+private fun buildRawPieces(
     detected: OutlineCorners,
     params: OutlineFitParameters,
 ): List<Piece> {
@@ -368,12 +602,22 @@ private fun piecesOfArc(
     val moments = PointMoments(arc)
     // A whole arc between two corners is a line if its samples are straight once the few next to each corner are
     // set aside: those are the chamfer a raster cuts off the corner, and the corner is re-placed from the lines.
-    val margin = if (startCorner || endCorner) ceil(0.5 * params.cornerLookUnits / params.sampleSpacing).toInt() else 0
+    // The zone beside a corner a blur or a raster's chamfer has bent, but never so wide that too little of the arc is left to judge.
+    val wanted = ceil(max(0.5 * params.cornerLookUnits, 2.0 * params.softness) / params.sampleSpacing).toInt()
+    val margin =
+        if (startCorner ||
+            endCorner
+        ) {
+            min(wanted, max(ceil(0.5 * params.cornerLookUnits / params.sampleSpacing).toInt(), (m - 6) / 2))
+        } else {
+            0
+        }
     val from = if (startCorner) margin else 0
     val to = if (endCorner) m - 1 - margin else m - 1
     if ((arc.first() - arc.last()).length() > params.sampleSpacing && to - from >= 3) {
         val core = moments.fit(from, to)
-        if (moments.maxDistance(core, from, to) <= params.lineTolerance && abs(bowOf(arc, from, to, core)) <= params.bowTolerance) {
+        val allowed = max(params.lineTolerance, LINE_SLOPE_FRACTION * (to - from) * params.sampleSpacing)
+        if (moments.maxDistance(core, from, to) <= allowed && abs(bowOf(arc, from, to, core)) <= params.bowTolerance) {
             return listOf(Piece(OutlinePieceKind.LINE, arc, startCorner, endCorner, core))
         }
     }
@@ -565,7 +809,7 @@ private fun fitCurvePiece(
                     ),
                 )
             } else {
-                fitOpenArc(interval, t1, t2, params.fitTolerance, 12)
+                fitOpenArc(interval, t1, t2, params.curveTolerance, 12)
             }
         for ((c, cubic) in cubics.withIndex()) {
             result += FittedSegment(cubic, fromCurve = true, smoothAtStart = if (b == 0 && c == 0) smoothStart else true)

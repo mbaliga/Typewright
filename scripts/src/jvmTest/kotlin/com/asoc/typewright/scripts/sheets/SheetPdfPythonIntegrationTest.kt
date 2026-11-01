@@ -71,18 +71,58 @@ class SheetPdfPythonIntegrationTest {
         assertEquals("{(612.0, 792.0)}", output[1])
     }
 
-    @Test
-    fun pdfinfoAgreesWhenItIsInstalled() {
-        val file = exportTo(PaperSize.A4, PrintScript.DEVANAGARI)
-        val process = runCatching { ProcessBuilder("pdfinfo", file.absolutePath).redirectErrorStream(true).start() }.getOrNull()
-        if (process == null) {
-            // pdfinfo is poppler's; pypdf above is the check that must run. Say so rather than pass silently.
-            println("pdfinfo is not installed here; the pypdf tests above are the check")
-            return
+    /** The exported PDF's own structure, read without any library: header, a cross-reference table whose every offset lands on its object, and a trailer that points at it. */
+    private fun assertWellFormed(
+        bytes: ByteArray,
+        pages: Int,
+    ) {
+        val text = bytes.decodeToString()
+        assertTrue(text.startsWith("%PDF-1."), "header")
+        assertTrue(text.trimEnd().endsWith("%%EOF"), "end marker")
+        val startxref = Regex("startxref\\s+(\\d+)").find(text)!!.groupValues[1].toInt()
+        assertTrue(text.substring(startxref).startsWith("xref"), "startxref points at the table")
+        val table = Regex("xref\\s+0 (\\d+)\\s+((?:\\d{10} \\d{5} [nf] ?\\s+)+)").find(text, startxref)!!
+        val count = table.groupValues[1].toInt()
+        val offsets = Regex("(\\d{10}) \\d{5} n").findAll(table.groupValues[2]).map { it.groupValues[1].toInt() }.toList()
+        assertEquals(count - 1, offsets.size, "one entry per object")
+        for ((i, offset) in offsets.withIndex()) {
+            assertTrue(
+                text.substring(offset).startsWith("${i + 1} 0 obj"),
+                "object ${i + 1} is at its offset",
+            )
         }
+        assertTrue(Regex("/Size $count\\b").containsMatchIn(text), "trailer size")
+        assertTrue(Regex("/Count $pages\\b").containsMatchIn(text), "page count in the page tree")
+    }
+
+    @Test
+    fun theDevanagariPdfIsWellFormedAndPdfinfoAgreesWhenItIsInstalled() {
+        val file = exportTo(PaperSize.A4, PrintScript.DEVANAGARI)
+        // The structure check always runs, so the test asserts something with or without poppler on the machine.
+        assertWellFormed(file.readBytes(), pages = 3)
+        val process = runCatching { ProcessBuilder("pdfinfo", file.absolutePath).redirectErrorStream(true).start() }.getOrNull() ?: return
         val info = process.inputStream.bufferedReader().readText()
         process.waitFor(30, TimeUnit.SECONDS)
         assertTrue(Regex("Pages:\\s+3").containsMatchIn(info), info)
         assertTrue("A4" in info || "595.276 x 841.89" in info, info)
+    }
+
+    @Test
+    fun theWidthsThePdfWriterCentresTextWithAreTheCoreFontMetricsPypdfShips() {
+        // pypdf carries the base-14 fonts' published metrics (Adobe's AFM files); every printable ASCII character must match.
+        val script =
+            "from pypdf._codecs.core_font_metrics import CORE_FONT_METRICS as m\n" +
+                "for name in ('Helvetica', 'Helvetica-Bold'):\n" +
+                "    print(name, *[m[name].character_widths[chr(c)] for c in range(32, 127)])"
+        val lines = run("-c", script).lines()
+        assertEquals(2, lines.size, lines.toString())
+        for ((line, font) in lines.zip(listOf(SheetFont.HELVETICA, SheetFont.HELVETICA_BOLD))) {
+            val widths = line.split(" ").drop(1).map { it.toInt() }
+            assertEquals(95, widths.size)
+            for ((i, expected) in widths.withIndex()) {
+                val ours = PdfWriter.textWidthMm(Char(32 + i).toString(), font, 1000.0) * 72.0 / 25.4
+                assertEquals(expected.toDouble(), ours, 1e-6, "${font.pdfName} '${Char(32 + i)}'")
+            }
+        }
     }
 }

@@ -171,7 +171,11 @@ object PdfWriter {
         return (if (negative) "-" else "") + whole + (if (fraction.isEmpty()) "" else ".$fraction")
     }
 
-    /** How wide [text] prints in [font] at [sizePt], in millimetres. Courier is exactly 0.6 em a character; Helvetica uses its published widths. */
+    /**
+     * How wide [text] prints in [font] at [sizePt], in millimetres. Courier is exactly 0.6 em a character; Helvetica and Helvetica-Bold use
+     * Adobe's published advance widths for the base-14 fonts (their AFM files), for the printable ASCII range; a character outside it is
+     * counted at the widest common digit width, 556, which is only used for the accented letters of a label and is approximate.
+     */
     fun textWidthMm(
         text: String,
         font: SheetFont,
@@ -181,9 +185,9 @@ object PdfWriter {
             when (font) {
                 SheetFont.COURIER -> text.length * 600.0
                 SheetFont.HELVETICA -> text.sumOf { helveticaWidth(it) }.toDouble()
-                SheetFont.HELVETICA_BOLD -> text.sumOf { helveticaWidth(it) }.toDouble() * 1.06
+                SheetFont.HELVETICA_BOLD -> text.sumOf { helveticaBoldWidth(it) }.toDouble()
             }
-        return units / 1000.0 * sizePt / POINTS_PER_MM / 1.0
+        return units / 1000.0 * sizePt / POINTS_PER_MM
     }
 
     // Helvetica's advance widths for 0x20..0x7E, per 1000 em (Adobe's published AFM).
@@ -286,5 +290,107 @@ object PdfWriter {
             584,
         )
 
+    // Helvetica-Bold's advance widths for 0x20..0x7E, per 1000 em (Adobe's published AFM).
+    private val HELVETICA_BOLD_ASCII =
+        intArrayOf(
+            278,
+            333,
+            474,
+            556,
+            556,
+            889,
+            722,
+            238,
+            333,
+            333,
+            389,
+            584,
+            278,
+            333,
+            278,
+            278,
+            556,
+            556,
+            556,
+            556,
+            556,
+            556,
+            556,
+            556,
+            556,
+            556,
+            333,
+            333,
+            584,
+            584,
+            584,
+            611,
+            975,
+            722,
+            722,
+            722,
+            722,
+            667,
+            611,
+            778,
+            722,
+            278,
+            556,
+            722,
+            611,
+            833,
+            722,
+            778,
+            667,
+            778,
+            722,
+            667,
+            611,
+            722,
+            667,
+            944,
+            667,
+            667,
+            611,
+            333,
+            278,
+            333,
+            584,
+            556,
+            333,
+            556,
+            611,
+            556,
+            611,
+            556,
+            333,
+            611,
+            611,
+            278,
+            278,
+            556,
+            278,
+            889,
+            611,
+            611,
+            611,
+            611,
+            389,
+            556,
+            333,
+            611,
+            556,
+            778,
+            556,
+            556,
+            500,
+            389,
+            280,
+            389,
+            584,
+        )
+
     private fun helveticaWidth(c: Char): Int = if (c.code in 0x20..0x7E) HELVETICA_ASCII[c.code - 0x20] else 556
+
+    private fun helveticaBoldWidth(c: Char): Int = if (c.code in 0x20..0x7E) HELVETICA_BOLD_ASCII[c.code - 0x20] else 556
 }

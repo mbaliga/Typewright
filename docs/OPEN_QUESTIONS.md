@@ -3835,3 +3835,56 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     going to Google Fonts, so layer one's Google Fonts fails no longer stop the ship and the Google
     Fonts fix-ups are not applied to the binary; the compiled font is the compiler's own. Confirm
     that a proprietary font should skip those fix-ups, for example fsType. Owner: Madhav.
+
+214. **Real printed-sheet photographs are needed to validate the capture engine (Capture).** Every
+    photograph the capture and trace tests and golden-path steps 1b and 2 read is synthetic: Hyle
+    Deco outlines (or rings for scripts it does not cover) drawn into the real template sheets, then
+    given tilt up to 25 degrees, roll, uneven light, blur, noise, JPEG-like compression, a paper
+    tint and a printer's guides that differ from the template's. None is a photograph of paper.
+    Printer blacks, paper texture, lens distortion, a phone's sharpening and real pens and pencils
+    are untested, and every threshold in `docs/CAPTURE.md` is "our heuristic" until a set of real
+    phone photographs of printed A4 and Letter sheets (pen, pencil, two lights, two phones) is
+    supplied and the thresholds are calibrated on it. Owner-supplied fixture; owner-verified only.
+    Owner: Madhav.
+
+215. **Three of the twelve hardest-photograph traces miss the fitted targets (Trace).** On the
+    three hardest synthetic photographs (tilt 24 to 25 degrees, blur 1.2 to 1.6 photo pixels, noise
+    6 to 9, JPEG quality 35 to 50) nine of the twelve glyphs (T, H, o, n on each) reach CLAUDE.md's
+    fitted targets exactly; three do not: the pencil photograph's `o` is 21 on-curve and 26
+    off-curve against 16 and 16, the green-paper photograph's `T` is 9 and 0 against 8 and 0, and
+    its `n` is 18 and 16 against 14 and 8. The four easier classes (straight-on, tilt 10, tilt 20
+    with noise, tilt 16 with blur) meet all sixteen exactly. The claim for the hardest class is
+    stated in `TraceTargets.hardClaim` (at most twice the target plus two points, contours and ink
+    box right) and was written after measuring them; it is not a quality bar. Decide whether to
+    accept this, add a stronger smoothing stage, or have the Camera screen tell the person to retake
+    a photograph that soft. The target numbers were not changed. Owner: Madhav.
+
+216. **Squaring up blurred corners trades fidelity for fewer points (Trace).** Photographs blur
+    every corner, and a blurred corner is a short curve to a fitter. The trace squares up a short
+    curve between two straight sides when it strays no further from a sharp corner than the edge's
+    measured softness plus the fit tolerance, and the Fit sentence says how many it squared and
+    that "Square up blurred corners" turns it off. It is what makes `T` 8 and `H` 12 on a soft
+    photograph, but it cannot tell a designed rounding of radius under about 25 units from a blurred
+    corner, so a very soft photograph squares small rounded counters. The deviation the Review
+    sentence reports (measured from the final outline to the traced boundary, both ways) reaches
+    19.5 units on the hardest photographs because of it. Decide whether the setting should default
+    to on, and how large a deviation the Review stage should call a warning. Owner: Madhav.
+
+217. **What the SVG pack import assumes (Capture).** It reads the pack's own layout (`guides`,
+    `reference_delete_me`, `DRAW_HERE`, y down from the baseline), follows transforms, puts a moved
+    viewBox origin back where the pack has it, ignores fill rules (contour directions are set by
+    nesting after the fit) and refuses a drawing made of strokes with the instruction to Outline
+    Stroke. It does not handle an editor that rescales the viewBox, units other than the file's
+    own, `use` or `clipPath`, or Nastaliq (no printable sheet exists for it). A drawing of a glyph
+    with several accents is taken as it is. Check the assumptions against the files the first
+    designers send back. Owner: Madhav.
+
+218. **Light pencil and printed-guide leftovers are told apart by heuristics (Capture).** A cell
+    with no ink at the pen level is read again at darkness 0.12, and what is found counts as a
+    faint drawing only if it has at least 80 pixels of ink in strokes at least 0.4 mm wide; the
+    leftover of a printed guide that the pooled guide model did not divide out is removed when it
+    lies wholly within 1.8 mm of a guide. Synthetic pencil from darkness 0.16 up is found and
+    flagged, and guides from 0.4 to three times as dark and from half to three times as wide, up
+    to 0.3 mm out of register, leave no ink in blank cells. A hairline drawn exactly along a guide
+    and touching nothing else would be taken for the guide. None of the numbers is measured on real
+    pencils or printers; see 214. Owner: Madhav.

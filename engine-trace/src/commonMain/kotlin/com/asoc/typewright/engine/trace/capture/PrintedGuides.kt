@@ -4,7 +4,10 @@ package com.asoc.typewright.engine.trace.capture
 
 import com.asoc.typewright.engine.trace.GrayscaleRaster
 import com.asoc.typewright.engine.trace.estimatePaperLevel
+import com.asoc.typewright.engine.trace.labelComponents
 import com.asoc.typewright.scripts.sheets.MmRect
+import com.asoc.typewright.scripts.sheets.PdfWriter
+import com.asoc.typewright.scripts.sheets.SheetFont
 import com.asoc.typewright.scripts.sheets.SheetLayout
 import com.asoc.typewright.scripts.sheets.SheetRenderer
 import kotlin.math.PI
@@ -25,7 +28,9 @@ import kotlin.math.sqrt
  * is dashed, so [coverage] renders that, softened by the photograph's own blur, and [correct] divides the paper-and-guide
  * transmittance `1 - strength * coverage` out of the warped pixels before anything is thresholded.
  *
- * How strongly the guides printed ([estimateStrength]) is measured from the photograph itself, pooled over every cell of the
+ * The model is the template's own guides, so it is exact only for a printer that prints them as drawn. A printer's guides come out darker or
+ * lighter, wider and a little out of register, and what the model does not divide out is a thin leftover lying on the guide, which
+ * [withoutGhosts] takes out (the tests vary all three against the template). How strongly the guides printed ([estimateStrength]) is measured from the photograph itself, pooled over every cell of the
  * sheet, because a printer's pale grey is not the nominal one and a sheet printed without guides must not get phantom ones.
  */
 internal object PrintedGuides {
@@ -78,6 +83,100 @@ internal object PrintedGuides {
         }
         return out
     }
+
+    /**
+     * Where a printed guide could lie on a warp of [area] however the printer drew it: every pixel within [bandMm] of a guide's
+     * position (each horizontal guide across the whole width, each advance guide down the whole height). A mark that is wholly inside this
+     * band and no wider than it is the guide's own leftover (heavier, wider or shifted than the model of it), not a drawing.
+     */
+    fun band(
+        layout: SheetLayout,
+        box: MmRect,
+        area: MmRect,
+        width: Int,
+        height: Int,
+        pxPerMm: Double,
+        bandMm: Double,
+    ): BooleanArray {
+        val frame = layout.frame
+        val out = BooleanArray(width * height)
+        val half = bandMm / 2.0
+        for (line in layout.guides.lines) {
+            val y = box.top + frame.boxMm(0.0, line.y.toDouble()).y
+            for (j in 0 until height) {
+                if (abs(area.top + (j + 0.5) / pxPerMm - y) <= half) for (i in 0 until width) out[j * width + i] = true
+            }
+        }
+        for (x in listOf(layout.guides.advanceLeft, layout.guides.advanceRight)) {
+            val u = box.left + frame.boxMm(x.toDouble(), 0.0).x
+            for (i in 0 until width) {
+                if (abs(area.left + (i + 0.5) / pxPerMm - u) <= half) for (j in 0 until height) out[j * width + i] = true
+            }
+        }
+        // Each guide's printed name, set in small type just above its line at the box's left edge.
+        for (line in layout.guides.lines) {
+            val y = box.top + frame.boxMm(0.0, line.y.toDouble()).y
+            val left = box.left + SheetRenderer.GUIDE_LABEL_INSET_MM - half
+            val right = left + half + PdfWriter.textWidthMm(line.label, SheetFont.HELVETICA, SheetRenderer.GUIDE_LABEL_SIZE_PT) + half
+            val top = y - SheetRenderer.GUIDE_LABEL_RISE_MM - SheetRenderer.GUIDE_LABEL_SIZE_PT * MM_PER_PT - half
+            val bottom = y + half
+            for (j in 0 until height) {
+                val v = area.top + (j + 0.5) / pxPerMm
+                if (v < top || v > bottom) continue
+                for (i in 0 until width) {
+                    val u = area.left + (i + 0.5) / pxPerMm
+                    if (u in left..right) out[j * width + i] = true
+                }
+            }
+        }
+        return out
+    }
+
+    private const val MM_PER_PT = 25.4 / 72.0
+
+    /**
+     * [raster] with every mark that lies wholly inside [band] taken out (painted with the paper around it): the leftover of a guide the
+     * model of the guides did not match exactly. A printer's toner is heavier or wider than the template's grey, or a little out of
+     * register, and the pooled model cannot divide all of that out; but a leftover is thin and sits on the guide, which a drawing is not,
+     * and a mark that is part of a drawing touches something outside the band.
+     */
+    fun withoutGhosts(
+        raster: GrayscaleRaster,
+        band: BooleanArray,
+    ): GrayscaleRaster {
+        val paper = estimatePaperLevel(raster)
+        val w = raster.width
+        val h = raster.height
+        val dark =
+            BooleanArray(raster.pixels.size) {
+                val level = paper[it].coerceAtLeast(1.0)
+                1.0 - raster.pixels[it] / level >= GHOST_DARKNESS
+            }
+        val labels = labelComponents(w, h) { x, y -> dark[y * w + x] }
+        if (labels.componentCount == 0) return raster
+        val ghost = BooleanArray(labels.componentCount) { true }
+        for (i in dark.indices) if (dark[i] && !band[i]) ghost[labels.labels[i]] = false
+        if (ghost.none { it }) return raster
+        val pixels = raster.pixels.copyOf()
+        for (i in dark.indices) {
+            if (!dark[i] || !ghost[labels.labels[i]]) continue
+            // The mark and a pixel's worth of its soft edge.
+            for (dy in -GHOST_HALO..GHOST_HALO) {
+                for (dx in -GHOST_HALO..GHOST_HALO) {
+                    val x = i % w + dx
+                    val y = i / w + dy
+                    if (x in 0 until w && y in 0 until h) pixels[y * w + x] = paper[y * w + x].toInt()
+                }
+            }
+        }
+        return GrayscaleRaster(w, h, pixels)
+    }
+
+    /** The darkness from which a pixel counts towards a mark when ghosts are looked for: well under any pen, over the paper's own texture (our heuristic). */
+    private const val GHOST_DARKNESS = 0.12
+
+    /** How many pixels round a ghost are painted out with it. */
+    private const val GHOST_HALO = 1
 
     /**
      * The strength, 0 to about 0.5, with which the guides printed on this sheet: the pooled median, over every pixel the model

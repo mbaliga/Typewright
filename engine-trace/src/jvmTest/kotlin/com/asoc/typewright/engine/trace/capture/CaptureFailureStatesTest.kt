@@ -2,6 +2,10 @@
 
 package com.asoc.typewright.engine.trace.capture
 
+import com.asoc.typewright.capturetestkit.CodeFault
+import com.asoc.typewright.capturetestkit.HyleArt
+import com.asoc.typewright.capturetestkit.PhotoSpec
+import com.asoc.typewright.capturetestkit.SyntheticPhotos
 import com.asoc.typewright.scripts.sheets.GuideStyle
 import com.asoc.typewright.scripts.sheets.PaperSize
 import com.asoc.typewright.scripts.sheets.PrintScript
@@ -21,7 +25,7 @@ import kotlin.test.assertTrue
 class CaptureFailureStatesTest {
     private val sheet = PrintSheets.forScript(PrintScript.LATIN).sheets[0]
 
-    private fun photo(spec: PhotoSpec) = SyntheticPhotos.make(sheet, PaperSize.A4, GuideStyle.LIGHT, spec)
+    private fun photo(spec: PhotoSpec) = SyntheticPhotos.make(sheet, PaperSize.A4, GuideStyle.LIGHT, spec, HyleArt)
 
     private fun failureOf(spec: PhotoSpec): CaptureFailure {
         val result = SheetCapture.read(photo(spec).gray)
@@ -125,7 +129,7 @@ class CaptureFailureStatesTest {
         val result = SheetCapture.read(blurry.gray, CaptureOptions(enforceQualityGates = false))
         assertIs<CaptureResult.Success>(result)
         val quality = result.sheet.quality
-        assertTrue(quality.edgeWidth.value > quality.edgeWidth.limit, "the blur is still measured: ${quality.edgeWidth}")
+        assertTrue(quality.edgeWidth!!.value > quality.edgeWidth!!.limit, "the blur is still measured: ${quality.edgeWidth}")
         assertEquals(24, result.sheet.cells.size)
     }
 
@@ -134,11 +138,11 @@ class CaptureFailureStatesTest {
         val result = SheetCapture.read(photo(PhotoSpec(seed = 52, tiltDegrees = 10.0, rollDegrees = 3.0, fill = 0.8)).gray)
         assertIs<CaptureResult.Success>(result)
         val q = result.sheet.quality
-        for (measurement in listOf(q.edgeWidth, q.perspective, q.glare, q.shadow, q.markContrast)) {
+        for (measurement in listOf(q.edgeWidth!!, q.perspective, q.glare, q.shadow, q.markContrast)) {
             assertEquals("our heuristic", measurement.basis)
             assertNotNull(measurement.unit)
         }
-        assertTrue(q.edgeWidth.value <= q.edgeWidth.limit)
+        assertTrue(q.edgeWidth!!.value <= q.edgeWidth!!.limit)
         assertTrue(q.perspective.value <= q.perspective.limit)
         assertTrue(q.glare.value <= q.glare.limit)
         assertTrue(q.shadow.value <= q.shadow.limit)

@@ -97,6 +97,20 @@ class SheetWritersTest {
     }
 
     @Test
+    fun helveticaBoldFollowsItsOwnPublishedWidthsNotAScaledCopyOfRegular() {
+        val perEm = 72.0 / 25.4
+        // Adobe's Helvetica-Bold AFM: T 611, y 556, p 611, e 556, w 778, r 389, i 278, g 611, h 611, t 333 = 5334 per 1000 em.
+        assertEquals(5.334 * 10.0 / perEm, PdfWriter.textWidthMm("Typewright", SheetFont.HELVETICA_BOLD, 10.0), 1e-9)
+        // Regular: T 611, y 500, p 556, e 556, w 722, r 333, i 222, g 556, h 556, t 278 = 4890: the bold word is 9.1% wider, not 6%.
+        assertEquals(4.89 * 10.0 / perEm, PdfWriter.textWidthMm("Typewright", SheetFont.HELVETICA, 10.0), 1e-9)
+        // Where bold and regular differ by more or less than a flat factor: I is 278 in both, W 944 against 944, but @ is 975 against 1015
+        // and the quote mark 238 against 191.
+        assertEquals(0.975 * 10.0 / perEm, PdfWriter.textWidthMm("@", SheetFont.HELVETICA_BOLD, 10.0), 1e-9)
+        assertEquals(0.238 * 10.0 / perEm, PdfWriter.textWidthMm("\u0027", SheetFont.HELVETICA_BOLD, 10.0), 1e-9)
+        assertEquals(0.278 * 10.0 / perEm, PdfWriter.textWidthMm("I", SheetFont.HELVETICA_BOLD, 10.0), 1e-9)
+    }
+
+    @Test
     fun aPdfNeedsAtLeastOnePage() {
         assertFailsWith<IllegalArgumentException> { PdfWriter.write(emptyList()) }
     }

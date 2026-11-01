@@ -77,6 +77,16 @@ sealed interface CaptureFailure {
                 "${millimetres(measure.limit)} mm (${measure.basis}). Hold steady and let the camera focus, or use a sharper file."
     }
 
+    /**
+     * The four marks are there and dark, but no edge of any of them could be measured (each is at the picture's edge, or saturated), so how
+     * sharp the photograph is cannot be told and it is not guessed.
+     */
+    data object NoEdgeFound : CaptureFailure {
+        override val sentence: String =
+            "The corner squares are in the picture, but their edges could not be measured, so there is no way to tell how sharp it is. " +
+                "Keep a little paper showing round each black square and retake it."
+    }
+
     /** Glare, a shadow or too little contrast beyond [measure]'s limit. */
     data class LightingTooStrong(
         val problem: LightingProblem,
@@ -117,8 +127,8 @@ sealed interface CaptureFailure {
 
 /** What the capture measured about a photograph that it could use, with the limits it was held to. */
 data class CaptureQuality(
-    /** How wide the 10-to-90% edge of a printed mark is, in millimetres of paper. Smaller is sharper. */
-    val edgeWidth: Measurement,
+    /** How wide the 10-to-90% edge of a printed mark is, in millimetres of paper. Smaller is sharper. Null when no mark had an edge to measure. */
+    val edgeWidth: Measurement?,
     /** The ratio of the longer to the shorter of the sheet's opposite edges as seen. 1 is straight on. */
     val perspective: Measurement,
     /** The share of the sheet whose paper is blown out to white. */
@@ -134,7 +144,7 @@ enum class UncertainReason(
     val sentence: String,
 ) {
     TOUCHES_EDGE("The ink runs into the edge of its box, so part of it may be cut off or belong to a neighbour."),
-    FAINT("The ink is very faint; it may be a stray mark and not the glyph."),
+    FAINT("The ink is very faint, so it is shown at full strength here; it may be a stray mark and not the glyph (our heuristic)."),
 }
 
 /** What a list of relabel candidates is ranked by. */
@@ -184,6 +194,12 @@ class CapturedCell(
     val strokeWidthUnits: Double?,
     /** The share of the drawing area that is ink. */
     val inkFraction: Double,
+    /**
+     * How soft the photograph's edges are, in font units: the standard deviation of the blur measured on the printed corner marks,
+     * whose edges are sharp on paper. It is what [com.asoc.typewright.engine.trace.TraceParameters.edgeSoftnessUnits] is given, so a
+     * blurred corner of the drawing is not mistaken for a drawn curve. Zero when it was not measured.
+     */
+    val edgeSoftnessUnits: Double = 0.0,
 )
 
 /** A photograph read as one printed sheet. */

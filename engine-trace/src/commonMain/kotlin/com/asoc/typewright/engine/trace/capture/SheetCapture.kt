@@ -74,11 +74,13 @@ object SheetCapture {
         if (options.enforceQualityGates) {
             gate(quality, options)?.let { return CaptureResult.Failure(it, quality) }
         }
+        // With the gates off an unmeasurable edge is read as sharp: the blur only refines the model of the printed guides.
+        val blurSigmaMm = (quality.edgeWidth?.value ?: 0.0) / EDGE_WIDTH_PER_SIGMA
 
         val set = PrintSheets.forScript(identity.script)
         if (set.sheets.size != identity.count) return CaptureResult.Failure(CaptureFailure.IdentityUnreadable, quality)
         val spec = set.sheets[identity.index]
-        val cells = CellReader.readAll(photo, toPhoto, layout, spec, options.cellPxPerMm, quality.edgeWidth.value / EDGE_WIDTH_PER_SIGMA)
+        val cells = CellReader.readAll(photo, toPhoto, layout, spec, options.cellPxPerMm, blurSigmaMm)
         return CaptureResult.Success(CapturedSheet(identity, layout, spec, toPhoto, search.marks, quality, cells))
     }
 
@@ -215,7 +217,7 @@ object SheetCapture {
         val shadow = if (median > 0.0) 1.0 - low / median else 0.0
         val contrast = markContrast(photo, marks, median)
         return CaptureQuality(
-            edgeWidth = Measurement(edge, options.maxEdgeWidthMm, "mm"),
+            edgeWidth = edge?.let { Measurement(it, options.maxEdgeWidthMm, "mm") },
             perspective = Measurement(perspective, options.maxPerspective, "×"),
             glare = Measurement(glare, options.maxGlareFraction, "of the sheet"),
             shadow = Measurement(shadow, options.maxShadowDepth, "darker"),
@@ -246,13 +248,13 @@ object SheetCapture {
      * How wide the edge of a printed mark is, in millimetres of paper: along short horizontal profiles through the left and
      * right edges of the four marks, the distance over which the brightness goes from 90% to 10% of the way down from paper to
      * black. A perfectly sharp edge reads about the size of one pixel; a Gaussian blur of standard deviation s reads about
-     * 2.56 s. The median of the profiles is returned.
+     * 2.56 s. The median of the profiles is returned; null when no profile had the contrast to read.
      */
-    private fun edgeWidthMm(
+    internal fun edgeWidthMm(
         photo: GrayscaleRaster,
         toPhoto: Homography,
         layout: SheetLayout,
-    ): Double {
+    ): Double? {
         val half = SheetLayout.MARK_SIDE_MM / 2.0
         val widths = mutableListOf<Double>()
         val step = 0.04
@@ -283,7 +285,7 @@ object SheetCapture {
                 }
             }
         }
-        if (widths.isEmpty()) return Double.MAX_VALUE
+        if (widths.isEmpty()) return null
         widths.sort()
         return widths[widths.size / 2]
     }
@@ -293,13 +295,17 @@ object SheetCapture {
         b: Pt,
     ): Double = sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y))
 
-    private fun gate(
+    internal fun gate(
         quality: CaptureQuality,
         options: CaptureOptions,
     ): CaptureFailure? =
         when {
             quality.markContrast.value < options.minMarkContrast -> {
                 CaptureFailure.LightingTooStrong(LightingProblem.LOW_CONTRAST, quality.markContrast)
+            }
+
+            quality.edgeWidth == null -> {
+                CaptureFailure.NoEdgeFound
             }
 
             quality.perspective.value > options.maxPerspective -> {

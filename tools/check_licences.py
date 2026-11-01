@@ -38,6 +38,7 @@ LICENCE_BY_DIR = {
     "core-geometry": APACHE,
     "core-font": APACHE,
     "engine-trace": APACHE,
+    "capture-testkit": APACHE,  # test support: synthetic photographs for the capture tests and the golden path
     "engine-construct": APACHE,
     "qa": APACHE,  # includes qa/corpus
     "scripts": APACHE,  # generator and pipeline scripts; scripts/templates is called out below

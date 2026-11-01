@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package com.asoc.typewright.engine.trace.capture
+package com.asoc.typewright.capturetestkit
 
 import com.asoc.typewright.core.geometry.Contour
 import com.asoc.typewright.core.geometry.ContourPoint
@@ -10,13 +10,15 @@ import com.asoc.typewright.core.geometry.OutlineBounds
 import com.asoc.typewright.core.geometry.Point
 import com.asoc.typewright.core.geometry.outlineBounds
 import com.asoc.typewright.engine.trace.GrayscaleRaster
-import com.asoc.typewright.engine.trace.HyleDecoFixture
 import com.asoc.typewright.engine.trace.RasterFrame
+import com.asoc.typewright.engine.trace.capture.Homography
+import com.asoc.typewright.engine.trace.capture.RgbRaster
 import com.asoc.typewright.engine.trace.coverageOf
 import com.asoc.typewright.scripts.sheets.DrawOp
 import com.asoc.typewright.scripts.sheets.GuideStyle
 import com.asoc.typewright.scripts.sheets.PaperSize
 import com.asoc.typewright.scripts.sheets.PdfWriter
+import com.asoc.typewright.scripts.sheets.PrintGlyph
 import com.asoc.typewright.scripts.sheets.PrintSheetSpec
 import com.asoc.typewright.scripts.sheets.SheetFont
 import com.asoc.typewright.scripts.sheets.SheetIdentity
@@ -72,6 +74,12 @@ data class PhotoSpec(
     val glare: Double = 0.0,
     /** A soft-edged shadow of this depth (0 to 1, the share of the light it takes) across the left third of the picture. */
     val shadowDepth: Double = 0.0,
+    /** How dark the printed guides come out against the template's nominal grey: 1 as drawn, 0.5 half as dark, 2 twice as dark (a printer's toner). */
+    val guideDarknessScale: Double = 1.0,
+    /** How wide the printed guides come out against the template's nominal width: 1 as drawn (toner spread makes lines wider, a fine printer narrower). */
+    val guideWidthScale: Double = 1.0,
+    /** How far the guide layer sits from where the template puts it, in millimetres, along both axes (a printer that does not hold its registration). */
+    val guideOffsetMm: Double = 0.0,
     /** A veil of stray light of this share (0 to 1) that lifts the blacks toward grey: a washed-out, low-contrast photograph. */
     val veil: Double = 0.0,
 )
@@ -84,6 +92,8 @@ class TruthCell(
     val index: Int,
     val glyphName: String,
     val bounds: OutlineBounds?,
+    /** The outlines drawn in the cell, in the template's font units (y up), as a cell of the capture is placed: empty when nothing was drawn. */
+    val contours: List<Contour> = emptyList(),
 )
 
 class SyntheticPhoto(
@@ -97,24 +107,17 @@ class SyntheticPhoto(
 )
 
 /** What to draw in a cell: a Hyle Deco glyph by code point, or a filled disc standing in for a glyph the font has none for. */
-internal fun interface CellArt {
+fun interface CellArt {
     fun contours(
-        glyph: com.asoc.typewright.scripts.sheets.PrintGlyph,
+        glyph: PrintGlyph,
         index: Int,
     ): List<Contour>
 }
 
-internal object HyleArt : CellArt {
-    override fun contours(
-        glyph: com.asoc.typewright.scripts.sheets.PrintGlyph,
-        index: Int,
-    ): List<Contour> = glyph.codePoint?.let { HyleDecoFixture.glyphForCodePoint(it)?.contours } ?: emptyList()
-}
-
 /** A ring of a size that depends on the cell, centred in the advance: stands in for glyphs of scripts Hyle Deco does not cover. */
-internal object ProxyArt : CellArt {
+object ProxyArt : CellArt {
     override fun contours(
-        glyph: com.asoc.typewright.scripts.sheets.PrintGlyph,
+        glyph: PrintGlyph,
         index: Int,
     ): List<Contour> {
         val radius = 150.0 + 12.0 * (index % 6)
@@ -137,7 +140,7 @@ internal object ProxyArt : CellArt {
     }
 }
 
-internal object SyntheticPhotos {
+object SyntheticPhotos {
     /** The module flipped by [CodeFault.ONE_MODULE_FLIPPED]: one of the data bits, past the start pattern. */
     private const val FLIPPED_MODULE = 9
 
@@ -147,7 +150,7 @@ internal object SyntheticPhotos {
         paper: PaperSize,
         guides: GuideStyle,
         spec: PhotoSpec,
-        art: CellArt = HyleArt,
+        art: CellArt,
     ): SyntheticPhoto {
         val layout = SheetLayout.of(paper, sheet.script)
         val s = spec.flatPxPerMm
@@ -170,7 +173,7 @@ internal object SyntheticPhotos {
             ) {
                 continue
             }
-            drawOp(flat, fw, fh, s, op, i)
+            drawOp(flat, fw, fh, s, guideLayer(op, spec), i)
         }
         if (spec.codeFault == CodeFault.ONE_MODULE_FLIPPED) flipCodeModule(flat, fw, fh, s, layout, sheet, FLIPPED_MODULE)
         // The drawings.
@@ -202,7 +205,7 @@ internal object SyntheticPhotos {
                         )
                     }
             }
-            truth += TruthCell(index, glyph.glyphName, bounds)
+            truth += TruthCell(index, glyph.glyphName, bounds, contours)
         }
         // Rasterise all drawings at once: contour coordinates are in thousandths of a millimetre, so one unit = 0.001 mm.
         val frame = RasterFrame(pxPerUnit = s / 1000.0, leftUnits = 0.0, topUnits = layout.pageHeightMm * 1000.0)
@@ -210,6 +213,47 @@ internal object SyntheticPhotos {
         for (i in flat.indices) flat[i] = min(1.0, flat[i] + coverage[i] * ink - flat[i] * coverage[i] * ink)
 
         return photograph(flat, fw, fh, layout, spec, truth)
+    }
+
+    /** [op] as this printer put it on paper: the guide layer (everything the template prints in the guide grey) dimmed, widened and shifted by the spec. */
+    private fun guideLayer(
+        op: DrawOp,
+        spec: PhotoSpec,
+    ): DrawOp {
+        val guide = com.asoc.typewright.scripts.sheets.SheetRenderer.GUIDE_GRAY
+
+        fun dim(gray: Double) = 1.0 - (1.0 - gray) * spec.guideDarknessScale
+        val d = spec.guideOffsetMm
+        return when {
+            op is DrawOp.Line && op.gray == guide -> {
+                op.copy(
+                    x1 = op.x1 + d,
+                    y1 = op.y1 + d,
+                    x2 = op.x2 + d,
+                    y2 = op.y2 + d,
+                    gray = dim(op.gray).coerceIn(0.0, 1.0),
+                    widthMm = op.widthMm * spec.guideWidthScale,
+                )
+            }
+
+            op is DrawOp.Rect && op.strokeGray == guide -> {
+                op.copy(
+                    x = op.x + d,
+                    y = op.y + d,
+                    strokeGray = dim(guide).coerceIn(0.0, 1.0),
+                    strokeMm =
+                        op.strokeMm * spec.guideWidthScale,
+                )
+            }
+
+            op is DrawOp.Text && op.gray == guide -> {
+                op.copy(x = op.x + d, y = op.y + d, gray = dim(guide).coerceIn(0.0, 1.0))
+            }
+
+            else -> {
+                op
+            }
+        }
     }
 
     /** The module [module] of the code printed the other way: black where it was paper, paper where it was black. */

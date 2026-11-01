@@ -25,3 +25,4 @@
 6
 7
 chain-open
+chain-scan

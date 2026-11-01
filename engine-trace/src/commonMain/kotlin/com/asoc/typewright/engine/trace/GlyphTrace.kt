@@ -4,23 +4,32 @@ package com.asoc.typewright.engine.trace
 
 import com.asoc.typewright.core.geometry.Contour
 import com.asoc.typewright.core.geometry.CurveFormat
+import com.asoc.typewright.core.geometry.CurveSegment
+import com.asoc.typewright.core.geometry.DenoisedCorners
 import com.asoc.typewright.core.geometry.Glyph
+import com.asoc.typewright.core.geometry.LINE_TOLERANCE_WOBBLES
 import com.asoc.typewright.core.geometry.OutlineBounds
 import com.asoc.typewright.core.geometry.OutlineFitParameters
 import com.asoc.typewright.core.geometry.Point
 import com.asoc.typewright.core.geometry.TypeConstraintParameters
 import com.asoc.typewright.core.geometry.Vec2
 import com.asoc.typewright.core.geometry.detectOutlineCorners
+import com.asoc.typewright.core.geometry.detectOutlineCornersDenoised
 import com.asoc.typewright.core.geometry.enforceContourDirections
 import com.asoc.typewright.core.geometry.fitOutline
 import com.asoc.typewright.core.geometry.lineSegmentCount
 import com.asoc.typewright.core.geometry.measureEdgeRoughness
 import com.asoc.typewright.core.geometry.outlineBounds
+import com.asoc.typewright.core.geometry.outlineDeviation
+import com.asoc.typewright.core.geometry.pointAt
 import com.asoc.typewright.core.geometry.polygonContour
 import com.asoc.typewright.core.geometry.snapOutline
 import com.asoc.typewright.core.geometry.writtenCount
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
@@ -104,6 +113,24 @@ data class TraceParameters(
      * tolerance used is the larger of it and five times the measured wobble of the edge ([measureEdgeRoughness]).
      */
     val adaptTolerance: Boolean = true,
+    /**
+     * Whether a rough edge is smoothed before its corners are found and it is fitted ([detectOutlineCornersDenoised]): the sides
+     * between corners are smoothed by an amount that follows the measured wobble, and a clean edge is left exactly as it is.
+     */
+    val denoise: Boolean = true,
+    /** How many times the measured wobble of an edge the fit tolerance is raised to when [adaptTolerance] is on. */
+    val toleranceFactor: Double = TOLERANCE_PER_WOBBLE,
+    /**
+     * Whether a short rounding between two straight sides is squared up when it is no longer than a few times the softness the
+     * photograph's edges show: a blurred sharp corner is not a drawn curve.
+     */
+    val squareCorners: Boolean = true,
+    /**
+     * How soft the photograph's edges are, in font units, when something better than the ink itself has measured it (the capture
+     * measures it on the printed corner marks, whose edges are sharp). The larger of this and what the ink shows is used. Zero
+     * leaves it to the ink.
+     */
+    val edgeSoftnessUnits: Double = 0.0,
 ) {
     /** The adjustable settings of all stages, the three the screen shows by default first. */
     fun specs(): List<ParameterSpec> =
@@ -155,6 +182,32 @@ data class TraceParameters(
                 1.0,
                 false,
                 "On, the tolerance is raised when the edge of the drawing is rough, so a photograph does not cost a point for every wobble.",
+            ),
+            ParameterSpec(
+                "fit.denoise",
+                TraceStage.CORNERS,
+                "Smooth rough edges",
+                "on/off",
+                if (denoise) 1.0 else 0.0,
+                0.0,
+                1.0,
+                1.0,
+                false,
+                "On, a wobbly edge is smoothed along each side before corners are found, so a photograph's grain is not read as corners. " +
+                    "A clean edge is never touched.",
+            ),
+            ParameterSpec(
+                "fit.square",
+                TraceStage.FIT,
+                "Square up blurred corners",
+                "on/off",
+                if (squareCorners) 1.0 else 0.0,
+                0.0,
+                1.0,
+                1.0,
+                false,
+                "On, a tiny rounding between two straight sides is made a sharp corner when the photograph's own softness explains it. " +
+                    "Off keeps every rounding as drawn.",
             ),
             ParameterSpec(
                 "corner.look",
@@ -218,6 +271,8 @@ data class TraceParameters(
             "fit.tolerance" -> copy(outline = outline.copy(fitTolerance = v, minLineLength = 24.0 * v))
             "snap.band" -> copy(snap = snap.copy(bandUnits = v.roundToInt()))
             "fit.adapt" -> copy(adaptTolerance = v >= 0.5)
+            "fit.denoise" -> copy(denoise = v >= 0.5)
+            "fit.square" -> copy(squareCorners = v >= 0.5)
             "corner.look" -> copy(outline = outline.copy(cornerLookUnits = v))
             "snap.axis" -> copy(snap = snap.copy(axisDegrees = v))
             "clean.specks" -> copy(clean = clean.copy(despeckleMinArea = v.roundToInt()))
@@ -258,15 +313,17 @@ data class ReviewFindings(
  * judgement).
  */
 class GlyphTrace(
-    val frame: RasterFrame,
+    /** Where the cell's raster sits in font space; null for a trace that started from an SVG drawing and has no raster. */
+    val frame: RasterFrame?,
     val parameters: TraceParameters,
-    val cleaned: CleanedCell,
+    /** What Clean made of the cell; null for a trace that started from an SVG drawing. */
+    val cleaned: CleanedCell?,
     val stages: List<StageResult>,
     val contours: List<Contour>,
     val review: ReviewFindings?,
     val suggestedAdvanceWidth: Int,
 ) {
-    val inkFound: Boolean get() = cleaned.inkFound && contours.isNotEmpty()
+    val inkFound: Boolean get() = (cleaned?.inkFound ?: true) && contours.isNotEmpty()
 
     fun stage(stage: TraceStage): StageResult = stages.first { it.stage == stage }
 
@@ -279,6 +336,12 @@ class GlyphTrace(
  * Regularise (off) and Review. Every stage keeps its own output and a plain sentence, no stage's output depends on a
  * later one, and the node count never rises from Contour to Fit: a fit that came out with more points than the
  * boundary it was fitted to is replaced by that boundary's own corners.
+ *
+ * A clean render is fitted at the fit tolerance and nothing else. A photograph's edge is rougher, so what the edge itself shows is
+ * allowed for ([TraceParameters.denoise], [TraceParameters.adaptTolerance], [TraceParameters.squareCorners]): its wobble widens the tests
+ * for a straight side, its grain is smoothed out of each side before corners are found, and a short rounding that the photograph's own
+ * softness explains is squared up. Each is a setting the screen can turn off, each says what it did in its stage's sentence, and the
+ * amounts are our heuristic, set on synthetic photographs. Review's deviation is the final outline's, measured against the traced boundary.
  */
 fun traceCell(
     raster: GrayscaleRaster,
@@ -322,7 +385,50 @@ fun traceCell(
             emptyList(),
         )
 
-    val detections = polylines.map { detectOutlineCorners(it, params.outline) }
+    val softness =
+        if (params.squareCorners) max(estimateEdgeSoftnessPx(cleaned) * frame.unitsPerPx, params.edgeSoftnessUnits) else 0.0
+    val snapped = fitStages(polylines, params, softness, stages)
+
+    val findings = review(cleaned, frame, snapped, outlineDeviation(polylines, snapped))
+    stages +=
+        StageResult(
+            TraceStage.REVIEW,
+            emptyList(),
+            emptyList(),
+            snapped,
+            nodesOf(snapped),
+            reviewSentence(nodesOf(snapped), findings),
+            emptyList(),
+        )
+    val bounds = findings.outlineBounds
+    val advance = if (bounds == null) 0 else bounds.xMax + max(bounds.xMin, 0)
+    return GlyphTrace(frame, params, cleaned, stages, snapped, findings, advance)
+}
+
+/**
+ * Corner detect, Fit, Snap and Regularise on the dense boundary [polylines] (font units, y up): the stages the photograph and an
+ * SVG drawing share. Each appends its [StageResult] to [stages]; the snapped outline comes back.
+ */
+private fun fitStages(
+    polylines: List<List<Vec2>>,
+    params: TraceParameters,
+    softnessUnits: Double,
+    stages: MutableList<StageResult>,
+): List<Contour> {
+    val boundaryPoints = polylines.sumOf { it.size }
+    val denoised =
+        polylines.map {
+            if (params.denoise) {
+                detectOutlineCornersDenoised(
+                    it,
+                    params.outline,
+                )
+            } else {
+                DenoisedCorners(detectOutlineCorners(it, params.outline), 0.0, 0.0)
+            }
+        }
+    val detections = denoised.map { it.corners }
+    val smoothing = denoised.maxOfOrNull { it.smoothingUnits } ?: 0.0
     val cornerPoints = detections.flatMap { d -> d.cornerIndices.map { d.samples[it] } }
     stages +=
         StageResult(
@@ -332,35 +438,40 @@ fun traceCell(
             emptyList(),
             NodeCount(cornerPoints.size, 0),
             "Found ${plural(cornerPoints.size, "corner")} where the edge turns ${oneDecimal(params.outline.cornerTurnDegrees)} degrees " +
-                "or more over ${oneDecimal(params.outline.cornerLookUnits)} units.",
+                "or more over ${oneDecimal(params.outline.cornerLookUnits)} units." +
+                if (smoothing > 0.0) {
+                    " The edge wobbles by about ${oneDecimal(denoised.maxOf { it.noise })} units, so each side was smoothed over " +
+                        "${oneDecimal(smoothing)} first."
+                } else {
+                    ""
+                },
             params.forStage(TraceStage.CORNERS),
         )
 
     val roughness = detections.maxOfOrNull { measureEdgeRoughness(it.samples, params.outline.sampleSpacing) } ?: 0.0
-    val adapted = if (params.adaptTolerance) (TOLERANCE_PER_WOBBLE * roughness).coerceAtMost(MAX_ADAPTED_TOLERANCE) else 0.0
+    val noise = denoised.maxOfOrNull { it.noise } ?: 0.0
+    val measured = max(roughness, noise)
+    val wobble = if (params.adaptTolerance && measured > WOBBLE_FLOOR) measured else 0.0
+    val adapted = if (params.adaptTolerance) (params.toleranceFactor * wobble).coerceAtMost(MAX_ADAPTED_TOLERANCE) else 0.0
     val outline =
-        if (adapted >
-            params.outline.fitTolerance
-        ) {
-            params.outline.copy(fitTolerance = adapted, minLineLength = 24.0 * adapted)
+        if (adapted > params.outline.fitTolerance) {
+            params.outline.copy(fitTolerance = adapted, minLineLength = 24.0 * adapted, wobble = wobble, softness = softnessUnits)
         } else {
-            params.outline
+            params.outline.copy(wobble = wobble, softness = softnessUnits)
         }
+    var squaredCorners = 0
     val fitted =
         detections.mapIndexed { index, detected ->
             val fit = fitOutline(detected, outline)
+            squaredCorners += fit.squaredCorners
             if (fit.contour.writtenCount().let { it.onCurveEquivalent + it.offCurve } > polylines[index].size) {
                 val ring = detected.cornerIndices.map { detected.samples[it] }.ifEmpty { detected.samples }
-                OutlineResult(
-                    polygonContour(ring.map { Point(it.x.roundToInt(), it.y.roundToInt()) }, CurveFormat.CUBIC),
-                    0,
-                    fit.maxDeviation,
-                )
+                polygonContour(ring.map { Point(it.x.roundToInt(), it.y.roundToInt()) }, CurveFormat.CUBIC)
             } else {
-                OutlineResult(fit.contour, fit.curveCount, fit.maxDeviation)
+                fit.contour
             }
         }
-    val fitContours = fitted.map { it.contour }
+    val fitContours = fitted
     val fitNodes = nodesOf(fitContours)
     stages +=
         StageResult(
@@ -370,9 +481,26 @@ fun traceCell(
             fitContours,
             fitNodes,
             fitSentence(boundaryPoints, fitContours, fitNodes) +
-                if (outline.fitTolerance > params.outline.fitTolerance) {
-                    " The tolerance was raised to ${oneDecimal(outline.fitTolerance)} units because this edge wobbles by about " +
-                        "${oneDecimal(roughness)}."
+                (if (softnessUnits >= 1.0) " The edges are about ${oneDecimal(softnessUnits)} units soft." else "") +
+                (
+                    if (squaredCorners > 0) {
+                        " ${plural(squaredCorners, "rounding")} between straight sides ${if (squaredCorners == 1) "was" else "were"} " +
+                            "squared up into sharp corners because that much rounding is what blur does; " +
+                            "turn \"Square up blurred corners\" off to keep them as traced."
+                    } else {
+                        ""
+                    }
+                ) +
+                if (wobble > 0.0) {
+                    " This edge wobbles by about ${oneDecimal(wobble)} units, so a side counts as straight within " +
+                        "${oneDecimal(LINE_TOLERANCE_WOBBLES * wobble)}" +
+                        (
+                            if (outline.fitTolerance > params.outline.fitTolerance) {
+                                " and the fit tolerance was raised to ${oneDecimal(outline.fitTolerance)} units."
+                            } else {
+                                "."
+                            }
+                        )
                 } else {
                     ""
                 },
@@ -407,27 +535,8 @@ fun traceCell(
             emptyList(),
         )
 
-    val findings = review(cleaned, frame, snapped, fitted.maxOf { it.maxDeviation })
-    stages +=
-        StageResult(
-            TraceStage.REVIEW,
-            emptyList(),
-            emptyList(),
-            snapped,
-            snapNodes,
-            reviewSentence(snapNodes, findings),
-            emptyList(),
-        )
-    val bounds = findings.outlineBounds
-    val advance = if (bounds == null) 0 else bounds.xMax + max(bounds.xMin, 0)
-    return GlyphTrace(frame, params, cleaned, stages, snapped, findings, advance)
+    return snapped
 }
-
-private class OutlineResult(
-    val contour: Contour,
-    val curves: Int,
-    val maxDeviation: Double,
-)
 
 /** The dense boundary of the cleaned ink, one polyline per outline (outer and inner), in font units. */
 private fun boundaryPolylines(
@@ -447,6 +556,143 @@ private fun boundaryPolylines(
             },
         )
     return loops.map { loop -> loop.map { frame.unitsAt(it.x - 1.0, it.y - 1.0) } }.filter { it.size >= 3 }
+}
+
+/**
+ * Runs the chain on a drawing that is already outlines (an SVG from the template pack), so the raster stages have nothing to do:
+ * Capture says what came in, then Corner detect, Fit, Snap, Regularise (off) and Review run on the drawing's own curves, flattened
+ * to a dense boundary. [outlines] are closed loops of segments in font units, y up. Nothing is thresholded or followed, so the
+ * trace starts at Fit; corners are still found, because Fit is given corners.
+ */
+fun traceOutlines(
+    outlines: List<List<CurveSegment>>,
+    params: TraceParameters = TraceParameters(),
+): GlyphTrace {
+    val stages = mutableListOf<StageResult>()
+    val polylines = outlines.map { flattenLoop(it) }.filter { it.size >= 3 }
+    val points = polylines.sumOf { it.size }
+    stages +=
+        StageResult(
+            TraceStage.CAPTURE,
+            polylines,
+            emptyList(),
+            emptyList(),
+            null,
+            if (polylines.isEmpty()) {
+                "The SVG holds no outline."
+            } else {
+                "An SVG drawing of ${plural(polylines.size, "outline")} (${grouped(points)} points once its curves are followed). " +
+                    "It is already vector, so Clean and Contour were skipped and the trace starts at Fit."
+            },
+            emptyList(),
+        )
+    if (polylines.isEmpty()) return GlyphTrace(null, params, null, stages, emptyList(), null, 0)
+    val snapped = fitStages(polylines, params, 0.0, stages)
+    val findings = reviewOutlines(polylines, snapped)
+    stages +=
+        StageResult(
+            TraceStage.REVIEW,
+            emptyList(),
+            emptyList(),
+            snapped,
+            nodesOf(snapped),
+            reviewSentence(nodesOf(snapped), findings),
+            emptyList(),
+        )
+    val bounds = findings.outlineBounds
+    val advance = if (bounds == null) 0 else bounds.xMax + max(bounds.xMin, 0)
+    return GlyphTrace(null, params, null, stages, snapped, findings, advance)
+}
+
+/** A closed loop of [segments] as a dense polyline: every curve followed in steps of about two units, a line contributing its start. */
+private fun flattenLoop(segments: List<CurveSegment>): List<Vec2> {
+    val out = mutableListOf<Vec2>()
+    for (segment in segments) {
+        val steps = if (segment is CurveSegment.Line) 1 else max(8, ceil(controlPolygonLength(segment) / 2.0).toInt())
+        for (s in 0 until steps) out += segment.pointAt(s.toDouble() / steps)
+    }
+    return out
+}
+
+private fun controlPolygonLength(segment: CurveSegment): Double =
+    when (segment) {
+        is CurveSegment.Line -> {
+            (segment.end - segment.start).length()
+        }
+
+        is CurveSegment.Quadratic -> {
+            (segment.control - segment.start).length() + (segment.end - segment.control).length()
+        }
+
+        is CurveSegment.Cubic -> {
+            (segment.control1 - segment.start).length() + (segment.control2 - segment.control1).length() +
+                (segment.end - segment.control2).length()
+        }
+    }
+
+/** Review for a trace with no raster: the drawing's own box and a redrawn comparison of its outlines with the fitted ones. */
+private fun reviewOutlines(
+    polylines: List<List<Vec2>>,
+    contours: List<Contour>,
+): ReviewFindings {
+    val outline = Glyph("trace", 0, contours).outlineBounds()
+    var minX = Double.MAX_VALUE
+    var minY = Double.MAX_VALUE
+    var maxX = -Double.MAX_VALUE
+    var maxY = -Double.MAX_VALUE
+    for (loop in polylines) {
+        for (p in loop) {
+            minX = min(minX, p.x)
+            maxX = max(maxX, p.x)
+            minY = min(minY, p.y)
+            maxY = max(maxY, p.y)
+        }
+    }
+    val source = OutlineBounds(floor(minX).toInt(), floor(minY).toInt(), ceil(maxX).toInt(), ceil(maxY).toInt())
+    val difference =
+        if (outline == null) {
+            0
+        } else {
+            maxOf(
+                abs(source.xMin - outline.xMin),
+                abs(source.xMax - outline.xMax),
+                abs(source.yMin - outline.yMin),
+                abs(source.yMax - outline.yMax),
+            )
+        }
+    // Both outlines redrawn on one small grid (4 units a pixel) over the drawing's box and compared pixel by pixel.
+    val pxPerUnit = 0.25
+    val frame = RasterFrame(pxPerUnit, (source.xMin - 8).toDouble(), (source.yMax + 8).toDouble())
+    val width = ceil((source.xMax - source.xMin + 16) * pxPerUnit).toInt() + 1
+    val height = ceil((source.yMax - source.yMin + 16) * pxPerUnit).toInt() + 1
+    val reference =
+        coverageOf(
+            polylines.map { loop -> polygonContour(loop.map { Point(it.x.roundToInt(), it.y.roundToInt()) }, CurveFormat.CUBIC) },
+            frame,
+            width,
+            height,
+        )
+    val redrawn = coverageOf(contours, frame, width, height)
+    var disagree = 0
+    var area = 0
+    for (i in reference.indices) {
+        val inside = redrawn[i] >= 0.5
+        val wanted = reference[i] >= 0.5
+        if (wanted) area++
+        if (inside != wanted) disagree++
+    }
+    val top = outline?.yMax
+    val bottom = outline?.yMin
+    return ReviewFindings(
+        inkBounds = source,
+        outlineBounds = outline,
+        boundsDifference = difference,
+        mismatchFraction = if (area == 0) 0.0 else disagree.toDouble() / area,
+        maxDeviation = outlineDeviation(polylines, contours),
+        flatTop = top != null && contours.any { hasFlatSideAt(it, top) },
+        flatBottom = bottom != null && contours.any { hasFlatSideAt(it, bottom) },
+        hasCurves = contours.any { it.lineSegmentCount() < it.points.size / 3 },
+    )
 }
 
 private fun nodesOf(contours: List<Contour>): NodeCount {
@@ -617,6 +863,12 @@ private fun inkBounds(
         yMax = (frame.topUnits - minY / frame.pxPerUnit).roundToInt(),
     )
 }
+
+/**
+ * The wobble, in font units, under which an edge counts as clean and no allowance is made for it: a render's pixel staircase reads
+ * a few tenths of a unit and must keep the strict tests that give a clean drawing its fewest nodes (our heuristic).
+ */
+private const val WOBBLE_FLOOR = 0.3
 
 /** The most the adaptive tolerance may rise to, in font units: past this a drawing is too rough to fit and the person should redraw or rescan it. */
 private const val MAX_ADAPTED_TOLERANCE = 8.0
