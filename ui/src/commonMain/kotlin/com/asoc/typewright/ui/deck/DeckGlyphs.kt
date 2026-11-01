@@ -33,4 +33,9 @@ internal object DeckGlyphs {
 
     /** [DOWNLOAD_PATH] as a path about the origin. */
     fun download(): Path = PathParser().parsePathString(DOWNLOAD_PATH).toPath()
+
+    /** The shutter: a paper ring and a paper core inside the filled circle, in the circle's units. */
+    const val SHUTTER_RING_RADIUS: Float = 17f
+    const val SHUTTER_RING_STROKE: Float = 2f
+    const val SHUTTER_CORE_RADIUS: Float = 12f
 }

@@ -25,6 +25,8 @@ import com.asoc.typewright.ui.brief.LocalOpenBrief
 import com.asoc.typewright.ui.brief.LocalOpenNewProjectBrief
 import com.asoc.typewright.ui.brief.rememberBriefScreenUiState
 import com.asoc.typewright.ui.brief.rememberBriefStateKeeper
+import com.asoc.typewright.ui.capture.CaptureScreen
+import com.asoc.typewright.ui.capture.rememberCaptureStatus
 import com.asoc.typewright.ui.check.CheckScreen
 import com.asoc.typewright.ui.check.rememberCheckShipStatus
 import com.asoc.typewright.ui.deck.DeckSection
@@ -60,6 +62,7 @@ import com.asoc.typewright.ui.ship.ShipScreen
 import com.asoc.typewright.ui.theme.AppearanceState
 import com.asoc.typewright.ui.theme.LocalAppearance
 import com.asoc.typewright.ui.theme.Theme
+import com.asoc.typewright.ui.trace.TraceScreen
 import com.asoc.typewright.ui.workbook.WorkbookScreen
 import com.asoc.typewright.ui.workbook.rememberWorkbookScreenUiState
 
@@ -71,8 +74,8 @@ import com.asoc.typewright.ui.workbook.rememberWorkbookScreenUiState
  * deck itself and reaches the router through [LocalSectionNav], so a tap, a swipe, the arrow or digit
  * keys or the Map take the person to any section from any screen. Draw and Space are two regions of
  * one sheet ([TypewrightSheet], kept in composition so its camera and tool survive a trip to another
- * section); Home, Learn and Workbook are screens; Capture, Trace, Check and Ship are not built, and
- * say so inside the real deck rather than being hidden (law 4). The Brief opens over the section it
+ * section); Home, Learn and Workbook are screens; Capture (with Templates as a state under it), Trace, Check and Ship are screens too; a
+ * section nothing builds says so inside the real deck rather than being hidden (law 4). The Brief opens over the section it
  * was opened from and keeps its answers when the person leaves it ([rememberBriefStateKeeper]).
  *
  * [workspace] is the app-wide project holder, reachable everywhere through [LocalProjectWorkspace];
@@ -258,6 +261,15 @@ fun TypewrightApp(
                     )
                 }
 
+                navState.section == DeckSection.CAPTURE -> {
+                    CaptureScreen(texture = texture, modifier = Modifier.fillMaxSize(), startOnTemplates = navState.pendingTemplates)
+                    LaunchedEffect(navState.pendingTemplates) { if (navState.pendingTemplates) navState.pendingTemplates = false }
+                }
+
+                navState.section == DeckSection.TRACE -> {
+                    TraceScreen(texture = texture, modifier = Modifier.fillMaxSize())
+                }
+
                 navState.section == DeckSection.CHECK -> {
                     CheckScreen(texture = texture, modifier = Modifier.fillMaxSize())
                 }
@@ -311,6 +323,16 @@ class TypewrightAppNavState(
     fun openGlyph(name: String) {
         currentGlyph = name
         goToSection(DeckSection.DRAW)
+    }
+
+    /** [openTemplates] was called: Capture opens on Templates, consumed (and cleared) by the Capture branch. */
+    var pendingTemplates: Boolean by mutableStateOf(false)
+        internal set
+
+    /** Goes to Capture on its Templates state: where New project's "draw on paper" leads. */
+    fun openTemplates() {
+        pendingTemplates = true
+        goToSection(DeckSection.CAPTURE)
     }
 
     /** True while the Map (S24) covers the screen. */
@@ -450,10 +472,11 @@ fun rememberTypewrightAppNavState(
         TypewrightAppNavState(initialShowLearn, initialShowWorkbook, initialShowBrief)
     }
 
-/** One status function for the deck: Check and Ship from Typewright's own checks, Draw and Trace from the project's locks and outliers. */
+/** One status function for the deck: Check and Ship from Typewright's own checks, Draw and Trace from the project's locks and outliers, Capture from the sheets held. */
 @Composable
 private fun rememberDeckStatus(workspace: ProjectWorkspace): (DeckSection) -> StationStatus? {
     val project = rememberProjectStationStatus(workspace)
     val checkShip = rememberCheckShipStatus(workspace)
-    return remember(project, checkShip) { { section -> checkShip(section) ?: project(section) } }
+    val capture = rememberCaptureStatus(workspace)
+    return remember(project, checkShip, capture) { { section -> checkShip(section) ?: project(section) ?: capture(section) } }
 }

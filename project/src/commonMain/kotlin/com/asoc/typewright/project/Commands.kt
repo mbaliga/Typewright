@@ -7,6 +7,7 @@ import com.asoc.typewright.core.geometry.Anchor
 import com.asoc.typewright.core.geometry.Contour
 import com.asoc.typewright.core.geometry.Glyph
 import com.asoc.typewright.core.geometry.Guideline
+import com.asoc.typewright.project.capture.CaptureRecord
 import com.asoc.typewright.project.scrapbook.ScrapbookPin
 
 /**
@@ -251,6 +252,22 @@ sealed interface MetaChange {
 
     /** Removes the pin with this id. */
     data class RemovePin(
+        val id: String,
+    ) : MetaChange
+
+    /** Adds a captured sheet photograph, scan or SVG drawing: [record] says what it is and [image] is the file's bytes, stored as given. */
+    data class AddCapture(
+        val record: CaptureRecord,
+        val image: ByteArray,
+    ) : MetaChange
+
+    /** Replaces a capture record (matched by id), for a relabelled cell. The stored picture is untouched. */
+    data class UpdateCapture(
+        val record: CaptureRecord,
+    ) : MetaChange
+
+    /** Removes the capture with this id and its stored file. */
+    data class RemoveCapture(
         val id: String,
     ) : MetaChange
 

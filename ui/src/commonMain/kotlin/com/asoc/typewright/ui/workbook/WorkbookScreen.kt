@@ -47,13 +47,16 @@ import com.asoc.typewright.project.scrapbook.ScrapbookPin
 import com.asoc.typewright.project.scrapbook.ScrapbookPinKind
 import com.asoc.typewright.project.scrapbook.stablePinRotationDegrees
 import com.asoc.typewright.qa.NodeEconomyReport
+import com.asoc.typewright.qa.corpus.NodeEconomyVerdict
 import com.asoc.typewright.ui.brief.LocalOpenBrief
 import com.asoc.typewright.ui.deck.DeckSection
 import com.asoc.typewright.ui.deck.DeckToggle
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.project.ProjectFont
 import com.asoc.typewright.ui.project.ProjectText
+import com.asoc.typewright.ui.shell.LocalGlyphNav
 import com.asoc.typewright.ui.shell.LocalOpenProjects
+import com.asoc.typewright.ui.shell.LocalSectionNav
 import com.asoc.typewright.ui.shell.SectionScaffold
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.CanvasTextures
@@ -89,10 +92,8 @@ import com.asoc.typewright.ui.tokens.toColor
  * explorer says whether that action is task 4's own (a re-trace makes sense for a node-economy
  * miss specifically) or a generic "Gate" action every task's own section would carry -- and per
  * CLAUDE.md law 6, this file does not guess: the button is reproduced only on task 4's own screen,
- * where the explorer's own content literally is. It is also **unwired**: there is no real Trace
- * screen composable anywhere in `ui` yet to navigate to (confirmed by reading `ui/src/commonMain`
- * in full before writing this file -- the same situation [com.asoc.typewright.ui.learn.
- * LearnScreen]'s own commands button is already in, and the same disclosed convention).
+ * where the explorer's own content literally is. It opens Trace on the glyph in hand, or
+ * on the first outlier the gate counted when none is.
  *
  * **The Reflection section's "+ note"-equivalent text entry (P11 WP5, docs/PROJECT_MODEL.md
  * §10.1).** With a project open ([LocalProjectWorkspace]'s current [ProjectSession], non-null),
@@ -626,6 +627,10 @@ private fun WorkbookGateSection(
             }
         }
         if (task.index == 4) {
+            val glyphNav = LocalGlyphNav.current
+            val sectionNav = LocalSectionNav.current
+            // The glyph in hand if there is one, otherwise the first outlier the gate counted: that is the one to trace again.
+            val outlier = task4Report?.glyphs?.firstOrNull { it.onCurveVerdict == NodeEconomyVerdict.OUTLIER }?.glyphName
             BasicText(
                 text = "Trace again with Fit ›",
                 style =
@@ -635,9 +640,12 @@ private fun WorkbookGateSection(
                         fontWeight = FontWeight.SemiBold,
                         color = MeaningColors.VIOLET.forTexture(texture).toColor(),
                     ),
-                // Deliberately no `clickable` -- see this file's own top KDoc: no real Trace
-                // screen composable exists yet to navigate to.
-                modifier = Modifier.padding(top = 10.dp),
+                modifier =
+                    Modifier
+                        .clickable {
+                            (glyphNav?.current ?: outlier)?.let { glyphNav?.select?.invoke(it) }
+                            sectionNav?.goTo?.invoke(DeckSection.TRACE)
+                        }.padding(top = 10.dp),
             )
         }
     }

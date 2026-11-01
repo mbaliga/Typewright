@@ -10,6 +10,7 @@ import com.asoc.typewright.project.ProjectLocation
 import com.asoc.typewright.project.ProjectWorkspace
 import com.asoc.typewright.project.storage.AndroidFolderPicker
 import com.asoc.typewright.ui.TypewrightApp
+import com.asoc.typewright.ui.capture.PlatformCaptureSupport
 import com.asoc.typewright.ui.deck.SystemBack
 import com.asoc.typewright.ui.imports.PlatformImportSupport
 import com.asoc.typewright.ui.ship.AndroidShipSupport
@@ -21,6 +22,8 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var folderPicker: AndroidFolderPicker
     private lateinit var fontPicker: AndroidFontFilePicker
+    private lateinit var capturePicker: AndroidCaptureFilePicker
+    private lateinit var exporter: AndroidFileExporter
     private val systemBack = SystemBack()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,6 +34,12 @@ class MainActivity : ComponentActivity() {
         fontPicker = AndroidFontFilePicker(activityResultRegistry, contentResolver)
         PlatformImportSupport.filePicker = fontPicker
         PlatformImportSupport.destination = AndroidImportDestination { pickProjectParentFolder() }
+        // Capture: the gallery and Files for pictures, the system save screen for the sheets, and the camera.
+        capturePicker = AndroidCaptureFilePicker(activityResultRegistry, contentResolver)
+        exporter = AndroidFileExporter(activityResultRegistry, contentResolver)
+        PlatformCaptureSupport.picker = capturePicker
+        PlatformCaptureSupport.exporter = exporter
+        PlatformCaptureSupport.camera = AndroidCameraProvider()
         // Ship writes its repository folder through the same document tree.
         val shipFolder = AndroidShipFolderChooser({ pickProjectParentFolder() }, (application as TypewrightApplication).storage)
         AndroidShipSupport.chooseFolder = shipFolder::choose
@@ -53,6 +62,9 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         // A pick in flight belongs to this activity; end it rather than leave it waiting for a screen that is gone.
         fontPicker.release()
+        capturePicker.release()
+        exporter.release()
+        PlatformCaptureSupport.camera = null
         AndroidShipSupport.chooseFolder = null
         super.onDestroy()
     }

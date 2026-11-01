@@ -75,6 +75,9 @@ Hyle Deco/                              the project directory; name as typed, wi
 ├── scrapbook/                          created empty by S02
 │   ├── manifest.json                   §3.2; absent until the first pin
 │   └── <pin id>.<jpg|png|webp>         images the user pins, stored as given
+├── captures/                           sheet photographs, scans and SVG drawings Capture holds (§3.4). Absent until the first one.
+│   ├── manifest.json
+│   └── <cap id>.<jpg|png|webp|bmp|gif|svg>   stored exactly as given
 ├── lessons/                            created empty by S02
 │   └── workbook-latn.json              §3.3; the Latin workbook's reflections; absent until the first one
 ├── comparisons/                        created empty by S02
@@ -175,6 +178,24 @@ New pin ids are `pin-<n>`, with n one more than the highest existing number, so 
 ```
 
 Reflection ids are `r-<task>-<n>`, with n one more than the highest for that task. JSON rather than Markdown, because law 7 says "UFO 3 and JSON" (§14 D13).
+
+### 3.4 `captures/manifest.json`
+
+Capture's own record of what it was given. Only the **source** is kept (the picture or SVG, byte for byte, as `captures/<id>.<ext>`); the cells of a sheet are read from it again whenever the project is opened, which is deterministic, so the project never holds a derived number a person could not reproduce from the picture. Law 7: the pictures are ordinary image files and the manifest is plain JSON.
+
+```jsonc
+{ "format_version": 1,
+  "records": [ { "id": "cap-1", "kind": "photo",            // "photo" (camera) | "file" (gallery, file or drop) | "svg"
+                 "name": "Photo",                            // what the row calls it: the file name, or "Photo" for a camera frame
+                 "image_path": "captures/cap-1.jpg",
+                 "batch": null,                              // SVG drawings that arrived together share one
+                 "glyph": null,                              // the glyph an SVG drawing is for, from its pack file name
+                 "relabels": [ { "cell": 11, "glyph": "l" } ],   // cells the person renamed
+                 "script": "LATIN", "sheet": 0, "sheet_count": 5,  // which printed sheet it was read as; null for an SVG
+                 "quality_override": false } ] }             // true for a camera photo taken with the manual override
+```
+
+New ids are `cap-<n>`, n one more than the highest. Taking a sheet again (the same script and number) replaces the earlier record and removes its file. Commands: `MetaChange.AddCapture`, `UpdateCapture`, `RemoveCapture`; not in the font history.
 
 ## 4. ProjectSession API (Kotlin signatures)
 

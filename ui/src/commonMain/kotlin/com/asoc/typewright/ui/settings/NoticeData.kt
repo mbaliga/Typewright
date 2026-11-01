@@ -34,6 +34,10 @@ val NOTICE_SECTIONS: List<NoticeSection> =
                     ", `annotation`, `arch.core`, `autofill`, `collection`, `concurrent`, `core`, `customview`," +
                     " `emoji2`, `graphics`, `interpolator`, `profileinstaller`, `startup`, `tracing`, `versione" +
                     "dparcelable`, `window` — as resolved — Apache-2.0 — POM",
+                "AndroidX CameraX (Android app only, for Capture's Camera): `camera-core`, `camera-camera2`" +
+                    ", `camera-lifecycle`, `camera-view` (and `camera-video` and `auto-value-annotations`, whic" +
+                    "h `camera-view` pulls in) — 1.6.2 — Apache-2.0 — POM. Linked into `app-android` only; not " +
+                    "in the desktop or web builds. Compile-verified only: no phone here",
                 "kotlinx.coroutines — 1.9.0 — Apache-2.0 — POM. Since P9, `shape-preview` also declares `ko" +
                     "tlinx-coroutines-core` directly (its own `wasmJsMain`/`wasmJsTest`, `gradle/libs.versions." +
                     "toml`'s `kotlinx-coroutines` version), pinned to this same 1.9.0 rather than only reached " +

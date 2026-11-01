@@ -31,6 +31,8 @@ fun main() {
     // "Open a font…": the browser's file input; the project lives in the tab (compile-verified only).
     PlatformImportSupport.filePicker = WebFontFilePicker()
     PlatformImportSupport.destination = BrowserTabImportDestination
+    // Capture: the file input, the download, and files dropped on the page (compile-verified only).
+    installWebCaptureSupport(workspaceScope)
 
     // There is no reliable "the tab is about to close" event in a browser, so "no longer
     // visible" (switched away from, minimised, or genuinely closing) is the honest signal to

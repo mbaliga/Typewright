@@ -47,11 +47,18 @@ dependencies {
     implementation(project(":ui"))
     // A pure module (jvm + wasmJs, no Android target) consumed through its JVM variant.
     implementation(project(":core-geometry"))
+    // The Camera hands the capture engine's grey rasters to the shared code (CameraFeed.analyse), so its type is on this classpath too.
+    implementation(project(":engine-trace"))
     // P11 WP5's Android bridge: TypewrightApplication builds a real ProjectWorkspace over SAF
     // storage, and MainActivity's picker is AndroidFolderPicker.
     implementation(project(":project"))
     implementation(project(":project:storage"))
     implementation(libs.androidx.activity.compose)
+    // Capture's Camera (S09): CameraX preview, analysis and still capture. Compile-verified only: no phone here (CLAUDE.md law 4).
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
 
     testImplementation(libs.kotlin.test.junit)
 
