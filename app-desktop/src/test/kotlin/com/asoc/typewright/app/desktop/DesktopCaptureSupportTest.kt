@@ -54,6 +54,21 @@ class DesktopCaptureSupportTest {
     }
 
     @Test
+    fun aDropSaysWhatItLeftOutInsteadOfSwallowingIt() {
+        val png = file("scan.png", byteArrayOf(1, 2))
+        val doc = file("notes.txt", byteArrayOf(1))
+        val big = file("huge.png", ByteArray(40))
+        val read = readDroppedFiles(listOf(png, doc, big), maxBytes = 16)
+        assertEquals(listOf("scan.png"), read.files.map { it.name }, "the small picture is still taken")
+        val notice = checkNotNull(read.notice)
+        assertTrue("“notes.txt” was not added: file type not supported" in notice, notice)
+        assertTrue("huge.png" in notice && "too large" in notice, notice)
+        assertNull(readDroppedFiles(listOf(png)).notice, "nothing to say when every file was taken")
+        val folder = File(dir, "dir.png").apply { mkdirs() }
+        assertTrue("“dir.png” was not added" in checkNotNull(readDroppedFiles(listOf(folder)).notice))
+    }
+
+    @Test
     fun anExportIsWrittenWhereChosenAndSaysWhere() {
         val target = File(dir, "sheets.pdf")
         val saved = assertIs<ExportOutcome.Saved>(writeExport(target, byteArrayOf(5, 6)))

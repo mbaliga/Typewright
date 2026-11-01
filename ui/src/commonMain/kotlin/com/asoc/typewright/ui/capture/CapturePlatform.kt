@@ -8,8 +8,11 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import com.asoc.typewright.engine.trace.GrayscaleRaster
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /** One file the person gave Capture, with every byte of it. */
 class PickedFile(
@@ -22,7 +25,7 @@ enum class CaptureSource(
     val label: String,
     val note: String,
 ) {
-    CAMERA("Camera", "photograph a printed sheet"),
+    CAMERA("Camera", "photograph a printed sheet · not yet tried on a phone"),
     GALLERY("Gallery", "pick a photo or a scan"),
     FILE("File", "an image, a scan or an SVG drawing"),
 }
@@ -63,11 +66,22 @@ class UnavailableCaptureFilePicker(
     override suspend fun pick(source: CaptureSource): FilePickOutcome = FilePickOutcome.Failed(reason)
 }
 
+/**
+ * Takes the person to Templates (the sheets to print and the SVG pack) from a screen that has no other way there, such as New
+ * project's "draw on paper". Null where nothing provided it, and the screens that read it then leave the link out.
+ */
+val LocalOpenTemplates: ProvidableCompositionLocal<(() -> Unit)?> = staticCompositionLocalOf { null }
+
 /** What saving a file for the person came to. */
 sealed interface ExportOutcome {
     /** Written; [where] says where in words ("typewright-latin-sheets-a4.pdf in Downloads"). */
     data class Saved(
         val where: String,
+    ) : ExportOutcome
+
+    /** Given to the browser as a download. The page cannot know whether the person kept it or where it went, so it says only that. */
+    data class Handed(
+        val sentence: String,
     ) : ExportOutcome
 
     data object Cancelled : ExportOutcome
@@ -155,14 +169,44 @@ object PlatformCaptureSupport {
     var acceptsDrops: Boolean = false
 
     private val droppedFlow = MutableSharedFlow<List<PickedFile>>(extraBufferCapacity = DROP_BUFFER)
+    private val noticeFlow = MutableStateFlow<String?>(null)
 
     /** Files dropped on the window; Capture adds them when it is on screen. */
     val dropped: SharedFlow<List<PickedFile>> get() = droppedFlow.asSharedFlow()
 
-    /** Called by the platform when files are dropped. */
+    /**
+     * What the last drop could not do, in words, until Capture shows it: a file of a kind Capture does not take, one that is too
+     * large, or a drop made while Capture was not on screen. A drop is never lost without saying so.
+     */
+    val dropNotice: StateFlow<String?> get() = noticeFlow.asStateFlow()
+
+    /** Called by the platform when files are dropped. Files dropped while Capture is not open are not kept; the notice says so. */
     fun deliverDrop(files: List<PickedFile>) {
-        if (files.isNotEmpty()) droppedFlow.tryEmit(files)
+        if (files.isEmpty()) return
+        if (droppedFlow.subscriptionCount.value == 0) {
+            noticeFlow.value = "Files dropped outside Capture were not added. Open Capture, then drop them again."
+            return
+        }
+        droppedFlow.tryEmit(files)
     }
+
+    /** Called by the platform when a drop held files it did not pass on, with the reason in plain words. */
+    fun reportDropProblem(message: String) {
+        noticeFlow.value = message
+    }
+
+    /** Capture has shown the notice. */
+    fun clearDropNotice() {
+        noticeFlow.value = null
+    }
+
+    /** The sentence for files that were dropped but are not a kind Capture takes. */
+    fun unsupportedDropNotice(names: List<String>): String =
+        if (names.size == 1) {
+            "“${names.single()}” was not added: file type not supported. Capture takes JPEG, PNG, GIF, BMP and SVG files."
+        } else {
+            "${names.size} files were not added: file type not supported. Capture takes JPEG, PNG, GIF, BMP and SVG files."
+        }
 
     private const val DROP_BUFFER = 4
 }

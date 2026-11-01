@@ -70,7 +70,7 @@ private const val RASTER_SIDE = 360
 
 /**
  * The drawing and its outline at the selected stage, in font space: the cell's own window (the room the letter was drawn in), the
- * metric lines and the advance lines at full strength (they never fade, C4), the raster the outline came from when [showRaster] is
+ * metric lines (from [metricLines], so they are there before the first run ends) and the advance lines at full strength (they never fade, C4), the raster the outline came from when [showRaster] is
  * on, and the stage's output on top. Capture shows the drawing alone; Clean and Contour show the edge that was followed; Corners
  * mark where the edge turns; Fit onward draw the outline with its points, Snap marking the ones it moved.
  */
@@ -82,6 +82,7 @@ fun TraceCanvas(
     stage: TraceStage?,
     showRaster: Boolean,
     metricLabels: Map<Int, String>,
+    metricLines: List<Int> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     val measurer = rememberTextMeasurer()
@@ -107,7 +108,7 @@ fun TraceCanvas(
 
         // Metric lines and advance lines first, so the drawing sits on top of them. Full strength everywhere.
         val labelStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 8.5.sp, color = muted)
-        val lines = outcome?.parameters?.metricLines.orEmpty()
+        val lines = metricLines.ifEmpty { outcome?.parameters?.metricLines.orEmpty() }
         for (y in lines) {
             val py = sy(y.toDouble())
             drawLine(ink.copy(alpha = METRIC_ALPHA), Offset(0f, py), Offset(size.width, py), 1.dp.toPx())

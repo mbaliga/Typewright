@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -217,8 +218,10 @@ class CaptureLibrary(
         val outlines: Map<Int, InkOutline> = emptyMap(),
     )
 
-    private val bytes = HashMap<String, ByteArray>()
-    private val parsed = HashMap<String, Parsed>()
+    // Read and written from the caller's thread and from the background reader at once, so each is an immutable map swapped
+    // atomically rather than a map two threads can both change.
+    private val bytesHeld = MutableStateFlow<Map<String, ByteArray>>(emptyMap())
+    private val parsedHeld = MutableStateFlow<Map<String, Parsed>>(emptyMap())
     private val lock = Mutex()
     private var observing = false
 
@@ -298,19 +301,24 @@ class CaptureLibrary(
                         sheet = identity.index,
                         sheetCount = identity.count,
                         qualityOverride = lenient,
+                        // A retake is the same sheet, so the cells the person has already named keep their names.
+                        relabels = earlier.lastOrNull()?.relabels.orEmpty(),
                     )
-                bytes[id] = file.bytes
+                bytesHeld.update { it + (id to file.bytes) }
                 val built = withContext(work) { parse(record, result.sheet, raster) }
-                parsed[id] = built
+                parsedHeld.update { it + (id to built) }
                 val applied = session.update(MetaChange.AddCapture(record, file.bytes))
                 if (applied !is EditResult.Applied) {
-                    bytes.remove(id)
-                    parsed.remove(id)
+                    forget(id)
                     failureFlow.value = AddFailure(file.name, "The project could not keep this picture: ${describe(applied)}", source)
                     return
                 }
                 for (old in earlier) session.update(MetaChange.RemoveCapture(old.id))
-                if (earlier.isNotEmpty()) noteFlow.value = "Sheet ${identity.index + 1} replaced the one you had."
+                if (earlier.isNotEmpty()) {
+                    noteFlow.value =
+                        "Sheet ${identity.index + 1} replaced the one you had." +
+                        if (record.relabels.isNotEmpty()) " The cells you renamed kept their names." else ""
+                }
             }
         }
     }
@@ -349,12 +357,11 @@ class CaptureLibrary(
                 batch = batch,
                 glyph = glyph.glyphName,
             )
-        bytes[id] = file.bytes
-        parsed[id] = Parsed(svg = reading)
+        bytesHeld.update { it + (id to file.bytes) }
+        parsedHeld.update { it + (id to Parsed(svg = reading)) }
         val applied = session.update(MetaChange.AddCapture(record, file.bytes))
         if (applied !is EditResult.Applied) {
-            bytes.remove(id)
-            parsed.remove(id)
+            forget(id)
             failureFlow.value = AddFailure(file.name, "The project could not keep this drawing: ${describe(applied)}", source)
             return
         }
@@ -385,8 +392,7 @@ class CaptureLibrary(
             }
         for (id in ids) {
             session.update(MetaChange.RemoveCapture(id))
-            bytes.remove(id)
-            parsed.remove(id)
+            forget(id)
         }
     }
 
@@ -399,7 +405,13 @@ class CaptureLibrary(
         val record =
             session.state.value.meta.captures.records
                 .firstOrNull { it.id == recordId } ?: return
-        val template = (parsed[recordId]?.sheet?.cells?.getOrNull(cell))?.glyphName
+        val template =
+            (
+                parsedHeld.value[recordId]
+                    ?.sheet
+                    ?.cells
+                    ?.getOrNull(cell)
+            )?.glyphName
         val others = record.relabels.filterNot { it.cell == cell }
         val relabels = if (glyph == template) others else (others + CaptureRelabel(cell, glyph)).sortedBy { it.cell }
         session.update(MetaChange.UpdateCapture(record.copy(relabels = relabels)))
@@ -419,12 +431,13 @@ class CaptureLibrary(
         lock.withLock {
             // Show what is known at once, then read what is not.
             itemsFlow.value = assemble(manifest)
-            val missing = manifest.records.filter { it.id !in parsed }
+            val missing = manifest.records.filter { it.id !in parsedHeld.value }
             if (missing.isEmpty()) return
             busyFlow.value += 1
             try {
                 for (record in missing) {
-                    parsed[record.id] = readStored(record)
+                    val read = readStored(record)
+                    parsedHeld.update { it + (record.id to read) }
                     itemsFlow.value = assemble(manifest)
                 }
             } finally {
@@ -434,7 +447,9 @@ class CaptureLibrary(
     }
 
     private suspend fun readStored(record: CaptureRecord): Parsed {
-        val data = bytes[record.id] ?: session.store.read(record.imagePath)?.also { bytes[record.id] = it }
+        val data =
+            bytesHeld.value[record.id]
+                ?: session.store.read(record.imagePath)?.also { held -> bytesHeld.update { it + (record.id to held) } }
         if (data == null) return Parsed(unreadable = "The picture for this capture is missing from the project folder.")
         if (record.kind == CaptureKind.SVG) {
             val script = record.glyph?.let { name -> TemplatePack.glyphForFileName(record.name)?.first }
@@ -474,7 +489,7 @@ class CaptureLibrary(
         val batches = LinkedHashMap<String, MutableList<SvgCell>>()
         val order = ArrayList<Any>()
         for (record in manifest.records) {
-            val p = parsed[record.id]
+            val p = parsedHeld.value[record.id]
             if (record.kind == CaptureKind.SVG) {
                 val key = record.batch ?: record.id
                 if (key !in batches) order += key
@@ -512,6 +527,11 @@ class CaptureLibrary(
                 outline = p.outlines[cell.index] ?: InkOutline.EMPTY,
             )
         }
+    }
+
+    private fun forget(id: String) {
+        bytesHeld.update { it - id }
+        parsedHeld.update { it - id }
     }
 
     private var batchCounter = 0
@@ -580,6 +600,18 @@ class CaptureLibrary(
                     }
                 }
             }
+
+        /** How many different sheets of [script] [items] hold (a sheet taken twice counts once; another script's sheet 1 is not this one). */
+        fun sheetsHeld(
+            items: List<CaptureItem>,
+            script: PrintScript,
+        ): Int =
+            items
+                .filterIsInstance<CaptureItem.Sheet>()
+                .filter { it.record.script == script.name }
+                .mapNotNull { it.record.sheet }
+                .toSet()
+                .size
 
         /** How many sheets a [script] has in all. */
         fun sheetsIn(script: PrintScript): Int = PrintSheets.forScript(script).sheets.size

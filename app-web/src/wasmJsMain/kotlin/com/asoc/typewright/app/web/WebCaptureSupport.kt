@@ -101,7 +101,7 @@ class WebFileExporter : FileExporter {
         bytes: ByteArray,
     ): ExportOutcome {
         browserDownload(suggestedName.toJsString(), Base64.encode(bytes).toJsString(), mimeType.toJsString())
-        return ExportOutcome.Saved("$suggestedName in your downloads")
+        return ExportOutcome.Handed("$suggestedName was sent to your browser as a download. Where it goes is up to the browser.")
     }
 }
 
@@ -136,11 +136,14 @@ private fun listenForDrops(): Unit =
             if (!window.__typewrightDropsInstalled) {
                 window.__typewrightDropsInstalled = true;
                 window.__typewrightDrops = [];
+                window.__typewrightSkipped = [];
                 document.addEventListener('dragover', function (e) { e.preventDefault(); });
                 document.addEventListener('drop', function (e) {
                     e.preventDefault();
                     var files = Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files) || []);
-                    var keep = files.filter(function (f) { return /\.(jpe?g|png|gif|bmp|svg)${'$'}/i.test(f.name); });
+                    var wanted = function (f) { return /\.(jpe?g|png|gif|bmp|svg)${'$'}/i.test(f.name); };
+                    var keep = files.filter(wanted);
+                    files.filter(function (f) { return !wanted(f); }).forEach(function (f) { window.__typewrightSkipped.push(f.name); });
                     keep.forEach(function (file) {
                         var reader = new FileReader();
                         reader.onload = function () {
@@ -151,6 +154,18 @@ private fun listenForDrops(): Unit =
                     });
                 });
             }
+        }
+        """,
+    )
+
+/** The names of dropped files that were not a kind Capture takes, since the last call, joined by U+0001. */
+private fun takeSkippedDrops(): JsString =
+    js(
+        """
+        {
+            var q = window.__typewrightSkipped || [];
+            window.__typewrightSkipped = [];
+            return q.join('\u0001');
         }
         """,
     )
@@ -180,13 +195,17 @@ fun installWebCaptureSupport(scope: CoroutineScope) {
     scope.launch {
         while (true) {
             delay(DROP_POLL_MILLIS)
+            val skipped = takeSkippedDrops().toString()
+            if (skipped.isNotEmpty()) {
+                PlatformCaptureSupport.reportDropProblem(PlatformCaptureSupport.unsupportedDropNotice(skipped.split('\u0001')))
+            }
             val waiting = takeDrops().toString()
             if (waiting.isNotEmpty()) {
-                (
-                    picksFromBrowserAnswer(
-                        waiting,
-                    ) as? FilePickOutcome.Picked
-                )?.let { PlatformCaptureSupport.deliverDrop(it.files) }
+                when (val outcome = picksFromBrowserAnswer(waiting)) {
+                    is FilePickOutcome.Picked -> PlatformCaptureSupport.deliverDrop(outcome.files)
+                    is FilePickOutcome.Failed -> PlatformCaptureSupport.reportDropProblem("Not added: ${outcome.message}")
+                    FilePickOutcome.Cancelled -> Unit
+                }
             }
         }
     }

@@ -77,19 +77,19 @@ object TemplatePack {
         for (line in guides.lines) {
             val y = -line.y
             val dash = if (line.solid) " " else " stroke-dasharray=\"8 8\""
+            val weight = if (line.solid) 3 else 2
             sb.append(
-                "<line x1=\"$left\" y1=\"$y\" x2=\"$right\" y2=\"$y\" stroke=\"#c0392b\" stroke-width=\"${if (line.solid) 3 else 2}\"$dash opacity=\"0.5\"/>",
+                "<line x1=\"$left\" y1=\"$y\" x2=\"$right\" y2=\"$y\" stroke=\"$METRIC_GREY\" stroke-width=\"$weight\"$dash opacity=\"0.5\"/>",
             )
-            sb.append(
-                "<text x=\"${left + 6}\" y=\"${y - 8}\" font-family=\"monospace\" font-size=\"30\" fill=\"#c0392b\" opacity=\"0.7\">${xml(
-                    line.label,
-                )}</text>",
-            )
+            val labelAttrs = "font-family=\"monospace\" font-size=\"30\" fill=\"$METRIC_GREY\" opacity=\"0.7\""
+            sb.append("<text x=\"${left + 6}\" y=\"${y - 8}\" $labelAttrs>${xml(line.label)}</text>")
         }
         val vTop = frame.minY.toInt()
         val vBottom = (frame.minY + frame.height).toInt()
         for (x in listOf(guides.advanceLeft, guides.advanceRight)) {
-            sb.append("<line x1=\"$x\" y1=\"$vTop\" x2=\"$x\" y2=\"$vBottom\" stroke=\"#2980b9\" stroke-width=\"2\" opacity=\"0.5\"/>")
+            sb.append(
+                "<line x1=\"$x\" y1=\"$vTop\" x2=\"$x\" y2=\"$vBottom\" stroke=\"$ADVANCE_GREY\" stroke-width=\"2\" opacity=\"0.5\"/>",
+            )
         }
         sb.append("</g>\n<g id=\"DRAW_HERE\"></g>\n")
         val code = glyph.codePoint?.let { "U+" + it.toString(16).uppercase().padStart(4, '0') + "  " } ?: ""
@@ -159,6 +159,10 @@ object TemplatePack {
             .replace("<", "&lt;")
             .replace(">", "&gt;")
             .replace("\"", "&quot;")
+
+    /** Guide colours in the exported SVGs: neutral greys, because colour carries meaning in the app and a template is not the app. */
+    internal const val METRIC_GREY = "#6b6b6b"
+    internal const val ADVANCE_GREY = "#9a9a9a"
 
     private const val SIDE_ROOM = 160
     private const val VERTICAL_ROOM = 120

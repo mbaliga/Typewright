@@ -192,7 +192,7 @@ class AndroidFileExporter(
                     contentResolver.openOutputStream(target)
                         ?: return@withContext ExportOutcome.Failed("Android could not open the file to write.")
                 stream.use { it.write(bytes) }
-                ExportOutcome.Saved(suggestedName)
+                ExportOutcome.Saved("${chosenName(target) ?: suggestedName} in the place you chose")
             } catch (e: SecurityException) {
                 ExportOutcome.Failed("$suggestedName couldn't be written: access was refused.")
             } catch (e: IOException) {
@@ -200,6 +200,16 @@ class AndroidFileExporter(
             }
         }
     }
+
+    /** The name the person gave the file on the save screen, which may differ from the suggestion; null if Android will not say. */
+    private fun chosenName(target: Uri): String? =
+        try {
+            contentResolver.query(target, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
+                if (it.moveToFirst()) it.getString(0) else null
+            }
+        } catch (e: SecurityException) {
+            null
+        }
 
     /** The activity is going away: stops listening for results and cancels a save in flight. */
     fun release() {

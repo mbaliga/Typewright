@@ -2,6 +2,7 @@
 
 package com.asoc.typewright.scripts.sheets
 
+import org.junit.Assume
 import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
@@ -71,37 +72,14 @@ class SheetPdfPythonIntegrationTest {
         assertEquals("{(612.0, 792.0)}", output[1])
     }
 
-    /** The exported PDF's own structure, read without any library: header, a cross-reference table whose every offset lands on its object, and a trailer that points at it. */
-    private fun assertWellFormed(
-        bytes: ByteArray,
-        pages: Int,
-    ) {
-        val text = bytes.decodeToString()
-        assertTrue(text.startsWith("%PDF-1."), "header")
-        assertTrue(text.trimEnd().endsWith("%%EOF"), "end marker")
-        val startxref = Regex("startxref\\s+(\\d+)").find(text)!!.groupValues[1].toInt()
-        assertTrue(text.substring(startxref).startsWith("xref"), "startxref points at the table")
-        val table = Regex("xref\\s+0 (\\d+)\\s+((?:\\d{10} \\d{5} [nf] ?\\s+)+)").find(text, startxref)!!
-        val count = table.groupValues[1].toInt()
-        val offsets = Regex("(\\d{10}) \\d{5} n").findAll(table.groupValues[2]).map { it.groupValues[1].toInt() }.toList()
-        assertEquals(count - 1, offsets.size, "one entry per object")
-        for ((i, offset) in offsets.withIndex()) {
-            assertTrue(
-                text.substring(offset).startsWith("${i + 1} 0 obj"),
-                "object ${i + 1} is at its offset",
-            )
-        }
-        assertTrue(Regex("/Size $count\\b").containsMatchIn(text), "trailer size")
-        assertTrue(Regex("/Count $pages\\b").containsMatchIn(text), "page count in the page tree")
-    }
-
     @Test
-    fun theDevanagariPdfIsWellFormedAndPdfinfoAgreesWhenItIsInstalled() {
+    fun pdfinfoAgreesOnTheDevanagariPdfWhenItIsInstalled() {
+        // The PDF's own structure is checked, without any tool, by SheetWritersTest in the default jvmTest. This adds poppler's reading
+        // when poppler is here; without it the test is reported as skipped, not passed.
         val file = exportTo(PaperSize.A4, PrintScript.DEVANAGARI)
-        // The structure check always runs, so the test asserts something with or without poppler on the machine.
-        assertWellFormed(file.readBytes(), pages = 3)
-        val process = runCatching { ProcessBuilder("pdfinfo", file.absolutePath).redirectErrorStream(true).start() }.getOrNull() ?: return
-        val info = process.inputStream.bufferedReader().readText()
+        val process = runCatching { ProcessBuilder("pdfinfo", file.absolutePath).redirectErrorStream(true).start() }.getOrNull()
+        Assume.assumeTrue("pdfinfo (poppler-utils) is not installed on this machine", process != null)
+        val info = process!!.inputStream.bufferedReader().readText()
         process.waitFor(30, TimeUnit.SECONDS)
         assertTrue(Regex("Pages:\\s+3").containsMatchIn(info), info)
         assertTrue("A4" in info || "595.276 x 841.89" in info, info)

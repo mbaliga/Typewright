@@ -127,6 +127,38 @@ class OutlineWobbleTest {
         assertTrue(three in 0.6..3.0, "$three")
     }
 
+    private fun oval(
+        rx: Double,
+        ry: Double,
+        spacing: Double = 2.0,
+    ): List<Vec2> {
+        val dense = List(4000) { Vec2(rx * cos(2 * PI * it / 4000), ry * sin(2 * PI * it / 4000)) }
+        return resampleClosed(dense, spacing)
+    }
+
+    @Test
+    fun aCleanCircleOrOvalReadsBelowTheNoiseFloorWhateverItsRadius() {
+        // A Gaussian pulls a circle of radius R in by about sigma squared over 2R, so a reading that took that pull for grain would pass
+        // the floor for every radius under about 90 units. (Under about 25 units a circle is smaller than the smoothing scale and reads as grain.)
+        for (radius in listOf(30.0, 40.0, 50.0, 75.0, 100.0, 150.0, 300.0)) {
+            val noise = estimateBoundaryNoise(oval(radius, radius))
+            assertTrue(noise < NOISE_FLOOR_UNITS, "circle of radius $radius reads $noise")
+            assertEquals(0.0, detectOutlineCornersDenoised(oval(radius, radius)).smoothingUnits, "circle of radius $radius was smoothed")
+        }
+        for ((rx, ry) in listOf(40.0 to 25.0, 60.0 to 30.0, 200.0 to 90.0, 120.0 to 120.0)) {
+            val noise = estimateBoundaryNoise(oval(rx, ry))
+            assertTrue(noise < NOISE_FLOOR_UNITS, "oval $rx by $ry reads $noise")
+        }
+    }
+
+    @Test
+    fun aSmallRoundFeatureStillReadsTheGrainOnIt() {
+        // The same circle with real grain on it reads clearly above the floor, so the fix did not simply stop looking at small shapes.
+        val grained = roughened(oval(60.0, 60.0, 1.0), 3.0, 11)
+        val noise = estimateBoundaryNoise(grained)
+        assertTrue(noise > NOISE_FLOOR_UNITS, "grained circle reads $noise")
+    }
+
     @Test
     fun theNoiseOfATinyBoundaryIsZero() {
         assertEquals(0.0, estimateBoundaryNoise(List(15) { Vec2(it.toDouble(), (it % 2).toDouble()) }))

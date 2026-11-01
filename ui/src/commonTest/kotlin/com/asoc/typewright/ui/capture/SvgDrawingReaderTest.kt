@@ -171,6 +171,73 @@ class SvgDrawingReaderTest {
         assertEquals(1, assertIs<SvgReading.Drawing>(SvgDrawingReader.read(text)).contours.size)
     }
 
+    private val box = "M 0 0 L 400 0 L 400 -100 L 0 -100 Z"
+    private val pen = "M 0 0 L 400 0"
+
+    private fun usable(body: String): SvgReading.Drawing = drawing("<path d=\"$box\"/>$body")
+
+    @Test
+    fun aStyleAttributeWithFillNoneMakesAShapeAStrokeAsInkscapeWritesIt() {
+        val d = usable("<path d=\"$pen\" style=\"fill:none;stroke:#000000;stroke-width:12\"/>")
+        assertEquals(1, d.contours.size, "only the filled box is kept")
+        assertTrue(d.notes.single().contains("Outline Stroke"), d.notes.toString())
+        // Spaces round the colon and a trailing important flag are the same declaration.
+        assertEquals(1, usable("<path d=\"$pen\" style=\"stroke:#000; fill : none !important\"/>").contours.size)
+        // A style attribute beats the fill attribute, in both directions.
+        assertEquals(1, usable("<path d=\"$pen\" fill=\"#000\" style=\"fill:none\"/>").contours.size)
+        assertEquals(2, usable("<path d=\"$box\" fill=\"none\" style=\"fill:#222\"/>").contours.size)
+    }
+
+    @Test
+    fun aClassInAStyleBlockWithFillNoneMakesAShapeAStrokeAsIllustratorWritesIt() {
+        val css = ".cls-1{fill:none;stroke:#000;stroke-miterlimit:10;}.cls-2{fill:#231f20;}"
+        val d =
+            usable(
+                "<defs><style>$css</style></defs>" +
+                    "<path class=\"cls-1\" d=\"$pen\"/><path class=\"cls-2\" d=\"M 10 -10 L 50 -10 L 50 -50 Z\"/>",
+            )
+        assertEquals(2, d.contours.size, "the box and the cls-2 triangle; the cls-1 line is a stroke")
+        assertTrue(d.notes.single().contains("Outline Stroke"), d.notes.toString())
+        // CDATA around the rules, a comment inside them, a comma list and an id selector all read the same.
+        val wrapped = "<style type=\"text/css\"><![CDATA[ /* pen */ .a, #line {fill:none} ]]></style>"
+        assertEquals(1, usable("$wrapped<path id=\"line\" d=\"$pen\"/><path class=\"a\" d=\"$pen\"/>").contours.size)
+        // The more specific rule wins, whatever the order.
+        val specific = "<style>#p{fill:#000} .s{fill:none}</style>"
+        assertEquals(2, usable("$specific<path id=\"p\" class=\"s\" d=\"M 5 -5 L 60 -5 L 60 -60 Z\"/>").contours.size)
+        // A class that no element uses changes nothing.
+        assertEquals(2, usable("<style>.unused{fill:none}</style><path d=\"M 5 -5 L 60 -5 L 60 -60 Z\"/>").contours.size)
+    }
+
+    @Test
+    fun fillNoneOnAGroupIsInheritedByTheShapesInsideItUnlessTheyAskForAFill() {
+        val d =
+            usable(
+                "<g fill=\"none\" stroke=\"#000\"><path d=\"$pen\"/><g><path d=\"$pen\"/></g>" +
+                    "<path fill=\"#000\" d=\"M 10 -10 L 50 -10 L 50 -50 Z\"/></g>",
+            )
+        assertEquals(2, d.contours.size, "the box, and the one shape inside the group that has its own fill")
+        assertTrue(d.notes.single().startsWith("2 shapes had no fill"), d.notes.toString())
+        // A group styled by class, and a group that is closed again: what follows it is no longer inside.
+        val byClass = usable("<style>.g{fill:none}</style><g class=\"g\"><path d=\"$pen\"/></g><path d=\"M 10 -10 L 50 -10 L 50 -50 Z\"/>")
+        assertEquals(2, byClass.contours.size)
+        assertEquals(1, byClass.notes.size)
+        // fill="inherit" takes the group's value.
+        assertEquals(1, usable("<g style=\"fill:none\"><path fill=\"inherit\" d=\"$pen\"/></g>").contours.size)
+    }
+
+    @Test
+    fun aDrawingMadeOnlyOfStrokesIsRefusedWithTheOutlineStrokeInstruction() {
+        for (body in listOf(
+            "<path d=\"$box\" style=\"fill:none;stroke:#000\"/>",
+            "<style>.c{fill:none;stroke:#000}</style><path class=\"c\" d=\"$box\"/>",
+            "<g style=\"fill:none\"><path d=\"$box\"/></g>",
+        )) {
+            val sentence = assertIs<SvgReading.Failure>(read(body)).sentence
+            assertTrue(sentence.contains("Outline Stroke"), sentence)
+            assertTrue(sentence.contains("strokes"), sentence)
+        }
+    }
+
     /** Segments of a cubic contour that are straight and that are curved. */
     private data class CurveCount(
         val curved: Int,

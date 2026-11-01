@@ -51,6 +51,8 @@ data class SvgFrame(
  * Read: `path` (every command, including arcs), `rect`, `circle`, `ellipse`, `polygon`, with `transform` on any element or
  * group. Left out, because they are not part of a glyph: the `guides` and `reference_delete_me` groups, text, `defs`, and a
  * shape with no fill (a stroke, which a font cannot hold; the note says to run Outline Stroke).
+ * A shape has no fill when its `fill` is `none` by attribute, by `style="..."`, by a class in a `<style>` block, or by a
+ * group it sits in.
  */
 object SvgDrawingReader {
     /** An arc is cut into cubic pieces of at most a quarter turn, where a cubic follows a circle to about one part in ten thousand. */
@@ -86,12 +88,15 @@ object SvgDrawingReader {
 
         val contours = mutableListOf<List<Seg>>()
         var strokeOnly = 0
+        val styles = SvgStyles(tokens.filterIsInstance<XmlToken.Text>().joinToString("\n") { it.text })
 
-        // One frame per open element: the matrix that applies inside it and whether it, or an element above it, is left out.
+        // One frame per open element: the matrix that applies inside it, whether it or an element above it is left out, and the
+        // fill it gives its children (fill is inherited, so a group with fill:none makes every shape inside it a stroke).
         class Frame(
             val name: String,
             val matrix: Matrix,
             val skipped: Boolean,
+            val fill: String?,
         )
         val frames = ArrayDeque<Frame>()
         for (token in tokens) {
@@ -101,10 +106,16 @@ object SvgDrawingReader {
                     val matrix =
                         (parent?.matrix ?: Matrix.IDENTITY) * (token.attributes["transform"]?.let { parseTransform(it) } ?: Matrix.IDENTITY)
                     val skipped = (parent?.skipped ?: false) || token.name in SKIPPED || token.attributes["id"] in SKIPPED_IDS
-                    if (!token.selfClosing) frames.addLast(Frame(token.name, matrix, skipped))
+                    // A style attribute beats the style sheet, which beats the fill attribute; none of them: the parent's.
+                    val own =
+                        token.attributes["style"]?.let { SvgStyles.fillIn(it) }
+                            ?: styles.fillOf(token.name, token.attributes)
+                            ?: token.attributes["fill"]?.trim()?.lowercase()
+                    val fill = if (own == null || own == "inherit") parent?.fill else own
+                    if (!token.selfClosing) frames.addLast(Frame(token.name, matrix, skipped, fill))
                     if (skipped) continue
                     val shape = shapeOf(token, matrix) ?: continue
-                    if (token.attributes["fill"]?.trim()?.lowercase() == "none") {
+                    if (fill == "none") {
                         strokeOnly++
                     } else {
                         contours += shape
@@ -121,6 +132,12 @@ object SvgDrawingReader {
         if (strokeOnly > 0) {
             notes += "${plural(strokeOnly, "shape")} had no fill and was left out. A font holds filled shapes only: run Outline Stroke " +
                 "in your vector tool before exporting."
+        }
+        if (contours.isEmpty() && strokeOnly > 0) {
+            return SvgReading.Failure(
+                "This drawing is made of strokes with no fill, and a font holds filled shapes only. Run Outline Stroke " +
+                    "(Path, Stroke to Path in Inkscape; Object, Path, Outline Stroke in Illustrator), then export again.",
+            )
         }
         if (contours.isEmpty()) {
             return SvgReading.Failure(
@@ -743,6 +760,12 @@ internal object XmlScan {
                     }
                     out += XmlToken.Open(name.substringAfter(':'), attributes, selfClosing)
                     i = end + 1
+                    if (!selfClosing && name.substringAfter(':') == "style") {
+                        // The rules inside a <style> block are the one place text matters.
+                        val close = text.indexOf("</", i).let { if (it < 0) text.length else it }
+                        out += XmlToken.Text(text.substring(i, close).replace("<![CDATA[", "").replace("]]>", ""))
+                        i = close
+                    }
                 }
             }
         }

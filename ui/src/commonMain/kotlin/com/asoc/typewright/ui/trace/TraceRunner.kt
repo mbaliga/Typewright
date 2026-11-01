@@ -16,6 +16,9 @@ import com.asoc.typewright.engine.trace.StageResult
 import com.asoc.typewright.engine.trace.TraceParameters
 import com.asoc.typewright.engine.trace.TraceStage
 import com.asoc.typewright.engine.trace.traceCell
+import com.asoc.typewright.scripts.sheets.PaperSize
+import com.asoc.typewright.scripts.sheets.PrintScript
+import com.asoc.typewright.scripts.sheets.SheetLayout
 import com.asoc.typewright.ui.capture.TraceSource
 import kotlin.math.abs
 import kotlin.math.max
@@ -29,6 +32,8 @@ import kotlin.math.roundToInt
  * stages before are shown as not applying rather than invented.
  */
 class TraceOutcome(
+    /** The drawing this was traced from, so Accept can refuse an outcome that belongs to another drawing. */
+    val source: TraceSource,
     val parameters: TraceParameters,
     val stages: List<StageResult>,
     val unavailable: Set<TraceStage>,
@@ -79,6 +84,7 @@ object TraceRunner {
         val trace = traceCell(source.raster, source.frame, parameters)
         val review = trace.review
         return TraceOutcome(
+            source = source,
             parameters = parameters,
             stages = trace.stages,
             unavailable = emptySet(),
@@ -159,8 +165,9 @@ object TraceRunner {
                 "${points(snapCount)}, as you drew them." + overshootNote(hasCurves, flatTop, flatBottom),
                 emptyList(),
             )
-        val advance = if (bounds == null) 0 else bounds.xMax + max(bounds.xMin, 0)
+        val advance = suggestedAdvance(bounds?.xMax, source.script)
         return TraceOutcome(
+            source = source,
             parameters = parameters,
             stages = stages,
             unavailable = setOf(TraceStage.CAPTURE, TraceStage.CLEAN, TraceStage.CONTOUR, TraceStage.CORNERS),
@@ -171,6 +178,19 @@ object TraceRunner {
             hasCurves = hasCurves,
             trace = null,
         )
+    }
+
+    /**
+     * The advance a drawing made on the template suggests: the distance between the template's two advance guides, widened to the
+     * ink's right edge when the drawing runs past the right guide. Zero when there is no ink. Space is where it is settled.
+     */
+    internal fun suggestedAdvance(
+        inkRight: Int?,
+        script: PrintScript,
+    ): Int {
+        if (inkRight == null) return 0
+        val guides = SheetLayout.of(PaperSize.A4, script).guides
+        return max(guides.advanceRight - guides.advanceLeft, inkRight)
     }
 
     private fun overshootNote(

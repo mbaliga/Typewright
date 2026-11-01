@@ -4,6 +4,7 @@ package com.asoc.typewright.ui.trace
 
 import com.asoc.typewright.core.geometry.Contour
 import com.asoc.typewright.core.geometry.count
+import com.asoc.typewright.engine.trace.GrayscaleRaster
 import com.asoc.typewright.engine.trace.TraceParameters
 import com.asoc.typewright.engine.trace.TraceStage
 import com.asoc.typewright.project.EditResult
@@ -12,6 +13,8 @@ import com.asoc.typewright.project.LockState
 import com.asoc.typewright.project.ProjectWorkspace
 import com.asoc.typewright.project.Refusal
 import com.asoc.typewright.project.Unlock
+import com.asoc.typewright.scripts.sheets.PrintScript
+import com.asoc.typewright.scripts.sheets.PrintSheets
 import com.asoc.typewright.ui.capture.CaptureLibrary
 import com.asoc.typewright.ui.capture.CaptureSource
 import com.asoc.typewright.ui.capture.PickedFile
@@ -56,10 +59,11 @@ class TraceFlowTest {
     private fun captured(
         degrees: Double = 3.0,
         pxPerMm: Double = 6.0,
+        sheet: Int = 0,
     ): Captured {
         val workspace = SampleProject.workspace()
         val session = checkNotNull(workspace.current.value)
-        val spec = SyntheticSheets.latinSheet(0)
+        val spec = SyntheticSheets.latinSheet(sheet)
         val font =
             session.state.value.font.masters
                 .first()
@@ -99,7 +103,6 @@ class TraceFlowTest {
     fun theChainReducesACapturedLetterToAFewPointsAndKeepsEveryStage() {
         val t = captured().source("T")
         val outcome = run(t)
-        println("T: boundary=${outcome.boundaryCount} final=${outcome.finalCount}")
         assertEquals(TraceStage.entries.toList(), outcome.stages.map { it.stage })
         assertTrue(checkNotNull(outcome.boundaryCount) > 200, "the boundary of a pen drawing is hundreds of points")
         val final = checkNotNull(outcome.finalCount)
@@ -114,7 +117,6 @@ class TraceFlowTest {
     @Test
     fun aScanOfTheSheetGivesTheTheEightCornersOfTheT() {
         val outcome = run(captured(degrees = 0.0, pxPerMm = 8.0).source("T"))
-        println("T flat scan: boundary=${outcome.boundaryCount} final=${outcome.finalCount}")
         assertEquals(8, outcome.finalCount?.total, "a T scanned flat is eight corners and no curves: ${outcome.finalCount}")
         assertEquals(0, outcome.finalCount?.offCurve)
     }
@@ -123,7 +125,6 @@ class TraceFlowTest {
     fun aRoundLetterKeepsItsCurvesAndAFlatTopIsSaidToNeedNoOvershoot() {
         val captured = captured()
         val o = run(captured.source("O"))
-        println("o: final=${o.finalCount}")
         assertTrue(checkNotNull(o.finalCount).offCurve > 0, "an o is curves")
         assertTrue(o.hasCurves)
         // Among the capitals some have curves and a flat top or bottom (D, P, R, U...): overshoot does not apply on the flat side.
@@ -132,8 +133,7 @@ class TraceFlowTest {
                 .sources()
                 .map { it.glyphName to run(it) }
                 .firstOrNull { it.second.flatRound }
-        val (name, outcome) = assertNotNull(flat, "some capital has curves and a flat side")
-        println("flat-sided round glyph: $name")
+        val (_, outcome) = assertNotNull(flat, "some capital has curves and a flat side")
         assertTrue(
             outcome.stage(TraceStage.REVIEW)!!.sentence.contains("overshoot does not apply"),
             outcome.stage(TraceStage.REVIEW)!!.sentence,
@@ -292,6 +292,135 @@ class TraceFlowTest {
         )
         assertNotNull(TraceView.hiddenStagesNote(outcome, all = false).takeIf { it == "+5 in all stages" })
         assertEquals("", TraceView.hiddenStagesNote(outcome, all = true))
+    }
+
+    @Test
+    fun aScannedOIsSixteenPointsOnTheCurveAndSixteenOffIt() {
+        // The screen's own "done when": the round letter is 80 points in the shipped outline and 16 on, 16 off once fitted.
+        val sheet = PrintSheets.forScript(PrintScript.LATIN).sheets.indexOfFirst { page -> page.glyphs.any { it.glyphName == "o" } }
+        assertTrue(sheet >= 0, "some Latin sheet carries the lower-case o")
+        val o = run(captured(degrees = 0.0, pxPerMm = 8.0, sheet = sheet).source("o"))
+        val count = checkNotNull(o.finalCount)
+        assertEquals(16, count.onCurve, "on-curve points of the scanned o: $count")
+        assertEquals(16, count.offCurve, "off-curve points of the scanned o: $count")
+    }
+
+    @Test
+    fun anOutcomeBelongsToTheDrawingAndTheSettingsThatMadeIt() {
+        val captured = captured()
+        val t = captured.source("T")
+        val o = captured.source("O")
+        val params = TraceParameters(metricLines = listOf(0, 500, 700))
+        val outcome = TraceRunner.run(t, params)
+        assertTrue(TraceFlow.isCurrent(outcome, t, params))
+        assertFalse(TraceFlow.isCurrent(outcome, o, params), "another glyph's drawing")
+        assertFalse(TraceFlow.isCurrent(outcome, t, params.withParameter("fit.tolerance", 8.0)), "another setting")
+        assertFalse(TraceFlow.isCurrent(outcome, t, params.copy(metricLines = listOf(0, 500))), "another set of metric lines")
+        assertFalse(TraceFlow.isCurrent(null, t, params))
+        assertFalse(TraceFlow.isCurrent(outcome, null, params))
+        // The same glyph from another capture (a retake) is another drawing, even with the same name.
+        val retake =
+            TraceSource.Raster(
+                t.glyphName,
+                t.script,
+                t.codePoint,
+                t.origin,
+                GrayscaleRaster(t.raster.width, t.raster.height, t.raster.pixels.copyOf()),
+                t.frame,
+            )
+        assertFalse(TraceFlow.isCurrent(outcome, retake, params))
+        // The library hands out new source objects whenever anything is read; the same drawing is still the same drawing.
+        val rebuilt = TraceSource.Raster(t.glyphName, t.script, t.codePoint, t.origin, t.raster, t.frame)
+        assertTrue(TraceFlow.isCurrent(outcome, rebuilt, params))
+    }
+
+    @Test
+    fun acceptRefusesAnOutcomeFromTheGlyphBeforeAndWritesNothing() {
+        val captured = captured()
+        val glyphO = GlyphRef(captured.master.id, "O")
+        assertIs<EditResult.Applied>(captured.session.execute(Unlock(glyphO)))
+        val params = TraceParameters()
+        val t = captured.source("T")
+        val o = captured.source("O")
+        val staleOutcome = TraceRunner.run(t, params)
+        val before = captured.session.state.value
+        val steps = captured.session.history.value.undoLabels.size
+        val page = TracePageState()
+        // The screen has moved on to O but the run for O has not finished: the outcome in hand is T's.
+        acceptTrace(SampleProject.openProject(captured.workspace), o, staleOutcome, params, listOf(t, o), null, page)
+        assertTrue(checkNotNull(page.message).contains("still tracing O"), page.message)
+        assertEquals(before, captured.session.state.value, "nothing was written")
+        assertEquals(steps, captured.session.history.value.undoLabels.size)
+        assertFalse(TraceFlow.isLocked(captured.session.state.value, captured.master.id, "O"), "O was not locked")
+        // The right outcome goes through, and the glyph is locked by it.
+        acceptTrace(SampleProject.openProject(captured.workspace), o, TraceRunner.run(o, params), params, listOf(t, o), null, page)
+        assertTrue(TraceFlow.isLocked(captured.session.state.value, captured.master.id, "O"))
+        assertTrue(checkNotNull(page.message).startsWith("O accepted and locked"), page.message)
+    }
+
+    @Test
+    fun acceptRefusesAnOutcomeMadeWithTheSettingsBeforeAStepperTap() {
+        val captured = captured()
+        assertIs<EditResult.Applied>(captured.session.execute(Unlock(GlyphRef(captured.master.id, "T"))))
+        val t = captured.source("T")
+        val older = TraceParameters()
+        val newer = older.withParameter("fit.tolerance", 8.0).withParameter("fit.adapt", 0.0).withParameter("corner.turn", 70.0)
+        val olderOutcome = TraceRunner.run(t, older)
+        assertTrue(olderOutcome.contours != TraceRunner.run(t, newer).contours, "the test needs the two settings to differ")
+        val before = captured.session.state.value
+        val page = TracePageState()
+        acceptTrace(SampleProject.openProject(captured.workspace), t, olderOutcome, newer, listOf(t), null, page)
+        assertEquals(before, captured.session.state.value, "the older outline was not written")
+        assertTrue(checkNotNull(page.message).contains("still tracing"), page.message)
+    }
+
+    @Test
+    fun theConfirmationSurvivesTheMoveToTheNextGlyph() {
+        val captured = captured()
+        assertIs<EditResult.Applied>(captured.session.execute(Unlock(GlyphRef(captured.master.id, "T"))))
+        // O is still locked, as an imported letter is, so it is not the next to trace; unlocking it makes it so.
+        assertIs<EditResult.Applied>(captured.session.execute(Unlock(GlyphRef(captured.master.id, "O"))))
+        val t = captured.source("T")
+        val next = captured.source("O")
+        val carried = arrayOfNulls<String>(1)
+        var selected: String? = null
+        val nav =
+            com.asoc.typewright.ui.shell
+                .GlyphNav("T", open = {}, select = { selected = it })
+        acceptTrace(
+            SampleProject.openProject(captured.workspace),
+            t,
+            TraceRunner.run(t, TraceParameters()),
+            TraceParameters(),
+            listOf(t, next),
+            nav,
+            TracePageState(),
+            carried,
+        )
+        assertEquals("O", selected)
+        assertEquals("T accepted and locked. On to O.", carried[0], "the next glyph's page picks this up")
+    }
+
+    @Test
+    fun anSvgDrawingsAdvanceComesFromTheTemplatesAdvanceGuides() {
+        val latin = com.asoc.typewright.scripts.sheets.PrintScript.LATIN
+        val guides =
+            com.asoc.typewright.scripts.sheets.SheetLayout
+                .of(com.asoc.typewright.scripts.sheets.PaperSize.A4, latin)
+                .guides
+        val inside =
+            TraceRunner.run(
+                TraceSource.Vector("i", latin, null, "SVG · i.svg", svgContours("M 100 0 L 100 -500 L 300 -500 L 300 0 Z")),
+                TraceParameters(),
+            )
+        assertEquals(guides.advanceRight - guides.advanceLeft, inside.suggestedAdvance, "between the guides: the guides' own width")
+        val over =
+            TraceRunner.run(
+                TraceSource.Vector("w", latin, null, "SVG · w.svg", svgContours("M 100 0 L 100 -500 L 900 -500 L 900 0 Z")),
+                TraceParameters(),
+            )
+        assertEquals(900, over.suggestedAdvance, "ink past the right guide widens the advance to cover it")
+        assertEquals(0, TraceRunner.suggestedAdvance(null, latin), "no ink, no advance")
     }
 
     private fun svgContours(d: String): List<Contour> {

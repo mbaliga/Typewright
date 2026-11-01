@@ -16,6 +16,7 @@ import com.asoc.typewright.project.Ethos
 import com.asoc.typewright.project.Use
 import com.asoc.typewright.qa.corpus.loadStyleAtlas
 import com.asoc.typewright.ui.ScreenshotHarness
+import com.asoc.typewright.ui.capture.LocalOpenTemplates
 import com.asoc.typewright.ui.project.InMemoryProjectFolderPicker
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.project.createProjectWorkspace
@@ -130,6 +131,23 @@ class BriefScreenScreenshotTest {
                 }
             }
         assertTrue(shot.file.length() > 0, "PNG written to ${shot.file}")
+    }
+
+    @Test
+    fun theNewProjectBoardLeadsToTemplatesOnlyWhereTheAppWiresThat() {
+        val workspace = createProjectWorkspace(CoroutineScope(Dispatchers.Default))
+        runBlocking { createUntitledProject(workspace, InMemoryProjectFolderPicker(workspace)) }
+
+        fun board(open: (() -> Unit)?) =
+            ScreenshotHarness.captureWithText("brief-screen-new-project-paper", 780, 2400, 2f) {
+                CompositionLocalProvider(LocalProjectWorkspace provides workspace, LocalOpenTemplates provides open) {
+                    val state = rememberBriefScreenUiState()
+                    remember(state) { state.beginNewProject() }
+                    BriefScreen(texture = CanvasTextures.PAPER, state = state)
+                }
+            }
+        assertTrue(board {}.has("Draw on paper · print the sheets ›"), "the paper source is offered where Templates is wired")
+        assertTrue(!board(null).has("Draw on paper"), "and not offered where nothing would answer it")
     }
 
     @Test

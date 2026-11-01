@@ -12,6 +12,7 @@ import com.asoc.typewright.scripts.sheets.CellFrame
 import com.asoc.typewright.scripts.sheets.MmRect
 import com.asoc.typewright.scripts.sheets.PrintSheetSpec
 import com.asoc.typewright.scripts.sheets.SheetLayout
+import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -38,10 +39,17 @@ import kotlin.math.sqrt
 internal object CellReader {
     /**
      * How wide, in millimetres, the band round each printed guide is inside which a thin mark is taken for the guide's leftover: the
-     * guide's own width, a printer's wider toner and a few tenths of a millimetre out of register (our heuristic). A pen line a
-     * millimetre wide or more cannot lie wholly inside it.
+     * guide's own width, a printer's wider toner and a few tenths of a millimetre out of register (our heuristic). A pen line that
+     * lies wholly inside it is kept all the same when it is [GHOST_MAX_THICKNESS_MM] or more across.
      */
     const val GHOST_BAND_MM: Double = 1.8
+
+    /**
+     * A mark wholly inside the band is the printed guide's leftover only if it is thinner than this: three times the template's 0.3 mm
+     * guide is 0.9 mm, the widest the tests print, so a marker line of a millimetre or more on a guide is a drawing. A pen line thinner
+     * than this lying wholly on a guide and touching nothing else is still taken for the guide (our heuristic).
+     */
+    const val GHOST_MAX_THICKNESS_MM: Double = 1.0
 
     /** The lowest darkness taken as ink. */
     const val GUIDE_CEILING: Double = 0.33
@@ -58,11 +66,11 @@ internal object CellReader {
     /** The lowest darkness taken as ink when a cell is read again for faint pencil (our heuristic). */
     const val FAINT_LEVEL: Double = 0.12
 
-    /** Fewer ink pixels than this, at the faint level, is residue of a printed guide or the paper and not a drawing (our heuristic). */
-    const val FAINT_MIN_INK_PIXELS: Int = 80
+    /** Less ink than this many square millimetres (80 pixels at the default 10 pixels a millimetre), at the faint level, is residue of a printed guide or the paper and not a drawing (our heuristic). */
+    const val FAINT_MIN_INK_MM2: Double = 0.8
 
-    /** Strokes narrower than this many pixels (0.4 mm at the default 10 pixels a millimetre) are taken for a printed guide's leftovers (our heuristic). */
-    const val FAINT_MIN_STROKE_PX: Double = 4.0
+    /** Strokes narrower than this many millimetres are taken for a printed guide's leftovers (our heuristic). */
+    const val FAINT_MIN_STROKE_MM: Double = 0.4
 
     /** The darkness a faint drawing's strongest pixel is stretched to, so the trace, which wants to see ink, can. */
     const val FAINT_STRETCH_TO: Double = 0.8
@@ -104,7 +112,14 @@ internal object CellReader {
                         GHOST_BAND_MM,
                     )
                 val corrected = PrintedGuides.correct(flat[it], coverages[it], strength)
-                readOne(PrintedGuides.withoutGhosts(corrected, band), layout, spec, it, pxPerMm, blurSigmaMm)
+                readOne(
+                    PrintedGuides.withoutGhosts(corrected, band, ceil(GHOST_MAX_THICKNESS_MM * pxPerMm).toInt()),
+                    layout,
+                    spec,
+                    it,
+                    pxPerMm,
+                    blurSigmaMm,
+                )
             }
         // Second pass: the relabel list of every uncertain cell is ranked against the drawings of the others.
         return reads.mapIndexed { index, read ->
@@ -193,7 +208,7 @@ internal object CellReader {
     /**
      * A cell with nothing at the pen level may still hold a light pencil drawing, and silently calling that cell empty would lose
      * the person's work without a word. So the cell is read again at [FAINT_LEVEL], and if what turns up is a drawing and not the
-     * residue of a printed guide (enough ink, and strokes at least [FAINT_MIN_STROKE_PX] wide, which a guide is not) it is returned as
+     * residue of a printed guide (enough ink, and strokes at least [FAINT_MIN_STROKE_MM] wide, which a guide is not) it is returned as
      * a faint cell for the person to confirm, its darkness stretched so the trace can see it. Otherwise it is empty.
      */
     private fun readFaint(
@@ -208,8 +223,10 @@ internal object CellReader {
         blurSigmaMm: Double,
     ): Read {
         val faint = cleanCell(gray, CleanParameters(minimumLevel = FAINT_LEVEL, minimumInk = FAINT_LEVEL))
-        val inkPixels = faint.mask.ink.count { it }
-        if (!faint.inkFound || inkPixels < FAINT_MIN_INK_PIXELS || faint.strokeWidthPx < FAINT_MIN_STROKE_PX) return Read(empty, null, null)
+        val inkMm2 = faint.mask.ink.count { it } / (pxPerMm * pxPerMm)
+        if (!faint.inkFound || inkMm2 < FAINT_MIN_INK_MM2 || faint.strokeWidthPx / pxPerMm < FAINT_MIN_STROKE_MM) {
+            return Read(empty, null, null)
+        }
         val strongest =
             faint.darkness.indices
                 .filter { faint.mask.ink[it] }
@@ -234,7 +251,9 @@ internal object CellReader {
                 cellFrame,
                 inkBounds(faint, cellFrame),
                 faint.strokeWidthPx * cellFrame.unitsPerPx,
-                inkPixels.toDouble() / faint.mask.ink.size,
+                faint.mask.ink
+                    .count { it }
+                    .toDouble() / faint.mask.ink.size,
                 blurSigmaMm * frame.unitsPerMm,
             )
         return Read(cell, signature(faint), UncertainReason.FAINT)

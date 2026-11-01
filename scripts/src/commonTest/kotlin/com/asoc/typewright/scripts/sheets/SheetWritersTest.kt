@@ -18,12 +18,8 @@ class SheetWritersTest {
 
     private fun text(bytes: ByteArray): String = bytes.decodeToString()
 
-    @Test
-    fun theFiveLatinSheetsMakeAFivePageA4PdfWithAValidCrossReference() {
-        val pdf = text(PdfWriter.write(latinPages))
-        assertTrue(pdf.startsWith("%PDF-1.4\n"))
-        assertTrue(pdf.endsWith("%%EOF\n"))
-
+    /** The header, end marker, cross-reference table (every offset lands on its own `N 0 obj`) and trailer of [pdf], read back from its text. */
+    private fun assertCrossReference(pdf: String) {
         val startxref = Regex("startxref\\n(\\d+)\\n%%EOF").find(pdf)!!.groupValues[1].toInt()
         assertTrue(pdf.startsWith("xref\n", startxref), "startxref points at the table")
         val header = Regex("xref\\n0 (\\d+)\\n").find(pdf, startxref)!!
@@ -39,7 +35,30 @@ class SheetWritersTest {
         }
         val trailer = pdf.substring(pdf.indexOf("trailer"))
         assertTrue("/Size $size" in trailer && "/Root 1 0 R" in trailer)
+    }
 
+    @Test
+    fun everyScriptOnEveryPaperMakesAWellFormedPdfOfThePagesItHas() {
+        // Runs in the default jvmTest with no Python and no PDF tool on the machine, so a broken file cannot pass for want of a reader.
+        for (script in PrintScript.entries) {
+            for (paper in PaperSize.entries) {
+                val pages = SheetRenderer.renderAll(PrintSheets.forScript(script), paper, GuideStyle.LIGHT)
+                val pdf = text(PdfWriter.write(pages))
+                assertCrossReference(pdf)
+                assertTrue(pages.isNotEmpty())
+                assertTrue("/Count ${pages.size}" in pdf, "${script.label} ${paper.label}: page count")
+                assertEquals(pages.size, Regex("/Type /Page /Parent").findAll(pdf).count(), "${script.label} ${paper.label}: page objects")
+            }
+        }
+    }
+
+    @Test
+    fun theFiveLatinSheetsMakeAFivePageA4PdfWithAValidCrossReference() {
+        val pdf = text(PdfWriter.write(latinPages))
+        assertTrue(pdf.startsWith("%PDF-1.4\n"))
+        assertTrue(pdf.endsWith("%%EOF\n"))
+
+        assertCrossReference(pdf)
         assertTrue("/Count 5" in pdf)
         assertEquals(5, Regex("/Type /Page /Parent").findAll(pdf).count())
         assertEquals(5, Regex("/MediaBox \\[0 0 595.276 841.89\\]").findAll(pdf).count(), "A4 is 595.276 x 841.89 points")

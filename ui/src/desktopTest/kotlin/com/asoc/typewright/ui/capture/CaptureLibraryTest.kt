@@ -151,6 +151,44 @@ class CaptureLibraryTest {
         }
 
     @Test
+    fun aRetakeKeepsTheNamesThePersonGaveItsCells() =
+        timed {
+            val workspace = SampleProject.workspace()
+            val library = library(workspace)
+            library.add(listOf(PickedFile("a.png", sheetPicture())), CaptureSource.FILE)
+            val first = awaitSheet(library)
+            val cell = (first.state as SheetState.Ready).cells.first { it.hasInk }.index
+            library.relabel(first.record.id, cell, "Q")
+            library.items.first { items ->
+                ((items.singleOrNull() as? CaptureItem.Sheet)?.state as? SheetState.Ready)?.cells?.get(cell)?.glyphName == "Q"
+            }
+            library.add(listOf(PickedFile("b.png", sheetPicture(degrees = -2.0))), CaptureSource.FILE)
+            val again =
+                library.items
+                    .first { items ->
+                        val sheet = items.singleOrNull() as? CaptureItem.Sheet
+                        sheet != null && sheet.record.name == "b.png" && sheet.state is SheetState.Ready
+                    }.single() as CaptureItem.Sheet
+            assertEquals("Q", (again.state as SheetState.Ready).cells[cell].glyphName, "the retake kept the name")
+            assertTrue("kept their names" in assertNotNull(library.note.value), library.note.value)
+        }
+
+    @Test
+    fun anSvgDrawnWithOnlyStrokesIsRefusedWithTheOutlineStrokeInstruction() =
+        timed {
+            val library = library(SampleProject.workspace())
+            val template = TemplatePack.packFiles(PrintScript.LATIN).entries.first { it.key.endsWith("053_DIGIT_ONE.svg") }
+            val stroked =
+                template.value.decodeToString().replace(
+                    "<g id=\"DRAW_HERE\"></g>",
+                    "<g id=\"DRAW_HERE\"><path d=\"M 280 0 L 280 -700\" style=\"fill:none;stroke:#000000;stroke-width:40\"/></g>",
+                )
+            library.add(listOf(PickedFile("053_DIGIT_ONE.svg", stroked.encodeToByteArray())), CaptureSource.FILE)
+            assertTrue("Outline Stroke" in assertNotNull(library.failure.value).sentence)
+            assertNull(library.sourceFor("one"), "a stroke is not kept as the glyph")
+        }
+
+    @Test
     fun removingASheetDeletesItsRecord() =
         timed {
             val workspace = SampleProject.workspace()

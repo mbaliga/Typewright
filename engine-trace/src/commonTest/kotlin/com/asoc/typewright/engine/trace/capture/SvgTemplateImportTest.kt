@@ -54,6 +54,30 @@ class SvgTemplateImportTest {
     }
 
     @Test
+    fun aFileInAFolderOfTheDesignersOwnIsStillFoundByItsName() {
+        for (path in listOf("my-drawings/$tFile", "/storage/emulated/0/Documents/$tFile", "C:\\Users\\ana\\Desktop\\drawings\\$tFile")) {
+            assertEquals("T", assertNotNull(SvgTemplateImport.matchTemplate(path), path).second.glyphName)
+        }
+        assertEquals("T", assertNotNull(SvgTemplateImport.matchTemplate("my-drawings/123_LATIN_CAPITAL_LETTER_T.svg")).second.glyphName)
+        // And through import, where the failure showed: every file of a re-exported folder came back unusable.
+        val read = SvgTemplateImport.import("my-drawings/$tFile", template("""<path d="M0,0 H100 V-700 H0 Z"/>"""))
+        assertEquals("T", assertIs<SvgImport.Drawing>(read).glyph.glyphName)
+        assertNull(SvgTemplateImport.matchTemplate("my-drawings/holiday.svg"))
+    }
+
+    @Test
+    fun aFileInOneOfThePacksOwnFoldersIsOnlyLookedForInThatFolder() {
+        val naskh = PrintSheets.glyphs(PrintScript.NASKH).first().templateFileName
+        assertEquals(PrintScript.NASKH, assertNotNull(SvgTemplateImport.matchTemplate("svg/Naskh/$naskh")).first)
+        // Nastaliq has no sheet. Its file names repeat Naskh's, but a Nastaliq drawing is not a Naskh one.
+        assertNull(SvgTemplateImport.matchTemplate("svg/Nastaliq/$naskh"))
+        assertNull(SvgTemplateImport.matchTemplate("svg/Nastaliq/123_ARABIC_LETTER_ALEF.svg"))
+        // A real folder with the wrong script's file in it is not a match either; the designer's own folder is found by name.
+        assertNull(SvgTemplateImport.matchTemplate("svg/Latin/$naskh"))
+        assertNotNull(SvgTemplateImport.matchTemplate("elsewhere/$naskh"))
+    }
+
+    @Test
     fun theFileNameDecidesTheGlyphAndNotTheContents() {
         val other = PrintSheets.glyphs(PrintScript.LATIN).first { it.glyphName == "H" }.templateFileName
         val read = SvgTemplateImport.import(other, template("""<path d="M0,0 H100 V-700 H0 Z"/>"""))

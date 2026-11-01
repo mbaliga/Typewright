@@ -87,6 +87,7 @@ fun TemplatesScreen(
                 state.result =
                     when (val outcome = exporter.export(name, mime, bytes)) {
                         is ExportOutcome.Saved -> "Saved ${outcome.where}."
+                        is ExportOutcome.Handed -> outcome.sentence
                         ExportOutcome.Cancelled -> null
                         is ExportOutcome.Failed -> "Not saved: ${outcome.message}"
                     }

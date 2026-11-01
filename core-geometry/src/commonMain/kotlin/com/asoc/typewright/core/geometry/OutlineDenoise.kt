@@ -24,6 +24,13 @@ const val SMOOTHING_PER_NOISE: Double = 8.0
 /** The widest smoothing [detectOutlineCornersDenoised] will apply, in font units: past this a person should redraw or retake instead. */
 const val MAX_SMOOTHING_UNITS: Double = 18.0
 
+/**
+ * The width, in font units, of the Gaussian that picks the slow inward pull of smoothing out of the residuals in
+ * [estimateBoundaryNoise]: twice [NOISE_SCALE_UNITS], so the pull of a curve is kept as a whole while grain, which changes from one
+ * sample to the next, is not (our heuristic: wider takes less of the grain with it, narrower reads small round shapes as clean sooner).
+ */
+private const val PULL_SCALE_UNITS: Double = 2.0 * NOISE_SCALE_UNITS
+
 /** A boundary with its corners found after the noise was taken out of it. */
 class DenoisedCorners(
     /** The samples (smoothed along each side, corners held) and corner indices [fitOutline] takes. */
@@ -38,7 +45,9 @@ class DenoisedCorners(
  * How noisy a closed boundary is: the typical distance, in font units, between its [samples] (re-sampled every [spacing] units)
  * and the same boundary smoothed by a Gaussian [NOISE_SCALE_UNITS] wide. The median of the distances is taken and divided by
  * 0.6745, which turns it into the standard deviation of normally scattered wobble; the median is what keeps the few samples at
- * corners, which smoothing rounds off, from reading as noise. A boundary of fewer than 16 samples reads 0.
+ * corners, which smoothing rounds off, from reading as noise. The slow inward pull smoothing gives any curve (a clean circle of
+ * radius 50 moves by 1 unit) is taken out first, so a clean round shape reads as clean: a circle of radius 30 reads about half the
+ * floor. Only a round feature under about 25 units in radius, smaller than the smoothing scale itself, still reads as grain. A boundary of fewer than 16 samples reads 0.
  *
  * This reads the high-frequency part of the edge only: a slow wave (a hand-drawn side that bows over 100 units) is not noise
  * and is left to the fit tolerance. A clean render reads a few tenths of a unit; a handheld photograph of a pen line one to four.
@@ -50,7 +59,12 @@ fun estimateBoundaryNoise(
     val n = samples.size
     if (n < 16) return 0.0
     val smooth = gaussianClosed(samples, NOISE_SCALE_UNITS, spacing)
-    val residuals = DoubleArray(n) { (samples[it] - smooth[it]).length() }
+    // Smoothing pulls every curved stretch toward its centre of curvature (a circle of radius R in by about sigma^2 / 2R), and that
+    // pull is not grain. It varies slowly along the boundary, grain does not, so the pull is taken out by smoothing the residuals
+    // once more and keeping what is left.
+    val pull = List(n) { samples[it] - smooth[it] }
+    val slow = gaussianClosed(pull, PULL_SCALE_UNITS, spacing)
+    val residuals = DoubleArray(n) { (pull[it] - slow[it]).length() }
     residuals.sort()
     return residuals[n / 2] / 0.6745
 }

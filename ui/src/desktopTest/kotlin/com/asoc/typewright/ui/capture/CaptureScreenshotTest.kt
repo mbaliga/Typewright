@@ -41,6 +41,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -162,6 +164,30 @@ class CaptureScreenshotTest {
         assertTrue(shot.has("From file · scan_002.png".uppercase()))
         assertTrue(shot.has("3 sheets to go"))
         assertTrue(shot.has("Print the sheets ›"))
+        assertTrue(shot.has("not been tried on a real phone"), "Capture says the camera is unverified where it offers it")
+    }
+
+    @Test
+    fun aLowerCaseCellIsLabelledInLowerCaseSoLAndCapitalIStayApart() {
+        val world = world(sheets = listOf(1))
+        val ready =
+            (
+                world.library.items.value
+                    .first() as CaptureItem.Sheet
+            ).state as SheetState.Ready
+        val l = ready.cells.firstOrNull { it.glyphName == "l" }
+        assertNotNull(l, "the second Latin sheet carries a lower-case l")
+        assertEquals("l", cellLabel(PrintScript.LATIN, l), "the cell reads as the character the template names")
+        val page =
+            CapturePageState(
+                view = CaptureView.CELLS,
+                sheet =
+                    (
+                        world.library.items.value
+                            .first() as CaptureItem.Sheet
+                    ).record.id,
+            )
+        ScreenshotHarness.captureWithText("capture-cells-lower", width, height) { Frame(world, page) }
     }
 
     @Test
@@ -198,6 +224,7 @@ class CaptureScreenshotTest {
         assertTrue(failed.has("Retake"))
         val none = ScreenshotHarness.captureWithText("capture-no-project", width, height) { Frame(null, hasProject = false) }
         assertTrue(none.has("Open or start a project"))
+        assertTrue(none.has("Print the sheets ›"), "Templates stay reachable with no project open")
     }
 
     @Test
@@ -230,6 +257,7 @@ class CaptureScreenshotTest {
             }
         assertTrue(shot.has("3 of 4 corners · the bottom right one is missing"))
         assertTrue(shot.has("The shutter arms when the last corner locks · hold for manual"))
+        assertTrue(shot.has("not been tried on a real phone"), "the camera says in words that it is unverified")
         val none =
             ScreenshotHarness.captureWithText("camera-unavailable", width, height) {
                 CameraFrame(CameraAccess.Unavailable(NO_CAMERA_HERE), onClose = {}, onPhoto = { _, _ -> })
@@ -269,6 +297,8 @@ class CaptureScreenshotTest {
         parameters: TraceParameters = TraceParameters(),
         file: String,
         degrees: Double = 0.0,
+        running: Boolean = false,
+        message: String? = null,
     ) {
         val workspace = SampleProject.workspace()
         val session = checkNotNull(workspace.current.value)
@@ -297,6 +327,7 @@ class CaptureScreenshotTest {
         val style = projectStyle(project.manifest, checkNotNull(project.font))
         val box = style?.let { ProjectDataPacks.corpus?.onCurveBox(it.key, name) }
         val page = TracePageState(all = all, stage = stage)
+        page.message = message
         val shot =
             ScreenshotHarness.captureWithText(file, width, height) {
                 CompositionLocalProvider(LocalProjectWorkspace provides workspace) {
@@ -305,7 +336,8 @@ class CaptureScreenshotTest {
                         hasProject = true,
                         sourceCount = library.sources().size,
                         source = source,
-                        outcome = outcome,
+                        outcome = if (running) null else outcome,
+                        outcomeIsCurrent = !running,
                         page = page,
                         locked = locked,
                         box = box,
@@ -313,11 +345,17 @@ class CaptureScreenshotTest {
                         styleIsHeuristic = style?.isHeuristic ?: false,
                         actions = TraceActions(),
                         metricLabels = TraceFlow.metricLabels(master.ufo.fontInfo, source.script),
+                        metricLines = lines,
                     )
                 }
             }
-        assertTrue(shot.has("$name · "), "the header names the glyph")
-        assertTrue(shot.has(outcome.stage(stage)!!.sentence.take(40)), "the stage's sentence is on the page")
+        assertTrue(shot.has("$name"), "the header names the glyph")
+        if (running) {
+            assertTrue(shot.has("TRACING…"), "while the first run is in flight the page says so")
+        } else {
+            assertTrue(shot.has(outcome.stage(stage)!!.sentence.take(40)), "the stage's sentence is on the page")
+        }
+        message?.let { assertTrue(shot.has(it), "the confirmation is on the page") }
         if (locked) assertTrue(shot.has("Unlock to re-trace"))
     }
 
@@ -331,6 +369,12 @@ class CaptureScreenshotTest {
     fun traceOAtSnapAndALockedGlyph() {
         trace("O", TraceStage.SNAP, all = true, file = "trace-O-snap")
         trace("T", TraceStage.REVIEW, locked = true, file = "trace-T-locked")
+    }
+
+    @Test
+    fun traceWhileTheFirstRunIsInFlightAndAfterAcceptingTheGlyphBefore() {
+        trace("O", TraceStage.FIT, running = true, file = "trace-O-running")
+        trace("O", TraceStage.FIT, message = "T accepted and locked. On to O.", file = "trace-O-after-accept")
     }
 
     @Test

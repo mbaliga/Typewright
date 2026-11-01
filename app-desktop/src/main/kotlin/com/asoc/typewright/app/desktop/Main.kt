@@ -46,12 +46,26 @@ fun main() {
         object : DragAndDropTarget {
             override fun onDrop(event: DragAndDropEvent): Boolean {
                 val dropped =
-                    (
-                        event.awtTransferable.getTransferData(
-                            DataFlavor.javaFileListFlavor,
-                        ) as? List<*>
-                    )?.filterIsInstance<File>().orEmpty()
-                workspaceScope.launch(Dispatchers.IO) { readDropped(dropped)?.let(PlatformCaptureSupport::deliverDrop) }
+                    try {
+                        (
+                            event.awtTransferable.getTransferData(
+                                DataFlavor.javaFileListFlavor,
+                            ) as? List<*>
+                        )?.filterIsInstance<File>().orEmpty()
+                    } catch (e: java.io.IOException) {
+                        PlatformCaptureSupport.reportDropProblem(
+                            "The dropped files could not be read: ${e.message ?: "the drag ended early"}.",
+                        )
+                        return true
+                    } catch (e: java.awt.datatransfer.UnsupportedFlavorException) {
+                        PlatformCaptureSupport.reportDropProblem("What was dropped is not a file, so Capture did not take it.")
+                        return true
+                    }
+                workspaceScope.launch(Dispatchers.IO) {
+                    val read = readDroppedFiles(dropped)
+                    read.notice?.let(PlatformCaptureSupport::reportDropProblem)
+                    PlatformCaptureSupport.deliverDrop(read.files)
+                }
                 return dropped.isNotEmpty()
             }
         }

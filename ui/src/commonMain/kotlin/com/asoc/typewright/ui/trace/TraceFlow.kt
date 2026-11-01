@@ -4,6 +4,7 @@ package com.asoc.typewright.ui.trace
 
 import com.asoc.typewright.core.font.ufo.UfoFontInfo
 import com.asoc.typewright.core.geometry.Glyph
+import com.asoc.typewright.engine.trace.TraceParameters
 import com.asoc.typewright.project.AcceptTrace
 import com.asoc.typewright.project.AddGlyph
 import com.asoc.typewright.project.Batch
@@ -61,6 +62,29 @@ object TraceFlow {
         }
         return labels.mapValues { it.value.uppercase() }
     }
+
+    /**
+     * Whether [outcome] was made from exactly this [source] and these [parameters] (with the metric lines the screen currently
+     * uses). A run takes time, so the outcome on screen can belong to the previous glyph or the previous settings; Accept must not
+     * write that into the glyph now in hand.
+     */
+    fun isCurrent(
+        outcome: TraceOutcome?,
+        source: TraceSource?,
+        parameters: TraceParameters,
+    ): Boolean = outcome != null && source != null && sameDrawing(outcome.source, source) && outcome.parameters == parameters
+
+    private fun sameDrawing(
+        a: TraceSource,
+        b: TraceSource,
+    ): Boolean =
+        a.glyphName == b.glyphName &&
+            a.origin == b.origin &&
+            when {
+                a is TraceSource.Raster && b is TraceSource.Raster -> a.raster === b.raster && a.frame == b.frame
+                a is TraceSource.Vector && b is TraceSource.Vector -> a.contours == b.contours
+                else -> false
+            }
 
     /**
      * What Accept sends the project for [source]'s glyph: the outline replaced and the glyph approved, as one history entry. A

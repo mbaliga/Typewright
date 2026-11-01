@@ -10,7 +10,9 @@ import com.asoc.typewright.engine.trace.estimateEdgeSoftnessPx
 import com.asoc.typewright.scripts.sheets.PaperSize
 import com.asoc.typewright.scripts.sheets.PrintScript
 import com.asoc.typewright.scripts.sheets.SheetLayout
+import com.asoc.typewright.scripts.sheets.SheetRenderer
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -134,12 +136,41 @@ class GuideGhostAndSoftnessTest {
     }
 
     @Test
+    fun aMarkerLineAMillimetreOrMoreAcrossLyingOnAGuideIsADrawingAndAHairlineIsNot() {
+        val j = row(0).coerceIn(30, height - 30)
+        val limit = ceil(CellReader.GHOST_MAX_THICKNESS_MM * pxPerMm).toInt()
+        // A 1.4 mm underscore (14 pixels) centred on the guide lies wholly inside the 1.8 mm band, and is kept.
+        val marker = paper()
+        for (y in j - 7 until j + 7) for (x in 40 until 140) marker[y * width + x] = 90
+        val kept = PrintedGuides.withoutGhosts(GrayscaleRaster(width, height, marker), band, limit)
+        assertEquals(90, kept.pixels[j * width + 80], "a 1.4 mm line on a guide is the person's")
+        // The same line without the thickness limit would have been painted out: the limit is what keeps it.
+        val without = PrintedGuides.withoutGhosts(GrayscaleRaster(width, height, marker), band)
+        assertTrue(without.pixels[j * width + 80] >= 225)
+        // A 0.5 mm line (5 pixels) is a leftover whatever the limit.
+        val hairline = paper()
+        for (y in j - 2..j + 2) for (x in 40 until 140) hairline[y * width + x] = 150
+        val gone = PrintedGuides.withoutGhosts(GrayscaleRaster(width, height, hairline), band, limit)
+        assertTrue(gone.pixels.all { it >= 225 })
+        // The widest guide the tests print (three times 0.3 mm) is still a leftover.
+        val heavy = paper()
+        for (y in j - 4..j + 4) for (x in 40 until 140) heavy[y * width + x] = 150
+        assertTrue(PrintedGuides.withoutGhosts(GrayscaleRaster(width, height, heavy), band, limit).pixels.all { it >= 225 })
+    }
+
+    @Test
     fun theBandAlsoCoversEachGuidesPrintedName() {
-        // The name sits just above its line at the left of the box: inside the band the ghost removal works in.
+        // The name sits just above its line at the left of the box. Every guide has a band 1.8 mm wide (0.9 mm either side), so the name is
+        // probed 1.5 mm above the line (15 pixels), clear of that band, at a column inside the name's own width.
         val first = layout.guides.lines.first()
-        val j = row(first.y).coerceIn(0, height - 1)
-        val labelRow = (j - 6).coerceAtLeast(0)
-        assertTrue(band[labelRow * width + 3], "the label of the ${first.label} guide is in the band")
+        val j = row(first.y)
+        val probeRow = j - 15
+        assertTrue(probeRow in 0 until height, "the probe row $probeRow is in the cell")
+        val nameLeft = ((box.left + SheetRenderer.GUIDE_LABEL_INSET_MM - area.left) * pxPerMm).toInt()
+        val inName = nameLeft + 3
+        assertTrue(band[probeRow * width + inName], "the printed name of the ${first.label} guide is in the band")
+        // Away from the name at the same height the band is clear, so the probe really tests the label and not the guide band.
+        assertFalse(band[probeRow * width + width / 2])
     }
 
     // ---- the settings the Trace screen shows ------------------------------------------------

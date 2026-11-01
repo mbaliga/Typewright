@@ -4,6 +4,7 @@ package com.asoc.typewright.ui.capture
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -91,8 +92,12 @@ fun CameraFrame(
             val clock = TimeSource.Monotonic.markNow()
             feed.analyse { frame ->
                 if (tracker.dueAt(clock.elapsedNow().inWholeMilliseconds)) {
-                    tracker.offer(findCornerMarks(frame))
-                    version += 1
+                    // The search runs here, on the camera's thread; the tracker and the overlay are only touched on the UI thread.
+                    val search = findCornerMarks(frame)
+                    scope.launch {
+                        tracker.offer(search)
+                        version += 1
+                    }
                 }
             }
             onDispose {
@@ -134,15 +139,20 @@ fun CameraFrame(
                 is CameraAccess.Denied -> access.message
                 is CameraAccess.Unavailable -> access.message
             }
-        BasicText(
-            text = words,
-            style = mono(muted, 9.5).copy(textAlign = TextAlign.Center),
-            modifier =
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(start = 22.dp, end = 22.dp, bottom = HINT_BOTTOM)
-                    .fillMaxWidth(),
-        )
+        Column(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(start = 22.dp, end = 22.dp, bottom = HINT_BOTTOM)
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            BasicText(text = words, style = mono(muted, 9.5).copy(textAlign = TextAlign.Center), modifier = Modifier.fillMaxWidth())
+            BasicText(
+                text = CAMERA_UNVERIFIED,
+                style = mono(muted.copy(alpha = 0.8f), 8.5, 0.04).copy(textAlign = TextAlign.Center),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         ControlDeck(
             texture = texture,
             modifier = Modifier.align(Alignment.BottomCenter),
@@ -202,7 +212,11 @@ fun CameraFrame(
     }
 }
 
-private val HINT_BOTTOM = 184.dp
+/** Said on the Camera screen wherever it shows, because nobody has yet used it on a phone. */
+internal const val CAMERA_UNVERIFIED: String =
+    "The camera has not been tried on a real phone yet. If it will not lock, or the picture comes out sideways, use Gallery or File."
+
+private val HINT_BOTTOM = 146.dp
 
 /** The guide frame, the four corner marks (open until locked, then an ink block) and the thirds grid, over the viewfinder. */
 @Composable
@@ -254,7 +268,7 @@ private fun CornerOverlay(
 
 private val FRAME_INSET: Dp = 36.dp
 private val FRAME_TOP: Dp = 130.dp
-private val FRAME_BOTTOM: Dp = 230.dp
+private val FRAME_BOTTOM: Dp = 256.dp
 private val MARK: Dp = 22.dp
 private val MARK_CORE: Dp = 10.dp
 private const val A4_ASPECT = 297f / 210f

@@ -2,7 +2,9 @@
 
 package com.asoc.typewright.engine.trace.capture
 
+import com.asoc.typewright.engine.trace.BinaryRaster
 import com.asoc.typewright.engine.trace.GrayscaleRaster
+import com.asoc.typewright.engine.trace.distanceTransform
 import com.asoc.typewright.engine.trace.estimatePaperLevel
 import com.asoc.typewright.engine.trace.labelComponents
 import com.asoc.typewright.scripts.sheets.MmRect
@@ -87,7 +89,8 @@ internal object PrintedGuides {
     /**
      * Where a printed guide could lie on a warp of [area] however the printer drew it: every pixel within [bandMm] of a guide's
      * position (each horizontal guide across the whole width, each advance guide down the whole height). A mark that is wholly inside this
-     * band and no wider than it is the guide's own leftover (heavier, wider or shifted than the model of it), not a drawing.
+     * band and thinner than [withoutGhosts]'s limit is the guide's own leftover (heavier, wider or shifted than the model of it), not a
+     * drawing.
      */
     fun band(
         layout: SheetLayout,
@@ -138,11 +141,14 @@ internal object PrintedGuides {
      * [raster] with every mark that lies wholly inside [band] taken out (painted with the paper around it): the leftover of a guide the
      * model of the guides did not match exactly. A printer's toner is heavier or wider than the template's grey, or a little out of
      * register, and the pooled model cannot divide all of that out; but a leftover is thin and sits on the guide, which a drawing is not,
-     * and a mark that is part of a drawing touches something outside the band.
+     * and a mark that is part of a drawing touches something outside the band. The band is as wide as it is to allow for register, so a
+     * mark wholly inside it is a leftover only if it is also thinner than [maxThicknessPx]: a pen line a millimetre or more across
+     * (an underscore or hyphen on a guide) is a drawing, not a ghost, even where it lies wholly inside the band.
      */
     fun withoutGhosts(
         raster: GrayscaleRaster,
         band: BooleanArray,
+        maxThicknessPx: Int = Int.MAX_VALUE,
     ): GrayscaleRaster {
         val paper = estimatePaperLevel(raster)
         val w = raster.width
@@ -156,6 +162,12 @@ internal object PrintedGuides {
         if (labels.componentCount == 0) return raster
         val ghost = BooleanArray(labels.componentCount) { true }
         for (i in dark.indices) if (dark[i] && !band[i]) ghost[labels.labels[i]] = false
+        // How thick each mark is: twice the deepest distance from its pixels to the paper, less one pixel. A guide's leftover is thin
+        // however long it is, and where a horizontal and an advance guide cross their leftovers are one mark with a thin arm each way.
+        val depth = distanceTransform(BinaryRaster(w, h, dark))
+        val deepest = DoubleArray(labels.componentCount)
+        for (i in dark.indices) if (dark[i]) deepest[labels.labels[i]] = max(deepest[labels.labels[i]], depth[i])
+        for (c in deepest.indices) if (2.0 * deepest[c] - 1.0 >= maxThicknessPx) ghost[c] = false
         if (ghost.none { it }) return raster
         val pixels = raster.pixels.copyOf()
         for (i in dark.indices) {

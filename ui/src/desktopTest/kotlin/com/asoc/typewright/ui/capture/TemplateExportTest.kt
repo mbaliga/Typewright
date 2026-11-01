@@ -31,8 +31,23 @@ class TemplateExportTest {
         assertTrue(a4.startsWith("%PDF-"))
         assertEquals(5, Regex("/Type /Page\\b").findAll(a4).count(), "five Latin sheets, five pages")
         val letter = TemplatePack.pdf(PrintScript.LATIN, PaperSize.LETTER, GuideStyle.NONE).decodeToString()
-        assertTrue(letter.contains("612") || letter.contains("2.8"), "Letter is a different page size from A4")
-        assertTrue(a4 != letter)
+        val box = Regex("/MediaBox \\[0 0 ([0-9.]+) ([0-9.]+)\\]")
+        val letterBox =
+            box
+                .find(letter)!!
+                .groupValues
+                .drop(1)
+                .map { it.toDouble() }
+        val a4Box =
+            box
+                .find(a4)!!
+                .groupValues
+                .drop(1)
+                .map { it.toDouble() }
+        assertEquals(612.0, letterBox[0], 1.0, "Letter is 8.5 in wide, 612 points")
+        assertEquals(792.0, letterBox[1], 1.0, "Letter is 11 in tall, 792 points")
+        assertEquals(595.0, a4Box[0], 1.0, "A4 is 210 mm wide, 595 points")
+        assertEquals(842.0, a4Box[1], 1.0, "A4 is 297 mm tall, 842 points")
         assertEquals("typewright-latin-sheets-a4.pdf", TemplatePack.pdfName(PrintScript.LATIN, PaperSize.A4))
         assertEquals(5, TemplatePack.sheets(PrintScript.LATIN).size)
         assertEquals(3, TemplatePack.sheets(PrintScript.NASKH).size)

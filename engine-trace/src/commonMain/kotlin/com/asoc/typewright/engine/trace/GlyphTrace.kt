@@ -181,7 +181,8 @@ data class TraceParameters(
                 1.0,
                 1.0,
                 false,
-                "On, the tolerance is raised when the edge of the drawing is rough, so a photograph does not cost a point for every wobble.",
+                "On, the tolerance is raised when the edge of the drawing is rough, so a photograph does not cost a point for every " +
+                    "wobble. How much is our heuristic, not a measured limit.",
             ),
             ParameterSpec(
                 "fit.denoise",
@@ -194,7 +195,7 @@ data class TraceParameters(
                 1.0,
                 false,
                 "On, a wobbly edge is smoothed along each side before corners are found, so a photograph's grain is not read as corners. " +
-                    "A clean edge is never touched.",
+                    "A clean edge is never touched. How much it smooths is our heuristic.",
             ),
             ParameterSpec(
                 "fit.square",
@@ -206,8 +207,8 @@ data class TraceParameters(
                 1.0,
                 1.0,
                 false,
-                "On, a tiny rounding between two straight sides is made a sharp corner when the photograph's own softness explains it. " +
-                    "Off keeps every rounding as drawn.",
+                "On, a tiny rounding between two straight sides is made a sharp corner when the photograph's own softness explains it " +
+                    "(our heuristic). Off keeps every rounding as drawn.",
             ),
             ParameterSpec(
                 "corner.look",
@@ -337,7 +338,10 @@ class GlyphTrace(
  * later one, and the node count never rises from Contour to Fit: a fit that came out with more points than the
  * boundary it was fitted to is replaced by that boundary's own corners.
  *
- * A clean render is fitted at the fit tolerance and nothing else. A photograph's edge is rougher, so what the edge itself shows is
+ * A clean vector drawing ([traceOutlines]) is fitted at the fit tolerance and nothing else, and so is a raster whose edge measures
+ * clean: no wobble allowance, no smoothing. A raster's edge softness is always estimated from its ink, though, so a short rounding
+ * a clean anti-aliased render has between two straight sides can be squared up when it is no more than the measured softness and
+ * the fit tolerance from a sharp corner (turn [TraceParameters.squareCorners] off to keep it). A photograph's edge is rougher, so what the edge itself shows is
  * allowed for ([TraceParameters.denoise], [TraceParameters.adaptTolerance], [TraceParameters.squareCorners]): its wobble widens the tests
  * for a straight side, its grain is smoothed out of each side before corners are found, and a short rounding that the photograph's own
  * softness explains is squared up. Each is a setting the screen can turn off, each says what it did in its stage's sentence, and the
@@ -441,28 +445,39 @@ private fun fitStages(
                 "or more over ${oneDecimal(params.outline.cornerLookUnits)} units." +
                 if (smoothing > 0.0) {
                     " The edge wobbles by about ${oneDecimal(denoised.maxOf { it.noise })} units, so each side was smoothed over " +
-                        "${oneDecimal(smoothing)} first."
+                        "${oneDecimal(smoothing)} first (our heuristic)."
                 } else {
                     ""
                 },
             params.forStage(TraceStage.CORNERS),
         )
 
-    val roughness = detections.maxOfOrNull { measureEdgeRoughness(it.samples, params.outline.sampleSpacing) } ?: 0.0
-    val noise = denoised.maxOfOrNull { it.noise } ?: 0.0
-    val measured = max(roughness, noise)
-    val wobble = if (params.adaptTolerance && measured > WOBBLE_FLOOR) measured else 0.0
-    val adapted = if (params.adaptTolerance) (params.toleranceFactor * wobble).coerceAtMost(MAX_ADAPTED_TOLERANCE) else 0.0
-    val outline =
-        if (adapted > params.outline.fitTolerance) {
-            params.outline.copy(fitTolerance = adapted, minLineLength = 24.0 * adapted, wobble = wobble, softness = softnessUnits)
-        } else {
-            params.outline.copy(wobble = wobble, softness = softnessUnits)
+    // Each contour is judged on its own edge: a rough dot must not widen the tests for a clean stem beside it.
+    val wobbles =
+        detections.mapIndexed { index, d ->
+            val measured = max(measureEdgeRoughness(d.samples, params.outline.sampleSpacing), denoised[index].noise)
+            if (params.adaptTolerance && measured > WOBBLE_FLOOR) measured else 0.0
         }
+    val wobble = wobbles.maxOrNull() ?: 0.0
+    val outlines =
+        wobbles.map { w ->
+            val adaptedTolerance = if (params.adaptTolerance) (params.toleranceFactor * w).coerceAtMost(MAX_ADAPTED_TOLERANCE) else 0.0
+            if (adaptedTolerance > params.outline.fitTolerance) {
+                params.outline.copy(
+                    fitTolerance = adaptedTolerance,
+                    minLineLength = 24.0 * adaptedTolerance,
+                    wobble = w,
+                    softness = softnessUnits,
+                )
+            } else {
+                params.outline.copy(wobble = w, softness = softnessUnits)
+            }
+        }
+    val raisedTolerance = outlines.maxOfOrNull { it.fitTolerance } ?: params.outline.fitTolerance
     var squaredCorners = 0
     val fitted =
         detections.mapIndexed { index, detected ->
-            val fit = fitOutline(detected, outline)
+            val fit = fitOutline(detected, outlines[index])
             squaredCorners += fit.squaredCorners
             if (fit.contour.writtenCount().let { it.onCurveEquivalent + it.offCurve } > polylines[index].size) {
                 val ring = detected.cornerIndices.map { detected.samples[it] }.ifEmpty { detected.samples }
@@ -485,7 +500,7 @@ private fun fitStages(
                 (
                     if (squaredCorners > 0) {
                         " ${plural(squaredCorners, "rounding")} between straight sides ${if (squaredCorners == 1) "was" else "were"} " +
-                            "squared up into sharp corners because that much rounding is what blur does; " +
+                            "squared up into sharp corners because that much rounding is what blur does (our heuristic); " +
                             "turn \"Square up blurred corners\" off to keep them as traced."
                     } else {
                         ""
@@ -495,12 +510,12 @@ private fun fitStages(
                     " This edge wobbles by about ${oneDecimal(wobble)} units, so a side counts as straight within " +
                         "${oneDecimal(LINE_TOLERANCE_WOBBLES * wobble)}" +
                         (
-                            if (outline.fitTolerance > params.outline.fitTolerance) {
-                                " and the fit tolerance was raised to ${oneDecimal(outline.fitTolerance)} units."
+                            if (raisedTolerance > params.outline.fitTolerance) {
+                                " and the fit tolerance was raised to ${oneDecimal(raisedTolerance)} units"
                             } else {
-                                "."
+                                ""
                             }
-                        )
+                        ) + " (our heuristic: these allowances are multiples of the wobble, not measured limits)."
                 } else {
                     ""
                 },
@@ -667,7 +682,10 @@ private fun reviewOutlines(
     val height = ceil((source.yMax - source.yMin + 16) * pxPerUnit).toInt() + 1
     val reference =
         coverageOf(
-            polylines.map { loop -> polygonContour(loop.map { Point(it.x.roundToInt(), it.y.roundToInt()) }, CurveFormat.CUBIC) },
+            // Wound by nesting, as the fitted outline is, so a drawing's even-odd counter is a hole here too whichever way its loop ran.
+            enforceContourDirections(
+                polylines.map { loop -> polygonContour(loop.map { Point(it.x.roundToInt(), it.y.roundToInt()) }, CurveFormat.CUBIC) },
+            ),
             frame,
             width,
             height,

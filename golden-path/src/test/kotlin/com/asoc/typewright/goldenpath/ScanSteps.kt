@@ -270,7 +270,7 @@ internal object ScanSteps {
                 if (t.photo.traceClass == PhotoLibrary.TraceClass.EXACT) {
                     assertEquals(t.target.nodes, final, "${t.photo.label} ${t.name}: nodes against the fitted target")
                 } else {
-                    val claim = TraceTargets.hardClaim(t.target.nodes)
+                    val claim = TraceTargets.hardClaim(t.target)
                     assertTrue(
                         final.onCurve <= claim.onCurve && final.offCurve <= claim.offCurve,
                         "${t.photo.label} ${t.name}: $final beyond the stated claim for the hardest photographs, $claim",

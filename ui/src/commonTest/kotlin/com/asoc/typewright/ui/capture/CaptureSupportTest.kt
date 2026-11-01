@@ -7,6 +7,8 @@ import com.asoc.typewright.engine.trace.capture.FoundMark
 import com.asoc.typewright.engine.trace.capture.ImageCorner
 import com.asoc.typewright.engine.trace.capture.MarkSearch
 import com.asoc.typewright.engine.trace.capture.Pt
+import com.asoc.typewright.project.capture.CaptureKind
+import com.asoc.typewright.project.capture.CaptureRecord
 import com.asoc.typewright.scripts.sheets.PrintScript
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -82,12 +84,93 @@ class TemplatePackTest {
         val text = files.getValue(digitOne).decodeToString()
         assertTrue(text.contains("viewBox=\"-160 -820 970 1150\""))
         assertTrue(text.contains("<g id=\"guides\">") && text.contains("<g id=\"DRAW_HERE\"></g>"))
-        assertTrue(text.contains("x-height 500") || text.contains("x-height"), "the metric guides are drawn in")
+        assertTrue(text.contains(">x-height 500<"), "the x-height guide is drawn in with its label")
+        assertTrue(text.contains(">baseline 0<") || text.contains(">baseline<"), "the baseline guide is drawn in")
         val (script, glyph) = assertNotNull(TemplatePack.glyphForFileName("053_DIGIT_ONE.svg"))
         assertEquals(PrintScript.LATIN, script)
         assertEquals("one", glyph.glyphName)
         assertEquals(glyph.glyphName, TemplatePack.glyphForFileName("C:\\Users\\me\\053_digit_one.SVG")?.second?.glyphName)
         assertNull(TemplatePack.glyphForFileName("mine.svg"))
+    }
+}
+
+class TemplatePackColourTest {
+    @Test
+    fun theExportedGuidesUseNeutralGreysAndNoRed() {
+        val colours = Regex("(?:stroke|fill)=\"(#[0-9a-fA-F]{3,6})\"")
+        for (script in PrintScript.entries) {
+            for ((name, bytes) in TemplatePack.packFiles(script)) {
+                if (!name.endsWith(".svg")) continue
+                for (match in colours.findAll(bytes.decodeToString())) {
+                    val hex = match.groupValues[1].lowercase()
+                    val full = if (hex.length == 4) "#" + hex.drop(1).map { "$it$it" }.joinToString("") else hex
+                    val r = full.substring(1, 3).toInt(16)
+                    val g = full.substring(3, 5).toInt(16)
+                    val b = full.substring(5, 7).toInt(16)
+                    assertTrue(r == g && g == b, "$name uses $hex, which is not a grey")
+                }
+            }
+        }
+        assertEquals("#6b6b6b", TemplatePack.METRIC_GREY)
+    }
+}
+
+class SheetsHeldTest {
+    private fun sheet(
+        id: String,
+        script: PrintScript,
+        index: Int,
+    ) = CaptureItem.Sheet(
+        CaptureRecord(
+            id = id,
+            kind = CaptureKind.FILE,
+            name = "$id.png",
+            imagePath = "captures/$id.png",
+            script = script.name,
+            sheet = index,
+        ),
+        SheetState.Reading,
+    )
+
+    @Test
+    fun aSheetOfAnotherScriptIsNotThisScriptsSheetOne() {
+        val items = listOf(sheet("a", PrintScript.LATIN, 0), sheet("b", PrintScript.KANA, 0), sheet("c", PrintScript.LATIN, 2))
+        assertEquals(2, CaptureLibrary.sheetsHeld(items, PrintScript.LATIN))
+        assertEquals(1, CaptureLibrary.sheetsHeld(items, PrintScript.KANA))
+        assertEquals(0, CaptureLibrary.sheetsHeld(items, PrintScript.NASKH))
+        // The same sheet taken twice counts once.
+        assertEquals(
+            1,
+            CaptureLibrary.sheetsHeld(listOf(sheet("a", PrintScript.LATIN, 1), sheet("b", PrintScript.LATIN, 1)), PrintScript.LATIN),
+        )
+    }
+}
+
+class DropNoticeTest {
+    @Test
+    fun filesOfAKindCaptureDoesNotTakeAreNamedNotSwallowed() {
+        assertEquals(
+            "“notes.txt” was not added: file type not supported. Capture takes JPEG, PNG, GIF, BMP and SVG files.",
+            PlatformCaptureSupport.unsupportedDropNotice(listOf("notes.txt")),
+        )
+        assertTrue(PlatformCaptureSupport.unsupportedDropNotice(listOf("a.txt", "b.zip")).startsWith("2 files were not added"))
+    }
+
+    @Test
+    fun aDropWhileCaptureIsNotOpenLeavesANoticeInsteadOfVanishing() {
+        PlatformCaptureSupport.clearDropNotice()
+        PlatformCaptureSupport.deliverDrop(listOf(PickedFile("scan.png", byteArrayOf(1))))
+        val notice = PlatformCaptureSupport.dropNotice.value
+        assertTrue(notice != null && notice.contains("Open Capture"), notice)
+        PlatformCaptureSupport.reportDropProblem(
+            "Not added: “big.png” is larger than 96 MB, which is too large to be a picture of a sheet.",
+        )
+        assertTrue(PlatformCaptureSupport.dropNotice.value!!.contains("too large"))
+        PlatformCaptureSupport.clearDropNotice()
+        assertNull(PlatformCaptureSupport.dropNotice.value)
+        // An empty drop says nothing.
+        PlatformCaptureSupport.deliverDrop(emptyList())
+        assertNull(PlatformCaptureSupport.dropNotice.value)
     }
 }
 

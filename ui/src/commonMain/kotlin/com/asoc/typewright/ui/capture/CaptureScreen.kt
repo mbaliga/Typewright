@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -125,6 +126,13 @@ fun CaptureScreen(
     if (library != null) {
         val dropped = PlatformCaptureSupport.dropped
         LaunchedEffect(library) { dropped.collect { files -> library.add(files, CaptureSource.FILE) } }
+        val notice = PlatformCaptureSupport.dropNotice.collectAsState().value
+        LaunchedEffect(notice) {
+            if (notice != null) {
+                library.reportFailure(notice, CaptureSource.FILE)
+                PlatformCaptureSupport.clearDropNotice()
+            }
+        }
     }
     if (templates) {
         TemplatesScreen(texture = texture, onBack = { templates = false }, modifier = modifier)
@@ -218,13 +226,14 @@ fun CaptureFrame(
         readyState?.sheet?.identity?.script ?: sheets.firstNotNullOfOrNull { (it.state as? SheetState.Ready)?.sheet?.identity?.script }
             ?: PrintScript.LATIN
     val total = CaptureLibrary.sheetsIn(script)
-    val have = sheets.mapNotNull { it.record.sheet }.toSet().size
+    val have = CaptureLibrary.sheetsHeld(items, script)
+    val scriptsHeld = sheets.map { it.record.script }.distinct().size
     val title = if (cells) "Sheet ${readyState!!.sheet.identity.index + 1} · cells" else "Capture"
     val subtitle =
         when {
             cells -> readyState!!.summary.replace(" · ", " · ")
             !hasProject -> "no project open"
-            else -> "${projectName.orEmpty()} · $have of $total sheets"
+            else -> "${projectName.orEmpty()} · ${if (scriptsHeld > 1) script.label + " " else ""}$have of $total sheets"
         }
     val toggles =
         listOf(
@@ -247,38 +256,45 @@ fun CaptureFrame(
         onBack = actions.back,
         right = DeckRight.PLUS,
         rightLabel = "Add a sheet",
-        onRight = {
-            if (sources.isEmpty()) {
-                page.menuOpen = false
-            } else {
-                page.menuOpen = !page.menuOpen
-            }
-        },
-        rightDimmed = !hasProject || sources.isEmpty(),
-        rightExplanation =
-            if (!hasProject) {
-                "Open or start a project first."
-            } else {
-                "This build has no way to add a picture yet, so Capture cannot take one."
-            },
+        onRight = { page.menuOpen = !page.menuOpen },
+        rightDimmed = false,
+        rightExplanation = null,
     ) {
         val horizontal = 14.dp
         if (!hasProject) {
-            Column(Modifier.padding(horizontal = horizontal)) {
+            Column(Modifier.padding(horizontal = horizontal), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 NoProjectState(texture, "your captured sheets")
+                LinkText("Print the sheets", texture, actions.openTemplates)
             }
         } else if (cells && readyState != null) {
             CellsView(texture, chosen!!, readyState, page, actions, horizontal)
         } else {
-            SheetsView(texture, items, failure, note, busy, total, have, acceptsDrops, page, actions, horizontal)
+            SheetsView(
+                texture,
+                items,
+                failure,
+                note,
+                busy,
+                total,
+                have,
+                acceptsDrops,
+                CaptureSource.CAMERA in sources,
+                page,
+                actions,
+                horizontal,
+            )
         }
         if (page.menuOpen) {
             PageMenu(
                 texture = texture,
                 items =
-                    sources.map { source ->
+                    (if (hasProject) sources else emptyList()).map { source ->
                         PageMenuItem(source.label, source.note) { actions.pick(source) }
-                    },
+                    } +
+                        PageMenuItem("Templates", "print the sheets or export the SVG pack") {
+                            page.menuOpen = false
+                            actions.openTemplates()
+                        },
                 onDismiss = { page.menuOpen = false },
             )
         }
@@ -320,6 +336,7 @@ private fun SheetsView(
     total: Int,
     have: Int,
     acceptsDrops: Boolean,
+    cameraOffered: Boolean,
     page: CapturePageState,
     actions: CaptureActions,
     horizontal: androidx.compose.ui.unit.Dp,
@@ -363,6 +380,7 @@ private fun SheetsView(
                         ". Nothing is traced until you open Trace.",
                 style = sentence(muted),
             )
+            if (cameraOffered) BasicText(CAMERA_UNVERIFIED, style = sentence(muted, 11.5))
             LinkText("Print the sheets", texture, actions.openTemplates, Modifier.padding(top = 4.dp))
         }
     }
@@ -415,6 +433,7 @@ private fun SwipeRow(
 ) {
     val density = LocalDensity.current
     var drag by remember { mutableStateOf(0f) }
+    val latestRemove by rememberUpdatedState(onRemove)
     val threshold = with(density) { SWIPE_REMOVE_DP.dp.toPx() }
     Box(
         Modifier
@@ -423,7 +442,7 @@ private fun SwipeRow(
                 customActions =
                     listOf(
                         CustomAccessibilityAction(removeLabel) {
-                            onRemove()
+                            latestRemove()
                             true
                         },
                     )
@@ -447,7 +466,7 @@ private fun SwipeRow(
                             onDragEnd = {
                                 val pulled = drag <= -threshold
                                 drag = 0f
-                                if (pulled) onRemove()
+                                if (pulled) latestRemove()
                             },
                             onDragCancel = { drag = 0f },
                         ) { _, dx -> drag = (drag + dx).coerceAtMost(0f) }
@@ -633,12 +652,8 @@ private fun CellTile(
         } else {
             BasicText("—", style = sentence(fg.copy(alpha = 0.5f), 20.0), modifier = Modifier.height(44.dp))
         }
-        BasicText(
-            cellLabel(script, cell).uppercase().let {
-                if (unsure) cellLabel(script, cell) else it
-            },
-            style = mono(fg.copy(alpha = 0.78f), 9.5),
-        )
+        // The character as the template names it: a lower-case l is not a capital I, and telling them apart is what this page is for.
+        BasicText(cellLabel(script, cell), style = mono(fg.copy(alpha = 0.78f), 9.5))
     }
 }
 

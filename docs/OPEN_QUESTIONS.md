@@ -3888,3 +3888,36 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     to 0.3 mm out of register, leave no ink in blank cells. A hairline drawn exactly along a guide
     and touching nothing else would be taken for the guide. None of the numbers is measured on real
     pencils or printers; see 214. Owner: Madhav.
+
+219. **The noise reading no longer takes a curve for grain, and a small round shape is still read as grain (Trace).**
+    `estimateBoundaryNoise` compared an edge with itself smoothed by a Gaussian 10 units wide, so
+    every clean round shape under about 90 units in radius read above the 0.8-unit floor (a clean
+    dot of radius 50 read about 1.5), and the whole glyph was then fitted at the raised tolerance.
+    It now takes the slow inward pull of the smoothing out of the residuals first (a second
+    Gaussian 20 units wide), and the tolerance, the straight-side tests and the smoothing are each
+    contour's own. A clean circle or oval of radius 30 units or more reads under the floor; one of
+    radius 20 still reads as grain (1.3), because it is smaller than the smoothing scale. The
+    scale of 20 was chosen on rectangles with synthetic grain (it reads what the old reading read
+    on a straight edge) and on clean circles, not on real photographs, and moving it to 30 changed
+    which hardest-photograph glyphs reach the targets, so the figures in `docs/CAPTURE.md` depend on
+    it. Decide whether a dot under 25 units in radius needs its own rule, and measure the scale on
+    real photographs (see 214). Owner: Madhav.
+
+220. **The hardest-photograph claim is now the measured maximum per glyph, and four of twelve glyphs
+    still miss the targets (Trace).** After the noise reading changed (219), eight of the twelve
+    glyphs on the three hardest synthetic photographs reach CLAUDE.md's fitted targets exactly; the
+    others are the pencil photograph's `T` (8 on-curve, 2 off against 8 and 0) and `o` (22 and 28
+    against 16 and 16) and the green-paper photograph's `T` (9 and 0) and `n` (18 and 16 against
+    14 and 8). The claim in `TraceTargets.hardClaim` replaces the earlier twice-the-target-plus-two
+    bound with those measured maxima per glyph (T 9-2, H 12-0, o 22-28, n 18-16), so a fitter that
+    gets worse on the hardest photographs fails; it is still a statement of what was measured, not
+    a quality bar, and 215 stays open. The CLAUDE.md target numbers did not move. Owner: Madhav.
+
+221. **A thin pen line lying wholly on a printed guide is still taken for the guide (Capture).** The
+    ghost removal now keeps a mark inside the 1.8 mm guide band when it is 1.0 mm or more across
+    (a marker underscore or hyphen on a guide), where before every mark wholly inside the band
+    went; the 1.0 mm is our heuristic (three times the template's 0.3 mm guide is 0.9 mm, the
+    widest the tests print). A pen line thinner than that, drawn exactly along a guide and touching
+    nothing else, is still painted out and its cell reads empty with no flag (218 said the same of
+    a hairline). Decide whether such a cell should come back `Uncertain` instead of `Empty`, and
+    whether 1.0 mm is right for real pens and printers. Owner: Madhav.

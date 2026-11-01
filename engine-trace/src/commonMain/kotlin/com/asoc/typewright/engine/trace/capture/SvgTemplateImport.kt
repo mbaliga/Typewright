@@ -72,18 +72,32 @@ object SvgTemplateImport {
         PrintScript.entries.flatMap { script -> PrintSheets.glyphs(script).map { script to it } }
     }
 
-    /** The glyph (and its script) whose template [fileName] is: a bare file name or a path in the pack, matched by folder and name, then by name alone. */
+    /** The pack's folder names, including Nastaliq's, which the pack has and this version has no sheet for. */
+    private val packFolders: Set<String> by lazy { templates.map { it.second.templateFolder.substringAfterLast('/') }.toSet() + "Nastaliq" }
+
+    /**
+     * The glyph (and its script) whose template [fileName] is: a bare file name or a path, matched by folder and name, then by name alone.
+     * A file in one of the pack's own folders is looked for in that folder only (Nastaliq's file names repeat Naskh's, so a Nastaliq
+     * file must not be taken for a Naskh drawing); a file in any other folder, such as the designer's own, is found by its name.
+     */
     fun matchTemplate(fileName: String): Pair<PrintScript, PrintGlyph>? {
         val parts = fileName.replace('\\', '/').split('/').filter { it.isNotEmpty() }
         val file = parts.lastOrNull() ?: return null
         val folder = parts.getOrNull(parts.size - 2)
-
-        fun sameFolder(glyph: PrintGlyph) = folder == null || glyph.templateFolder.substringAfterLast('/').equals(folder, ignoreCase = true)
-        templates.firstOrNull { it.second.templateFileName == file && sameFolder(it.second) }?.let { return it }
+        val pool =
+            if (folder != null && packFolders.any { it.equals(folder, ignoreCase = true) }) {
+                templates.filter {
+                    it.second.templateFolder
+                        .substringAfterLast('/')
+                        .equals(folder, ignoreCase = true)
+                }
+            } else {
+                templates
+            }
+        pool.firstOrNull { it.second.templateFileName == file }?.let { return it }
         // A renumbered or copied file keeps its name after the number: the glyph is the one whose template ends the same way.
         val stem = nameWithoutNumber(file)
-        val byName = templates.filter { nameWithoutNumber(it.second.templateFileName) == stem && sameFolder(it.second) }
-        return byName.singleOrNull()
+        return pool.filter { nameWithoutNumber(it.second.templateFileName) == stem }.singleOrNull()
     }
 
     private fun nameWithoutNumber(file: String): String = file.substringBeforeLast('.').replace(Regex("^\\d+_"), "").lowercase()

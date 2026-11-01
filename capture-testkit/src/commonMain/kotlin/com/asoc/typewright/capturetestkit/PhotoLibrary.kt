@@ -83,7 +83,7 @@ object PhotoLibrary {
             tint = Triple(235, 250, 225),
         )
 
-    /** The accuracy set: 25 photographs covering all five Latin sheets, both papers, four scripts, every orientation and the hardest settings the generator has. */
+    /** The accuracy set: 23 photographs covering all five Latin sheets, both papers, four scripts, every orientation and the hardest settings the generator has. */
     val accuracy: List<PhotoCase> =
         listOf(
             PhotoCase("straight-on, clean", Setting.STRAIGHT, PrintScript.LATIN, 0, PaperSize.A4, PhotoSpec(seed = 11)),
@@ -437,16 +437,17 @@ object TraceTargets {
     const val BOX_TOLERANCE_UNITS: Int = 20
 
     /**
-     * The claim made for the hardest photographs, which do not reach the targets: every glyph keeps its contour count and its box, and
-     * has no more than [HARD_FACTOR] times the target's on-curve points and off-curve points (a floor of [HARD_EXTRA] more, so a target of
-     * 0 off-curve points allows a few). It is a statement of what was measured, not a quality bar: docs/CAPTURE.md has the table.
+     * The claim made for the hardest photographs, which do not all reach the targets: every glyph keeps its contour count and its box,
+     * and has no more on-curve and off-curve points than the most the three hardest photographs gave it when they were measured
+     * (docs/CAPTURE.md has the table). It is a statement of what was measured, written after measuring, not a quality bar and not a
+     * target; it exists so that a fitter that gets worse on the hardest photographs fails the test instead of passing under a loose bound.
      */
-    fun hardClaim(target: NodeCount): NodeCount =
-        NodeCount(
-            (target.onCurve * HARD_FACTOR).toInt() + HARD_EXTRA,
-            (target.offCurve * HARD_FACTOR).toInt() + HARD_EXTRA,
-        )
-
-    const val HARD_FACTOR: Double = 2.0
-    const val HARD_EXTRA: Int = 2
+    fun hardClaim(target: Target): NodeCount =
+        when (target.char) {
+            'T' -> NodeCount(9, 2)
+            'H' -> NodeCount(12, 0)
+            'o' -> NodeCount(22, 28)
+            'n' -> NodeCount(18, 16)
+            else -> error("no measured claim for '${target.char}'")
+        }
 }

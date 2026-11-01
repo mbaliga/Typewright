@@ -5,6 +5,9 @@ package com.asoc.typewright.app.android
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,7 +36,9 @@ import com.asoc.typewright.ui.capture.CameraAccess
 import com.asoc.typewright.ui.capture.CameraFeed
 import com.asoc.typewright.ui.capture.CameraProvider
 import com.asoc.typewright.ui.capture.LumaFrames
+import com.asoc.typewright.ui.capture.PhotoRotation
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.coroutines.resume
@@ -78,6 +83,30 @@ class AndroidCameraProvider : CameraProvider {
     }
 }
 
+/**
+ * [jpeg] turned clockwise by [degrees] (the camera's `rotationDegrees`) and saved again, because the picture decoder ignores EXIF
+ * and a sideways file would read as a sheet with its corners in the wrong order. A zero turn keeps the camera's bytes as they are;
+ * a picture that cannot be decoded gives null rather than a sideways file.
+ */
+internal fun uprightJpeg(
+    jpeg: ByteArray,
+    degrees: Int,
+): ByteArray? {
+    val turn = PhotoRotation.normalised(degrees)
+    if (turn == 0) return jpeg
+    val bitmap = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size) ?: return null
+    val matrix = Matrix().apply { postRotate(turn.toFloat()) }
+    val turned = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    return try {
+        ByteArrayOutputStream().also { turned.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it) }.toByteArray()
+    } finally {
+        if (turned !== bitmap) turned.recycle()
+        bitmap.recycle()
+    }
+}
+
+private const val JPEG_QUALITY = 95
+
 private tailrec fun Context.findActivity(): ComponentActivity? =
     when (this) {
         is ComponentActivity -> this
@@ -95,6 +124,7 @@ internal class CameraXFeed(
     private var camera: Camera? = null
     private var provider: ProcessCameraProvider? = null
     private var torch = false
+    private var lastAnalysedAt = 0L
 
     @Composable
     override fun Preview(modifier: Modifier) {
@@ -131,6 +161,10 @@ internal class CameraXFeed(
         }
         analysis.setAnalyzer(executor) { image: ImageProxy ->
             try {
+                // Frames that would be thrown away are dropped before the costly conversion, not after it.
+                val now = System.nanoTime()
+                if (now - lastAnalysedAt < MIN_FRAME_GAP_NANOS) return@setAnalyzer
+                lastAnalysedAt = now
                 val plane = image.planes[0]
                 val buffer = plane.buffer
                 val luma = ByteArray(buffer.remaining()).also { buffer.get(it) }
@@ -162,6 +196,7 @@ internal class CameraXFeed(
                 executor,
                 object : ImageCapture.OnImageCapturedCallback() {
                     override fun onCaptureSuccess(image: ImageProxy) {
+                        val degrees = image.imageInfo.rotationDegrees
                         val bytes =
                             try {
                                 val buffer = image.planes[0].buffer
@@ -169,7 +204,7 @@ internal class CameraXFeed(
                             } finally {
                                 image.close()
                             }
-                        if (continuation.isActive) continuation.resume(bytes)
+                        if (continuation.isActive) continuation.resume(uprightJpeg(bytes, degrees))
                     }
 
                     override fun onError(exception: ImageCaptureException) {
@@ -189,5 +224,8 @@ internal class CameraXFeed(
     private companion object {
         /** About 640 pixels on the long side: enough to find an 8 mm square on an A4 sheet, and cheap enough to do several times a second. */
         const val ANALYSIS_SIDE = 640
+
+        /** A little under the tracker's own 250 ms, so a frame is ready each time the tracker wants one. */
+        const val MIN_FRAME_GAP_NANOS = 200_000_000L
     }
 }

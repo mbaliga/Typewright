@@ -114,7 +114,15 @@ fun TraceScreen(
     val locked: (String) -> Boolean = { name -> master != null && project != null && TraceFlow.isLocked(project.state, master.id, name) }
     val name = TraceFlow.opening(sources, glyphNav?.current, locked)
     val source = sources.lastOrNull { it.glyphName == name }
-    val page = remember(source) { TracePageState(stage = initialStage) }
+    // Keyed on what the drawing is, not on the object: the library hands out new objects whenever any capture finishes reading.
+    val carried = remember { arrayOfNulls<String>(1) }
+    val page =
+        remember(source?.glyphName, source?.origin) {
+            TracePageState(stage = initialStage).also {
+                it.message = carried[0]
+                carried[0] = null
+            }
+        }
     val metricLines =
         remember(source, master?.ufo?.fontInfo) {
             source
@@ -133,6 +141,7 @@ fun TraceScreen(
     val outcome by produceState<TraceOutcome?>(null, source, params) {
         value = source?.let { s -> withContext(Dispatchers.Default) { TraceRunner.run(s, params) } }
     }
+    val outcomeIsCurrent = TraceFlow.isCurrent(outcome, source, params)
     LaunchedEffect(outcome, page.all) {
         outcome?.let { page.stage = TraceView.defaultStage(it, page.all, page.stage) }
     }
@@ -149,6 +158,7 @@ fun TraceScreen(
         sourceCount = sources.size,
         source = source,
         outcome = outcome,
+        outcomeIsCurrent = outcomeIsCurrent,
         page = page,
         locked = name != null && locked(name),
         box = box,
@@ -160,10 +170,11 @@ fun TraceScreen(
                 capture = { sectionNav?.goTo?.invoke(DeckSection.CAPTURE) },
                 handEdit = { name?.let { glyphNav?.open?.invoke(it) } },
                 unlock = { unlock(project, master?.id, name, page) },
-                accept = { accept(project, source, outcome, sources, glyphNav, page) },
+                accept = { acceptTrace(project, source, outcome, params, sources, glyphNav, page, carried) },
             ),
         modifier = modifier,
         metricLabels = metricLabels,
+        metricLines = metricLines,
     )
 }
 
@@ -178,22 +189,35 @@ private fun unlock(
     page.message = if (result is EditResult.Refused) result.refusal.message else "$glyph is unlocked. Accepting a trace locks it again."
 }
 
-private fun accept(
+/**
+ * Accept for the glyph in hand. The outcome must have been made from exactly [source] and [params]: while a run is in flight the
+ * outcome on screen belongs to the previous glyph or settings, and writing it would put the wrong outline into a glyph and lock it.
+ * [carried] holds the confirmation across the move to the next glyph, whose page is a new one.
+ */
+internal fun acceptTrace(
     project: OpenProject?,
     source: TraceSource?,
     outcome: TraceOutcome?,
+    params: TraceParameters,
     sources: List<TraceSource>,
     glyphNav: com.asoc.typewright.ui.shell.GlyphNav?,
     page: TracePageState,
+    carried: Array<String?> = arrayOfNulls(1),
 ) {
     val master = project?.master
     if (project == null || master == null || source == null || outcome == null || !outcome.inkFound) return
+    if (!TraceFlow.isCurrent(outcome, source, params)) {
+        page.message = "This is still tracing ${source.glyphName} with the settings you just chose. Accept again when it has finished."
+        return
+    }
     when (val result = project.session.execute(TraceFlow.acceptCommand(master, source, outcome))) {
         is EditResult.Applied -> {
             val state = project.session.state.value
             val next = TraceFlow.nextUntraced(sources, source.glyphName) { TraceFlow.isLocked(state, master.id, it) }
             if (next != null) {
-                page.message = "${source.glyphName} accepted and locked. On to $next."
+                val line = "${source.glyphName} accepted and locked. On to $next."
+                page.message = line
+                carried[0] = line
                 glyphNav?.select?.invoke(next)
             } else {
                 page.message = "${source.glyphName} accepted and locked. Every captured glyph is traced."
@@ -235,6 +259,8 @@ fun TraceFrame(
     actions: TraceActions,
     modifier: Modifier = Modifier,
     metricLabels: Map<Int, String> = emptyMap(),
+    outcomeIsCurrent: Boolean = true,
+    metricLines: List<Int> = emptyList(),
 ) {
     val stage = page.stage
     val count = if (outcome != null && stage != null) outcome.countAt(stage) else null
@@ -245,13 +271,13 @@ fun TraceFrame(
             source == null -> if (sourceCount == 0) "nothing captured yet" else "no drawing for this glyph"
             else -> TraceView.subtitle(outcome, count?.total, source.origin) + if (locked) " · locked" else ""
         }
-    val canAccept = hasProject && source != null && outcome != null && outcome.inkFound && !locked
+    val canAccept = hasProject && source != null && outcome != null && outcomeIsCurrent && outcome.inkFound && !locked
     val why =
         when {
             !hasProject -> "Open or start a project first."
             source == null -> "Capture a drawing of this glyph first."
             locked -> "${source.glyphName} is locked. Unlock it to trace again."
-            outcome == null -> "Tracing…"
+            outcome == null || !outcomeIsCurrent -> "Tracing…"
             !outcome.inkFound -> "There is no ink in this drawing to accept."
             else -> null
         }
@@ -291,7 +317,20 @@ fun TraceFrame(
             }
 
             else -> {
-                TraceBody(texture, source, outcome, page, locked, box, styleName, styleIsHeuristic, count?.onCurve, metricLabels, actions)
+                TraceBody(
+                    texture,
+                    source,
+                    outcome,
+                    page,
+                    locked,
+                    box,
+                    styleName,
+                    styleIsHeuristic,
+                    count?.onCurve,
+                    metricLabels,
+                    metricLines,
+                    actions,
+                )
             }
         }
     }
@@ -332,6 +371,7 @@ private fun TraceBody(
     styleIsHeuristic: Boolean,
     liveOnCurve: Int?,
     metricLabels: Map<Int, String>,
+    metricLines: List<Int>,
     actions: TraceActions,
 ) {
     val muted = texture.muted.toColor()
@@ -359,6 +399,7 @@ private fun TraceBody(
             page.stage,
             page.raster,
             metricLabels,
+            metricLines,
             Modifier.weight(1f).fillMaxWidth().padding(top = 10.dp),
         )
         Column(

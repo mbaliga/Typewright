@@ -8,6 +8,7 @@ import com.asoc.typewright.ui.capture.ExportOutcome
 import com.asoc.typewright.ui.capture.FileExporter
 import com.asoc.typewright.ui.capture.FilePickOutcome
 import com.asoc.typewright.ui.capture.PickedFile
+import com.asoc.typewright.ui.capture.PlatformCaptureSupport
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -89,12 +90,36 @@ internal fun readPictures(
 
 private const val BYTES_PER_MEGABYTE = 1024L * 1024
 
-/** Files dropped on the window, from whatever the drag carried: the ones with a picture or SVG ending, read whole. Null when none qualify. */
-internal fun readDropped(files: List<File>): List<PickedFile>? {
-    val wanted = files.filter { it.isFile && it.extension.lowercase() in PICTURE_ENDINGS }
-    if (wanted.isEmpty()) return null
-    return (readPictures(wanted) as? FilePickOutcome.Picked)?.files
+/** What a drop came to: the files to add, and a sentence for the ones that were not (null when every file was taken). */
+internal class DropRead(
+    val files: List<PickedFile>,
+    val notice: String?,
+)
+
+/**
+ * Files dropped on the window, from whatever the drag carried: the ones with a picture or SVG ending, each read whole. A file of
+ * another kind, a folder, or one that is too large or cannot be read is named in [DropRead.notice] and does not stop the others.
+ */
+internal fun readDroppedFiles(
+    files: List<File>,
+    maxBytes: Long = MAX_PICTURE_BYTES,
+): DropRead {
+    val (wanted, other) = files.partition { it.isFile && it.extension.lowercase() in PICTURE_ENDINGS }
+    val taken = ArrayList<PickedFile>()
+    val sentences = ArrayList<String>()
+    if (other.isNotEmpty()) sentences += PlatformCaptureSupport.unsupportedDropNotice(other.map { it.name })
+    for (file in wanted) {
+        when (val read = readPictures(listOf(file), maxBytes)) {
+            is FilePickOutcome.Picked -> taken += read.files
+            is FilePickOutcome.Failed -> sentences += "Not added: ${read.message}"
+            FilePickOutcome.Cancelled -> Unit
+        }
+    }
+    return DropRead(taken, sentences.joinToString(" ").ifEmpty { null })
 }
+
+/** [readDroppedFiles] without the notice: the files taken, or null when none were. */
+internal fun readDropped(files: List<File>): List<PickedFile>? = readDroppedFiles(files).files.ifEmpty { null }
 
 /**
  * Saves a file on the desktop: `java.awt.FileDialog` in save mode, then the bytes are written to the place chosen. Cancelling

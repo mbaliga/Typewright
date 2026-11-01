@@ -95,6 +95,20 @@ class CaptureTraceQualityTest {
                     "${(review.mismatchFraction * 1000).toInt() / 10.0}%",
             )
         }
+        // Law 5: a sentence that states an allowance with no measurement behind it says "our heuristic".
+        for (r in rows) {
+            for (stage in listOf(TraceStage.CORNERS, TraceStage.FIT)) {
+                val sentence = r.trace.stage(stage).sentence
+                for (phrase in listOf("smoothed over", "squared up", "counts as straight")) {
+                    if (phrase in sentence) {
+                        assertTrue(
+                            "our heuristic" in sentence,
+                            "${r.photo.label} ${r.target.char}: \"$phrase\" without \"our heuristic\": $sentence",
+                        )
+                    }
+                }
+            }
+        }
         val exact = mutableListOf<String>()
         val beyondClaim = mutableListOf<String>()
         for (r in rows) {
@@ -106,7 +120,7 @@ class CaptureTraceQualityTest {
             if (r.photo.traceClass == PhotoLibrary.TraceClass.EXACT) {
                 if (r.final != r.target.nodes) exact += "${r.photo.label} ${r.target.char}: ${r.final} against ${r.target.nodes}"
             } else {
-                val claim = TraceTargets.hardClaim(r.target.nodes)
+                val claim = TraceTargets.hardClaim(r.target)
                 if (r.final.onCurve > claim.onCurve || r.final.offCurve > claim.offCurve) {
                     beyondClaim += "${r.photo.label} ${r.target.char}: ${r.final} beyond the claim $claim"
                 }

@@ -26,6 +26,7 @@ import com.asoc.typewright.ui.brief.LocalOpenNewProjectBrief
 import com.asoc.typewright.ui.brief.rememberBriefScreenUiState
 import com.asoc.typewright.ui.brief.rememberBriefStateKeeper
 import com.asoc.typewright.ui.capture.CaptureScreen
+import com.asoc.typewright.ui.capture.LocalOpenTemplates
 import com.asoc.typewright.ui.capture.rememberCaptureStatus
 import com.asoc.typewright.ui.check.CheckScreen
 import com.asoc.typewright.ui.check.rememberCheckShipStatus
@@ -128,6 +129,7 @@ fun TypewrightApp(
         LocalOpenNewProjectBrief provides navState::openNewProjectBrief,
         LocalSectionNav provides nav,
         LocalFontImport provides fontImport,
+        LocalOpenTemplates provides navState::openTemplates,
         LocalGlyphNav provides
             GlyphNav(
                 current = navState.currentGlyph,
