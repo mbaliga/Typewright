@@ -238,23 +238,18 @@ object GoldenPathSteps {
         return OpenedFont(fileName, candidate.audit, info.familyName, fromDisk.glyphs.size)
     }
 
-    fun step1bNewProjectFromScan() {
-        notBuilt(
-            "1b",
-            "New project from a scan",
-            "no fiducial/homography/cell detection, no Latin template manifest, no photo fixtures",
-            "P16",
-        )
-    }
+    /**
+     * Step 1b: the five printed Latin sheets, photographed (synthetically, see [ScanSteps]) and read back; at least 95% of the 120
+     * cells carry the template's glyph name, every miss is printed, and the project made from the scan holds no accepted glyph.
+     */
+    fun step1bNewProjectFromScan() = ScanSteps.step1b()
 
-    fun step2CaptureTraceAccept() {
-        notBuilt(
-            "2",
-            "Capture, trace, accept",
-            "trace output is in raster pixels, no cell→glyph pipeline, no accept, no glyph lock",
-            "P16",
-        )
-    }
+    /**
+     * Step 2: cells from the scan are traced through Clean, Contour, Corner detect, Fit, Snap and Review; contour counts, node
+     * counts against CLAUDE.md's fitted targets and the ink box against the real font's are measured; the traces are accepted
+     * through the session's `AcceptTrace`, the locks persist across a reopen, and an edit or a re-trace cannot change them.
+     */
+    fun step2CaptureTraceAccept() = ScanSteps.step2()
 
     /**
      * Fully built (docs/PROJECT_MODEL.md §12): S-ufo through a real [ProjectSession] over a

@@ -1,0 +1,119 @@
+{
+  "LATIN": {
+    "lines": [
+      {
+        "y": -210,
+        "label": "descender -210",
+        "solid": false
+      },
+      {
+        "y": 0,
+        "label": "baseline 0",
+        "solid": true
+      },
+      {
+        "y": 500,
+        "label": "x-height 500",
+        "solid": false
+      },
+      {
+        "y": 700,
+        "label": "cap 700 / ascender 700",
+        "solid": false
+      }
+    ],
+    "advance": [
+      0,
+      650
+    ]
+  },
+  "KANA": {
+    "lines": [
+      {
+        "y": -120,
+        "label": "body bottom -120",
+        "solid": false
+      },
+      {
+        "y": 0,
+        "label": "baseline 0",
+        "solid": true
+      },
+      {
+        "y": 380,
+        "label": "centre 380",
+        "solid": false
+      },
+      {
+        "y": 880,
+        "label": "body top 880",
+        "solid": false
+      }
+    ],
+    "advance": [
+      0,
+      720
+    ]
+  },
+  "DEVANAGARI": {
+    "lines": [
+      {
+        "y": -280,
+        "label": "descender -280",
+        "solid": false
+      },
+      {
+        "y": 0,
+        "label": "baseline 0",
+        "solid": true
+      },
+      {
+        "y": 230,
+        "label": "mid 230",
+        "solid": false
+      },
+      {
+        "y": 700,
+        "label": "headline (shirorekha) 700",
+        "solid": false
+      },
+      {
+        "y": 760,
+        "label": "ascender 760",
+        "solid": false
+      }
+    ],
+    "advance": [
+      0,
+      900
+    ]
+  },
+  "NASKH": {
+    "lines": [
+      {
+        "y": -360,
+        "label": "descender -360",
+        "solid": false
+      },
+      {
+        "y": 0,
+        "label": "baseline 0",
+        "solid": true
+      },
+      {
+        "y": 300,
+        "label": "tooth height 300",
+        "solid": false
+      },
+      {
+        "y": 720,
+        "label": "ascender 720",
+        "solid": false
+      }
+    ],
+    "advance": [
+      0,
+      900
+    ]
+  }
+}
