@@ -104,6 +104,8 @@ class NoFixtureFontInMainSourcesTest {
                     "the one loader: embeds the OFL sample and offers it only through the labelled \"Try the sample\" choice",
                 "ui/src/commonMain/kotlin/com/asoc/typewright/ui/settings/NoticeData.kt" to
                     "generated from THIRD_PARTY.md by tools/gen_notices.py; the licence notices must name every font that ships",
+                "capture-testkit/src/jvmMain/kotlin/com/asoc/typewright/capturetestkit/HyleDecoFixture.kt" to
+                    "a test-support module: only test source sets depend on it, so the fixture never reaches an app",
             )
     }
 }
