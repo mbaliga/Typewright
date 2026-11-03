@@ -2,7 +2,9 @@
 
 package com.asoc.typewright.ui.project
 
+import com.asoc.typewright.project.ProjectLocation
 import com.asoc.typewright.project.ProjectWorkspace
+import com.asoc.typewright.ui.project.ProjectFolderPicker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -22,6 +24,25 @@ import kotlin.test.assertTrue
  */
 class ProjectPaletteActionsTest {
     private fun workspace(): ProjectWorkspace = createProjectWorkspace(CoroutineScope(Dispatchers.Default))
+
+    @Test
+    fun aFolderThatCannotBeMadeIsReportedNotThrown() =
+        runBlocking {
+            val workspace = workspace()
+            val broken =
+                object : ProjectFolderPicker {
+                    override suspend fun pickNewProjectParent(): ProjectLocation =
+                        throw IllegalArgumentException("AndroidStorageProvider.createChild needs a SafTree location")
+
+                    override suspend fun pickProjectToOpen(): ProjectLocation? = null
+                }
+
+            val result = createUntitledProject(workspace, broken)
+
+            assertTrue(result.startsWith("New project…: could not create the project"), result)
+            assertTrue("needs a SafTree location" in result, "the cause is named: $result")
+            assertEquals(null, workspace.current.value, "nothing was opened")
+        }
 
     @Test
     fun newProjectCreatesABlankUntitledProjectAndItBecomesCurrent() =

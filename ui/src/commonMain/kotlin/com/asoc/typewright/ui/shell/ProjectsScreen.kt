@@ -39,8 +39,8 @@ import com.asoc.typewright.ui.imports.FontImportController
 import com.asoc.typewright.ui.imports.FontImportHost
 import com.asoc.typewright.ui.imports.LocalFontImport
 import com.asoc.typewright.ui.imports.rememberFontImportController
-import com.asoc.typewright.ui.project.InMemoryProjectFolderPicker
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
+import com.asoc.typewright.ui.project.PlatformProjectFolderPicker
 import com.asoc.typewright.ui.project.createUntitledProject
 import com.asoc.typewright.ui.settings.APP_VERSION
 import com.asoc.typewright.ui.tokens.CanvasTexture
@@ -130,7 +130,7 @@ fun ProjectsScreen(
 
     fun create() {
         val ws = workspace ?: return
-        scope.launch { message = createUntitledProject(ws, InMemoryProjectFolderPicker(ws), onCreated = { openNewProject?.invoke() }) }
+        scope.launch { message = createUntitledProject(ws, PlatformProjectFolderPicker(ws), onCreated = { openNewProject?.invoke() }) }
     }
 
     Box(modifier = modifier) {

@@ -44,9 +44,9 @@ import com.asoc.typewright.project.ProjectWorkspace
 import com.asoc.typewright.ui.brief.LocalOpenNewProjectBrief
 import com.asoc.typewright.ui.draw.GlyphDirectory
 import com.asoc.typewright.ui.imports.rememberFontImportPaletteEntries
-import com.asoc.typewright.ui.project.InMemoryProjectFolderPicker
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.project.LocalZipTransferSupported
+import com.asoc.typewright.ui.project.PlatformProjectFolderPicker
 import com.asoc.typewright.ui.project.closeCurrentProject
 import com.asoc.typewright.ui.project.createUntitledProject
 import com.asoc.typewright.ui.project.downloadProjectZip
@@ -349,7 +349,7 @@ private fun projectPaletteEntries(
     setResult: (String) -> Unit,
 ): List<PaletteEntry> {
     if (workspace == null) return emptyList()
-    val picker = InMemoryProjectFolderPicker(workspace)
+    val picker = PlatformProjectFolderPicker(workspace)
     val entries =
         mutableListOf(
             PaletteEntry(
