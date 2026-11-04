@@ -64,7 +64,7 @@ build-tools it needs if the SDK licences are accepted.
 | Format the code | `./gradlew spotlessApply` | rewrites files in place |
 | Android debug APK | `./gradlew :app-android:assembleDebug` | `app-android/build/outputs/apk/debug/app-android-debug.apk` (installs on API 31+; on-device behaviour is owner-verified) |
 | Desktop app | `./gradlew :app-desktop:run` | opens the window (seen under Xvfb) |
-| Desktop packages | `./gradlew :app-desktop:packageDeb` (or `packageRpm`, `packageAppImage`) | declared; not run at P0 (they need `jpackage` and the distro's packaging tools) |
+| Desktop packages | `./gradlew :app-desktop:packageDeb` (or `packageRpm`); `createDistributable` builds the app-image directory | declared; not run at P0 (they need `jpackage` and the distro's packaging tools) |
 | Screenshot harness | `./gradlew :ui:desktopTest --rerun` | renders composables headlessly to `ui/build/screenshots/*.png` (e.g. `draw-paper-rest.png`, `app-learn-open.png`) |
 | Web, production | `./gradlew :app-web:wasmJsBrowserDistribution` | `app-web/build/dist/wasmJs/productionExecutable/`; serve it with `python3 -m http.server -d app-web/build/dist/wasmJs/productionExecutable 8080` |
 | Web, development server | `./gradlew :app-web:wasmJsBrowserDevelopmentRun` | not run at P0 |

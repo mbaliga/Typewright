@@ -1,0 +1,58 @@
+name: Desktop Linux
+
+# Packages the Linux app-image directory and checks packaging/linux/install.sh against it. Pull
+# requests only compile what the packaging task needs; nothing is uploaded from any trigger.
+# Actions are pinned to commit SHAs (tag in the trailing comment).
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - "packaging/**"
+      - "app-desktop/**"
+      - ".github/workflows/desktop-linux.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-linux-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  app-image:
+    name: app-image tarball and install.sh
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+        with:
+          cache-provider: basic
+      - name: Android SDK packages the build needs
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
+      - name: install.sh syntax
+        run: bash -n packaging/linux/install.sh
+      - name: createDistributable
+        run: ./gradlew :app-desktop:createDistributable
+      - name: Install into a scratch prefix
+        run: |
+          packaging/linux/install.sh --prefix "$RUNNER_TEMP/prefix" app-desktop/build/compose/binaries/main/app/typewright
+          test -x "$RUNNER_TEMP/prefix/bin/typewright"
+          test -f "$RUNNER_TEMP/prefix/share/applications/typewright.desktop"
+      - name: Tarball size and sha256
+        run: |
+          tar -czf app-desktop-linux.tar.gz -C app-desktop/build/compose/binaries/main app
+          {
+            echo '### app-desktop-linux.tar.gz'
+            echo '```'
+            ls -l app-desktop-linux.tar.gz
+            sha256sum app-desktop-linux.tar.gz
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
