@@ -66,6 +66,14 @@ class DrawScene(
     val measure: MeasureState? = null,
     /** The shape being dragged out with the Primitives tool, drawn as the contour it would become. */
     val primitive: PrimitiveShape? = null,
+    /** The glyph's anchors are drawn with the glyph; this one, when set, is the selected one. */
+    val anchorSelected: String? = null,
+    /** The centreline the Stroke tool has laid so far, and the outline it would make, both in font units. */
+    val centreline: List<Point> = emptyList(),
+    val strokePreview: List<Contour> = emptyList(),
+    /** True while the Metrics tool is in hand: the lines it can move get a grip, and [metricSelected] is the one picked. */
+    val metricGrips: Boolean = false,
+    val metricSelected: MetricKind? = null,
     /**
      * How strongly the glyph itself (its body, handles and nodes) is drawn: 1 normally, 0.3 while a radial ring
      * is open over it (S12). The metric lines, guidelines, snap targets and the selection stay at full strength (C4).
@@ -92,6 +100,7 @@ fun DrawScope.drawDrawRoom(
             .toDouble()
     scene.metrics?.let { drawMetricBands(it, scene.lines, space, colors, widthDp) }
     scene.metrics?.let { drawMetricLines(it, space, colors, widthDp) }
+    if (scene.metricGrips) scene.metrics?.let { drawMetricGrips(it, scene.metricSelected, space, colors) }
     scene.lines?.let { drawGlyphVerticals(it, scene.metrics, space, colors) }
     if (scene.construction) drawGuidelines(scene.guidelines, space, colors)
     val glyph = scene.glyph
@@ -107,6 +116,7 @@ fun DrawScope.drawDrawRoom(
         drawSelection(glyph, space, colors, scene.selection, marks)
         scene.hover?.let { drawHover(glyph, space, colors, it) }
     }
+    glyph?.let { drawAnchors(it.anchors, scene.anchorSelected, space, colors) }
     drawSnapTargets(scene.snaps, space, colors)
     scene.sweep?.let { drawSweep(it, colors) }
     if (!scene.pen.isEmpty || scene.penLive != null) drawPenTrail(scene.pen, scene.penLive, space, colors)
@@ -114,6 +124,7 @@ fun DrawScope.drawDrawRoom(
     for (removed in TidyCrosses.shown(scene.tidyRemoved, space)) drawRemovalCross(screenOf(space, removed.toVec2()), colors)
     scene.knifeMark?.let { drawKnifeMark(screenOf(space, it), colors) }
     scene.primitive?.let { drawPrimitivePreview(it, space, colors) }
+    if (scene.centreline.isNotEmpty()) drawCentreline(scene.centreline, scene.strokePreview, space, colors)
     scene.measure?.let { drawMeasure(it, space, colors) }
 }
 
@@ -630,6 +641,88 @@ private fun DrawScope.drawPrimitivePreview(
     drawPath(path, colors.construction, style = Stroke(width = 1.5.dp.toPx(), pathEffect = dash))
 }
 
+/**
+ * The anchors: each a ring with a cross through it (a shape no node or handle has), in ink; the selected one is larger and in
+ * the selection colour. Their names are written by [AnchorLabels], a text layer above.
+ */
+private fun DrawScope.drawAnchors(
+    anchors: List<com.asoc.typewright.core.geometry.Anchor>,
+    selected: String?,
+    space: DrawSpace,
+    colors: DrawColors,
+) {
+    for (anchor in anchors) {
+        val at = screenOf(space, anchor.point.toVec2())
+        val active = anchor.name == selected
+        val tint = if (active) colors.selected else colors.ink
+        val r = (if (active) ANCHOR_RADIUS_SELECTED else ANCHOR_RADIUS).dp.toPx()
+        drawCircle(colors.canvas, r, at)
+        drawCircle(tint, r, at, style = Stroke(width = 1.5.dp.toPx()))
+        drawLine(tint, Offset(at.x - r * 1.5f, at.y), Offset(at.x + r * 1.5f, at.y), strokeWidth = 1.dp.toPx())
+        drawLine(tint, Offset(at.x, at.y - r * 1.5f), Offset(at.x, at.y + r * 1.5f), strokeWidth = 1.dp.toPx())
+    }
+}
+
+/**
+ * The Metrics tool's grips: a pair of short ticks on each line it can move (a baseline is fixed and has none), the line picked
+ * thicker and in the selection colour. The overshoot zones are drawn as before and have no grip: they are read-only.
+ */
+private fun DrawScope.drawMetricGrips(
+    metrics: DrawMetrics,
+    selected: MetricKind?,
+    space: DrawSpace,
+    colors: DrawColors,
+) {
+    for (line in metrics.lines) {
+        val y =
+            space
+                .toScreen(Vec2(0.0, line.y.toDouble()))
+                .y.dp
+                .toPx()
+        if (y < 0f || y > size.height) continue
+        val active = line.kind == selected
+        if (active) drawLine(colors.selected, Offset(0f, y), Offset(size.width, y), strokeWidth = 2.dp.toPx())
+        if (line.kind == MetricKind.BASELINE) continue
+        val x = METRIC_GRIP_X.dp.toPx()
+        val tint = if (active) colors.selected else colors.ink
+        val half = METRIC_GRIP_HALF.dp.toPx()
+        for (dy in listOf(-2.dp.toPx(), 2.dp.toPx())) {
+            drawLine(tint, Offset(x - half, y + dy), Offset(x + half, y + dy), strokeWidth = 1.5.dp.toPx(), cap = StrokeCap.Round)
+        }
+    }
+}
+
+/** The Stroke tool's centreline as a dashed line with a square on each point, and the outline it would make dashed in the construction stroke. */
+private fun DrawScope.drawCentreline(
+    line: List<Point>,
+    preview: List<Contour>,
+    space: DrawSpace,
+    colors: DrawColors,
+) {
+    val dash = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))
+    for (contour in preview) {
+        val path = Path()
+        for ((i, segment) in contour.segments().withIndex()) {
+            val cubic = segment as? CurveSegment.Cubic ?: continue
+            val a = screenOf(space, cubic.start)
+            if (i == 0) path.moveTo(a.x, a.y)
+            val c1 = screenOf(space, cubic.control1)
+            val c2 = screenOf(space, cubic.control2)
+            val b = screenOf(space, cubic.end)
+            path.cubicTo(c1.x, c1.y, c2.x, c2.y, b.x, b.y)
+        }
+        path.close()
+        drawPath(path, colors.construction, style = Stroke(width = 1.5.dp.toPx(), pathEffect = dash))
+    }
+    val ends = line.map { screenOf(space, it.toVec2()) }
+    for (i in 1 until ends.size) drawLine(colors.ink, ends[i - 1], ends[i], strokeWidth = 1.dp.toPx())
+    for (at in ends) {
+        val half = CORNER_HALF.dp.toPx()
+        drawRect(colors.canvas, Offset(at.x - half, at.y - half), Size(2 * half, 2 * half))
+        drawRect(colors.ink, Offset(at.x - half, at.y - half), Size(2 * half, 2 * half), style = Stroke(width = 1.5.dp.toPx()))
+    }
+}
+
 /** The measure tool's ends as crosses and, once both are down, the line between them with a tick at each end. */
 private fun DrawScope.drawMeasure(
     measure: MeasureState,
@@ -666,6 +759,10 @@ private fun DrawScope.drawKnifeMark(
 }
 
 private const val PEN_CLOSE_RING = 10
+private const val ANCHOR_RADIUS = 4.0
+private const val ANCHOR_RADIUS_SELECTED = 5.5
+private const val METRIC_GRIP_X = 28
+private const val METRIC_GRIP_HALF = 8
 private const val REMOVAL_ARM = 4
 private const val KNIFE_MARK_RADIUS = 7
 private const val MEASURE_ARM = 6

@@ -5,6 +5,7 @@ package com.asoc.typewright.ui.draw
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.asoc.typewright.core.geometry.Anchor
 import com.asoc.typewright.core.geometry.CurveFormat
 import com.asoc.typewright.core.geometry.CutPlace
 import com.asoc.typewright.core.geometry.Glyph
@@ -17,6 +18,13 @@ import com.asoc.typewright.core.geometry.Vec2
 import com.asoc.typewright.core.geometry.pointAt
 import com.asoc.typewright.core.geometry.segmentLayout
 import com.asoc.typewright.core.geometry.sidebearings
+import com.asoc.typewright.engine.construct.BooleanOp
+import com.asoc.typewright.engine.construct.LineCap
+import com.asoc.typewright.engine.construct.LineJoin
+import com.asoc.typewright.engine.construct.StrokeParameters
+import com.asoc.typewright.engine.construct.StrokeResult
+import com.asoc.typewright.engine.construct.strokeCentreline
+import com.asoc.typewright.engine.construct.strokeWidthProblem
 import com.asoc.typewright.project.PointRef
 import com.asoc.typewright.project.ProjectSession
 import com.asoc.typewright.ui.puck.PrimitiveDragPlan
@@ -176,6 +184,42 @@ class DrawController(
     /** The knife, once armed: the first place of a cut when it has been tapped, and where it is in font units. */
     var knife: KnifeState? by mutableStateOf(null)
 
+    /** The contours tapped with the Boolean tool, in the order they were tapped: the first is what Subtract keeps. */
+    private var pickedContours: List<Int> = emptyList()
+
+    /** The width the Stroke tool makes, in font units. The default is our heuristic: nothing measured says how wide a stroke should be. */
+    var strokeWidth: Double by mutableStateOf(DEFAULT_STROKE_WIDTH)
+        private set
+
+    /** How the Stroke tool joins its corners (miter or round). */
+    var strokeJoin: LineJoin by mutableStateOf(LineJoin.MITER)
+        private set
+
+    /** The centreline laid down so far with the Stroke tool, in font units: an open line of straight sides. */
+    var centreline: List<Point> by mutableStateOf(emptyList())
+        private set
+
+    /** The name of the anchor selected with the Anchors tool, or null. */
+    var anchorName: String? by mutableStateOf(null)
+        private set
+
+    /** The metric line selected with the Metrics tool, or null. */
+    var metricKind: MetricKind? by mutableStateOf(null)
+        private set
+    private var fixtureDrag: FixtureDrag? = null
+
+    private sealed interface FixtureDrag {
+        class OfAnchor(
+            val name: String,
+            val grab: Vec2,
+            val snapper: Snapper,
+        ) : FixtureDrag
+
+        class OfMetric(
+            val kind: MetricKind,
+        ) : FixtureDrag
+    }
+
     private var proposedRemoved: List<Point> by mutableStateOf(emptyList())
 
     /**
@@ -273,6 +317,7 @@ class DrawController(
         penDragFrom = null
         penLive = null
         endPrimitiveDrag()
+        fixtureDrag = null
         if (radial?.state is RadialState.Sweeping) radial = null
     }
 
@@ -304,6 +349,26 @@ class DrawController(
                 return
             }
 
+            Tool.BOOLEAN -> {
+                booleanTap(output.hit)
+                return
+            }
+
+            Tool.STROKE -> {
+                strokeTap(output.position, output.hit, frame)
+                return
+            }
+
+            Tool.ANCHORS -> {
+                anchorTap(output.position, frame)
+                return
+            }
+
+            Tool.METRICS -> {
+                metricTap(output.position, frame)
+                return
+            }
+
             else -> {
                 Unit
             }
@@ -330,6 +395,11 @@ class DrawController(
                 measureTap(output.position, output.hit, frame)
                 return
             }
+            // Two quick clicks are two taps for the tools that place or pick one thing per click.
+            if (frame.tool in TAP_PER_CLICK_TOOLS) {
+                tap(CanvasOutput.Tap(output.position, output.hit, false), frame)
+                return
+            }
         }
         if (knife != null) {
             // Two quick taps on one place with the knife armed are the "same place twice" of a cut: a node and no cut.
@@ -349,8 +419,12 @@ class DrawController(
     ) {
         dragAlive = false
         if (overlayOpen || !toolIsConnected(frame.tool) || frame.tool == Tool.PEN || frame.tool == Tool.PRIMITIVES ||
-            frame.tool == Tool.MEASURE
+            frame.tool == Tool.MEASURE || frame.tool == Tool.BOOLEAN || frame.tool == Tool.STROKE
         ) {
+            return
+        }
+        if (frame.tool == Tool.ANCHORS || frame.tool == Tool.METRICS) {
+            beginFixtureDrag(output.from, frame)
             return
         }
         val current = glyph ?: return
@@ -410,6 +484,10 @@ class DrawController(
         output: CanvasOutput.ObjectDragged,
         frame: DrawFrame,
     ) {
+        if (fixtureDrag != null) {
+            moveFixtureDrag(output.at, frame)
+            return
+        }
         if (!dragAlive) return
         val dpu = frame.space.dpPerUnit
         var dx = output.dx / dpu * dragScale
@@ -456,6 +534,10 @@ class DrawController(
     }
 
     private fun endDrag(committed: Boolean) {
+        if (fixtureDrag != null) {
+            endFixtureDrag(committed)
+            return
+        }
         editor.endDrag(commit = committed)
         dragAlive = false
         dragOp = null
@@ -481,6 +563,11 @@ class DrawController(
             return
         }
         if (frame != null && frame.tool == Tool.MEASURE && knife == null) return
+        if (frame != null && (frame.tool == Tool.ANCHORS || frame.tool == Tool.METRICS) && knife == null) {
+            beginFixtureDrag(output.from, frame)
+            return
+        }
+        if (frame != null && frame.tool == Tool.STROKE && knife == null) return
         sweepPoints = mutableListOf(output.from)
         sweepLasso = output.lasso
         sweepAdditive = output.additive
@@ -490,6 +577,10 @@ class DrawController(
     private fun moveSweep(output: CanvasOutput.SweepMoved) {
         val from = penDragFrom
         val frame = lastFrame
+        if (fixtureDrag != null && frame != null) {
+            moveFixtureDrag(output.to, frame)
+            return
+        }
         if (from != null && frame != null) {
             val anchor = penPointAt(from, frame)
             val pull = penPullTo(anchor, output.to, frame)
@@ -509,6 +600,10 @@ class DrawController(
         output: CanvasOutput.EndSweep,
         frame: DrawFrame,
     ) {
+        if (fixtureDrag != null) {
+            endFixtureDrag(output.committed)
+            return
+        }
         val penFrom = penDragFrom
         if (penFrom != null) {
             penDragFrom = null
@@ -778,6 +873,10 @@ class DrawController(
 
     /** Undo while the pen is drawing steps back one point first, so a mis-click costs one point and the history is untouched. */
     override fun stepBackPen(): Boolean {
+        if (centreline.isNotEmpty()) {
+            centreline = centreline.dropLast(1)
+            return true
+        }
         if (penPath.isEmpty) return false
         penPath = penPath.withoutLast()
         return true
@@ -1038,6 +1137,274 @@ class DrawController(
         snaps = emptyList()
     }
 
+    // ---- booleans, strokes, anchors and metric lines ------------------------------------------------
+
+    /** A tap with the Boolean tool picks, or puts back, the whole contour under it; a tap on empty canvas lets them all go. */
+    private fun booleanTap(hit: Hit) {
+        val current = glyph ?: return
+        val contour =
+            when (hit) {
+                is Hit.OnPoint -> hit.ref.contour
+                is Hit.OnSegment -> hit.key.contour
+                Hit.Nothing -> null
+            }
+        if (contour == null) {
+            selection = DrawSelection.EMPTY
+            pickedContours = emptyList()
+            return
+        }
+        val whole = selection.indicesIn(contour).size == current.contours[contour].points.size
+        if (whole) {
+            selection = DrawSelection(selection.points.filterNot { it.contour == contour }.toSet())
+            pickedContours = pickedContours - contour
+        } else {
+            selection = DrawSelection(selection.points + selection.wholeContour(current, contour).points)
+            pickedContours = pickedContours.filter { it != contour } + contour
+        }
+    }
+
+    override fun booleanOrder(): List<Int> = pickedContours
+
+    /** Runs [op] across the picked contours, as one step; a refusal says why on the glass (the lock prompt only when the glyph is locked). */
+    fun runBoolean(op: BooleanOp) {
+        if (editor.isLocked) {
+            applied(EditOutcome.Locked(glyph?.name ?: ""))
+            return
+        }
+        val plan = editor.planBoolean(op, selection, pickedContours)
+        if (plan is EditPlan.Blocked) {
+            say(plan.reason)
+            return
+        }
+        applied(editor.perform(plan))
+    }
+
+    /** A tap with the Stroke tool lays the next point of the centreline: on a node if it is tapped, else at the nearest whole font unit. */
+    private fun strokeTap(
+        position: Vec2,
+        hit: Hit,
+        frame: DrawFrame,
+    ) {
+        val current = glyph ?: return
+        val at =
+            if (hit is Hit.OnPoint && hit.onCurve) {
+                current.contours[hit.ref.contour]
+                    .points[hit.ref.point]
+                    .point
+            } else {
+                penPointAt(position, frame)
+            }
+        centreline = centreline + at
+    }
+
+    override fun centrelineInProgress(): Boolean = centreline.isNotEmpty()
+
+    /** The outline the centreline would make at the current width and join, to be drawn as a preview; empty when it would make none. */
+    val strokePreview: List<com.asoc.typewright.core.geometry.Contour>
+        get() {
+            if (centreline.size < 2) return emptyList()
+            val width = strokeWidth
+            if (strokeWidthProblem(width) != null) return emptyList()
+            val params = StrokeParameters(width = width, cap = LineCap.BUTT, join = strokeJoin)
+            return (strokeCentreline(centreline, params) as? StrokeResult.Done)?.contours.orEmpty()
+        }
+
+    /** Strokes the centreline laid down (or, with none, the selected contours) at the current width and join, as one step. */
+    override fun runStroke() {
+        if (editor.isLocked) {
+            applied(EditOutcome.Locked(glyph?.name ?: ""))
+            return
+        }
+        val plan = editor.planStroke(centreline, selection, strokeWidth, strokeJoin, glyphFormat())
+        if (plan is EditPlan.Blocked) {
+            say(plan.reason)
+            return
+        }
+        val outcome = editor.perform(plan)
+        if (outcome is EditOutcome.Done) centreline = emptyList()
+        applied(outcome)
+    }
+
+    /** Sets the Stroke tool's width in font units; null when it was taken, otherwise why not (the width stays). */
+    fun setStrokeWidth(width: Double): String? {
+        strokeWidthProblem(width)?.let { return it }
+        strokeWidth = width
+        return null
+    }
+
+    fun pickStrokeJoin(join: LineJoin) {
+        strokeJoin = join
+    }
+
+    private fun anchorHit(
+        position: Vec2,
+        frame: DrawFrame,
+    ): Anchor? {
+        val reach = if (frame.pointer == PointerKind.TOUCH) ANCHOR_REACH_TOUCH_DP else ANCHOR_REACH_DP
+        return glyph
+            ?.anchors
+            ?.map { it to (frame.space.toScreen(it.point.toVec2()) - position).length() }
+            ?.filter { it.second <= reach }
+            ?.minByOrNull { it.second }
+            ?.first
+    }
+
+    /** A tap with the Anchors tool selects the anchor under it, or puts a new one down on empty canvas. */
+    private fun anchorTap(
+        position: Vec2,
+        frame: DrawFrame,
+    ) {
+        anchorHit(position, frame)?.let {
+            anchorName = it.name
+            return
+        }
+        val name = nextAnchorName()
+        val outcome = editor.addAnchor(name, penPointAt(position, frame))
+        if (outcome is EditOutcome.Done) anchorName = name
+        applied(outcome)
+    }
+
+    private fun nextAnchorName(): String {
+        val used =
+            glyph
+                ?.anchors
+                ?.map { it.name }
+                .orEmpty()
+                .toSet()
+        return STARTER_ANCHORS.firstOrNull { it !in used } ?: generateSequence(2) { it + 1 }.map { "anchor$it" }.first { it !in used }
+    }
+
+    override fun selectedAnchor(): String? = anchorName?.takeIf { name -> glyph?.anchors?.any { it.name == name } == true }
+
+    override fun deleteSelectedAnchor() {
+        val name = selectedAnchor() ?: return
+        val outcome = editor.deleteAnchor(name)
+        if (outcome is EditOutcome.Done) anchorName = null
+        applied(outcome)
+    }
+
+    /** Selects the anchor [name] (the inspector's list), or none. */
+    fun pickAnchor(name: String?) {
+        anchorName = name
+    }
+
+    private fun metricLineAt(
+        position: Vec2,
+        frame: DrawFrame,
+    ): MetricKind? {
+        val reach = if (frame.pointer == PointerKind.TOUCH) METRIC_REACH_TOUCH_DP else METRIC_REACH_DP
+        return metrics()
+            .lines
+            .map { it to abs(frame.space.toScreen(Vec2(0.0, it.y.toDouble())).y - position.y) }
+            .filter { it.second <= reach }
+            .minByOrNull { it.second }
+            ?.first
+            ?.kind
+    }
+
+    /** A tap with the Metrics tool selects the line under it; the baseline says why it cannot move. */
+    private fun metricTap(
+        position: Vec2,
+        frame: DrawFrame,
+    ) {
+        val kind = metricLineAt(position, frame)
+        metricKind = kind
+        if (kind == MetricKind.BASELINE) say(editor.metricProblem(kind, 0).orEmpty())
+    }
+
+    private fun beginFixtureDrag(
+        from: Vec2,
+        frame: DrawFrame,
+    ) {
+        val current = glyph ?: return
+        if (overlayOpen) return
+        when (frame.tool) {
+            Tool.ANCHORS -> {
+                val hit = anchorHit(from, frame) ?: return
+                anchorName = hit.name
+                val refused = editor.beginAnchorDrag(hit.name)
+                if (refused != null) {
+                    applied(refused)
+                    return
+                }
+                val band = (if (frame.pointer == PointerKind.TOUCH) SNAP_BAND_TOUCH_DP else SNAP_BAND_DP) / frame.space.dpPerUnit
+                fixtureDrag =
+                    FixtureDrag.OfAnchor(
+                        hit.name,
+                        hit.point.toVec2() - frame.space.toFont(from),
+                        Snapper(current, metrics(), current.advanceWidth, emptySet(), band),
+                    )
+            }
+
+            Tool.METRICS -> {
+                val kind = metricLineAt(from, frame) ?: return
+                metricKind = kind
+                val refused = editor.beginMetricDrag(kind)
+                if (refused != null) {
+                    applied(refused)
+                    return
+                }
+                fixtureDrag = FixtureDrag.OfMetric(kind)
+            }
+
+            else -> {
+                Unit
+            }
+        }
+        if (fixtureDrag != null) notice = null
+    }
+
+    private fun moveFixtureDrag(
+        at: Vec2,
+        frame: DrawFrame,
+    ) {
+        val moved =
+            when (val drag = fixtureDrag) {
+                is FixtureDrag.OfAnchor -> {
+                    val wanted = frame.space.toFont(at) + drag.grab
+                    val result = drag.snapper.snap(wanted)
+                    if (result.targets.any { it !in snaps }) host.tick()
+                    snaps = result.targets
+                    val target = if (result.snapped) Vec2(wanted.x + result.dx, wanted.y + result.dy) else wanted
+                    val point = Point(round(target.x), round(target.y))
+                    val update = editor.dragAnchorTo(drag.name, point)
+                    if (update == DragUpdate.FOLLOWED && frame.pointer != PointerKind.MOUSE) {
+                        readout = Readout("${drag.name} · x ${point.x} · y ${point.y}", at)
+                    }
+                    update
+                }
+
+                is FixtureDrag.OfMetric -> {
+                    val y = round(frame.space.toFont(at).y)
+                    val update = editor.dragMetricTo(drag.kind, y)
+                    if (update == DragUpdate.FOLLOWED && frame.pointer != PointerKind.MOUSE) {
+                        readout = Readout("${drag.kind.label} $y", at)
+                    }
+                    update
+                }
+
+                null -> {
+                    return
+                }
+            }
+        if (moved != DragUpdate.FOLLOWED) {
+            fixtureDrag = null
+            snaps = emptyList()
+            readout = null
+        }
+    }
+
+    private fun endFixtureDrag(committed: Boolean) {
+        val drag = fixtureDrag
+        fixtureDrag = null
+        editor.endDrag(commit = committed)
+        snaps = emptyList()
+        readout = null
+        if (committed && drag is FixtureDrag.OfMetric) {
+            editor.metricValue(drag.kind)?.let { say(editor.metricNote(drag.kind, it)) }
+        }
+    }
+
     // ---- the tool in hand --------------------------------------------------------------------------
 
     /**
@@ -1052,6 +1419,11 @@ class DrawController(
         measureState = MeasureState()
         endPrimitiveDrag()
         dismissProposal()
+        centreline = emptyList()
+        pickedContours = emptyList()
+        anchorName = null
+        metricKind = null
+        if (fixtureDrag != null) endFixtureDrag(committed = false)
     }
 
     /** The line the header speaks while a mode is open (the pen, the knife, the measure), or null when none is. */
@@ -1069,6 +1441,27 @@ class DrawController(
 
                 activeTool == Tool.MEASURE -> {
                     measureState.measurement?.text ?: "Measure · tap two places"
+                }
+
+                activeTool == Tool.STROKE -> {
+                    if (centreline.isEmpty()) {
+                        "Stroke · tap the points of a centreline, then press Enter · or select a contour"
+                    } else {
+                        "Stroke · ${centreline.size} point${if (centreline.size == 1) "" else "s"} · Enter strokes it · Esc drops it"
+                    }
+                }
+
+                activeTool == Tool.BOOLEAN -> {
+                    val n = selection.contours.size
+                    "Boolean · $n contour${if (n == 1) "" else "s"} picked · tap a contour to pick it · the first picked is what Subtract keeps"
+                }
+
+                activeTool == Tool.ANCHORS -> {
+                    "Anchors · tap empty canvas to add one · tap an anchor to select it · drag to move"
+                }
+
+                activeTool == Tool.METRICS -> {
+                    "Metrics · drag a line or type its number · it changes every glyph's alignment"
                 }
 
                 else -> {
@@ -1093,7 +1486,13 @@ class DrawController(
             }
 
             is DrawKeyAction.Nudge -> {
-                applied(editor.moveBy(selection, action.dx, action.dy, label = "Nudge", merge = true))
+                val anchor = selectedAnchor()?.takeIf { activeTool == Tool.ANCHORS }
+                val at = anchor?.let { name -> glyph?.anchors?.firstOrNull { it.name == name }?.point }
+                if (anchor != null && at != null) {
+                    applied(editor.moveAnchor(anchor, Point(at.x + action.dx, at.y + action.dy)))
+                } else {
+                    applied(editor.moveBy(selection, action.dx, action.dy, label = "Nudge", merge = true))
+                }
             }
 
             DrawKeyAction.Undo -> {
@@ -1108,7 +1507,11 @@ class DrawController(
 
             DrawKeyAction.ToggleSmooth -> {
                 // Enter closes the pen's path when there is one; it is only the smooth toggle otherwise.
-                if (penInProgress()) finishPen() else applied(editor.toggleSmooth(selection))
+                when {
+                    penInProgress() -> finishPen()
+                    activeTool == Tool.STROKE -> runStroke()
+                    else -> applied(editor.toggleSmooth(selection))
+                }
             }
 
             DrawKeyAction.Tangent -> {
@@ -1120,7 +1523,13 @@ class DrawController(
             }
 
             DrawKeyAction.DeleteSelection -> {
-                applied(editor.deleteSelection(selection))
+                if (activeTool == Tool.ANCHORS &&
+                    selectedAnchor() != null
+                ) {
+                    deleteSelectedAnchor()
+                } else {
+                    applied(editor.deleteSelection(selection))
+                }
             }
 
             DrawKeyAction.AddExtremes -> {
@@ -1238,6 +1647,9 @@ class DrawController(
             knife != null -> knife = null
             measureState.first != null -> measureState = MeasureState()
             !penPath.isEmpty -> cancelPen()
+            centreline.isNotEmpty() -> centreline = emptyList()
+            anchorName != null -> anchorName = null
+            metricKind != null -> metricKind = null
             !selection.isEmpty -> selection = DrawSelection.EMPTY
             notice != null -> notice = null
         }
@@ -1298,11 +1710,70 @@ class DrawController(
         key: String,
         text: String,
     ): String? {
+        if (key == FieldKeys.ANCHOR_NAME) return commitAnchorName(text)
         val units =
             when (val result = NumericExpr.evaluate(text, exprScope())) {
                 is ExprResult.Error -> return result.message
                 is ExprResult.Value -> result.units
             }
+        if (key == FieldKeys.STROKE_WIDTH) return setStrokeWidth(units.toDouble())
+        val metric = FieldKeys.metricOf(key)
+        val outcome =
+            when {
+                metric != null -> editor.setMetric(metric, units)
+                key == FieldKeys.ANCHOR_X || key == FieldKeys.ANCHOR_Y -> moveSelectedAnchor(key, units)
+                else -> fieldOutcome(key, units)
+            }
+        // The new fields answer a refusal in the field itself, which keeps what it had; the older ones say it on the glass.
+        val inField = metric != null || key == FieldKeys.ANCHOR_X || key == FieldKeys.ANCHOR_Y
+        return when {
+            inField && outcome is EditOutcome.Unchanged -> {
+                outcome.reason
+            }
+
+            inField && outcome is EditOutcome.Refused -> {
+                outcome.message
+            }
+
+            else -> {
+                applied(outcome)
+                null
+            }
+        }
+    }
+
+    private fun commitAnchorName(text: String): String? {
+        val old = selectedAnchor() ?: return "Select an anchor first."
+        return when (val outcome = editor.renameAnchor(old, text)) {
+            is EditOutcome.Unchanged -> {
+                outcome.reason
+            }
+
+            is EditOutcome.Refused -> {
+                outcome.message
+            }
+
+            else -> {
+                if (outcome is EditOutcome.Done) anchorName = text.trim()
+                applied(outcome)
+                null
+            }
+        }
+    }
+
+    private fun moveSelectedAnchor(
+        key: String,
+        units: Int,
+    ): EditOutcome {
+        val name = selectedAnchor() ?: return EditOutcome.Unchanged("Select an anchor first.")
+        val at = glyph?.anchors?.firstOrNull { it.name == name }?.point ?: return EditOutcome.Unchanged("That anchor is gone.")
+        return editor.moveAnchor(name, if (key == FieldKeys.ANCHOR_X) Point(units, at.y) else Point(at.x, units))
+    }
+
+    private fun fieldOutcome(
+        key: String,
+        units: Int,
+    ): EditOutcome {
         val outcome =
             when (key) {
                 FieldKeys.X -> editor.placePoint(selection, x = units, y = null)
@@ -1310,14 +1781,14 @@ class DrawController(
                 FieldKeys.ADVANCE -> editor.setAdvance(units)
                 FieldKeys.LSB -> editor.setSidebearings(units, null)
                 FieldKeys.RSB -> editor.setSidebearings(null, units)
-                else -> return "That field cannot be edited."
+                else -> return EditOutcome.Unchanged("That field cannot be edited.")
             }
-        applied(outcome)
-        return null
+        return outcome
     }
 
     private var scrubKey: String? = null
     private var scrubStartValue = 0
+    private var scrubAnchorStart: Point? = null
 
     /** A sideways drag on the field [key] begins: one undo step for the whole scrub. */
     fun scrubStart(key: String) {
@@ -1330,8 +1801,12 @@ class DrawController(
                 FieldKeys.X, FieldKeys.Y -> editor.beginDrag(editor.dragOpFor(selection))
                 FieldKeys.ADVANCE -> editor.beginMetricScrub("Set advance")
                 FieldKeys.LSB, FieldKeys.RSB -> editor.beginMetricScrub("Set sidebearings")
-                else -> null
+                FieldKeys.ANCHOR_X, FieldKeys.ANCHOR_Y -> selectedAnchor()?.let { editor.beginAnchorDrag(it) }
+                else -> FieldKeys.metricOf(key)?.let { editor.beginMetricDrag(it) }
             }
+        if (key == FieldKeys.ANCHOR_X || key == FieldKeys.ANCHOR_Y) {
+            scrubAnchorStart = current.anchors.firstOrNull { it.name == selectedAnchor() }?.point
+        }
         if (refused != null) {
             scrubKey = null
             applied(refused)
@@ -1350,7 +1825,32 @@ class DrawController(
             FieldKeys.ADVANCE -> if (editor.scrubAdvance(scrubStartValue + units) != DragUpdate.FOLLOWED) scrubKey = null
             FieldKeys.LSB -> if (editor.scrubSidebearings(scrubStartValue + units, null) != DragUpdate.FOLLOWED) scrubKey = null
             FieldKeys.RSB -> if (editor.scrubSidebearings(null, scrubStartValue + units) != DragUpdate.FOLLOWED) scrubKey = null
+            FieldKeys.STROKE_WIDTH -> setStrokeWidth((scrubStartValue + units).toDouble())
+            FieldKeys.ANCHOR_X, FieldKeys.ANCHOR_Y -> scrubAnchorTo(key, units)
+            else -> scrubMetricTo(key, units)
         }
+    }
+
+    private fun scrubAnchorTo(
+        key: String,
+        units: Int,
+    ) {
+        val name = selectedAnchor()
+        val start = scrubAnchorStart
+        if (name == null || start == null) {
+            scrubKey = null
+            return
+        }
+        val to = if (key == FieldKeys.ANCHOR_X) Point(start.x + units, start.y) else Point(start.x, start.y + units)
+        if (editor.dragAnchorTo(name, to) != DragUpdate.FOLLOWED) scrubKey = null
+    }
+
+    private fun scrubMetricTo(
+        key: String,
+        units: Int,
+    ) {
+        val kind = FieldKeys.metricOf(key) ?: return
+        if (editor.dragMetricTo(kind, scrubStartValue + units) != DragUpdate.FOLLOWED) scrubKey = null
     }
 
     /** The scrub ends; with [commit] false the glyph goes back to how it was. */
@@ -1372,12 +1872,47 @@ class DrawController(
             }
         val sb = current.sidebearings()
         return when (key) {
-            FieldKeys.X -> point?.point?.x
-            FieldKeys.Y -> point?.point?.y
-            FieldKeys.ADVANCE -> current.advanceWidth
-            FieldKeys.LSB -> sb?.left
-            FieldKeys.RSB -> sb?.right
-            else -> null
+            FieldKeys.X -> {
+                point?.point?.x
+            }
+
+            FieldKeys.Y -> {
+                point?.point?.y
+            }
+
+            FieldKeys.ADVANCE -> {
+                current.advanceWidth
+            }
+
+            FieldKeys.LSB -> {
+                sb?.left
+            }
+
+            FieldKeys.RSB -> {
+                sb?.right
+            }
+
+            FieldKeys.STROKE_WIDTH -> {
+                strokeWidth.toInt()
+            }
+
+            FieldKeys.ANCHOR_X -> {
+                current.anchors
+                    .firstOrNull { it.name == selectedAnchor() }
+                    ?.point
+                    ?.x
+            }
+
+            FieldKeys.ANCHOR_Y -> {
+                current.anchors
+                    .firstOrNull { it.name == selectedAnchor() }
+                    ?.point
+                    ?.y
+            }
+
+            else -> {
+                FieldKeys.metricOf(key)?.let { editor.metricValue(it) }
+            }
         }
     }
 
@@ -1386,6 +1921,8 @@ class DrawController(
     override fun applied(outcome: EditOutcome) {
         when (outcome) {
             is EditOutcome.Done -> {
+                // Contour numbers shift with any edit, so the order the Boolean tool's contours were picked in is no longer theirs.
+                pickedContours = emptyList()
                 selection = outcome.selection.clippedTo(glyph ?: return)
                 notice = outcome.note?.let { toast(it) }
             }
@@ -1435,7 +1972,7 @@ class DrawController(
         if (warnedTools.add(tool)) {
             notice =
                 toast(
-                    "${tool.label} is not connected to the sheet in this build yet. Select (V), Pen (P), Primitives (S) and Measure (M) are.",
+                    "${tool.label} is not connected to the sheet in this build.",
                 )
         }
         return false
@@ -1454,7 +1991,20 @@ class DrawController(
         const val PEN_CLOSE_DP = 14.0
 
         /** The tools that do something on the sheet; the puck, the rail and the radial offer these and no others. */
-        val CONNECTED_TOOLS: List<Tool> = listOf(Tool.SELECT, Tool.PEN, Tool.PRIMITIVES, Tool.MEASURE)
+        val CONNECTED_TOOLS: List<Tool> =
+            listOf(Tool.SELECT, Tool.PEN, Tool.PRIMITIVES, Tool.BOOLEAN, Tool.STROKE, Tool.MEASURE, Tool.ANCHORS, Tool.METRICS)
+
+        /** The tools whose every click is a tap of its own, so the second click of a quick pair is not a double-tap. */
+        private val TAP_PER_CLICK_TOOLS = setOf(Tool.BOOLEAN, Tool.STROKE, Tool.ANCHORS, Tool.METRICS)
+
+        /** The stroke width the Stroke tool starts with, in font units: our heuristic, no measurement says how wide a stroke should be. */
+        const val DEFAULT_STROKE_WIDTH = 60.0
+
+        private const val ANCHOR_REACH_DP = 11.0
+        private const val ANCHOR_REACH_TOUCH_DP = 22.0
+        private const val METRIC_REACH_DP = 7.0
+        private const val METRIC_REACH_TOUCH_DP = 16.0
+        private val STARTER_ANCHORS = listOf("top", "bottom", "ogonek", "topright", "center")
 
         private const val PEN_DRAG_DP = 4.0
         private const val KNIFE_SAME_DP = 10.0

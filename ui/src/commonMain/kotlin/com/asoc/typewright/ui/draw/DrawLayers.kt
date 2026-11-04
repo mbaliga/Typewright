@@ -145,11 +145,41 @@ fun DrawInkLayer(
                     tidyRemoved = controller?.tidyRemoved.orEmpty(),
                     measure = controller?.measureState?.takeIf { controller.activeTool == com.asoc.typewright.ui.puck.Tool.MEASURE },
                     primitive = controller?.primitiveLive,
+                    anchorSelected = controller?.selectedAnchor(),
+                    centreline = controller?.centreline.orEmpty(),
+                    strokePreview = controller?.strokePreview.orEmpty(),
+                    metricGrips = controller?.activeTool == com.asoc.typewright.ui.puck.Tool.METRICS,
+                    metricSelected = controller?.metricKind,
                     glyphAlpha = glyphAlpha,
                 )
             drawDrawRoom(scene, DrawSpace.of(cameraState.camera), colors)
         }
         MetricLabels(room, cameraState, texture, projectState, labelBand, labelEndInsetDp)
+        AnchorLabels(room, cameraState, texture, projectState)
+    }
+}
+
+/** The names of the glyph's anchors, written beside them. */
+@Composable
+private fun AnchorLabels(
+    room: DrawRoom,
+    cameraState: SheetCameraState,
+    texture: CanvasTexture,
+    projectState: State<com.asoc.typewright.project.ProjectState>?,
+) {
+    val controller = room.controller ?: return
+    val glyph = projectState?.value?.font?.glyph(controller.editor.ref) ?: return
+    val style = Typography.mono(sizeSp = LABEL_SP).copy(color = texture.fg.toColor())
+    for (anchor in glyph.anchors) {
+        Box(
+            modifier =
+                Modifier.offset {
+                    val at = DrawSpace.of(cameraState.camera).toScreen(Vec2(anchor.point.x.toDouble(), anchor.point.y.toDouble()))
+                    IntOffset(at.x.dp.roundToPx() + 9.dp.roundToPx(), at.y.dp.roundToPx() - 18.dp.roundToPx())
+                },
+        ) {
+            BasicText(text = anchor.name, style = style)
+        }
     }
 }
 

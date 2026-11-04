@@ -2,6 +2,8 @@
 
 package com.asoc.typewright.ui.draw
 
+import com.asoc.typewright.core.font.ufo.UfoFontInfo
+import com.asoc.typewright.core.geometry.Anchor
 import com.asoc.typewright.core.geometry.Contour
 import com.asoc.typewright.core.geometry.ContourCutResult
 import com.asoc.typewright.core.geometry.CurveFormat
@@ -32,10 +34,21 @@ import com.asoc.typewright.core.geometry.withNodeInserted
 import com.asoc.typewright.core.geometry.withSelectionMoved
 import com.asoc.typewright.core.geometry.withSmooth
 import com.asoc.typewright.core.geometry.writtenCount
+import com.asoc.typewright.engine.construct.BooleanManyResult
+import com.asoc.typewright.engine.construct.BooleanOp
 import com.asoc.typewright.engine.construct.HobbyRunResult
+import com.asoc.typewright.engine.construct.LineCap
+import com.asoc.typewright.engine.construct.LineJoin
+import com.asoc.typewright.engine.construct.StrokeParameters
+import com.asoc.typewright.engine.construct.StrokeResult
+import com.asoc.typewright.engine.construct.booleanMany
+import com.asoc.typewright.engine.construct.strokeCentreline
+import com.asoc.typewright.engine.construct.strokeRing
+import com.asoc.typewright.engine.construct.strokeWidthProblem
 import com.asoc.typewright.engine.construct.withHobbyHandles
 import com.asoc.typewright.project.ApprovalOrigin
 import com.asoc.typewright.project.Approve
+import com.asoc.typewright.project.Batch
 import com.asoc.typewright.project.EditResult
 import com.asoc.typewright.project.FontCommand
 import com.asoc.typewright.project.Gesture
@@ -47,8 +60,10 @@ import com.asoc.typewright.project.ProjectSession
 import com.asoc.typewright.project.Refusal
 import com.asoc.typewright.project.ReplaceOutline
 import com.asoc.typewright.project.SetAdvance
+import com.asoc.typewright.project.SetAnchors
 import com.asoc.typewright.project.SetSidebearings
 import com.asoc.typewright.project.Unlock
+import com.asoc.typewright.project.UpdateFontInfo
 import com.asoc.typewright.ui.puck.PrimitiveShape
 import kotlin.math.abs
 import kotlin.math.floor
@@ -987,6 +1002,350 @@ class DrawEditor(
             }
         }
 
+    // ---- booleans and strokes ----------------------------------------------------------------
+
+    /**
+     * [op] across the selected contours (two or more) as one step. The result replaces them at the place of the first, the
+     * others go, and the contours it leaves are selected. [order] is the order the person picked them in, which decides what
+     * Subtract keeps (the first picked) and what it takes away (the rest); contours picked some other way follow in the
+     * glyph's own order. Blocked, with the reason, when fewer than two contours are selected, the outline is quadratic, the
+     * shapes touch where the boolean cannot resolve, or nothing would be left.
+     */
+    fun planBoolean(
+        op: BooleanOp,
+        selection: DrawSelection,
+        order: List<Int> = emptyList(),
+    ): EditPlan = planning { computeBoolean(op, selection, order) }
+
+    private fun computeBoolean(
+        op: BooleanOp,
+        selection: DrawSelection,
+        order: List<Int>,
+    ): EditPlan {
+        val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
+        val picked = selection.contours.filter { it in current.contours.indices }.sorted()
+        if (picked.size < 2) return EditPlan.Blocked(BOOLEAN_NEEDS_TWO)
+        val ordered = order.filter { it in picked }.distinct().let { first -> first + picked.filter { it !in first } }
+        val inputs = ordered.map { current.contours[it] }
+        val label = BOOLEAN_LABELS.getValue(op)
+        return when (val result = booleanMany(inputs, op)) {
+            is BooleanManyResult.Refused -> {
+                EditPlan.Blocked(result.reason)
+            }
+
+            is BooleanManyResult.Done -> {
+                val rebuilt = mutableListOf<Contour>()
+                var firstResult = 0
+                for ((i, contour) in current.contours.withIndex()) {
+                    when {
+                        i == picked.first() -> {
+                            firstResult = rebuilt.size
+                            rebuilt += result.contours
+                        }
+
+                        i in picked -> {
+                            Unit
+                        }
+
+                        else -> {
+                            rebuilt += contour
+                        }
+                    }
+                }
+                val made = wholeContours(rebuilt, firstResult until firstResult + result.contours.size)
+                val before = inputs.sumOf { it.writtenCount().onCurveEquivalent }
+                val after = result.contours.sumOf { it.writtenCount().onCurveEquivalent }
+                val note =
+                    "$label: ${inputs.size} contours → ${result.contours.size}, $before → $after nodes. " +
+                        "Curves that survive are kept exactly; only the nodes the crossings need are new."
+                EditPlan.Change(label, rebuilt, made, note)
+            }
+        }
+    }
+
+    fun boolean(
+        op: BooleanOp,
+        selection: DrawSelection,
+        order: List<Int> = emptyList(),
+    ): EditOutcome = perform(planBoolean(op, selection, order))
+
+    private fun wholeContours(
+        contours: List<Contour>,
+        which: Iterable<Int>,
+    ): DrawSelection = DrawSelection(which.flatMap { c -> contours[c].points.indices.map { PointRef(c, it) } }.toSet())
+
+    /**
+     * A stroke of [width] font units made as one step. With a [centreline] laid down, the closed outline of that open line is
+     * added to the glyph; with none, each closed contour in [selection] becomes a ring (an outer and an inner contour). Blocked,
+     * with the reason, on a quadratic outline (strokes are cubic), an unusable width, a centreline that crosses itself, a width
+     * too wide for the shape, or when there is neither a centreline nor a selected contour. Only miter and round joins are offered;
+     * ends are butt.
+     */
+    fun planStroke(
+        centreline: List<Point>,
+        selection: DrawSelection,
+        width: Double,
+        join: LineJoin,
+        format: CurveFormat,
+    ): EditPlan = planning { computeStroke(centreline, selection, width, join, format) }
+
+    private fun computeStroke(
+        centreline: List<Point>,
+        selection: DrawSelection,
+        width: Double,
+        join: LineJoin,
+        format: CurveFormat,
+    ): EditPlan {
+        val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
+        if (format != CurveFormat.CUBIC) return EditPlan.Blocked("Strokes are cubic curves; this project's outlines are quadratic.")
+        strokeWidthProblem(width)?.let { return EditPlan.Blocked(it) }
+        val params = StrokeParameters(width = width, cap = LineCap.BUTT, join = join)
+        val joinWord = join.name.lowercase()
+        if (centreline.isNotEmpty()) {
+            return when (val result = strokeCentreline(centreline, params)) {
+                is StrokeResult.Refused -> {
+                    EditPlan.Blocked(result.reason)
+                }
+
+                is StrokeResult.Done -> {
+                    val contours = current.contours + result.contours
+                    val nodes = result.contours.sumOf { it.writtenCount().onCurveEquivalent }
+                    EditPlan.Change(
+                        "Stroke",
+                        contours,
+                        wholeContours(contours, current.contours.size until contours.size),
+                        "Stroked ${width.toInt()} units wide, $joinWord joins, butt ends: $nodes nodes.",
+                    )
+                }
+            }
+        }
+        val picked = selection.contours.filter { it in current.contours.indices }.sorted()
+        if (picked.isEmpty()) return EditPlan.Blocked(STROKE_NEEDS_A_LINE)
+        val rebuilt = mutableListOf<Contour>()
+        val made = mutableListOf<Int>()
+        for ((i, contour) in current.contours.withIndex()) {
+            if (i !in picked) {
+                rebuilt += contour
+                continue
+            }
+            when (val result = strokeRing(contour, params)) {
+                is StrokeResult.Refused -> {
+                    return EditPlan.Blocked(result.reason)
+                }
+
+                is StrokeResult.Done -> {
+                    for (ring in result.contours) {
+                        made += rebuilt.size
+                        rebuilt += ring
+                    }
+                }
+            }
+        }
+        val nodes = made.sumOf { rebuilt[it].writtenCount().onCurveEquivalent }
+        return EditPlan.Change(
+            "Stroke contour",
+            rebuilt,
+            wholeContours(rebuilt, made),
+            "Stroked ${picked.size} contour${plural(picked.size)} into rings ${width.toInt()} units wide: $nodes nodes.",
+        )
+    }
+
+    // ---- anchors -------------------------------------------------------------------------------
+
+    /** The glyph's anchors as the project has them now. */
+    val anchors: List<Anchor> get() = glyph?.anchors.orEmpty()
+
+    /** Adds an anchor called [name] at [at] as one step; refused, with the reason, for a blank or repeated name. */
+    fun addAnchor(
+        name: String,
+        at: Point,
+    ): EditOutcome {
+        val current = glyph ?: return missing()
+        val clean = name.trim()
+        anchorNameProblem(clean, current.anchors, except = null)?.let { return EditOutcome.Unchanged(it) }
+        return anchorsCommand("Add anchor $clean", current.anchors + Anchor(clean, at), "Anchor $clean added at ${at.x}, ${at.y}.")
+    }
+
+    /** Moves the anchor [name] to [to] as one step. */
+    fun moveAnchor(
+        name: String,
+        to: Point,
+    ): EditOutcome {
+        val current = glyph ?: return missing()
+        if (current.anchors.none { it.name == name }) return EditOutcome.Unchanged(ANCHOR_GONE)
+        return anchorsCommand("Move anchor $name", current.anchors.map { if (it.name == name) it.copy(point = to) else it }, null)
+    }
+
+    /** Renames the anchor [from] to [to] as one step; refused, with the reason, for a blank or repeated name. */
+    fun renameAnchor(
+        from: String,
+        to: String,
+    ): EditOutcome {
+        val current = glyph ?: return missing()
+        if (current.anchors.none { it.name == from }) return EditOutcome.Unchanged(ANCHOR_GONE)
+        val clean = to.trim()
+        if (clean == from) return EditOutcome.Unchanged("That is the name already.")
+        anchorNameProblem(clean, current.anchors, except = from)?.let { return EditOutcome.Unchanged(it) }
+        return anchorsCommand(
+            "Rename anchor $from",
+            current.anchors.map { if (it.name == from) it.copy(name = clean) else it },
+            "Anchor $from is now $clean.",
+        )
+    }
+
+    /** Takes the anchor [name] away as one step. */
+    fun deleteAnchor(name: String): EditOutcome {
+        val current = glyph ?: return missing()
+        if (current.anchors.none { it.name == name }) return EditOutcome.Unchanged(ANCHOR_GONE)
+        return anchorsCommand("Delete anchor $name", current.anchors.filter { it.name != name }, "Anchor $name deleted.")
+    }
+
+    private fun anchorNameProblem(
+        name: String,
+        existing: List<Anchor>,
+        except: String?,
+    ): String? =
+        when {
+            name.isEmpty() -> "An anchor needs a name."
+            name.length > MAX_ANCHOR_NAME -> "An anchor's name can be at most $MAX_ANCHOR_NAME characters."
+            name.any { it.isISOControl() } -> "An anchor's name cannot hold a line break or control character."
+            existing.any { it.name == name && it.name != except } -> "There is already an anchor called $name."
+            else -> null
+        }
+
+    private fun anchorsCommand(
+        label: String,
+        anchors: List<Anchor>,
+        note: String?,
+    ): EditOutcome =
+        when (val result = session.execute(Batch(label, listOf(SetAnchors(ref, anchors))))) {
+            is EditResult.Applied -> EditOutcome.Done(DrawSelection.EMPTY, note)
+            is EditResult.NoChange -> EditOutcome.Unchanged("That is where it is already.")
+            is EditResult.Refused -> refusedOutcome(result)
+        }
+
+    /** Opens a drag of an anchor: one session gesture, so everything dragged is a single undo step. Null means it began; anything else is why it did not. */
+    fun beginAnchorDrag(name: String): EditOutcome? {
+        endDrag(commit = true)
+        val start = glyph ?: return missing()
+        if (isLocked) return EditOutcome.Locked(start.name)
+        if (start.anchors.none { it.name == name }) return EditOutcome.Unchanged(ANCHOR_GONE)
+        gesture = session.beginGesture("Move anchor $name")
+        return null
+    }
+
+    /** Moves the anchor [name] to [to] inside the open drag. */
+    fun dragAnchorTo(
+        name: String,
+        to: Point,
+    ): DragUpdate {
+        val current = glyph ?: return DragUpdate.ENDED
+        return scrubMetric(SetAnchors(ref, current.anchors.map { if (it.name == name) it.copy(point = to) else it }))
+    }
+
+    // ---- the font's metric lines ---------------------------------------------------------------
+
+    /** The font info of the master being drawn, or null if it is gone. */
+    private fun fontInfo(): UfoFontInfo? =
+        session.state.value.font
+            .master(ref.master)
+            ?.ufo
+            ?.fontInfo
+
+    /** Why [kind] cannot be [value], in a sentence, or null when it can. Ordering (an x-height above the cap height) is only noted, never refused. */
+    fun metricProblem(
+        kind: MetricKind,
+        value: Int,
+    ): String? {
+        val upm = fontInfo()?.unitsPerEm ?: DEFAULT_UPM
+        return when {
+            kind == MetricKind.BASELINE -> "The baseline is where every glyph's y is 0, so it is fixed: a UFO has no field to move it."
+            abs(value) > METRIC_LIMIT_EMS * upm -> "A metric line at $value is more than $METRIC_LIMIT_EMS ems from the baseline."
+            kind == MetricKind.DESCENDER && value >= 0 -> "The descender sits below the baseline, so it is a negative number."
+            kind != MetricKind.DESCENDER && value <= 0 -> "The ${kind.label} sits above the baseline, so it is a positive number."
+            else -> null
+        }
+    }
+
+    private fun UfoFontInfo.with(
+        kind: MetricKind,
+        value: Int,
+    ): UfoFontInfo =
+        when (kind) {
+            MetricKind.ASCENDER -> copy(ascender = value)
+            MetricKind.CAP_HEIGHT -> copy(capHeight = value)
+            MetricKind.X_HEIGHT -> copy(xHeight = value)
+            MetricKind.DESCENDER -> copy(descender = value)
+            MetricKind.BASELINE -> this
+        }
+
+    private fun UfoFontInfo.valueOf(kind: MetricKind): Int? =
+        when (kind) {
+            MetricKind.ASCENDER -> ascender
+            MetricKind.CAP_HEIGHT -> capHeight
+            MetricKind.X_HEIGHT -> xHeight
+            MetricKind.DESCENDER -> descender
+            MetricKind.BASELINE -> 0
+        }
+
+    /**
+     * Sets the font's [kind] metric to [value] in its font info as one step. This is the font's, not the glyph's: it changes the
+     * line every glyph is drawn against and checked against, and moves no outline, so it is allowed on a locked glyph and the
+     * note says what it touches.
+     */
+    fun setMetric(
+        kind: MetricKind,
+        value: Int,
+    ): EditOutcome {
+        val info = fontInfo() ?: return missing()
+        metricProblem(kind, value)?.let { return EditOutcome.Unchanged(it) }
+        val command = UpdateFontInfo(ref.master, info.with(kind, value))
+        return when (val result = session.execute(Batch("Set ${kind.label} to $value", listOf(command)))) {
+            is EditResult.Applied -> EditOutcome.Done(DrawSelection.EMPTY, metricNote(kind, value, info))
+            is EditResult.NoChange -> EditOutcome.Unchanged("That is the value already.")
+            is EditResult.Refused -> refusedOutcome(result)
+        }
+    }
+
+    /** What a metric edit changes, said once: every glyph's alignment, no outline. */
+    fun metricNote(
+        kind: MetricKind,
+        value: Int,
+        info: UfoFontInfo? = fontInfo(),
+    ): String {
+        val after = info?.with(kind, value)
+        val x = after?.xHeight
+        val cap = after?.capHeight
+        val odd = if (x != null && cap != null && x > cap) " An x-height above the cap height is unusual (our heuristic)." else ""
+        return "${kind.label.replaceFirstChar { it.uppercase() }} is now $value. $METRIC_EFFECT$odd"
+    }
+
+    /** Opens a drag of the metric line [kind]; null means it began, anything else is why it did not. */
+    fun beginMetricDrag(kind: MetricKind): EditOutcome? {
+        endDrag(commit = true)
+        val info = fontInfo() ?: return missing()
+        if (kind == MetricKind.BASELINE) return EditOutcome.Unchanged(metricProblem(kind, 0).orEmpty())
+        if (info.valueOf(kind) == null) return EditOutcome.Unchanged("This font does not give a ${kind.label}.")
+        gesture = session.beginGesture("Move ${kind.label}")
+        return null
+    }
+
+    /** Moves the line [kind] to [value] inside the open drag; a value the font cannot take leaves the line where it was. */
+    fun dragMetricTo(
+        kind: MetricKind,
+        value: Int,
+    ): DragUpdate {
+        val info = fontInfo() ?: return DragUpdate.ENDED
+        if (metricProblem(kind, value) != null) return if (gesture?.isOpen == true) DragUpdate.FOLLOWED else DragUpdate.ENDED
+        return scrubMetric(UpdateFontInfo(ref.master, info.with(kind, value)))
+    }
+
+    /** The value of the metric [kind] now, or null if the font does not give one. */
+    fun metricValue(kind: MetricKind): Int? = fontInfo()?.valueOf(kind)
+
+    private fun refusedOutcome(result: EditResult.Refused): EditOutcome =
+        if (result.refusal is Refusal.Locked) EditOutcome.Locked(ref.glyph) else EditOutcome.Refused(result.refusal.message)
+
     // ---- locks -----------------------------------------------------------------------------
 
     /** Approves and locks the glyph as it is; what is [selected] stays selected. */
@@ -1100,6 +1459,24 @@ class DrawEditor(
         const val TIDY_TOLERANCE_UNITS: Double = DEFAULT_SIMPLIFY_TOLERANCE_UNITS
 
         private const val MIN_INSERT_T = 0.04
+        private const val DEFAULT_UPM = 1000
+        private const val METRIC_LIMIT_EMS = 2
+        private const val MAX_ANCHOR_NAME = 64
+        private const val ANCHOR_GONE = "That anchor is gone."
+        private const val BOOLEAN_NEEDS_TWO =
+            "A boolean needs two or more contours. Tap each contour with the Boolean tool, or sweep over them."
+        private const val STROKE_NEEDS_A_LINE =
+            "Lay a centreline first: tap its points with the Stroke tool and press Enter. Or select a closed contour to turn into a ring."
+        private const val METRIC_EFFECT =
+            "This changes every glyph's alignment: it is the font's line, not this glyph's, so snapping, align and the checks " +
+                "that read it all follow it. No outline moves."
+        private val BOOLEAN_LABELS =
+            mapOf(
+                BooleanOp.UNION to "Union",
+                BooleanOp.SUBTRACT to "Subtract",
+                BooleanOp.INTERSECT to "Intersect",
+                BooleanOp.EXCLUDE to "Exclude",
+            )
         private const val SEGMENT_GONE = "That segment is gone."
         private const val NOT_AVAILABLE = "That is not available for this outline."
 

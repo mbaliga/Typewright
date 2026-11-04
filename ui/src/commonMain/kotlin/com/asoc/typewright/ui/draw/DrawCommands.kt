@@ -2,6 +2,8 @@
 
 package com.asoc.typewright.ui.draw
 
+import com.asoc.typewright.engine.construct.BooleanOp
+
 /** The scope a command acts on, which is also the section of the rich menu it sits in (INTERACTION_V1 §5). */
 enum class DrawScope(
     val title: String,
@@ -65,8 +67,23 @@ interface DrawHooks {
     /** True while the pen has a path in progress, which an undo steps back through before it touches the history. */
     fun penInProgress(): Boolean = false
 
-    /** Steps the pen back one point (or drops a lone one); false when it has no path, and nothing was done. */
+    /** Steps the pen (or the stroke tool's centreline) back one point; false when neither has a path, and nothing was done. */
     fun stepBackPen(): Boolean = false
+
+    /** The order the contours were tapped in with the Boolean tool, which decides what Subtract keeps. */
+    fun booleanOrder(): List<Int> = emptyList()
+
+    /** True while the Stroke tool has a centreline laid down, which an undo steps back through before it touches the history. */
+    fun centrelineInProgress(): Boolean = false
+
+    /** Strokes the laid centreline, or the selected contours, at the Stroke tool's width. */
+    fun runStroke() = Unit
+
+    /** The name of the anchor selected with the Anchors tool, or null. */
+    fun selectedAnchor(): String? = null
+
+    /** Deletes the anchor selected with the Anchors tool. */
+    fun deleteSelectedAnchor() = Unit
 }
 
 /** Everything the registry reads to decide what each command would do right now. */
@@ -80,6 +97,14 @@ class DrawCommandContext(
 /** The one registry (INTERACTION_V1 §5): ids, labels, scopes, availability with reasons, measured consequences and bindings. */
 object DrawCommands {
     private const val LOCKED_REASON = "locked: unlock to edit"
+
+    private val BOOLEAN_LABELS =
+        mapOf(
+            BooleanOp.UNION to "Union",
+            BooleanOp.SUBTRACT to "Subtract",
+            BooleanOp.INTERSECT to "Intersect",
+            BooleanOp.EXCLUDE to "Exclude",
+        )
 
     /** The trigger chip of Undo: two fingers tapped together on the sheet, whatever ring is open. */
     const val TWO_FINGER_TAP = "2-finger tap"
@@ -246,6 +271,59 @@ object DrawCommands {
                     editor.tidyPreview(selection)?.text ?: (editor.planTidy(selection) as? EditPlan.Blocked)?.reason
                 },
             ) { ctx.hooks.proposeTidy() }
+        // Booleans and strokes are worked out only when run (a boolean flattens every contour it is given).
+        for (op in BooleanOp.entries) {
+            val picked = selection.contours.count { it in glyph.contours.indices }
+            out +=
+                DrawCommand(
+                    id = "bool-" + op.name.lowercase(),
+                    label = BOOLEAN_LABELS.getValue(op),
+                    scope = DrawScope.CONTOUR,
+                    consequence = null,
+                    reason =
+                        if (locked) {
+                            LOCKED_REASON
+                        } else if (picked < 2) {
+                            "select two or more contours"
+                        } else {
+                            null
+                        },
+                    keys = null,
+                    gesture = null,
+                    destructive = false,
+                    lazyConsequence = { editor.consequenceOf(editor.planBoolean(op, selection, ctx.hooks.booleanOrder())) },
+                ) { ctx.hooks.applied(editor.boolean(op, selection, ctx.hooks.booleanOrder())) }
+        }
+        val ringable = selection.contours.any { it in glyph.contours.indices }
+        out +=
+            DrawCommand(
+                id = "stroke",
+                label = if (ctx.hooks.centrelineInProgress()) "Stroke the centreline" else "Stroke this contour into a ring",
+                scope = DrawScope.CONTOUR,
+                consequence = "a closed outline of the width in the Stroke tool (our heuristic: no measurement says how wide)",
+                reason =
+                    when {
+                        locked -> LOCKED_REASON
+                        !ctx.hooks.centrelineInProgress() && !ringable -> "tap a centreline with the Stroke tool, or select a contour"
+                        else -> null
+                    },
+                keys = null,
+                gesture = null,
+                destructive = false,
+            ) { ctx.hooks.runStroke() }
+        ctx.hooks.selectedAnchor()?.let { name ->
+            out +=
+                DrawCommand(
+                    id = "anchor-delete",
+                    label = "Delete anchor $name",
+                    scope = DrawScope.GLYPH,
+                    consequence = "the anchor goes; one undo brings it back",
+                    reason = if (locked) LOCKED_REASON else null,
+                    keys = "⌫",
+                    gesture = null,
+                    destructive = false,
+                ) { ctx.hooks.deleteSelectedAnchor() }
+        }
         // This glyph
         out += fromPlan("correct-direction", "Correct path direction", DrawScope.GLYPH, editor.planCorrectDirection(selection), "Ctrl ⇧ R")
         out +=
@@ -302,7 +380,7 @@ object DrawCommands {
                 "Undo",
                 DrawScope.EDIT,
                 null,
-                if (editor.canUndo || ctx.hooks.penInProgress()) null else "nothing to undo",
+                if (editor.canUndo || ctx.hooks.penInProgress() || ctx.hooks.centrelineInProgress()) null else "nothing to undo",
                 "Ctrl Z",
                 TWO_FINGER_TAP,
                 false,

@@ -462,21 +462,19 @@ class DrawPointerTest {
             assertTrue(controller.notice is DrawNotice.Locked)
         }
 
-    // ---- an unbuilt tool --------------------------------------------------------------------------
+    // ---- every tool is on the sheet -----------------------------------------------------------------
 
     @Test
-    fun aToolThatIsNotOnTheSheetYetSaysSoOnceAndTouchesNothing() =
+    fun everyToolIsOnTheSheetAndATapWithTheBooleanToolOnlyPicksAContour() =
         withSlab {
+            assertEquals(Tool.entries.toSet(), DrawController.CONNECTED_TOOLS.toSet(), "no rail tool is left unbuilt")
             val before = glyph("I")
             key(Key.B) // Boolean
             click(screenOf(0, 3))
-            val notice = controller.notice as DrawNotice.Toast
-            assertTrue(notice.text.contains("not connected"), notice.text)
+            assertNull(controller.notice, "a connected tool does not say it is missing")
             assertEquals(before, glyph("I"))
-            assertTrue(controller.selection.isEmpty, "a click with an unbuilt tool selects nothing either")
-            val first = notice.serial
-            click(screenOf(0, 0))
-            assertEquals(first, (controller.notice as? DrawNotice.Toast)?.serial, "it does not say it again at every click")
+            assertEquals(setOf(0), controller.selection.contours, "the tap picked the contour it landed on")
+            assertEquals(0, session.history.value.undoLabels.size, "picking is not an edit")
         }
 
     // ---- the pen ---------------------------------------------------------------------------------

@@ -33,6 +33,17 @@ object FieldKeys {
     const val ADVANCE = "adv"
     const val LSB = "lsb"
     const val RSB = "rsb"
+    const val STROKE_WIDTH = "stroke-width"
+    const val ANCHOR_NAME = "anchor-name"
+    const val ANCHOR_X = "anchor-x"
+    const val ANCHOR_Y = "anchor-y"
+    private const val METRIC_PREFIX = "metric-"
+
+    /** The key of the field that edits the metric line [kind], or null for the baseline, which is fixed. */
+    fun keyOf(kind: MetricKind): String? = if (kind == MetricKind.BASELINE) null else METRIC_PREFIX + kind.name.lowercase()
+
+    /** The metric line the field [key] edits, or null when it is not a metric field. */
+    fun metricOf(key: String): MetricKind? = MetricKind.entries.firstOrNull { keyOf(it) == key }
 }
 
 /**

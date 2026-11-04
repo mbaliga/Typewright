@@ -68,6 +68,8 @@ import com.asoc.typewright.ui.draw.DrawSelection
 import com.asoc.typewright.ui.draw.DrawShortcutSheet
 import com.asoc.typewright.ui.draw.DrawSpace
 import com.asoc.typewright.ui.draw.DrawSubject
+import com.asoc.typewright.ui.draw.DrawToolPanel
+import com.asoc.typewright.ui.draw.DrawToolStrip
 import com.asoc.typewright.ui.draw.ECONOMY_STRIP_DP
 import com.asoc.typewright.ui.draw.FieldGroup
 import com.asoc.typewright.ui.draw.FieldSpec
@@ -483,9 +485,12 @@ fun TypewrightSheet(
             if (!layout.wide) {
                 val construct = puckState.activeConstruction.takeIf { puckState.currentTool == Tool.PRIMITIVES }
                 val snapTint = MeaningColors.CYAN.forTexture(texture)
+                val toolFields = DrawToolPanel.fields(puckState.currentTool, controller, glyph)
                 val fields =
                     if (construct != null) {
                         constructInspectorFields(construct)
+                    } else if (toolFields != null) {
+                        toolFields.map { it.toInspectorField(snapTint) }
                     } else {
                         val snaps = controller.snaps
                         DrawInspectorModel
@@ -508,6 +513,24 @@ fun TypewrightSheet(
                     cancelEditing = cancelEditTick,
                 )
             }
+            DrawToolStrip(
+                tool = puckState.currentTool,
+                controller = controller,
+                texture = texture,
+                modifier =
+                    Modifier
+                        .align(if (layout.wide) Alignment.BottomCenter else Alignment.BottomStart)
+                        .padding(
+                            bottom =
+                                (
+                                    if (layout.wide) {
+                                        layout.inspectorBottomDp
+                                    } else {
+                                        layout.inspectorBottomDp + SheetLayout.INSPECTOR_ROW_DP
+                                    } + NOTICE_GAP_DP + TOOL_STRIP_RISE_DP
+                                ).dp,
+                        ),
+            )
             DrawNoticeBar(
                 controller = controller,
                 texture = texture,
@@ -633,18 +656,22 @@ private fun inspectorGroups(
     }
     if (glyph == null || controller == null) return emptyList()
     val snaps = controller.snaps
-    return DrawInspectorModel.groups(
-        glyph = glyph,
-        selection = controller.selection,
-        lines = GlyphLines.of(glyph),
-        snapX = snaps.any { it.axis == Axis.X },
-        snapY = snaps.any { it.axis == Axis.Y },
-        dragging = controller.editor.isDragging,
-    )
+    val base =
+        DrawInspectorModel.groups(
+            glyph = glyph,
+            selection = controller.selection,
+            lines = GlyphLines.of(glyph),
+            snapX = snaps.any { it.axis == Axis.X },
+            snapY = snaps.any { it.axis == Axis.Y },
+            dragging = controller.editor.isDragging,
+        )
+    // The four shape-and-font tools show their own facts first; the glyph's group (always the last) stays under them.
+    return DrawToolPanel.groups(puckState.currentTool, controller, glyph, base.lastOrNull()) ?: base
 }
 
 private const val CONSTRUCT_FIRST_GROUP = 3
 private const val NOTICE_GAP_DP = 8.0
+private const val TOOL_STRIP_RISE_DP = 52.0
 private const val LABEL_BAND_SLACK_DP = 4.0
 private const val DECK_DIMMED_ALPHA = 0.3f
 private const val RADIAL_GLYPH_ALPHA = 0.3f

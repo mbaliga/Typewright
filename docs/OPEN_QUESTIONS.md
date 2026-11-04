@@ -3921,3 +3921,39 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     nothing else, is still painted out and its cell reads empty with no flag (218 said the same of
     a hairline). Decide whether such a cell should come back `Uncertain` instead of `Empty`, and
     whether 1.0 mm is right for real pens and printers. Owner: Madhav.
+
+222. **Booleans fold pair by pair, and nothing measures whether their result is as economical as a drawn one (Draw).**
+    The Boolean tool runs union, subtract, intersect and exclude across the picked contours by folding
+    `booleanOp` one contour at a time (it does not resolve a side whose own contours overlap), so the order
+    the contours are picked in decides what Subtract keeps. A pair that meets along an exact edge or at one
+    point is refused with a sentence rather than guessed at. The curves of the inputs are kept exactly where they
+    survive, and the note after a boolean states the node counts before and after, but no `qa/corpus` figure says
+    how many nodes a good union of two letter parts has, so "no gratuitous nodes" is our heuristic and is not
+    checked against a distribution. Quadratic outlines are refused. Owner: Madhav.
+
+223. **Stroke lays straight centrelines only, and its default width and limits are ours (Draw).**
+    The Stroke tool takes a centreline of tapped points joined by straight sides (or turns a selected closed
+    contour into a ring), with miter or round joins and butt ends. A curved centreline (the pen's pulled handles)
+    is not stroked yet; it would be flattened to a polyline first. The default width of 60 units, the 2 to 2000
+    limits and the miter limit of 4 are our heuristic: nothing measured says how wide a stroke should be, and the
+    inspector says so. The outline is built directly (lines and quarter-circle cubics) instead of through
+    `strokeOpenPolyline`'s refit, which writes straight sides with handles a third of the way along and bulges a
+    line that follows an arc (a 115-unit control point on a 110-unit corner in the round-join elbow); that function
+    is untouched, and rings still go through `strokeClosedContour` with straight sides rewritten as lines.
+    Decide whether the refit should be fixed or retired. Owner: Madhav.
+
+224. **Anchors are named points with no rules about their names yet (Draw).**
+    Anchors are added, moved, renamed and deleted through `SetAnchors` (a `.glif` `<anchor>`, already read and
+    written by the UFO codec) and are refused on a locked glyph because they are part of its shape. A name is
+    trimmed, must be unique on the glyph and at most 64 characters; nothing checks that a `_name` mark anchor has
+    a base anchor to meet, and the starter names (top, bottom, ogonek, topright, center) are a convenience, not a
+    list from a source. The inspector's list of anchors is a display, not a picker: an anchor is selected by
+    tapping it on the sheet. Owner: Madhav.
+
+225. **The metric lines are the font's four, the baseline cannot move, and the other vertical metrics do not follow (Draw).**
+    Dragging or typing ascender, cap height, x-height or descender writes `fontinfo.plist` through one undo step
+    and says it changes every glyph's alignment; no outline moves, so it is allowed on a locked glyph. The baseline
+    is where every glyph's y is 0 and a UFO has no field for it, so it is shown as fixed. The OS/2, hhea and win
+    metrics are separate fields and are not changed with the ascender and descender, and nothing re-derives the
+    overshoot zones (`postscriptBlueValues`), which are drawn read-only. An x-height above the cap height is
+    allowed with a note that it is unusual (our heuristic); signs and a limit of two ems are refused. Owner: Madhav.
