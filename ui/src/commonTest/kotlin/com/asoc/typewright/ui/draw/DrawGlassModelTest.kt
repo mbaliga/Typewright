@@ -241,7 +241,7 @@ class DrawGlassModelTest {
     fun aPhoneLeavesTheGlyphTheSpaceBetweenTheHeaderAndTheInspectorRowAboveTheDeck() {
         val layout = SheetLayout.of(Vec2(360.0, 780.0), statusBarDp = 24.0, puckEdge = null)
         assertTrue(!layout.wide)
-        assertEquals(24.0 + SheetLayout.PHONE_HEADER_DP, layout.free.top)
+        assertEquals(24.0 + SheetLayout.PHONE_HEADER_DP + SheetLayout.ECONOMY_STRIP_DP, layout.free.top)
         assertEquals(172.0 * 360.0 / 390.0, layout.deckVisibleDp, 1e-9, "the deck is drawn smaller on a narrow screen")
         assertEquals(
             layout.deckVisibleDp + SheetLayout.DECK_TO_INSPECTOR_DP,
@@ -261,7 +261,7 @@ class DrawGlassModelTest {
         assertTrue(desktop.wide)
         assertEquals(SheetLayout.TOOL_RAIL_DP, desktop.free.left, "the rail, not the puck, is on the left")
         assertEquals(SheetLayout.INSPECTOR_COLUMN_DP, desktop.free.right)
-        assertEquals(SheetLayout.TOP_BAR_DP, desktop.free.top)
+        assertEquals(SheetLayout.TOP_BAR_DP + SheetLayout.ECONOMY_STRIP_DP, desktop.free.top)
     }
 
     @Test

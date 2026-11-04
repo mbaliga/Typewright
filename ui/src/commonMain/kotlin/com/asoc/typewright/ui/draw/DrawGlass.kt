@@ -84,7 +84,7 @@ fun DrawHeader(
         else -> {
             title = DrawSubject.glyphLine(glyph)
             val unicode = room.directory.entry(glyph.name)?.unicodeLabel ?: "no unicode"
-            subtitle = "$unicode · ${if (locked) "locked" else "unlocked"} · ${projectLine.substringBefore(" · ")}"
+            subtitle = controller.modeLine ?: "$unicode · ${if (locked) "locked" else "unlocked"} · ${projectLine.substringBefore(" · ")}"
         }
     }
     Column(

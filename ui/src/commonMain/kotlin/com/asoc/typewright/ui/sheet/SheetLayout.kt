@@ -35,6 +35,9 @@ data class SheetLayout(
         /** The header block of a phone: 12 above, a 14 sp title and an 11 sp line, 16 below. */
         const val PHONE_HEADER_DP: Double = 62.0
 
+        /** The thin strip under the header that holds the open glyph's live box plot (S11). */
+        const val ECONOMY_STRIP_DP: Double = 30.0
+
         /** One inspector row: a 9.5 sp label over a 15 sp value, with room for the line that says why a typed value was refused. */
         const val INSPECTOR_ROW_DP: Double = 44.0
 
@@ -57,7 +60,13 @@ data class SheetLayout(
                     wide = true,
                     deckVisibleDp = deckVisible,
                     inspectorBottomDp = inspectorBottom,
-                    free = DrawInsets(top = TOP_BAR_DP, bottom = inspectorBottom, left = TOOL_RAIL_DP, right = INSPECTOR_COLUMN_DP),
+                    free =
+                        DrawInsets(
+                            top = TOP_BAR_DP + ECONOMY_STRIP_DP,
+                            bottom = inspectorBottom,
+                            left = TOOL_RAIL_DP,
+                            right = INSPECTOR_COLUMN_DP,
+                        ),
                 )
             } else {
                 SheetLayout(
@@ -66,7 +75,7 @@ data class SheetLayout(
                     inspectorBottomDp = inspectorBottom,
                     free =
                         DrawInsets(
-                            top = statusBarDp + PHONE_HEADER_DP,
+                            top = statusBarDp + PHONE_HEADER_DP + ECONOMY_STRIP_DP,
                             bottom = inspectorBottom + INSPECTOR_ROW_DP + INSPECTOR_TO_GLYPH_DP,
                             left = if (puckEdge == PuckEdge.LEFT) PUCK_SIDE_INSET_DP else 0.0,
                             right = if (puckEdge == PuckEdge.RIGHT) PUCK_SIDE_INSET_DP else 0.0,

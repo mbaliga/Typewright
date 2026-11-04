@@ -110,7 +110,9 @@ fun Contour.cutBetween(
     val pa = work.points[3 * lo].point
     val pb = work.points[3 * hi].point
     if (!work.chordIsClear(pa, pb, others)) {
-        return ContourCutResult.Refused("That cut would cross the outline or leave the shape. Pick two places that see each other.")
+        return ContourCutResult.Refused(
+            "That cut would cross the outline, run through one of its nodes, or leave the shape. Pick two places that see each other.",
+        )
     }
     val corner = { p: ContourPoint -> p.copy(smooth = false) }
     val n = work.points.size
@@ -137,6 +139,7 @@ private fun Contour.chordIsClear(
     val a = from.toVec2()
     val b = to.toVec2()
     val outlines = listOf(this) + others
+    if (passesThroughANode(a, b, outlines)) return false
     for (outline in outlines) {
         val poly = outline.flattened()
         for (i in poly.indices) {
@@ -153,6 +156,33 @@ private fun Contour.chordIsClear(
         val p = a + (b - a) * (k.toDouble() / CHORD_SAMPLES)
         inside.any { it.encloses(p) }
     }
+}
+
+/**
+ * True when a node of any outline other than the chord's own two ends lies on the chord between them. Such a chord
+ * crosses nothing properly and the inside test is ambiguous exactly on the boundary, so it is refused outright: it
+ * either touches a counter or runs through a reflex corner of its own contour.
+ */
+private fun passesThroughANode(
+    a: Vec2,
+    b: Vec2,
+    outlines: List<Contour>,
+): Boolean {
+    val chord = b - a
+    val lengthSquared = chord.dot(chord)
+    if (lengthSquared <= 0.0) return false
+    for (outline in outlines) {
+        for (p in outline.points) {
+            if (!p.onCurve) continue
+            val v = p.point.toVec2()
+            if ((v - a).length() <= NODE_ON_CHORD || (v - b).length() <= NODE_ON_CHORD) continue
+            val along = (v - a).dot(chord) / lengthSquared
+            if (along <= 0.0 || along >= 1.0) continue
+            val foot = a + chord * along
+            if ((v - foot).length() <= NODE_ON_CHORD) return true
+        }
+    }
+    return false
 }
 
 private fun Contour.flattened(): List<Vec2> =
@@ -190,4 +220,5 @@ private const val MIN_T = 0.02
 private const val FLATTEN_STEPS = 24
 private const val CROSS_EPS = 1e-6
 private const val CHORD_SAMPLES = 16
+private const val NODE_ON_CHORD = 0.75
 private const val MIN_PIECE_AREA = 4.0

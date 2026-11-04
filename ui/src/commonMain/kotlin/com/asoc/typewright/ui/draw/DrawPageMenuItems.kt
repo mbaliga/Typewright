@@ -12,7 +12,7 @@ package com.asoc.typewright.ui.draw
  * section, and a row that did nothing there would be a lie.
  */
 object DrawPageMenuItems {
-    private val ORDER = listOf("undo", "redo", "lock", "add-extremes", "tidy", "reverse", "correct-direction", "fit")
+    private val ORDER = listOf("close-path", "undo", "redo", "lock", "add-extremes", "tidy", "reverse", "correct-direction", "fit")
 
     fun build(
         room: DrawRoom,

@@ -56,5 +56,11 @@ enum class PrimitiveKind(
     companion object {
         /** Every kind, in the task's own listed order. */
         val ORDERED: List<PrimitiveKind> = entries
+
+        /**
+         * The kinds a drag on the sheet commits as a real closed contour ([PrimitiveDragPlan]); the puck's list offers only these,
+         * so it never shows a shape that cannot be made.
+         */
+        val ON_SHEET: List<PrimitiveKind> = listOf(CIRCLE, ELLIPSE, RECTANGLE, ROUNDED_RECTANGLE)
     }
 }

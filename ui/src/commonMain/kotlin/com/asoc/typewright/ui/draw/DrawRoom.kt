@@ -20,6 +20,7 @@ import com.asoc.typewright.core.geometry.outlineBounds
 import com.asoc.typewright.project.Ethos
 import com.asoc.typewright.project.ProjectSession
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
+import com.asoc.typewright.ui.puck.PrimitiveKind
 import com.asoc.typewright.ui.puck.PuckUiState
 import com.asoc.typewright.ui.puck.Tool
 import com.asoc.typewright.ui.sheet.Room
@@ -153,6 +154,10 @@ fun rememberDrawRoom(
             object : DrawHost {
                 override fun pickTool(tool: Tool) {
                     puck.selectTool(tool)
+                }
+
+                override fun pickPrimitive(kind: PrimitiveKind) {
+                    puck.selectPrimitive(kind)
                 }
 
                 override fun fitGlyph() = latestFit()

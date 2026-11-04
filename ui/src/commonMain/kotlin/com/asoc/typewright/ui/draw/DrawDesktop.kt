@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import com.asoc.typewright.ui.glass.InspectorEdit
 import com.asoc.typewright.ui.glass.InspectorField
 import com.asoc.typewright.ui.glass.InspectorRow
+import com.asoc.typewright.ui.puck.PrimitiveKind
 import com.asoc.typewright.ui.puck.PuckUiState
 import com.asoc.typewright.ui.puck.Tool
 import com.asoc.typewright.ui.puck.ToolIcon
@@ -82,7 +83,9 @@ fun DesktopTopBar(
         if (glyph != null) {
             val unicode = room.directory.entry(glyph.name)?.unicodeLabel ?: "no unicode"
             BasicText(
-                text = DrawSubject.glyphLine(glyph).substringAfter(" · ") + " · $unicode · " + (if (locked) "locked" else "unlocked"),
+                text =
+                    room.controller?.modeLine
+                        ?: (DrawSubject.glyphLine(glyph).substringAfter(" · ") + " · $unicode · " + (if (locked) "locked" else "unlocked")),
                 style = Typography.mono(sizeSp = 9.5).copy(color = muted, letterSpacing = 0.06.em),
             )
         }
@@ -107,6 +110,11 @@ fun ToolRail(
     puck: PuckUiState,
     texture: CanvasTexture,
     modifier: Modifier = Modifier,
+    /** Whether the layers panel is open; the heading below the tools opens and closes it. */
+    layersShown: Boolean = false,
+    onLayers: (() -> Unit)? = null,
+    /** A shape picked under Primitives. */
+    onShape: (PrimitiveKind) -> Unit = {},
 ) {
     val panel = panelColor(texture)
     val ink = texture.ink.toColor()
@@ -149,8 +157,40 @@ fun ToolRail(
                             ).copy(color = if (current) canvas.copy(alpha = 0.7f) else muted, letterSpacing = 0.sp),
                 )
             }
+            if (current && tool == Tool.PRIMITIVES) {
+                // The shapes a drag on the sheet makes, under the tool that makes them.
+                for (kind in PrimitiveKind.ON_SHEET) {
+                    val picked = puck.primitiveKind == kind
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(SHAPE_ROW_DP.dp)
+                                .clickable { onShape(kind) }
+                                .padding(start = 40.dp, end = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        BasicText(
+                            text = (if (picked) "● " else "○ ") + kind.label,
+                            style = TextStyle(fontFamily = FontFamily.Default, fontSize = 12.sp, color = if (picked) fg else muted),
+                        )
+                    }
+                }
+            }
         }
-        RailHeading("Layers", muted)
+        Row(
+            modifier = Modifier.fillMaxWidth().let { if (onLayers != null) it.clickable { onLayers() } else it },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RailHeading("Layers", muted)
+            if (onLayers != null) {
+                BasicText(
+                    text = if (layersShown) "· hide" else "· show",
+                    style = Typography.mono(sizeSp = 9.0).copy(color = muted),
+                    modifier = Modifier.padding(start = 6.dp, top = 10.dp),
+                )
+            }
+        }
         RailRow("Master", "editing", fg, muted, bold = true)
         // Nothing can be loaded into a sketch or a background layer in this build, so the rows say so rather than offering a switch with nothing behind it.
         RailRow("Sketch", "none loaded", muted, muted)
@@ -261,4 +301,5 @@ fun InspectorColumn(
 private const val PANEL_TINT = 0.04f
 private const val PANEL_SOLID = 0.8f
 private const val ROW_DP = 30.0
+private const val SHAPE_ROW_DP = 24.0
 private const val COLUMN_GAP_DP = 18.0

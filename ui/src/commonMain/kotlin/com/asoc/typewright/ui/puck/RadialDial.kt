@@ -69,7 +69,7 @@ fun RadialDial(
                 // canvas-filled neighbour, visible as a seam against the ink-filled current sector.
                 drawPath(path, color = canvas, style = Stroke(width = gapPx))
 
-                val tool = tools.getOrNull(k % tools.size)
+                val tool = tools.getOrNull(k)
                 if (tool != null) {
                     val midDeg = (startDeg + sectorSweep / 2f) * (PI.toFloat() / 180f)
                     val midRadius = (innerRadiusPx + outerRadiusPx) / 2f
@@ -96,7 +96,7 @@ fun RadialDial(
             drawPath(marker, color = ink)
         }
 
-        val currentTool = tools.getOrNull(state.currentSector % tools.size)
+        val currentTool = tools.getOrNull(state.currentSector)
         if (currentTool != null) {
             Box(
                 modifier =

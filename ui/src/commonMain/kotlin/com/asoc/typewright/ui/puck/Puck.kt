@@ -77,6 +77,10 @@ class PuckUiState(
     var selectedPrimitiveKind: PrimitiveKind? by mutableStateOf(null)
         internal set
 
+    /** The shape the Primitives tool drags out on the sheet, or null until one is picked. */
+    var primitiveKind: PrimitiveKind? by mutableStateOf(null)
+        internal set
+
     /** The live, not-yet-baked instance the primitives menu last created ([defaultPrimitiveInstance]), read by the Construct inspector ([com.asoc.typewright.ui.glass.constructInspectorFields]). `null` until an entry method has been picked at least once. */
     var activeConstruction: ActiveConstruction? by mutableStateOf(null)
         internal set
@@ -102,6 +106,14 @@ class PuckUiState(
     /** A canvas touch takes the held puck as its modifier: the puck stops waiting to become a tap or the radial, and its release does nothing. */
     fun takeHoldAsModifier() {
         if (modifierHeld) usedAsModifier = true
+    }
+
+    /** Makes [kind] the shape the Primitives tool drags out, and Primitives the current tool. */
+    fun selectPrimitive(kind: PrimitiveKind) {
+        primitiveKind = kind
+        selectedPrimitiveKind = kind
+        activeConstruction = null
+        selectTool(Tool.PRIMITIVES)
     }
 
     /** Makes [tool] the current tool (a tool key, the desktop rail); does nothing if this puck does not offer it. */
@@ -192,7 +204,8 @@ fun Puck(
                 is PuckOutputEvent.RadialDetentTicked -> {}
 
                 is PuckOutputEvent.RadialCommitted -> {
-                    state.toolIndex = event.sector
+                    // The ring has eight sectors and the sheet offers fewer tools: a sector with no tool in it chooses nothing.
+                    if (event.sector < state.tools.size) state.toolIndex = event.sector
                 }
 
                 PuckOutputEvent.RadialCancelled -> {}
@@ -279,14 +292,9 @@ fun Puck(
 
         PrimitivesMenuStage.KIND -> {
             PrimitiveKindMenu(pin = pin, texture = texture, canvasSizeDp = canvasSizeDp) { kind ->
-                state.selectedPrimitiveKind = kind
-                if (kind.entryMethodLabels.size == 1) {
-                    // Only one entry method (Stem, Bowl): create it directly, no second list.
-                    state.activeConstruction = defaultPrimitiveInstance(kind, 0, viewCentreFontUnits())
-                    state.primitivesMenuStage = PrimitivesMenuStage.CLOSED
-                } else {
-                    state.primitivesMenuStage = PrimitivesMenuStage.ENTRY_METHOD
-                }
+                // The shapes on offer are the ones a drag on the sheet makes; picking one arms the drag.
+                state.selectPrimitive(kind)
+                state.primitivesMenuStage = PrimitivesMenuStage.CLOSED
             }
         }
 

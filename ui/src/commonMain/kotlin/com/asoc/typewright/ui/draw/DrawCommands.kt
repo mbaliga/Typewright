@@ -30,9 +30,14 @@ data class DrawCommand(
     val keys: String?,
     val gesture: String?,
     val destructive: Boolean,
+    /** What running it would do when that is costly to work out (a tidy), asked for only when a row is shown and kept per outline; [consequence] stays null. */
+    val lazyConsequence: (() -> String?)? = null,
     val run: () -> Unit,
 ) {
     val enabled: Boolean get() = reason == null
+
+    /** [consequence], else the lazy one worked out now. */
+    val consequenceText: String? get() = consequence ?: lazyConsequence?.invoke()
 }
 
 /** What the registry's commands call back into. */
@@ -53,6 +58,9 @@ interface DrawHooks {
 
     /** Split was asked for with fewer than two places named: arm the knife and wait for taps. */
     fun startKnife() = Unit
+
+    /** Close the pen's path here, as it stands. */
+    fun finishPen() = Unit
 
     /** True while the pen has a path in progress, which an undo steps back through before it touches the history. */
     fun penInProgress(): Boolean = false
@@ -158,6 +166,33 @@ object DrawCommands {
                 "⌫",
             )
         out += fromPlan("align", "Align to a metric line", DrawScope.NODE, editor.planAlignToMetrics(selection, ctx.metrics), "Ctrl ⇧ A")
+        out +=
+            fromPlan(
+                "tangent",
+                "Make tangent",
+                DrawScope.NODE,
+                editor.planTangent(selection),
+                "Ctrl ⇧ T",
+                consequenceOverride = "handle turns in line with the other side · no change in points",
+            )
+        out +=
+            fromPlan(
+                "tangent-metric",
+                "Level the handle on a metric line",
+                DrawScope.NODE,
+                editor.planTangentToMetric(selection, ctx.metrics),
+                null,
+                consequenceOverride = "handle runs along the metric line · no change in points",
+            )
+        out +=
+            fromPlan(
+                "hobby",
+                "Hobby curve through these nodes",
+                DrawScope.CONTOUR,
+                editor.planHobby(selection),
+                "H",
+                consequenceOverride = "handles become the Hobby spline's · nodes stay · no change in points",
+            )
         // Two places named: the cut itself, with what it would do; fewer: the knife, which waits for taps.
         val splitPlan = editor.planSplit(selection)
         out +=
@@ -195,16 +230,22 @@ object DrawCommands {
         // This contour
         out += fromPlan("add-extremes", "Add extremes", DrawScope.CONTOUR, editor.planAddExtremes(selection), "Ctrl ⇧ E")
         out += fromPlan("reverse", "Reverse direction", DrawScope.CONTOUR, editor.planReverse(selection), "Ctrl Alt R")
+        // Tidy is worked out only when its row is shown or it is run, and once per state of the outline (the editor keeps the answer).
+        val tidyReason = editor.tidyBlockedReason(selection)
         out +=
-            fromPlan(
-                "tidy",
-                "Tidy with live count",
-                DrawScope.CONTOUR,
-                editor.planTidy(selection),
-                "Ctrl ⇧ Y",
-                consequenceOverride = editor.tidyPreview(selection)?.text,
-                runOverride = { ctx.hooks.proposeTidy() },
-            )
+            DrawCommand(
+                id = "tidy",
+                label = "Tidy with live count",
+                scope = DrawScope.CONTOUR,
+                consequence = null,
+                reason = tidyReason ?: if (locked) LOCKED_REASON else null,
+                keys = "Ctrl ⇧ Y",
+                gesture = gesture("tidy"),
+                destructive = false,
+                lazyConsequence = {
+                    editor.tidyPreview(selection)?.text ?: (editor.planTidy(selection) as? EditPlan.Blocked)?.reason
+                },
+            ) { ctx.hooks.proposeTidy() }
         // This glyph
         out += fromPlan("correct-direction", "Correct path direction", DrawScope.GLYPH, editor.planCorrectDirection(selection), "Ctrl ⇧ R")
         out +=
@@ -283,6 +324,19 @@ object DrawCommands {
                 editor.redo()
                 ctx.hooks.applied(EditOutcome.Done(ctx.selection))
             }
+        if (ctx.hooks.penInProgress()) {
+            out +=
+                DrawCommand(
+                    "close-path",
+                    "Close path here",
+                    DrawScope.GLYPH,
+                    "the pen's path becomes a closed contour",
+                    if (locked) LOCKED_REASON else null,
+                    "Enter",
+                    null,
+                    false,
+                ) { ctx.hooks.finishPen() }
+        }
         out += fromPlan("clear", "Clear glyph", DrawScope.GLYPH, editor.planClear(), null, destructive = true)
         return out
     }

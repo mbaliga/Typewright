@@ -353,4 +353,8 @@ internal object Keys {
     val L = Key.L
     val TAB = Key.Tab
     val K = Key.K
+    val S = Key.S
+    val M = Key.M
+    val T = Key.T
+    val H = Key.H
 }

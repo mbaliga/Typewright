@@ -175,7 +175,7 @@ private fun RadialTitle(
             text = RadialLabels.title(command),
             style = Typography.mono(sizeSp = 10.5, weight = FontWeight.SemiBold).copy(color = texture.ink.toColor()),
         )
-        val consequence = (command.consequence ?: command.reason ?: "").uppercase()
+        val consequence = (command.consequenceText ?: command.reason ?: "").uppercase()
         BasicText(text = "$consequence · RELEASE TO APPLY", style = Typography.mono(sizeSp = 8.5).copy(color = texture.muted.toColor()))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             command.gesture?.let { chip ->

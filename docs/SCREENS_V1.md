@@ -438,8 +438,16 @@ defaults from §2.
   board's "opens the contour" cannot be shown because open contours are not in the model. *Tidy with
   live count* (⌃⇧Y, TIDY in the segment ring): shows "n → m nodes · outline within 1.5 units (our
   heuristic)" with a cross on every node that would go, and applies on Apply as one step, after
-  re-checking that the outline still gives the same count. Not built: Tangent, Hobby, Measure,
-  Primitives on the sheet, the economy strip, the desktop frame.
+  re-checking that the outline still gives the same count (crosses are thinned to one per 22 dp, and the bar
+  says how many carry one). *Make tangent* (⌃⇧T) turns a selected handle in line with the other side of its node;
+  *Level the handle* runs it along the metric line its node sits on. *Hobby curve* (H) replaces the handles
+  between three or more neighbouring selected nodes with the Hobby spline's. *Primitives* (S) drags out a
+  circle, ellipse, rectangle or rounded rectangle as a real closed contour (4, 4, 4, 8 on-curve points),
+  snapped to the metric lines. *Measure* (M) reads distance and angle between two places and edits nothing.
+  The economy strip under the header is the glyph's live box plot against its style class (class, n and
+  "our heuristic" named). The desktop frame (900 dp and up) has the rail with the shapes under Primitives,
+  the inspector column, and a Layers panel the rail's heading opens. The radial and the puck list only
+  tools that do something: Select, Pen, Primitives, Measure. Not built: Boolean, Stroke, Anchors, Metrics.
 
 ### S12 Draw: the radial (a state of S11)
 - The tool radial on a puck hold, or the object radial on a hold on a node or contour,

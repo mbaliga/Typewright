@@ -19,6 +19,9 @@ import com.asoc.typewright.core.geometry.segmentLayout
 import com.asoc.typewright.core.geometry.sidebearings
 import com.asoc.typewright.project.PointRef
 import com.asoc.typewright.project.ProjectSession
+import com.asoc.typewright.ui.puck.PrimitiveDragPlan
+import com.asoc.typewright.ui.puck.PrimitiveKind
+import com.asoc.typewright.ui.puck.PrimitiveShape
 import com.asoc.typewright.ui.puck.Tool
 import kotlin.math.abs
 import kotlin.math.floor
@@ -35,6 +38,8 @@ class DrawFrame(
     val shift: Boolean = false,
     val alt: Boolean = false,
     val puckHeld: Boolean = false,
+    /** The shape the Primitives tool makes, or null until one is picked. */
+    val primitive: PrimitiveKind? = null,
 )
 
 /** A line the screen shows on the glass about what just happened (or why nothing did). */
@@ -109,6 +114,9 @@ interface DrawHost {
 
     fun openMap()
 
+    /** Makes [kind] the shape the Primitives tool drags out, and the Primitives tool the current one. */
+    fun pickPrimitive(kind: PrimitiveKind) = Unit
+
     fun showShortcuts()
 
     /** A detent under the finger: a snap took hold, or the radial's choice changed. A device with no way to tick does nothing. */
@@ -148,7 +156,15 @@ class DrawController(
     var readout: Readout? by mutableStateOf(null)
     var radial: RadialUi? by mutableStateOf(null)
     var menu: MenuUi? by mutableStateOf(null)
-    var notice: DrawNotice? by mutableStateOf(null)
+    private var shownNotice: DrawNotice? by mutableStateOf(null)
+
+    /** What the glass says. A notice that is not the tidy proposal takes the proposal's crosses and its Apply with it: they would name an outline that has since changed. */
+    var notice: DrawNotice?
+        get() = shownNotice
+        set(value) {
+            if (value !is DrawNotice.Proposal) dropProposal()
+            shownNotice = value
+        }
     var penPath: PenPath by mutableStateOf(PenPath())
 
     /** The point being dragged out right now (pen down, handles being pulled), shown as a live preview. */
@@ -160,9 +176,35 @@ class DrawController(
     /** The knife, once armed: the first place of a cut when it has been tapped, and where it is in font units. */
     var knife: KnifeState? by mutableStateOf(null)
 
-    /** The nodes a tidy waiting for Apply would remove, in font units, drawn as crosses on the outline. */
-    var tidyRemoved: List<Point> by mutableStateOf(emptyList())
-    private var pendingTidy: Pair<DrawSelection, TidyPreview>? = null
+    private var proposedRemoved: List<Point> by mutableStateOf(emptyList())
+
+    /**
+     * The nodes a tidy waiting for Apply would remove, in font units, drawn as crosses on the outline. Empty the moment the
+     * outline is not the one the proposal was worked out on, whatever changed it.
+     */
+    val tidyRemoved: List<Point> get() = if (proposalIsCurrent()) proposedRemoved else emptyList()
+    private var pendingTidy: PendingTidy? = null
+
+    private class PendingTidy(
+        val selection: DrawSelection,
+        val preview: TidyPreview,
+        val contours: List<com.asoc.typewright.core.geometry.Contour>,
+    )
+
+    /** The tool in hand, kept by [toolChanged]: what the header's mode line speaks of. */
+    var activeTool: Tool by mutableStateOf(Tool.SELECT)
+        private set
+
+    /** The measure tool's two ends. Reading them never touches the glyph or its history. */
+    var measureState: MeasureState by mutableStateOf(MeasureState())
+        private set
+
+    /** The shape being dragged out with the Primitives tool, as it would be committed. */
+    var primitiveLive: PrimitiveShape? by mutableStateOf(null)
+        private set
+    private var primitiveFrom: Vec2? = null
+    private var primitiveKind: PrimitiveKind? = null
+    private var primitiveSnapper: Snapper? = null
     private var penDragFrom: Vec2? = null
     var hover: Hit? by mutableStateOf(null)
     var recent: List<String> by mutableStateOf(emptyList())
@@ -201,9 +243,10 @@ class DrawController(
         frame: DrawFrame,
     ) {
         lastFrame = frame
+        dropStaleProposal()
         when (output) {
             is CanvasOutput.Tap -> tap(output, frame)
-            is CanvasOutput.DoubleTap -> doubleTap(output)
+            is CanvasOutput.DoubleTap -> doubleTap(output, frame)
             is CanvasOutput.BeginObjectDrag -> beginDrag(output, frame)
             is CanvasOutput.ObjectDragged -> drag(output, frame)
             is CanvasOutput.EndObjectDrag -> endDrag(output.committed)
@@ -229,6 +272,7 @@ class DrawController(
         sweep = null
         penDragFrom = null
         penLive = null
+        endPrimitiveDrag()
         if (radial?.state is RadialState.Sweeping) radial = null
     }
 
@@ -245,9 +289,24 @@ class DrawController(
             return
         }
         if (!toolIsConnected(frame.tool)) return
-        if (frame.tool == Tool.PEN) {
-            penTap(output.position, output.hit, frame)
-            return
+        when (frame.tool) {
+            Tool.PEN -> {
+                penTap(output.position, output.hit, frame)
+                return
+            }
+
+            Tool.MEASURE -> {
+                measureTap(output.position, output.hit, frame)
+                return
+            }
+
+            Tool.PRIMITIVES -> {
+                return
+            }
+
+            else -> {
+                Unit
+            }
         }
         when (val hit = output.hit) {
             is Hit.OnPoint -> selection = if (output.additive) selection.toggled(hit.ref) else selection.only(hit.ref)
@@ -256,8 +315,22 @@ class DrawController(
         }
     }
 
-    private fun doubleTap(output: CanvasOutput.DoubleTap) {
+    private fun doubleTap(
+        output: CanvasOutput.DoubleTap,
+        frame: DrawFrame,
+    ) {
         val current = glyph ?: return
+        // Two quick clicks are two points for the pen and two ends for the measure, never a refit of the view.
+        if (knife == null && toolIsConnected(frame.tool)) {
+            if (frame.tool == Tool.PEN) {
+                penTap(output.position, output.hit, frame)
+                return
+            }
+            if (frame.tool == Tool.MEASURE) {
+                measureTap(output.position, output.hit, frame)
+                return
+            }
+        }
         if (knife != null) {
             // Two quick taps on one place with the knife armed are the "same place twice" of a cut: a node and no cut.
             lastFrame?.let { knifeTap(output.hit, it) }
@@ -275,7 +348,11 @@ class DrawController(
         frame: DrawFrame,
     ) {
         dragAlive = false
-        if (overlayOpen || !toolIsConnected(frame.tool) || frame.tool == Tool.PEN) return
+        if (overlayOpen || !toolIsConnected(frame.tool) || frame.tool == Tool.PEN || frame.tool == Tool.PRIMITIVES ||
+            frame.tool == Tool.MEASURE
+        ) {
+            return
+        }
         val current = glyph ?: return
         dragScale = 1.0
         var primary: Vec2? = null
@@ -399,6 +476,11 @@ class DrawController(
             penLive = null
             return
         }
+        if (frame != null && frame.tool == Tool.PRIMITIVES && knife == null) {
+            beginPrimitiveDrag(output.from, frame)
+            return
+        }
+        if (frame != null && frame.tool == Tool.MEASURE && knife == null) return
         sweepPoints = mutableListOf(output.from)
         sweepLasso = output.lasso
         sweepAdditive = output.additive
@@ -412,6 +494,10 @@ class DrawController(
             val anchor = penPointAt(from, frame)
             val pull = penPullTo(anchor, output.to, frame)
             penLive = PenAnchor(anchor, pull.takeIf { it.x != 0 || it.y != 0 })
+            return
+        }
+        if (primitiveFrom != null && frame != null) {
+            movePrimitiveDrag(output.to, frame)
             return
         }
         val shape = sweep ?: return
@@ -428,6 +514,10 @@ class DrawController(
             penDragFrom = null
             penLive = null
             if (output.committed) penPlace(penFrom, output.to, frame)
+            return
+        }
+        if (primitiveFrom != null) {
+            finishPrimitiveDrag(output, frame)
             return
         }
         val shape = sweep
@@ -599,8 +689,18 @@ class DrawController(
         hit: Hit,
         frame: DrawFrame,
     ) {
-        if (hit is Hit.OnPoint) return
+        // A click on the ringed first point closes the path even where another contour's node lies under it; only otherwise does a node eat the click.
+        if (hit is Hit.OnPoint && !closesPath(position, frame)) return
         penPlace(position, position, frame)
+    }
+
+    /** True when a click at [screen] lands on the pen's first point with enough path behind it to close. */
+    private fun closesPath(
+        screen: Vec2,
+        frame: DrawFrame,
+    ): Boolean {
+        val first = penPath.anchors.firstOrNull() ?: return false
+        return penPath.anchors.size >= 2 && (frame.space.toScreen(first.point.toVec2()) - screen).length() <= PEN_CLOSE_DP
     }
 
     /** Where a pointer at [screen] puts a pen point: the nearest whole font unit. */
@@ -632,10 +732,9 @@ class DrawController(
         val anchor = penPointAt(from, frame)
         val dragged = (to - from).length() > PEN_DRAG_DP
         val pull = if (dragged) penPullTo(anchor, to, frame).takeIf { it.x != 0 || it.y != 0 } else null
-        val first = penPath.anchors.firstOrNull()
-        val nearFirst = first != null && (frame.space.toScreen(first.point.toVec2()) - from).length() <= PEN_CLOSE_DP
-        if (nearFirst && penPath.anchors.size >= 2) {
-            val closed = penPath.closed(pull, projectFormat())
+        if (closesPath(from, frame)) {
+            // The same format decides whether the path can close and builds the contour it closes into.
+            val closed = penPath.closed(pull, glyphFormat())
             // Two plain corners are not a shape yet: the click is another point, not a close.
             if (closed !is PenClosed.Refused || closed.why != PenRefusal.TOO_FEW) {
                 finishPen(pull)
@@ -646,7 +745,10 @@ class DrawController(
     }
 
     /** Closes the path in progress into a contour and adds it to the glyph, as one step; the path stays when it cannot close, so the person can go on. */
-    fun finishPen(closingPull: Point? = null) {
+    override fun finishPen() = finishPen(null)
+
+    /** Closes the path in progress with an optional [closingPull] on the closing handle. */
+    fun finishPen(closingPull: Point?) {
         val plan = editor.planPen(penPath, closingPull, glyphFormat())
         if (plan is EditPlan.Blocked) {
             notice = toast(plan.reason)
@@ -781,22 +883,27 @@ class DrawController(
             applied(EditOutcome.Locked(glyph?.name ?: ""))
             return
         }
+        val current = glyph ?: return
         val preview = editor.tidyPreview(selection)
         if (preview == null) {
             applied(editor.perform(editor.planTidy(selection)))
             return
         }
-        pendingTidy = selection to preview
-        tidyRemoved = preview.report.removed
         closeOverlays()
-        notice = DrawNotice.Proposal("Tidy · ${preview.text}", ++toastSerial)
+        // A notice that is not a proposal clears any older one; the proposal is set after, so it is the one that stays.
+        notice = null
+        pendingTidy = PendingTidy(selection, preview, current.contours)
+        proposedRemoved = preview.report.removed
+        val caption = lastFrame?.let { TidyCrosses.caption(preview.report.removed, it.space) }
+        notice = DrawNotice.Proposal("Tidy · ${preview.text}" + (caption?.let { " · $it" } ?: ""), ++toastSerial)
     }
 
     /** Apply on the tidy proposal: worked out again against the outline as it is now, and made only if it still says the same. */
     fun applyProposal() {
-        val (chosen, shown) = pendingTidy ?: return
-        pendingTidy = null
-        tidyRemoved = emptyList()
+        val pending = pendingTidy ?: return
+        val shown = pending.preview
+        val chosen = pending.selection
+        dropProposal()
         val fresh = editor.tidyPreview(chosen)
         if (fresh == null || fresh.report.after != shown.report.after || fresh.report.removed != shown.report.removed) {
             notice = toast("The outline changed since the count was shown. Ask for Tidy again.")
@@ -806,10 +913,168 @@ class DrawController(
     }
 
     fun dismissProposal() {
-        pendingTidy = null
-        tidyRemoved = emptyList()
-        if (notice is DrawNotice.Proposal) notice = null
+        dropProposal()
+        if (shownNotice is DrawNotice.Proposal) shownNotice = null
     }
+
+    /** Forgets the pending tidy and its crosses without touching the notice. */
+    private fun dropProposal() {
+        pendingTidy = null
+        proposedRemoved = emptyList()
+    }
+
+    private fun proposalIsCurrent(): Boolean = pendingTidy?.let { it.contours === glyph?.contours } ?: false
+
+    /** A proposal worked out on an outline that has since changed (an edit, an undo, a drag) is dropped with its bar. */
+    private fun dropStaleProposal() {
+        if (pendingTidy != null && !proposalIsCurrent()) dismissProposal()
+    }
+
+    // ---- measure and the primitives ----------------------------------------------------------------
+
+    private fun measureTap(
+        position: Vec2,
+        hit: Hit,
+        frame: DrawFrame,
+    ) {
+        val current = glyph ?: return
+        val place =
+            when (hit) {
+                is Hit.OnPoint -> {
+                    current.contours[hit.ref.contour]
+                        .points[hit.ref.point]
+                        .point
+                        .toVec2()
+                }
+
+                is Hit.OnSegment -> {
+                    hit.at
+                }
+
+                Hit.Nothing -> {
+                    MeasureState.wholeUnit(frame.space.toFont(position))
+                }
+            }
+        measureState = measureState.tapped(place)
+    }
+
+    private fun beginPrimitiveDrag(
+        from: Vec2,
+        frame: DrawFrame,
+    ) {
+        val kind = frame.primitive
+        val current = glyph
+        if (kind == null || current == null) {
+            say("Pick a shape first: tap the puck, pick Primitives on the rail and then a shape, or choose one in the command palette.")
+            return
+        }
+        if (editor.isLocked) {
+            applied(EditOutcome.Locked(current.name))
+            return
+        }
+        primitiveFrom = from
+        primitiveKind = kind
+        val band = (if (frame.pointer == PointerKind.TOUCH) SNAP_BAND_TOUCH_DP else SNAP_BAND_DP) / frame.space.dpPerUnit
+        primitiveSnapper = Snapper(current, metrics(), current.advanceWidth, emptySet(), band)
+        primitiveLive = null
+    }
+
+    private fun primitiveShapeAt(
+        to: Vec2,
+        frame: DrawFrame,
+    ): PrimitiveShape? {
+        val from = primitiveFrom ?: return null
+        val kind = primitiveKind ?: return null
+        val snapper = primitiveSnapper
+        val snap: (Vec2) -> Vec2 =
+            if (snapper == null) {
+                { it }
+            } else {
+                { v ->
+                    val result = snapper.snap(v)
+                    Vec2(v.x + result.dx, v.y + result.dy)
+                }
+            }
+        return PrimitiveDragPlan.plan(kind, frame.space.toFont(from), frame.space.toFont(to), snap)
+    }
+
+    private fun movePrimitiveDrag(
+        to: Vec2,
+        frame: DrawFrame,
+    ) {
+        val shape = primitiveShapeAt(to, frame)
+        primitiveLive = shape
+        val snapper = primitiveSnapper
+        snaps =
+            if (snapper != null && shape != null) snapper.snap(Vec2(shape.maxX.toDouble(), shape.maxY.toDouble())).targets else emptyList()
+        if (frame.pointer != PointerKind.MOUSE) readout = shape?.let { Readout(it.text, to) }
+    }
+
+    private fun finishPrimitiveDrag(
+        output: CanvasOutput.EndSweep,
+        frame: DrawFrame,
+    ) {
+        val shape = if (output.committed) primitiveShapeAt(output.to, frame) else null
+        endPrimitiveDrag()
+        if (!output.committed) return
+        if (shape == null) {
+            say("Drag further to size the shape: it needs at least ${PrimitiveDragPlan.MIN_SIDE_UNITS} units each way.")
+            return
+        }
+        val plan = editor.planPrimitive(shape, glyphFormat())
+        if (plan is EditPlan.Blocked) {
+            say(plan.reason)
+            return
+        }
+        applied(editor.perform(plan))
+    }
+
+    private fun endPrimitiveDrag() {
+        primitiveFrom = null
+        primitiveKind = null
+        primitiveSnapper = null
+        primitiveLive = null
+        readout = null
+        snaps = emptyList()
+    }
+
+    // ---- the tool in hand --------------------------------------------------------------------------
+
+    /**
+     * The tool changed (a key, the rail, the puck's list or its radial): whatever the old tool had open is put down, so a
+     * path left by the pen, the armed knife, a measure or a half-dragged shape never carries into the next tool.
+     */
+    fun toolChanged(tool: Tool) {
+        if (tool == activeTool) return
+        activeTool = tool
+        cancelPen()
+        knife = null
+        measureState = MeasureState()
+        endPrimitiveDrag()
+        dismissProposal()
+    }
+
+    /** The line the header speaks while a mode is open (the pen, the knife, the measure), or null when none is. */
+    val modeLine: String?
+        get() =
+            when {
+                knife != null -> {
+                    "Knife · tap two places on the outline · Esc puts it down"
+                }
+
+                !penPath.isEmpty -> {
+                    val n = penPath.anchors.size
+                    "Pen · $n point${if (n == 1) "" else "s"} · click the first point or press Enter to close · Esc drops it"
+                }
+
+                activeTool == Tool.MEASURE -> {
+                    measureState.measurement?.text ?: "Measure · tap two places"
+                }
+
+                else -> {
+                    null
+                }
+            }
 
     // ---- keys --------------------------------------------------------------------------------
 
@@ -819,11 +1084,12 @@ class DrawController(
         frame: DrawFrame,
     ): Boolean {
         lastFrame = frame
+        dropStaleProposal()
         val current = glyph
         when (action) {
             is DrawKeyAction.PickTool -> {
-                if (action.tool != Tool.PEN) cancelPen()
                 host.pickTool(action.tool)
+                toolChanged(action.tool)
             }
 
             is DrawKeyAction.Nudge -> {
@@ -841,7 +1107,16 @@ class DrawController(
             }
 
             DrawKeyAction.ToggleSmooth -> {
-                applied(editor.toggleSmooth(selection))
+                // Enter closes the pen's path when there is one; it is only the smooth toggle otherwise.
+                if (penInProgress()) finishPen() else applied(editor.toggleSmooth(selection))
+            }
+
+            DrawKeyAction.Tangent -> {
+                runCommand("tangent")
+            }
+
+            DrawKeyAction.Hobby -> {
+                runCommand("hobby")
             }
 
             DrawKeyAction.DeleteSelection -> {
@@ -857,11 +1132,7 @@ class DrawController(
             }
 
             DrawKeyAction.Split -> {
-                DrawCommands
-                    .build(DrawCommandContext(editor, selection, metrics(), this))
-                    .firstOrNull { it.id == "split" }
-                    ?.takeIf { it.enabled }
-                    ?.let(::run) ?: applied(EditOutcome.Locked(glyph?.name ?: ""))
+                runCommand("split")
             }
 
             DrawKeyAction.CorrectDirection -> {
@@ -931,6 +1202,19 @@ class DrawController(
         return true
     }
 
+    /**
+     * Runs the registry's command [id] for the selection as it stands. A command that cannot run says why: the lock prompt
+     * (with Unlock) only when the glyph is locked, otherwise the command's own reason, so a refused cut is never called a lock.
+     */
+    private fun runCommand(id: String) {
+        val command = DrawCommands.build(DrawCommandContext(editor, selection, metrics(), this)).firstOrNull { it.id == id } ?: return
+        when {
+            command.enabled -> run(command)
+            editor.isLocked -> applied(EditOutcome.Locked(glyph?.name ?: ""))
+            else -> say("${command.label}: ${command.reason}")
+        }
+    }
+
     /** A digit pressed with the ring open: the sector [index] clockwise from the top runs, if it holds a command that can run. */
     fun pickSector(index: Int) {
         val open = radial ?: return
@@ -952,6 +1236,7 @@ class DrawController(
             overlayOpen -> closeOverlays()
             pendingTidy != null -> dismissProposal()
             knife != null -> knife = null
+            measureState.first != null -> measureState = MeasureState()
             !penPath.isEmpty -> cancelPen()
             !selection.isEmpty -> selection = DrawSelection.EMPTY
             notice != null -> notice = null
@@ -1135,6 +1420,9 @@ class DrawController(
         notice = toast(text)
     }
 
+    /** Makes [kind] the shape the Primitives tool drags out (the palette's shape entries). */
+    fun pickShape(kind: PrimitiveKind) = host.pickPrimitive(kind)
+
     /** Unlocks the glyph from the notice's Unlock action. */
     fun unlockFromNotice() {
         applied(editor.unlock(selection))
@@ -1143,9 +1431,12 @@ class DrawController(
     private fun toast(text: String): DrawNotice.Toast = DrawNotice.Toast(text, ++toastSerial)
 
     private fun toolIsConnected(tool: Tool): Boolean {
-        if (tool == Tool.SELECT || tool == Tool.PEN) return true
+        if (tool in CONNECTED_TOOLS) return true
         if (warnedTools.add(tool)) {
-            notice = toast("${tool.label} is not connected to the sheet in this build yet. Select (V) and Pen (P) are.")
+            notice =
+                toast(
+                    "${tool.label} is not connected to the sheet in this build yet. Select (V), Pen (P), Primitives (S) and Measure (M) are.",
+                )
         }
         return false
     }
@@ -1161,6 +1452,9 @@ class DrawController(
 
         /** How far a pen click may be from the first point and still close the contour. */
         const val PEN_CLOSE_DP = 14.0
+
+        /** The tools that do something on the sheet; the puck, the rail and the radial offer these and no others. */
+        val CONNECTED_TOOLS: List<Tool> = listOf(Tool.SELECT, Tool.PEN, Tool.PRIMITIVES, Tool.MEASURE)
 
         private const val PEN_DRAG_DP = 4.0
         private const val KNIFE_SAME_DP = 10.0
@@ -1206,6 +1500,8 @@ object RadialLabels {
             "add-node" -> "ADD NODE"
             "tidy" -> "TIDY"
             "split" -> "SPLIT"
+            "tangent" -> "TANGENT"
+            "hobby" -> "HOBBY"
             "undo" -> "UNDO"
             "redo" -> "REDO"
             "fit" -> "FIT"

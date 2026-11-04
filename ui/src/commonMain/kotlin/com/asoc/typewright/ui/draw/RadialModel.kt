@@ -107,17 +107,17 @@ sealed interface RadialState {
 
 /** What a radial for each kind of object holds, by command id, clockwise from the top; null leaves the slot empty (a feature that is not built is omitted, not faked). */
 object RadialLayouts {
-    /** A node: the board's ring, with Tangent left empty because that command is not built. */
+    /** A node: the board's ring. */
     val NODE: List<String?> =
-        listOf("delete", "add-extremes", "split", "break-handles", "reverse", "align", null, "toggle-smooth")
+        listOf("delete", "add-extremes", "split", "break-handles", "reverse", "align", "tangent", "toggle-smooth")
 
     /** A curve between nodes. */
     val SEGMENT: List<String?> =
-        listOf("add-node", "add-extremes", null, null, "reverse", null, null, "tidy")
+        listOf("add-node", "add-extremes", "split", null, "reverse", null, null, "tidy")
 
-    /** Empty canvas, or a whole contour. */
+    /** Empty canvas, or a whole contour. Split arms the knife and Hobby curves the selected nodes. */
     val GLYPH: List<String?> =
-        listOf("undo", "redo", "fit", null, "lock", "correct-direction", null, "select-all")
+        listOf("undo", "redo", "fit", "split", "lock", "correct-direction", "hobby", "select-all")
 
     /** The ring for what is selected: a node or handle's, a segment's, or the glyph's when nothing is. */
     fun forSelection(selection: DrawSelection): List<String?> =

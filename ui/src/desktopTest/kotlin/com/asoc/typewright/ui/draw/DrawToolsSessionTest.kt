@@ -267,7 +267,7 @@ class DrawToolsSessionTest {
                     DrawCommandContext(editor, DrawSelection.EMPTY, controller.metrics(), controller),
                 ).associateBy { it.id }
         val tidy = assertNotNull(commands["tidy"])
-        assertTrue(tidy.consequence.orEmpty().contains("→"), "the menu row shows the live count: ${tidy.consequence}")
+        assertTrue(tidy.consequenceText.orEmpty().contains("→"), "the menu row shows the live count: ${tidy.consequenceText}")
         val split = assertNotNull(commands["split"])
         assertTrue(split.enabled)
         assertEquals("Ctrl ⇧ K", split.keys)

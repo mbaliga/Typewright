@@ -11,6 +11,7 @@ enum class DrawKey {
     D,
     E,
     G,
+    H,
     K,
     L,
     M,
@@ -77,6 +78,12 @@ sealed interface DrawKeyAction {
     data object AddExtremes : DrawKeyAction
 
     data object Tidy : DrawKeyAction
+
+    /** Ctrl Shift T: turn the selected handles in line with the other side of their nodes. */
+    data object Tangent : DrawKeyAction
+
+    /** H: draw a Hobby curve through the selected run of nodes. */
+    data object Hobby : DrawKeyAction
 
     /** Ctrl Shift K: split the contour at the selected places, or arm the knife. */
     data object Split : DrawKeyAction
@@ -151,6 +158,8 @@ object DrawKeyMap {
 
             DrawKey.T -> DrawKeyAction.PickTool(Tool.METRICS)
 
+            DrawKey.H -> DrawKeyAction.Hobby
+
             DrawKey.ENTER -> DrawKeyAction.ToggleSmooth
 
             DrawKey.BACKSPACE, DrawKey.DELETE -> DrawKeyAction.DeleteSelection
@@ -207,6 +216,7 @@ object DrawKeyMap {
                     DrawKey.E -> DrawKeyAction.AddExtremes
                     DrawKey.Y -> DrawKeyAction.Tidy
                     DrawKey.K -> DrawKeyAction.Split
+                    DrawKey.T -> DrawKeyAction.Tangent
                     DrawKey.R -> DrawKeyAction.CorrectDirection
                     DrawKey.B -> DrawKeyAction.BreakHandles
                     DrawKey.A -> DrawKeyAction.AlignToMetric

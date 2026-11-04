@@ -69,12 +69,12 @@ class RadialModelTest {
     }
 
     @Test
-    fun theNodeRadialMatchesTheBoardAndLeavesUnbuiltCommandsEmpty() {
+    fun theNodeRadialMatchesTheBoard() {
         assertEquals(8, RadialLayouts.NODE.size)
         assertEquals("delete", RadialLayouts.NODE[0])
         assertEquals("toggle-smooth", RadialLayouts.NODE[7])
         assertEquals("split", RadialLayouts.NODE[2], "Split is built, so the board's SPLIT sector holds it")
-        assertNull(RadialLayouts.NODE[6], "Tangent is not built either")
+        assertEquals("tangent", RadialLayouts.NODE[6], "Tangent is built, so the board's TANGENT sector holds it")
         assertEquals(
             RadialLayouts.NODE,
             RadialLayouts.forHit(

@@ -47,6 +47,7 @@ import com.asoc.typewright.ui.deck.DeckToggle
 import com.asoc.typewright.ui.deck.SystemBackHandler
 import com.asoc.typewright.ui.draw.DesktopTopBar
 import com.asoc.typewright.ui.draw.DrawController
+import com.asoc.typewright.ui.draw.DrawEconomyStrip
 import com.asoc.typewright.ui.draw.DrawEmptyState
 import com.asoc.typewright.ui.draw.DrawFrame
 import com.asoc.typewright.ui.draw.DrawGestureEnv
@@ -67,6 +68,7 @@ import com.asoc.typewright.ui.draw.DrawSelection
 import com.asoc.typewright.ui.draw.DrawShortcutSheet
 import com.asoc.typewright.ui.draw.DrawSpace
 import com.asoc.typewright.ui.draw.DrawSubject
+import com.asoc.typewright.ui.draw.ECONOMY_STRIP_DP
 import com.asoc.typewright.ui.draw.FieldGroup
 import com.asoc.typewright.ui.draw.FieldSpec
 import com.asoc.typewright.ui.draw.GlyphLines
@@ -100,6 +102,7 @@ import com.asoc.typewright.ui.theme.LocalAppearance
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.CanvasTextures
 import com.asoc.typewright.ui.tokens.MeaningColors
+import com.asoc.typewright.ui.tokens.SpacingTokens
 import com.asoc.typewright.ui.tokens.toColor
 import kotlinx.coroutines.launch
 
@@ -142,7 +145,7 @@ fun TypewrightSheet(
      * first frame, with no simulated pointer sequence needed (`SheetScreenshotTest`). Ordinary
      * callers (the real apps) just take the default.
      */
-    puckState: PuckUiState = rememberPuckUiState(),
+    puckState: PuckUiState = rememberPuckUiState(DrawController.CONNECTED_TOOLS),
     /** Whether the glyph starts filled rather than outlined; the deck's Outline and Fill toggles change it. */
     initialFill: Boolean = false,
     /** Where the puck is pinned; a host that wants to read or place it passes its own, otherwise the sheet keeps one at the default edge. */
@@ -218,6 +221,9 @@ fun TypewrightSheet(
             ?.value
     val glyph = controller?.let { c -> projectState?.font?.glyph(c.editor.ref) }
 
+    // Whatever the old tool had open (a pen path, the armed knife, a measure) is put down when the tool changes, by any route.
+    LaunchedEffect(controller, puckState.currentTool) { controller?.toolChanged(puckState.currentTool) }
+
     LaunchedEffect(section) {
         val target = if (section == DeckSection.SPACE) Room.SPACE else Room.DRAW
         // A glyph that has not been fitted yet is fitted by the Draw room once the camera has arrived and come to rest.
@@ -262,6 +268,7 @@ fun TypewrightSheet(
                         shift = shift,
                         alt = alt,
                         puckHeld = puckState.modifierHeld,
+                        primitive = puckState.primitiveKind,
                     )
                 },
                 puckHeld = { puckState.modifierHeld },
@@ -408,6 +415,9 @@ fun TypewrightSheet(
                 puck = puckState,
                 texture = texture,
                 modifier = Modifier.align(Alignment.TopStart).padding(top = SheetLayout.TOP_BAR_DP.dp),
+                layersShown = layersOpen,
+                onLayers = { layersOpen = !layersOpen },
+                onShape = { kind -> controller?.pickShape(kind) ?: puckState.selectPrimitive(kind) },
             )
             InspectorColumn(
                 groups = inspectorGroups(glyph, controller, puckState),
@@ -417,11 +427,29 @@ fun TypewrightSheet(
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = SheetLayout.TOP_BAR_DP.dp),
                 cancelEditing = cancelEditTick,
             )
-        } else if (layersOpen) {
+        }
+        if (layersOpen && section == DeckSection.DRAW) {
+            // On a desktop the panel sits left of the inspector column; on a phone it takes the top corner.
             LayersPanel(
                 state = layers,
                 texture = texture,
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = LayersPanelTopPaddingDp.dp),
+                modifier =
+                    Modifier.align(Alignment.TopEnd).padding(
+                        top = if (layout.wide) (layout.free.top + SpacingTokens.GUTTER_DP).dp else LayersPanelTopPaddingDp.dp,
+                        end = if (layout.wide) (SheetLayout.INSPECTOR_COLUMN_DP + SpacingTokens.GUTTER_DP).dp else 0.dp,
+                    ),
+            )
+        }
+        if (section == DeckSection.DRAW && deckVisible) {
+            DrawEconomyStrip(
+                room = drawRoom,
+                texture = texture,
+                modifier =
+                    Modifier.align(Alignment.TopStart).padding(
+                        top = (layout.free.top - ECONOMY_STRIP_DP).dp,
+                        start = if (layout.wide) SheetLayout.TOOL_RAIL_DP.dp else 0.dp,
+                        end = if (layout.wide) SheetLayout.INSPECTOR_COLUMN_DP.dp else 0.dp,
+                    ),
             )
         }
 
@@ -533,7 +561,7 @@ fun TypewrightSheet(
                             paletteGoTo = true
                             paletteOpen = true
                         },
-                        onLayers = if (layout.wide) null else ({ layersOpen = !layersOpen }),
+                        onLayers = { layersOpen = !layersOpen },
                     ),
                 onDismiss = { pageMenuOpen = false },
             )

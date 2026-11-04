@@ -12,21 +12,28 @@ import com.asoc.typewright.core.geometry.Glyph
 import com.asoc.typewright.core.geometry.PenClosed
 import com.asoc.typewright.core.geometry.PenPath
 import com.asoc.typewright.core.geometry.Point
+import com.asoc.typewright.core.geometry.TangentResult
 import com.asoc.typewright.core.geometry.TidyReport
+import com.asoc.typewright.core.geometry.Vec2
 import com.asoc.typewright.core.geometry.cutBetween
 import com.asoc.typewright.core.geometry.direction
 import com.asoc.typewright.core.geometry.enforceContourDirections
+import com.asoc.typewright.core.geometry.handleOwner
 import com.asoc.typewright.core.geometry.reverse
 import com.asoc.typewright.core.geometry.segmentLayout
 import com.asoc.typewright.core.geometry.tidied
 import com.asoc.typewright.core.geometry.tidyReport
 import com.asoc.typewright.core.geometry.withExtremesAdded
+import com.asoc.typewright.core.geometry.withHandleTangentToLine
+import com.asoc.typewright.core.geometry.withHandleTangentToNeighbour
 import com.asoc.typewright.core.geometry.withHandlesRemoved
 import com.asoc.typewright.core.geometry.withNodeDeleted
 import com.asoc.typewright.core.geometry.withNodeInserted
 import com.asoc.typewright.core.geometry.withSelectionMoved
 import com.asoc.typewright.core.geometry.withSmooth
 import com.asoc.typewright.core.geometry.writtenCount
+import com.asoc.typewright.engine.construct.HobbyRunResult
+import com.asoc.typewright.engine.construct.withHobbyHandles
 import com.asoc.typewright.project.ApprovalOrigin
 import com.asoc.typewright.project.Approve
 import com.asoc.typewright.project.EditResult
@@ -42,6 +49,7 @@ import com.asoc.typewright.project.ReplaceOutline
 import com.asoc.typewright.project.SetAdvance
 import com.asoc.typewright.project.SetSidebearings
 import com.asoc.typewright.project.Unlock
+import com.asoc.typewright.ui.puck.PrimitiveShape
 import kotlin.math.abs
 import kotlin.math.floor
 
@@ -646,6 +654,140 @@ class DrawEditor(
         return nodes + listOfNotNull(spot)
     }
 
+    // ---- tangent, Hobby and the primitives ---------------------------------------------------
+
+    /**
+     * Turns each selected handle in line with the other side of its node (the curve or straight side that arrives where
+     * it leaves), so the node has no corner. Blocked, with the reason, when no handle is selected or none can turn
+     * (a retracted handle, a quadratic outline, a node whose other side has no direction).
+     */
+    fun planTangent(selection: DrawSelection): EditPlan = planning { tangentPlan(selection, null) }
+
+    /**
+     * Turns each selected handle to run along the metric line nearest its node (within [ALIGN_WITHIN_UNITS]), the level
+     * handle every extreme wants. Blocked when a node is not near a metric line.
+     */
+    fun planTangentToMetric(
+        selection: DrawSelection,
+        metrics: DrawMetrics,
+    ): EditPlan = planning { tangentPlan(selection, metrics) }
+
+    private fun tangentPlan(
+        selection: DrawSelection,
+        metrics: DrawMetrics?,
+    ): EditPlan {
+        val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
+        val handles = selection.handles(current)
+        if (handles.isEmpty()) {
+            return EditPlan.Blocked(
+                if (selection.nodes(current).isEmpty()) {
+                    "Select a handle first."
+                } else {
+                    "Select a handle of the node. To line up both of a node's handles, make the node smooth."
+                },
+            )
+        }
+        val contours = current.contours.toMutableList()
+        var turned = 0
+        var refusal: String? = null
+        for (handle in handles) {
+            val contour = contours[handle.contour]
+            val result =
+                if (metrics == null) {
+                    contour.withHandleTangentToNeighbour(handle.point)
+                } else {
+                    val owner = contour.handleOwner(handle.point)
+                    val line =
+                        owner?.let {
+                            metrics.nearestLine(
+                                contour.points[it]
+                                    .point.y
+                                    .toDouble(),
+                                ALIGN_WITHIN_UNITS,
+                            )
+                        }
+                    if (line == null) {
+                        TangentResult.Refused("This handle's node is not within ${ALIGN_WITHIN_UNITS.toInt()} units of a metric line.")
+                    } else {
+                        contour.withHandleTangentToLine(handle.point, Vec2(0.0, line.y.toDouble()), Vec2(1.0, line.y.toDouble()))
+                    }
+                }
+            when (result) {
+                is TangentResult.Done -> {
+                    contours[handle.contour] = result.contour
+                    turned++
+                }
+
+                is TangentResult.Refused -> {
+                    if (refusal == null) refusal = result.reason
+                }
+            }
+        }
+        if (turned == 0) return EditPlan.Blocked(refusal ?: "Nothing to turn.")
+        val note = refusal?.let { "$turned of ${handles.size} handles turned. The rest: $it" }
+        return EditPlan.Change(if (metrics == null) "Make tangent" else "Level handle", contours, selection, note)
+    }
+
+    /**
+     * Draws a Hobby curve through each run of three or more neighbouring selected nodes: their handles are replaced by the
+     * Hobby spline's and the nodes stay where they are. Blocked, with the reason, when the selection has no such run.
+     */
+    fun planHobby(selection: DrawSelection): EditPlan = planning { hobbyPlan(selection) }
+
+    private fun hobbyPlan(selection: DrawSelection): EditPlan {
+        val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
+        val nodes = selection.nodes(current)
+        if (nodes.size < 3) return EditPlan.Blocked("Select three or more nodes in a row to draw a Hobby curve through.")
+        val contours = current.contours.toMutableList()
+        var changed = 0
+        var refusal: String? = null
+        for (index in nodes.map { it.contour }.toSet()) {
+            val picked = nodes.filter { it.contour == index }.map { it.point }.toSet()
+            when (val result = contours[index].withHobbyHandles(picked)) {
+                is HobbyRunResult.Done -> {
+                    contours[index] = result.contour
+                    changed += result.segmentsChanged
+                }
+
+                is HobbyRunResult.Refused -> {
+                    if (refusal == null) refusal = result.reason
+                }
+            }
+        }
+        if (changed == 0) return EditPlan.Blocked(refusal ?: "Nothing to change.")
+        return EditPlan.Change(
+            "Hobby curve",
+            contours,
+            selection,
+            "Hobby curve: $changed segment${plural(changed)} reshaped, the nodes stay.",
+        )
+    }
+
+    fun hobby(selection: DrawSelection): EditOutcome = perform(planHobby(selection))
+
+    fun tangent(selection: DrawSelection): EditOutcome = perform(planTangent(selection))
+
+    /**
+     * Adds [shape], a circle, ellipse or rectangle dragged out on the sheet, to the glyph as one closed contour of [format],
+     * wound the way an outer (or, inside another contour, an inner) contour winds. Blocked on a quadratic outline: the
+     * shapes are cubic.
+     */
+    fun planPrimitive(
+        shape: PrimitiveShape,
+        format: CurveFormat,
+    ): EditPlan =
+        planning {
+            val current = glyph ?: return@planning EditPlan.Blocked("There is no glyph to edit.")
+            if (format != CurveFormat.CUBIC) {
+                return@planning EditPlan.Blocked("Shapes are cubic curves; this project's outlines are quadratic.")
+            }
+            var contour = shape.contour
+            val inner = current.contours.any { DrawSubject.encloses(it, contour) }
+            val wantAnticlockwise = !inner
+            if (wantAnticlockwise != (contour.direction() == Direction.COUNTER_CLOCKWISE)) contour = contour.reverse()
+            EditPlan.Change("Draw ${shape.kind.label.lowercase()}", current.contours + contour, DrawSelection.EMPTY)
+        }
+
     // ---- contours and the glyph --------------------------------------------------------------
 
     /** Reverses the selected contours (or every contour when none is selected). */
@@ -709,16 +851,53 @@ class DrawEditor(
     fun tidyPreview(selection: DrawSelection): TidyPreview? {
         val plan = planTidy(selection) as? EditPlan.Change ?: return null
         val current = glyph ?: return null
-        val report = current.tidyReport(contoursFor(current, selection).filter { current.contours[it].format == CurveFormat.CUBIC }.toSet())
+        val report = tidyReportOf(current, tidyTargets(current, selection).toSet())
         return TidyPreview(report, plan)
     }
 
+    /** The contours a tidy of [selection] works on: the selected ones (every one when none is), cubic only. */
+    private fun tidyTargets(
+        current: Glyph,
+        selection: DrawSelection,
+    ): List<Int> = contoursFor(current, selection).filter { current.contours[it].format == CurveFormat.CUBIC }
+
+    private class TidyCache(
+        val contours: List<Contour>,
+        val which: Set<Int>,
+        val report: TidyReport,
+    )
+
+    private var tidyCache: TidyCache? = null
+
+    /** How many tidies have actually been worked out, so a test can tell a cached answer from a repeated one. */
+    internal var tidyRuns: Int = 0
+        private set
+
+    /**
+     * The tidy of [which] contours of [current], worked out once per state of the outline: the plan, the preview text and the
+     * crosses all read this one answer, so opening a menu or a radial (which asks for the plan) never repeats a tidy it has done.
+     */
+    private fun tidyReportOf(
+        current: Glyph,
+        which: Set<Int>,
+    ): TidyReport {
+        tidyCache?.takeIf { it.contours === current.contours && it.which == which }?.let { return it.report }
+        tidyRuns++
+        return current.tidyReport(which, TIDY_TOLERANCE_UNITS).also { tidyCache = TidyCache(current.contours, which, it) }
+    }
+
+    /** Why a tidy cannot be asked for at all (no outline, or none that is cubic), worked out without tidying anything; null when it can. */
+    fun tidyBlockedReason(selection: DrawSelection): String? {
+        val current = glyph ?: return "There is no glyph to edit."
+        if (current.contours.isEmpty()) return "There is no contour to work on."
+        if (tidyTargets(current, selection).isEmpty()) return "Tidying needs a cubic outline; this glyph's contours are quadratic."
+        return null
+    }
+
     private fun computeTidy(selection: DrawSelection): EditPlan {
+        tidyBlockedReason(selection)?.let { return EditPlan.Blocked(it) }
         val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
-        if (current.contours.isEmpty()) return EditPlan.Blocked("There is no contour to work on.")
-        val which = contoursFor(current, selection).filter { current.contours[it].format == CurveFormat.CUBIC }
-        if (which.isEmpty()) return EditPlan.Blocked("Tidying needs a cubic outline; this glyph's contours are quadratic.")
-        val report = current.tidyReport(which.toSet(), TIDY_TOLERANCE_UNITS)
+        val report = tidyReportOf(current, tidyTargets(current, selection).toSet())
         if (report.contours == current.contours) return EditPlan.Blocked("Nothing to tidy: every node is needed.")
         val counts = "${report.before.onCurveEquivalent} → ${report.after.onCurveEquivalent}"
         val note = "Tidied $counts nodes; the outline moved at most ${oneDecimal(report.maxShift)} units."

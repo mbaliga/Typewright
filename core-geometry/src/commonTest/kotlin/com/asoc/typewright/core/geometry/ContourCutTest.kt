@@ -124,4 +124,27 @@ class ContourCutTest {
         assertTrue(refused.reason.contains("cross"))
         assertIs<ContourCutResult.Cut>(outer.cutBetween(CutPlace.AtNode(0), CutPlace.AtNode(6)))
     }
+
+    @Test
+    fun aCutThatTouchesAReflexCornerOfItsOwnContourIsRefused() {
+        // A notch cut down from the top whose tip sits exactly at y = 100: the straight cut across at y = 100 grazes the tip.
+        val notched =
+            polygonContour(
+                listOf(Point(0, 0), Point(300, 0), Point(300, 200), Point(120, 200), Point(100, 100), Point(80, 200), Point(0, 200)),
+                CurveFormat.CUBIC,
+            )
+        val refused = assertIs<ContourCutResult.Refused>(notched.cutBetween(CutPlace.OnSegment(1, 0.5), CutPlace.OnSegment(6, 0.5)))
+        assertTrue(refused.reason.contains("node"), refused.reason)
+        // Moved off the tip, the same kind of cut is clear and is made.
+        assertIs<ContourCutResult.Cut>(notched.cutBetween(CutPlace.OnSegment(1, 0.25), CutPlace.OnSegment(6, 0.75)))
+    }
+
+    @Test
+    fun aCutThatTouchesTheCornerOfACounterIsRefused() {
+        val outer = polygonContour(listOf(Point(0, 0), Point(300, 0), Point(300, 300), Point(0, 300)), CurveFormat.CUBIC)
+        // The counter's corner (100, 100) lies exactly on the diagonal; the counter lies wholly on one side of it.
+        val hole = polygonContour(listOf(Point(100, 100), Point(100, 150), Point(150, 150)), CurveFormat.CUBIC)
+        val refused = assertIs<ContourCutResult.Refused>(outer.cutBetween(CutPlace.AtNode(0), CutPlace.AtNode(6), others = listOf(hole)))
+        assertTrue(refused.reason.contains("node"), refused.reason)
+    }
 }

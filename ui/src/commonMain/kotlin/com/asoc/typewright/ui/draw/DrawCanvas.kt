@@ -26,8 +26,10 @@ import com.asoc.typewright.core.geometry.handleOwner
 import com.asoc.typewright.core.geometry.isRetracted
 import com.asoc.typewright.core.geometry.pointAt
 import com.asoc.typewright.core.geometry.segmentLayout
+import com.asoc.typewright.core.geometry.segments
 import com.asoc.typewright.project.PointRef
 import com.asoc.typewright.ui.addContour
+import com.asoc.typewright.ui.puck.PrimitiveShape
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.max
@@ -60,6 +62,10 @@ class DrawScene(
     val knifeMark: Vec2? = null,
     /** The nodes a tidy waiting for Apply would remove (font units): each shows as a cross on the outline. */
     val tidyRemoved: List<Point> = emptyList(),
+    /** The two ends the measure tool has been given, in font units. */
+    val measure: MeasureState? = null,
+    /** The shape being dragged out with the Primitives tool, drawn as the contour it would become. */
+    val primitive: PrimitiveShape? = null,
     /**
      * How strongly the glyph itself (its body, handles and nodes) is drawn: 1 normally, 0.3 while a radial ring
      * is open over it (S12). The metric lines, guidelines, snap targets and the selection stay at full strength (C4).
@@ -104,16 +110,11 @@ fun DrawScope.drawDrawRoom(
     drawSnapTargets(scene.snaps, space, colors)
     scene.sweep?.let { drawSweep(it, colors) }
     if (!scene.pen.isEmpty || scene.penLive != null) drawPenTrail(scene.pen, scene.penLive, space, colors)
-    // A run of a thousand removals would be a smear of crosses: one is drawn per gap, which still shows where they lie.
-    var lastCross: Offset? = null
-    for (removed in scene.tidyRemoved) {
-        val at = screenOf(space, removed.toVec2())
-        val previous = lastCross
-        if (previous != null && (at - previous).getDistance() < REMOVAL_GAP_DP.dp.toPx()) continue
-        drawRemovalCross(at, colors)
-        lastCross = at
-    }
+    // A run of a thousand removals would be a smear of crosses: TidyCrosses keeps one per gap, and the proposal says how many that is.
+    for (removed in TidyCrosses.shown(scene.tidyRemoved, space)) drawRemovalCross(screenOf(space, removed.toVec2()), colors)
     scene.knifeMark?.let { drawKnifeMark(screenOf(space, it), colors) }
+    scene.primitive?.let { drawPrimitivePreview(it, space, colors) }
+    scene.measure?.let { drawMeasure(it, space, colors) }
 }
 
 private fun DrawScope.px(v: Vec2): Offset = Offset(v.x.dp.toPx(), v.y.dp.toPx())
@@ -608,6 +609,44 @@ private fun DrawScope.drawRemovalCross(
     drawLine(colors.ink, Offset(at.x - arm, at.y + arm), Offset(at.x + arm, at.y - arm), strokeWidth = 1.5.dp.toPx())
 }
 
+/** The shape the Primitives tool would make: its outline in the construction stroke, so it reads as not yet part of the glyph. */
+private fun DrawScope.drawPrimitivePreview(
+    shape: PrimitiveShape,
+    space: DrawSpace,
+    colors: DrawColors,
+) {
+    val dash = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))
+    val path = Path()
+    for ((i, segment) in shape.contour.segments().withIndex()) {
+        val cubic = segment as? CurveSegment.Cubic ?: continue
+        val a = screenOf(space, cubic.start)
+        if (i == 0) path.moveTo(a.x, a.y)
+        val c1 = screenOf(space, cubic.control1)
+        val c2 = screenOf(space, cubic.control2)
+        val b = screenOf(space, cubic.end)
+        path.cubicTo(c1.x, c1.y, c2.x, c2.y, b.x, b.y)
+    }
+    path.close()
+    drawPath(path, colors.construction, style = Stroke(width = 1.5.dp.toPx(), pathEffect = dash))
+}
+
+/** The measure tool's ends as crosses and, once both are down, the line between them with a tick at each end. */
+private fun DrawScope.drawMeasure(
+    measure: MeasureState,
+    space: DrawSpace,
+    colors: DrawColors,
+) {
+    val first = measure.first?.let { screenOf(space, it) } ?: return
+    val second = measure.second?.let { screenOf(space, it) }
+    if (second != null) drawLine(colors.selected, first, second, strokeWidth = 1.5.dp.toPx())
+    for (end in listOfNotNull(first, second)) {
+        val arm = MEASURE_ARM.dp.toPx()
+        drawCircle(colors.canvas, arm + 2.dp.toPx(), end)
+        drawLine(colors.selected, Offset(end.x - arm, end.y), Offset(end.x + arm, end.y), strokeWidth = 1.5.dp.toPx())
+        drawLine(colors.selected, Offset(end.x, end.y - arm), Offset(end.x, end.y + arm), strokeWidth = 1.5.dp.toPx())
+    }
+}
+
 /** The knife's first cut end: a diamond ringed in the selection colour, the one place the knife has been put down. */
 private fun DrawScope.drawKnifeMark(
     at: Offset,
@@ -628,8 +667,8 @@ private fun DrawScope.drawKnifeMark(
 
 private const val PEN_CLOSE_RING = 10
 private const val REMOVAL_ARM = 4
-private const val REMOVAL_GAP_DP = 22
 private const val KNIFE_MARK_RADIUS = 7
+private const val MEASURE_ARM = 6
 private const val VERTICAL_OVERHANG_UNITS = 60.0
 private const val VERTICAL_FADE = 0.12f
 private const val FILL_SOLID_ALPHA = 0.88f

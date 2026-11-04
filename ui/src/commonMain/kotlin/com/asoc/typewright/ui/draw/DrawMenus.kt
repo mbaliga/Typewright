@@ -351,7 +351,7 @@ private fun CommandRow(
                 text = (if (command.destructive) "● " else "") + command.label,
                 style = TextStyle(fontFamily = FontFamily.Default, fontSize = 13.5.sp, color = fg.copy(alpha = strength)),
             )
-            val note = command.reason ?: command.consequence
+            val note = command.reason ?: command.consequenceText
             if (note != null) {
                 BasicText(text = note, style = Typography.mono(sizeSp = 9.5).copy(color = muted, letterSpacing = 0.04.em))
             }

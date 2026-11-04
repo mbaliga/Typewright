@@ -3,6 +3,7 @@
 package com.asoc.typewright.ui.draw
 
 import com.asoc.typewright.ui.glass.PaletteEntry
+import com.asoc.typewright.ui.puck.PrimitiveKind
 
 /**
  * The Draw room's rows in the command palette: every command of the registry as it stands for the
@@ -21,7 +22,7 @@ object DrawPalette {
                         PaletteEntry(
                             id = "draw-" + command.id,
                             label = command.label,
-                            description = command.reason ?: command.consequence ?: command.scope.title.lowercase(),
+                            description = command.reason ?: command.consequenceText ?: command.scope.title.lowercase(),
                             shortcut = command.keys,
                             run = {
                                 if (command.enabled) {
@@ -45,7 +46,24 @@ object DrawPalette {
             } else {
                 emptyList()
             }
-        return commands + steppers
+        val shapes =
+            controller
+                ?.let { c ->
+                    PrimitiveKind.ON_SHEET.map { kind ->
+                        PaletteEntry(
+                            id = "draw-shape-" + kind.name.lowercase(),
+                            label = "Draw a ${kind.label.lowercase()}",
+                            description = "pick Primitives, then drag out the box",
+                            shortcut = "S",
+                            run = {
+                                c.pickShape(kind)
+                                "Drag out a ${kind.label.lowercase()}"
+                            },
+                            closesPalette = true,
+                        )
+                    }
+                }.orEmpty()
+        return commands + shapes + steppers
     }
 
     private fun stepper(

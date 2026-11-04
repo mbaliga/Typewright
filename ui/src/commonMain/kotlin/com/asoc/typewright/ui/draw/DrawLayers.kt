@@ -143,6 +143,8 @@ fun DrawInkLayer(
                     penLive = controller?.penLive,
                     knifeMark = controller?.knife?.firstAt,
                     tidyRemoved = controller?.tidyRemoved.orEmpty(),
+                    measure = controller?.measureState?.takeIf { controller.activeTool == com.asoc.typewright.ui.puck.Tool.MEASURE },
+                    primitive = controller?.primitiveLive,
                     glyphAlpha = glyphAlpha,
                 )
             drawDrawRoom(scene, DrawSpace.of(cameraState.camera), colors)
@@ -486,6 +488,7 @@ fun drawKeyOf(key: Key): DrawKey =
         Key.D -> DrawKey.D
         Key.E -> DrawKey.E
         Key.G -> DrawKey.G
+        Key.H -> DrawKey.H
         Key.K -> DrawKey.K
         Key.L -> DrawKey.L
         Key.M -> DrawKey.M

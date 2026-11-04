@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.asoc.typewright.project.ProjectWorkspace
 import com.asoc.typewright.ui.brief.LocalOpenNewProjectBrief
+import com.asoc.typewright.ui.deck.DeckSection
 import com.asoc.typewright.ui.draw.GlyphDirectory
 import com.asoc.typewright.ui.imports.rememberFontImportPaletteEntries
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
@@ -52,6 +53,7 @@ import com.asoc.typewright.ui.project.createUntitledProject
 import com.asoc.typewright.ui.project.downloadProjectZip
 import com.asoc.typewright.ui.project.openPickedProject
 import com.asoc.typewright.ui.project.saveProjectNow
+import com.asoc.typewright.ui.shell.LocalSectionNav
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.Typography
 import com.asoc.typewright.ui.tokens.toColor
@@ -92,16 +94,17 @@ fun CommandPalette(
     val workspace = LocalProjectWorkspace.current
     val zipTransferSupported = LocalZipTransferSupported.current
     val openNewProject = LocalOpenNewProjectBrief.current
+    val sectionNav = LocalSectionNav.current
     val scope = rememberCoroutineScope()
     val fontImportEntries = rememberFontImportPaletteEntries(onDismiss)
     val canGoTo = directory != null && onGoToGlyph != null && directory.glyphs.isNotEmpty()
     val entries =
-        remember(workspace, zipTransferSupported, openNewProject, extraCommands, canGoTo, fontImportEntries) {
+        remember(workspace, zipTransferSupported, openNewProject, extraCommands, canGoTo, fontImportEntries, sectionNav) {
             extraCommands +
                 listOfNotNull(if (canGoTo) goToGlyphEntry() else null) +
                 projectPaletteEntries(workspace, zipTransferSupported, openNewProject, scope) { lastResult = it } +
                 fontImportEntries +
-                unwiredEntries()
+                checkEntry(sectionNav?.goTo)
         }
     val rows = remember(state, entries, directory) { PaletteRanking.arrange(state, entries, directory.takeIf { canGoTo }) }
     val highlighted = state.highlighted.coerceIn(0, (rows.size - 1).coerceAtLeast(0))
@@ -311,24 +314,29 @@ private fun goToGlyphEntry() =
         run = { "" },
     )
 
-/** The explorer's two rows that need features this build does not have: shown with its copy, and they say so. */
-private fun unwiredEntries(): List<PaletteEntry> =
-    listOf(
-        PaletteEntry(
-            id = "gate",
-            label = "Run the gate on this glyph",
-            description = "node economy, extrema, tangents",
-            shortcut = "⌘⏎",
-            run = null,
-        ),
-        PaletteEntry(
-            id = "compare",
-            label = "Compare with…",
-            description = "overlay another font at cap height",
-            shortcut = null,
-            run = null,
-        ),
-    )
+/**
+ * The explorer's "Run the gate on this glyph" row, wired: it opens Check, which judges every glyph of the project, this
+ * one included. Absent where there is no router to go to. The explorer's "Compare with…" row is not offered: nothing in
+ * this build overlays another font.
+ */
+private fun checkEntry(goTo: ((DeckSection) -> Unit)?): List<PaletteEntry> =
+    if (goTo == null) {
+        emptyList()
+    } else {
+        listOf(
+            PaletteEntry(
+                id = "gate",
+                label = "Run the gate on this glyph",
+                description = "opens Check: node economy, extrema, tangents",
+                shortcut = null,
+                run = {
+                    goTo(DeckSection.CHECK)
+                    "Check"
+                },
+                closesPalette = true,
+            ),
+        )
+    }
 
 /**
  * The P11 WP5 stopgap project entries (docs/PROJECT_MODEL.md §13's palette table): "New
