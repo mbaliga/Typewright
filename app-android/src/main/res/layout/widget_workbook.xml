@@ -1,0 +1,317 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- W4 Workbook (docs/SCREENS_V1.md §9.2), every size: twelve strip squares, five check lines; the as-of line is pinned last. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@android:id/background"
+    style="@style/TypewrightWidget.Root"
+    android:orientation="vertical">
+
+    <!-- Takes the height the as-of line leaves and clips what overflows it (e.g. at a large font scale),
+         so the as-of line is the last thing to leave the frame (§9.1 "States"). -->
+    <LinearLayout
+        android:id="@+id/widget_content"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/widget_label"
+            style="@style/TypewrightWidget.Text.Label" />
+
+        <TextView
+            android:id="@+id/widget_title"
+            style="@style/TypewrightWidget.Text.Title"
+            android:layout_marginTop="2dp"
+            android:maxLines="2" />
+
+        <!-- Twelve squares; the renderer gives each one its spoken name ("Task 4, current"). -->
+        <LinearLayout
+            android:id="@+id/widget_strip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/widget_strip_0"
+                tools:ignore="ContentDescription"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/widget_mark"
+                android:layout_weight="1"
+                android:scaleType="fitCenter"
+                android:src="@drawable/widget_mark_todo" />
+
+            <ImageView
+                android:id="@+id/widget_strip_1"
+                tools:ignore="ContentDescription"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/widget_mark"
+                android:layout_weight="1"
+                android:scaleType="fitCenter"
+                android:src="@drawable/widget_mark_todo" />
+
+            <ImageView
+                android:id="@+id/widget_strip_2"
+                tools:ignore="ContentDescription"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/widget_mark"
+                android:layout_weight="1"
+                android:scaleType="fitCenter"
+                android:src="@drawable/widget_mark_todo" />
+
+            <ImageView
+                android:id="@+id/widget_strip_3"
+                tools:ignore="ContentDescription"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/widget_mark"
+                android:layout_weight="1"
+                android:scaleType="fitCenter"
+                android:src="@drawable/widget_mark_todo" />
+
+            <ImageView
+                android:id="@+id/widget_strip_4"
+                tools:ignore="ContentDescription"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/widget_mark"
+                android:layout_weight="1"
+                android:scaleType="fitCenter"
+                android:src="@drawable/widget_mark_todo" />
+
+            <ImageView
+                android:id="@+id/widget_strip_5"
+                tools:ignore="ContentDescription"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/widget_mark"
+                android:layout_weight="1"
+                android:scaleType="fitCenter"
+                android:src="@drawable/widget_mark_todo" />
+
+            <ImageView
+                android:id="@+id/widget_strip_6"
+                tools:ignore="ContentDescription"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/widget_mark"
+                android:layout_weight="1"
+                android:scaleType="fitCenter"
+                android:src="@drawable/widget_mark_todo" />
+
+            <ImageView
+                android:id="@+id/widget_strip_7"
+                tools:ignore="ContentDescription"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/widget_mark"
+                android:layout_weight="1"
+                android:scaleType="fitCenter"
+                android:src="@drawable/widget_mark_todo" />
+
+            <ImageView
+                android:id="@+id/widget_strip_8"
+                tools:ignore="ContentDescription"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/widget_mark"
+                android:layout_weight="1"
+                android:scaleType="fitCenter"
+                android:src="@drawable/widget_mark_todo" />
+
+            <ImageView
+                android:id="@+id/widget_strip_9"
+                tools:ignore="ContentDescription"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/widget_mark"
+                android:layout_weight="1"
+                android:scaleType="fitCenter"
+                android:src="@drawable/widget_mark_todo" />
+
+            <ImageView
+                android:id="@+id/widget_strip_10"
+                tools:ignore="ContentDescription"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/widget_mark"
+                android:layout_weight="1"
+                android:scaleType="fitCenter"
+                android:src="@drawable/widget_mark_todo" />
+
+            <ImageView
+                android:id="@+id/widget_strip_11"
+                tools:ignore="ContentDescription"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/widget_mark"
+                android:layout_weight="1"
+                android:scaleType="fitCenter"
+                android:src="@drawable/widget_mark_todo" />
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/widget_done"
+            style="@style/TypewrightWidget.Text.Label"
+            android:layout_marginTop="@dimen/widget_gap"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/widget_gate"
+            style="@style/TypewrightWidget.Text.Body"
+            android:layout_marginTop="@dimen/widget_gap"
+            android:maxLines="2"
+            android:visibility="gone" />
+
+        <!-- The current task's checks, one per line (most urgent first), so no count is ever squeezed out. -->
+        <LinearLayout
+            android:id="@+id/widget_checks"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/widget_check_0"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="0dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone"
+                tools:ignore="UseCompoundDrawables">
+
+                <ImageView
+                    android:id="@+id/widget_check_0_mark"
+                    style="@style/TypewrightWidget.Mark"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/widget_mark_pass" />
+
+                <TextView
+                    android:id="@+id/widget_check_0_word"
+                    style="@style/TypewrightWidget.Text.Label"
+                    android:layout_width="0dp"
+                    android:layout_weight="1" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/widget_check_1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone"
+                tools:ignore="UseCompoundDrawables">
+
+                <ImageView
+                    android:id="@+id/widget_check_1_mark"
+                    style="@style/TypewrightWidget.Mark"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/widget_mark_pass" />
+
+                <TextView
+                    android:id="@+id/widget_check_1_word"
+                    style="@style/TypewrightWidget.Text.Label"
+                    android:layout_width="0dp"
+                    android:layout_weight="1" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/widget_check_2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone"
+                tools:ignore="UseCompoundDrawables">
+
+                <ImageView
+                    android:id="@+id/widget_check_2_mark"
+                    style="@style/TypewrightWidget.Mark"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/widget_mark_pass" />
+
+                <TextView
+                    android:id="@+id/widget_check_2_word"
+                    style="@style/TypewrightWidget.Text.Label"
+                    android:layout_width="0dp"
+                    android:layout_weight="1" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/widget_check_3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone"
+                tools:ignore="UseCompoundDrawables">
+
+                <ImageView
+                    android:id="@+id/widget_check_3_mark"
+                    style="@style/TypewrightWidget.Mark"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/widget_mark_pass" />
+
+                <TextView
+                    android:id="@+id/widget_check_3_word"
+                    style="@style/TypewrightWidget.Text.Label"
+                    android:layout_width="0dp"
+                    android:layout_weight="1" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/widget_check_4"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone"
+                tools:ignore="UseCompoundDrawables">
+
+                <ImageView
+                    android:id="@+id/widget_check_4_mark"
+                    style="@style/TypewrightWidget.Mark"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/widget_mark_pass" />
+
+                <TextView
+                    android:id="@+id/widget_check_4_word"
+                    style="@style/TypewrightWidget.Text.Label"
+                    android:layout_width="0dp"
+                    android:layout_weight="1" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/widget_scaffold"
+            style="@style/TypewrightWidget.Text.Label"
+            android:layout_marginTop="@dimen/widget_gap"
+            android:text="@string/widget_scaffold"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widget_as_of"
+        style="@style/TypewrightWidget.Text.Label"
+        android:layout_marginTop="@dimen/widget_gap"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/widget_message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/widget_message_title"
+            style="@style/TypewrightWidget.Text.Title"
+            android:maxLines="2" />
+
+        <TextView
+            android:id="@+id/widget_message_body"
+            style="@style/TypewrightWidget.Text.Body"
+            android:layout_marginTop="2dp" />
+    </LinearLayout>
+</LinearLayout>

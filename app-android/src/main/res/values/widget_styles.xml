@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- Home-screen widget type and frame (docs/SCREENS_V1.md §9.1): system sans and mono, all text in fg. -->
+<resources>
+    <style name="TypewrightWidget" />
+
+    <style name="TypewrightWidget.Root">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:background">@drawable/widget_background</item>
+        <item name="android:clipToOutline">true</item>
+        <item name="android:paddingStart">@dimen/widget_padding_horizontal</item>
+        <item name="android:paddingEnd">@dimen/widget_padding_horizontal</item>
+        <item name="android:paddingTop">@dimen/widget_padding_vertical</item>
+        <item name="android:paddingBottom">@dimen/widget_padding_vertical</item>
+    </style>
+
+    <style name="TypewrightWidget.Text">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/widget_fg</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:textAlignment">viewStart</item>
+    </style>
+
+    <style name="TypewrightWidget.Text.Title">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textFontWeight">600</item>
+        <item name="android:textSize">@dimen/widget_text_title</item>
+    </style>
+
+    <style name="TypewrightWidget.Text.Body">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">@dimen/widget_text_body</item>
+        <item name="android:lineSpacingMultiplier">1.2</item>
+        <item name="android:maxLines">3</item>
+    </style>
+
+    <style name="TypewrightWidget.Text.Label">
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textSize">@dimen/widget_text_label</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.14</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+    </style>
+
+    <style name="TypewrightWidget.Text.Number">
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textSize">@dimen/widget_text_number</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+    </style>
+
+    <style name="TypewrightWidget.Text.State">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textFontWeight">600</item>
+        <item name="android:textSize">@dimen/widget_text_state</item>
+    </style>
+
+    <!-- An ink block: canvas text on fg (SCREENS_V1 §9.1). -->
+    <style name="TypewrightWidget.Text.Block" parent="TypewrightWidget.Text.Label">
+        <item name="android:textColor">@color/widget_canvas</item>
+        <item name="android:background">@drawable/widget_ink_block</item>
+        <item name="android:paddingStart">8dp</item>
+        <item name="android:paddingEnd">8dp</item>
+        <item name="android:paddingTop">4dp</item>
+        <item name="android:paddingBottom">4dp</item>
+    </style>
+
+    <!-- A mark beside its word: decorative, since TalkBack reads the word. -->
+    <style name="TypewrightWidget.Mark">
+        <item name="android:layout_width">@dimen/widget_mark</item>
+        <item name="android:layout_height">@dimen/widget_mark</item>
+        <item name="android:scaleType">fitCenter</item>
+        <item name="android:importantForAccessibility">no</item>
+        <item name="android:layout_marginEnd">8dp</item>
+    </style>
+</resources>

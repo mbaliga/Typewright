@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- W5 Lineages (docs/SCREENS_V1.md §9.2), every size. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    style="@style/TypewrightWidget.Root"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:id="@+id/widget_content"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/widget_label"
+            style="@style/TypewrightWidget.Text.Label"
+            android:layout_marginBottom="2dp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:baselineAligned="true"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/widget_title"
+                style="@style/TypewrightWidget.Text.Title" />
+
+            <TextView
+                android:id="@+id/widget_era"
+                style="@style/TypewrightWidget.Text.Label"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/widget_caption"
+            style="@style/TypewrightWidget.Text.Body"
+            android:layout_marginTop="@dimen/widget_gap"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/widget_tags"
+            style="@style/TypewrightWidget.Text.Label"
+            android:layout_marginTop="@dimen/widget_gap"
+            android:maxLines="2"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/widget_tool"
+            style="@style/TypewrightWidget.Text.Body"
+            android:layout_marginTop="@dimen/widget_gap"
+            android:maxLines="2"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/widget_scaffold"
+            style="@style/TypewrightWidget.Text.Label"
+            android:layout_marginTop="@dimen/widget_gap"
+            android:text="@string/widget_scaffold"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/widget_message_title"
+            style="@style/TypewrightWidget.Text.Title"
+            android:maxLines="2" />
+
+        <TextView
+            android:id="@+id/widget_message_body"
+            style="@style/TypewrightWidget.Text.Body"
+            android:layout_marginTop="2dp" />
+    </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- W6 Shortcuts picker preview (docs/SCREENS_V1.md §9.3): the mockups' sample, never on a home screen. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    style="@style/TypewrightWidget.Root"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingTop="0dp"
+    android:paddingBottom="0dp">
+
+    <TextView
+        style="@style/TypewrightWidget.Text.Block"
+        android:layout_width="0dp"
+        android:layout_marginStart="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:minHeight="@dimen/widget_touch_target"
+        android:paddingStart="@dimen/widget_pad_inset"
+        android:paddingEnd="@dimen/widget_pad_inset"
+        android:text="@string/widget_pad_resume"
+        android:textAlignment="center" />
+
+    <TextView
+        style="@style/TypewrightWidget.Text.Block"
+        android:layout_width="0dp"
+        android:layout_marginStart="8dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:minHeight="@dimen/widget_touch_target"
+        android:paddingStart="@dimen/widget_pad_inset"
+        android:paddingEnd="@dimen/widget_pad_inset"
+        android:text="@string/widget_pad_workbook"
+        android:textAlignment="center" />
+
+    <TextView
+        style="@style/TypewrightWidget.Text.Block"
+        android:layout_width="0dp"
+        android:layout_marginStart="8dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:minHeight="@dimen/widget_touch_target"
+        android:paddingStart="@dimen/widget_pad_inset"
+        android:paddingEnd="@dimen/widget_pad_inset"
+        android:text="@string/widget_pad_learn"
+        android:textAlignment="center" />
+</LinearLayout>

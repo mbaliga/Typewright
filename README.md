@@ -11,8 +11,10 @@ Working name, pending registry clearance. Studio: A System of Cells.
 fitting, construction, qa and the node-economy corpus, and scripts with shaping. Three UI
 surfaces work: the sheet with Draw and Space, Learn, and the Workbook. The web build renders.
 No one can make a font with it end to end yet: the UI has no import, save, capture or compile
-path. The V1 prompts, P10–P19, close that gap. There is no phone or emulator in the build
-environment, so on-device behaviour is verified by the owner only and never claimed here.
+path. The V1 prompts, P10–P19, close that gap. On Android there are also six home-screen
+widgets (`docs/SCREENS_V1.md` §9, `docs/widgets.md`), compiled and unit-tested here. There is no
+phone or emulator in the build environment, so on-device behaviour, the widgets included, is
+verified by the owner only and never claimed here.
 
 Read `CLAUDE.md` (the laws) before changing anything, then `TYPEWRIGHT_BUILD_BRIEF.md` and
 `UI_SPEC.md`. Open questions live in `docs/OPEN_QUESTIONS.md`, licences in `THIRD_PARTY.md`.

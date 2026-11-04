@@ -197,6 +197,7 @@ and the deck.
 | App | Settings, theme and custom theme, haptics, reduced motion, input hints | S21 S22 | no |
 | App | About, licences, notices, privacy statement, support link | S23 | no |
 | App | Map of sections, command palette | S24, palette | partly |
+| App | Home-screen widgets on Android: Approved, Saved, Recent projects, Workbook, Lineages, Shortcuts | W1–W6 (§9) | yes (owner decision, 4 Nov 2026) |
 
 ---
 
@@ -510,3 +511,231 @@ margin and proof axis; iOS; ambient sound content.
 2. Whether Home belongs on the arc, or only behind Back.
 3. The exact close red: #D0342C (light) and #FF5A4E (dark) are proposals.
 4. Whether the primary-action circle should be filled, to tell it apart from the ⋯ ring.
+5. Whether a project's name may show on the home screen (§9.1 Privacy). A project's name is
+   also its folder's name, so until this is answered the widgets withhold it and say "Your
+   font"; they never show a folder path, a file or anything else the user wrote.
+
+---
+
+## 9. Home-screen widgets (Android)
+
+Added 4 Nov 2026 on Madhav's decision: every app gets at least five standard Android App
+Widgets that any launcher can host, written here first and then built from this section (law
+6). There are no mockup boards for them; this section is their look source, and it borrows
+only from §2–§3, UI_SPEC §2 and the explorer's `mk-*` marks. Android only: desktop and web
+have no home screen.
+
+### 9.1 Rules for every widget
+
+- **A widget is a window onto the app, not a screen of it.** It has no control deck, no back
+  circle, no toggles and no menu. Every tap opens Typewright on a screen that has the deck.
+- **It never changes anything.** No widget approves, unlocks, saves or deletes (law 1: the
+  drawing is the source of truth, and a home screen is no place to approve one).
+- **Ground and ink.** The System theme's pair (§3): **Paper** by day (canvas `#EFE9DC`, ink
+  `#17150F`, fg `#1B1915`, muted `#6F6A5E`) and **Black** by night (canvas `#000000`, ink
+  `#F3F3F0`, fg `#ECECEA`, muted `#8E8E89`), following the phone's day/night setting. A custom
+  in-app theme doesn't reach the home screen. No grain, no grid, no bloom. **All text is fg**:
+  Paper's muted measures 4.45:1 on its canvas, under UI_SPEC §6's 4.5:1 floor, so on a widget
+  secondary text is set apart by type (mono, size), never by muted ink.
+- **No meaning colour.** Nothing on a home screen is selected or being snapped to, so violet
+  and cyan never appear, and there is no red at all (C3's one red belongs to the deck). Green
+  never carries meaning. Emphasis is an **ink block** (§2.1's selection language): fg fill with
+  canvas text.
+- **Every state is a shape and a word.** The shapes are the explorer's five marks plus the ink
+  block, at 14 dp next to their word:
+
+  | Shape | Mark | Means on a widget |
+  |---|---|---|
+  | ✓ | `mk-pass` | done: approved, saved, a task done, a check passing |
+  | ◐ | `mk-warn` | part way: unlocked for editing, a change waiting to save, a check warning |
+  | ● | `mk-fail` | needs you: a save failed or conflicts, a check failing |
+  | ○ | `mk-info` | for information: read-only, an information check |
+  | ◌ | `mk-todo` | not started, or not known: not yet approved, a task to do, a save not confirmed |
+  | ■ | ink block | the current one: the task you're on, the project open now |
+
+- **Square, flat, shadowless (C2).** No surface inside a widget is round: the bar, the ink
+  blocks and the pads are square, and the explorer's state marks are glyphs, not surfaces. The
+  outer corner follows the system widget radius (Android 12 and later clip every widget to it);
+  the widget draws no outline, divider or card (S1).
+- **Type.** Titles are sans 15 sp semibold (§2.5's header). Sentences are sans 14 sp. Labels
+  and numbers are mono, uppercase, 0.14 em tracking, tabular, at 12 sp, and the main number of
+  a `stat` or `progress` widget is mono 22 sp. These are UI_SPEC's sizes raised to a home
+  screen's reading distance; nothing is under 12 sp. Every text has a line limit and ends in an
+  ellipsis, so no text runs out of the side of the frame.
+- **Three sizes each.** Each widget has a small, a medium and a large layout, and the launcher
+  picks the largest one that fits the space it really gives the widget. That space is Android's
+  own: on a typical phone in portrait a 2×1 is about 130 × 102 dp, a 4×1 about 276 × 102, a 4×2
+  about 276 × 220 and a 4×3 about 276 × 337 (landscape rows are much shorter, about 51, 117 and
+  183 dp). Each size starts where its layout fits at font scale 1, with every optional part
+  shown, so a 2×1 or 2×2 is small, a 3×2 or 4×2 medium, and a 4×3 and up large:
+
+  | Widget | Medium from | Large from |
+  |---|---|---|
+  | W1 Approved | 180 × 135 dp | 180 × 250 dp |
+  | W2 Saved | 180 × 110 dp | 180 × 250 dp |
+  | W3 Recent projects | 180 × 185 dp | 180 × 305 dp |
+  | W4 Workbook | 180 × 150 dp | 180 × 310 dp |
+  | W5 Lineages | 180 × 110 dp | 180 × 275 dp |
+  | W6 Shortcuts | 270 × 48 dp | 270 × 110 dp |
+
+  Small is everything below; Shortcuts' small is under 270 dp wide. At a larger font scale a
+  layout can be taller than its frame: then its content is cut at the bottom of its space and
+  the as-of line, pinned last, stays. Small is always one tap target, the widget's own
+  destination; it never squeezes in a control.
+- **Taps are at least 48 dp** and every tappable part has a spoken name. Marks sit beside
+  their word, and TalkBack reads the word; a mark that stands alone (the Workbook strip) has
+  its own spoken name.
+- **States.** Every widget can say, in words: **no project open** ("No project open", with
+  "Typewright reopens your last project when it starts" beneath: on Android, opening any other
+  project needs a keyboard until S01 is built, so no state sends you after it); **empty** (each
+  widget's own words below); **as of** (from medium up, every number about the open project
+  prints "as of 4 Nov, 14:02": the time Typewright last published it, with the date, so it stays
+  true without a redraw; it is the last line, pinned to the bottom); **not confirmed** (a save
+  that was waiting when Typewright stopped); and **error** ("Couldn't read the project's
+  widget data", or the Workbook's own line below). A small layout is a one-glance summary and
+  leaves the as-of line out, for want of room at two cells; a tap opens the app, and a larger
+  size shows it.
+- **Privacy.** A home screen is public. Widgets show counts, times, and the Workbook's and
+  Learn's own bundled text. A project's name is the family name you typed, and it is also its
+  folder's name (a new project is made as `<name>/`), so the widgets **withhold names**: the
+  open project is "Your font", and a recent project is its glyph count and the time it was
+  opened. Whether names may show is the owner's call (§8 item 5); until then they don't. Widgets
+  never show a folder path, a file name, a glyph's drawing, a reflection, a scrapbook note, a
+  licence line or a designer's name. Recent projects' folders stay in the app.
+- **Data.** "The open project" means the project Typewright has open, as it last published
+  it; a fixture never stands in for it. Typewright writes a small snapshot a second after each
+  change to the open project, to app storage that is never backed up, and the widgets read
+  that. With no widget placed that reads it, Typewright writes no snapshot and removes the old
+  one, and it runs the Workbook gates for the widgets only while a W4 or W6 is placed. Recent
+  projects are read from the app's own recent-projects list each time a widget redraws. Nothing
+  goes over the network; nothing is counted about you.
+- **Redraws are pushed.** A widget redraws when Typewright publishes, when the recent list
+  changes, when the language, time or time zone changes, and when a widget of its kind is first
+  placed. Two redraws are timed, each one inexact alarm that doesn't wake the phone: Lineages
+  and Shortcuts once just after local midnight (both name today's era), and Saved and Recent
+  projects about two minutes after Typewright publishes a save still waiting, again while that
+  same Typewright is still saving, so a Typewright that stopped shows ◌ Not confirmed. There is
+  no polling.
+- **No engagement mechanics.** No streaks, no "you haven't opened", no unread counts, no
+  urgency. A count is shown because it answers a question, never to pull you back.
+
+### 9.2 The widgets
+
+#### W1 Approved (`progress`)
+- **Purpose:** how much of the open project is approved and locked (law 1).
+- **Default size** 2×1; resizes from 2×1 to the whole screen.
+- **Small:** the count as approved / glyphs, e.g. `52 / 338` (mono 22 sp), the label
+  APPROVED, and a 4 dp square bar: fg for approved, line colour for the rest.
+- **Medium:** adds the title "Your font" (the project's name, once names may show), the ◐
+  Unlocked for editing row with its count (only when there are any), and the as-of line.
+- **Large:** adds three rows, each a mark, a word and a count: ✓ Approved · ◐ Unlocked for
+  editing · ◌ Not yet approved; then the as-of line.
+- **States:** no project open; empty ("No glyphs yet", with "Draw or trace your first letter"
+  beneath).
+- **Tap:** opens Typewright where you left it.
+- **Data:** the open project's glyphs in every master; approved = a lock in the `locked`
+  state; unlocked for editing = a lock in the `unlocked` state (an approved glyph with an open
+  diff).
+- **Done when:** the counts match `typewright.json`'s locks for the open project.
+
+#### W2 Saved (`stat`)
+- **Purpose:** is my work on disk?
+- **Default size** 2×1.
+- **Small:** a mark and a word, in the header's own words: ✓ Saved · ◐ Saving · ● Save
+  failed · ● Save conflict · ○ Read-only, plus ◌ Not confirmed. (The web's ○ In this tab only
+  can't happen on Android.)
+- **Medium:** adds the title ("Your font", as W1) and, last, "saved 4 Nov, 14:02" (Saved) or
+  the as-of line.
+- **Large:** adds one sentence above that line: Saved "Your changes are in the project folder." · Saving "A
+  change is waiting to be written." · Save failed "The last save failed. Open the project to see
+  why; your change is still there while Typewright runs." · Save conflict "A file changed
+  outside Typewright. Open the project to choose which to keep." · Read-only "This project is
+  open elsewhere or was made by a newer Typewright; changes here aren't saved." · Not
+  confirmed "Typewright stopped while a change was waiting to save. Open the project to check."
+- **Not confirmed** replaces ◐ Saving when the Typewright process that published it is no
+  longer running. The save check (§9.1 "Redraws") is what redraws W2 after that process stops.
+- **States:** no project open.
+- **Tap:** opens Typewright where you left it.
+- **Data:** the open project's save status (`ProjectSession.saveStatus`).
+
+#### W3 Recent projects (`list`)
+- **Purpose:** S01's recent list, at a glance.
+- **Default size** 4×2.
+- **Small:** the most recent project's row title, with the label RECENT.
+- **Medium:** the label RECENT and three rows, each 48 dp tall. **Large:** five rows, then "4
+  more in Typewright" when there are more.
+- **Row:** while names are withheld (§9.1 Privacy), the glyph count, "338 glyphs" (sans 15 sp
+  semibold, one line), over a mono line, "OPENED 4 NOV 14:02"; a project the list has no count
+  for is "Opened 4 Nov, 14:02". Once names may show: the name over "338 GLYPHS · OPENED 4 NOV
+  14:02". The project open in a running Typewright carries an OPEN ink block at the row's end.
+  Most recently opened first.
+- **States:** empty: "No projects yet", with "Projects you open in Typewright show here"
+  beneath; error: "Couldn't read your recent projects", with "This list redraws when
+  Typewright next opens a project".
+- **Tap:** a row opens that project, as S01's row does. The open project is closed only once
+  the tapped one has opened, so one whose folder has moved, whose access was lost, or that
+  can't be read says so in the app, in one line, and the app stays as it was, undo history
+  included. The label opens Typewright where you left it.
+- **Known gap:** OPEN is drawn from the running Typewright at each redraw. If Typewright is
+  swiped away with nothing waiting to save, nothing redraws W3, so OPEN stays on that row until
+  the next redraw; Typewright reopens that project when it next starts.
+- **Data:** the app's `recent-projects.json` (glyph count from its summary). Its outlier
+  count isn't measured yet, so no widget shows it (law 5). No folder or path is ever shown.
+
+#### W4 Workbook (`progress`)
+- **Purpose:** where the open project stands in the Latin Workbook (S19).
+- **Default size** 4×2.
+- **Small:** the label TASK 4 OF 12 and the task's title.
+- **Medium:** the label WORKBOOK · EARLY, the title "Task 4 · Control characters", a strip of
+  twelve squares (✓ done, ■ current, ◌ to do; each one spoken, "Task 4, current"), and "3 of
+  12 done".
+- **Large:** adds the current task's gate in up to two lines ("Gate · node economy against
+  the box"), then its checks, one per line, each a mark and a count, most urgent first ("● 3
+  fail", "✓ 1 pass"; a check Typewright can't measure, such as a judgment call, shows "◌ 1 not
+  measured"), and SCAFFOLD when the task's text is scaffold.
+- **States:** no project open (§9.1); error ("Couldn't run the Workbook gates"); not worked
+  out ("Workbook not worked out yet", with "Typewright works it out the next time it has a
+  project open": no W4 or W6 was placed when the project was last published); as-of line on
+  medium and large.
+- **Tap:** opens the Workbook.
+- **Data:** the twelve tasks (`workbook-latin.yaml`), each gate run for real on the open
+  project's default master, against the project's own style class when the corpus has it
+  (else `sans-geometric`), plus the confirmed tasks in `typewright.json`. The same rule as
+  S19: tasks are done in order.
+
+#### W5 Lineages (`card`)
+- **Purpose:** one era from Learn's Lineages, a different one each day.
+- **Default size** 4×2.
+- **Small:** the era's name (title) and its date (mono), e.g. "Didone · C. 1790".
+- **Medium:** adds the label LINEAGES · 4 OF 10 and the caption, two lines.
+- **Large:** the caption up to five lines, the three feature tags as a mono line, "made with
+  the pointed pen, then the compass", and SCAFFOLD when the scene is scaffold.
+- **Which era:** the ten era scenes in their play order, one per local day, in turn. It
+  doesn't track whether you read it.
+- **States:** none beyond error; it needs no project.
+- **Tap:** opens Learn.
+- **Data:** `scenes/lineages/*.yaml`, the same scenes the Lineages tab plays.
+
+#### W6 Shortcuts (`pads`)
+- **Purpose:** one tap to the three places Typewright has.
+- **Default size** 4×1. Small is anything under 270 dp wide (three pads need it: WORKBOOK in
+  mono with its tracking is about 71 dp); medium starts at 270 × 48 dp; large starts at
+  270 × 110 dp. Shortcuts has no top or bottom padding, so its pads keep 48 dp in a one-row
+  widget.
+- **Small:** one pad, RESUME.
+- **Medium:** three pads in a row: RESUME · WORKBOOK · LEARN, each a square ink block
+  (canvas text), at least 48 dp tall.
+- **Large:** the same three pads, each with a mono line beneath: YOUR FONT when a project is
+  open (its name, once names may show) or TYPEWRIGHT, the current task ("TASK 4 · CONTROL
+  CHARACTERS", or "LATIN WORKBOOK"), and today's era ("LINEAGES · DIDONE"), which turns just
+  after local midnight with W5.
+- **Tap:** RESUME opens Typewright where you left it; WORKBOOK opens the Workbook; LEARN opens
+  Learn.
+- **Data:** as W1, W4 and W5.
+
+### 9.3 Picker previews
+
+Each widget's picker preview is its medium layout with the mockups' sample (338 glyphs, Task 4
+· Control characters, Didone), drawn as the widget draws it today, names withheld ("Your font",
+recent projects by glyph count), shown only in the launcher's widget picker and never on a home
+screen.

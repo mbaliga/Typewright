@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- W5 Lineages picker preview (docs/SCREENS_V1.md §9.3): the mockups' sample, never on a home screen. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    style="@style/TypewrightWidget.Root"
+    android:orientation="vertical">
+
+    <TextView
+        style="@style/TypewrightWidget.Text.Label"
+        android:text="@string/widget_preview_era_label" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:orientation="horizontal">
+
+        <TextView
+            style="@style/TypewrightWidget.Text.Title"
+            android:text="@string/widget_preview_era_title" />
+
+        <TextView
+            style="@style/TypewrightWidget.Text.Label"
+            android:layout_marginStart="8dp"
+            android:text="@string/widget_preview_era_date" />
+    </LinearLayout>
+
+    <TextView
+        style="@style/TypewrightWidget.Text.Body"
+        android:layout_marginTop="@dimen/widget_gap"
+        android:maxLines="2"
+        android:text="@string/widget_preview_era_caption" />
+</LinearLayout>

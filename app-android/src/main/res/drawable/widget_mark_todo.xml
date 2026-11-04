@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- mk-todo: a dashed ring (r 4.4, dashes 2.2 / 2.2), drawn as six arcs because vectors have no dash. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="12dp"
+    android:height="12dp"
+    android:viewportWidth="12"
+    android:viewportHeight="12">
+    <path
+        android:pathData="M6,1.6 A4.4,4.4 0 0,1 8.2,2.189 M9.811,3.8 A4.4,4.4 0 0,1 10.4,6 M9.811,8.2 A4.4,4.4 0 0,1 8.2,9.811 M6,10.4 A4.4,4.4 0 0,1 3.8,9.811 M2.189,8.2 A4.4,4.4 0 0,1 1.6,6 M2.189,3.8 A4.4,4.4 0 0,1 3.8,2.189"
+        android:strokeColor="@color/widget_fg"
+        android:strokeWidth="1.2" />
+</vector>

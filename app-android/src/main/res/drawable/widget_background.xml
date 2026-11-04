@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- The widget's ground: the canvas, clipped to the launcher's own corner radius (SCREENS_V1 §9.1). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/widget_canvas" />
+    <corners android:radius="@android:dimen/system_app_widget_background_radius" />
+</shape>

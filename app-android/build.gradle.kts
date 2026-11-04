@@ -51,6 +51,9 @@ dependencies {
     // storage, and MainActivity's picker is AndroidFolderPicker.
     implementation(project(":project"))
     implementation(project(":project:storage"))
+    // The home-screen widgets (docs/SCREENS_V1.md §9): W4 runs the Workbook's gates on the open
+    // project (campaign, which brings qa and qa:corpus), and W5 reads Learn's Lineages scenes.
+    implementation(project(":campaign"))
     implementation(libs.androidx.activity.compose)
 
     testImplementation(libs.kotlin.test.junit)

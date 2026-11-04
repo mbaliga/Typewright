@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- Home-screen widget colours at night (docs/SCREENS_V1.md §9.1): the System theme's night texture, Black (UI_SPEC §2). -->
+<resources>
+    <color name="widget_canvas">#000000</color>
+    <color name="widget_fg">#ECECEA</color>
+    <!-- Black's line token: white at 22%. -->
+    <color name="widget_line">#38FFFFFF</color>
+</resources>

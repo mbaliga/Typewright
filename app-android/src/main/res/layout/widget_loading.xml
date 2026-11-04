@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- Every widget's first frame, before its data is read. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    style="@style/TypewrightWidget.Root"
+    android:gravity="center_vertical"
+    android:orientation="vertical">
+
+    <TextView
+        style="@style/TypewrightWidget.Text.Label"
+        android:text="@string/widget_loading" />
+</LinearLayout>

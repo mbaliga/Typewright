@@ -130,6 +130,13 @@ class ProjectWorkspace(
         updateRecents { list -> withResume(list, session.store.location, resume) }
     }
 
+    /**
+     * Reads recents from the app config without opening anything, and publishes them on [recents].
+     * For readers outside the UI (home-screen widgets) that need the list in a process where no
+     * project has been opened yet. Serialised with the writers, so a read never overwrites a newer list.
+     */
+    suspend fun loadRecentProjects(): List<RecentProject> = recentsMutex.withLock { loadRecents().projects }
+
     /** Removes [location] from recents (a SAF grant, if any, is released by the storage layer). */
     suspend fun forget(location: ProjectLocation) {
         updateRecents { list -> withoutLocation(list, location) }
