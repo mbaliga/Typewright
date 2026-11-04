@@ -50,11 +50,15 @@ class FontImportControllerTest {
         private val onPick: suspend () -> PickResult,
     ) : FontFilePicker {
         var cancelledWhilePicking = false
+
+        @Volatile
+        var entered = false
         override val canPickUfoFolder: Boolean get() = true
         override val ufoFolderUnavailableReason: String? get() = null
 
         override suspend fun pickFont(): PickResult =
             try {
+                entered = true
                 onPick()
             } catch (e: kotlinx.coroutines.CancellationException) {
                 cancelledWhilePicking = true
@@ -227,10 +231,12 @@ class FontImportControllerTest {
             val h = Harness(picker)
             h.controller.openFont(DeckSection.HOME)
             assertIs<ImportState.Picking>(h.stateNow())
+            // Close only once the picker is really waiting: a close before it starts has nothing to cancel.
+            withTimeout(10_000) { while (!picker.entered) kotlinx.coroutines.delay(5) }
             h.controller.close()
             assertEquals(ImportState.Idle, h.stateNow())
             withTimeout(10_000) {
-                while (!picker.cancelledWhilePicking) kotlinx.coroutines.yield()
+                while (!picker.cancelledWhilePicking) kotlinx.coroutines.delay(5)
             }
 
             h.controller.trySample(DeckSection.HOME)
@@ -338,7 +344,7 @@ class FontImportControllerTest {
             assertEquals(DeckSection.DRAW, auditing.from, "the second request took the first one's place")
             assertEquals("Poppins-Regular.ttf", auditing.review.fileName)
             assertEquals(2, calls.get())
-            withTimeout(10_000) { while (!picker.cancelledWhilePicking) kotlinx.coroutines.yield() }
+            withTimeout(10_000) { while (!picker.cancelledWhilePicking) kotlinx.coroutines.delay(5) }
             h.controller.cancel()
         }
 
