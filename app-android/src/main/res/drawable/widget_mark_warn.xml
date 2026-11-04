@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- mk-warn: a ring with its right half filled. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="12dp"
+    android:height="12dp"
+    android:viewportWidth="12"
+    android:viewportHeight="12">
+    <path
+        android:pathData="M1.4,6 a4.6,4.6 0 1,0 9.2,0 a4.6,4.6 0 1,0 -9.2,0"
+        android:strokeColor="@color/widget_fg"
+        android:strokeWidth="1.5" />
+    <path
+        android:pathData="M6,1.4 a4.6,4.6 0 0,1 0,9.2 z"
+        android:fillColor="@color/widget_fg" />
+</vector>

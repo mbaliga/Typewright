@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- Home-screen widget sizes (docs/SCREENS_V1.md §9.1 "Type"). -->
+<resources>
+    <dimen name="widget_padding_horizontal">14dp</dimen>
+    <dimen name="widget_padding_vertical">12dp</dimen>
+    <dimen name="widget_gap">6dp</dimen>
+    <dimen name="widget_mark">14dp</dimen>
+    <dimen name="widget_mark_large">18dp</dimen>
+    <dimen name="widget_touch_target">48dp</dimen>
+    <!-- A Shortcuts pad's label inset: the block is the whole pad, so its text needs only a hairline. -->
+    <dimen name="widget_pad_inset">2dp</dimen>
+    <dimen name="widget_bar">4dp</dimen>
+    <dimen name="widget_text_title">15sp</dimen>
+    <dimen name="widget_text_body">14sp</dimen>
+    <dimen name="widget_text_label">12sp</dimen>
+    <dimen name="widget_text_number">22sp</dimen>
+    <dimen name="widget_text_state">18sp</dimen>
+</resources>

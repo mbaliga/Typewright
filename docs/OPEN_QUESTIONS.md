@@ -3261,3 +3261,51 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     every pushed commit confirms `UnifiedDiff.kt` first appears already in its shipped form).
 
     *Madhav, as sole licensor.*
+
+## Home-screen widgets (owner decision, 4 Nov 2026; outside P10–P19)
+
+131. **A project's name on the home screen.** A home screen is public, a font's working name
+    can say who made it, and a project's name is also its folder's name (`ProjectWorkspace.create`
+    makes `<name>/`; the palette's new project is `Untitled/`). So the widgets ship with names
+    **withheld**: W1, W2 and W6 say "Your font", and W3 shows each recent project as its glyph
+    count and the time it was opened. Never a folder path, file, outline, reflection or note.
+    Say whether names may show; if yes, `WidgetPrivacy.projectNames` becomes `SHOWN` (one value;
+    the widgets are tested both ways) and SCREENS_V1 §9.1 "Privacy" changes with it (§8 item 5).
+    A per-widget choice would need a configure screen §9 doesn't have yet.
+
+    *Madhav.*
+
+132. **W4 and the Workbook screen can disagree until P12.** W4 runs the Workbook's real gates on
+    the open project, as CLAUDE.md's "your font means the open project" requires. The Workbook
+    screen still runs them on the Hyle Deco sample (`loadWorkbookCampaignSnapshot`), so tapping
+    W4 can open a Workbook showing different progress. P12's step 2 (the Workbook gates read the
+    open project) closes this; until then `docs/widgets.md` says so.
+
+    *lead, P12.*
+
+133. **Paper's muted text is 4.45:1 on its canvas.** UI_SPEC §6 sets 4.5:1 as the floor for
+    chrome text, "muted text is the floor". `#6F6A5E` on `#EFE9DC` measures 4.45:1 (Black's
+    muted is 6.38:1). The widgets avoid it and set every text in fg; the app's own screens still
+    use it. The theme guardrail (SCREENS_V1 §3.2) would refuse this pair in a custom theme. A
+    token change is a P13 theme decision.
+
+    *Madhav, P13.*
+
+134. **A widget can open a recent project, which the UI can't yet do by touch.** A W3 row opens
+    its project through `TypewrightApplication.openRecentFromWidget`: it checks the folder is
+    reachable, opens the tapped project, and only once that has worked closes the one it
+    replaces, so a project that won't open leaves the app as it was, undo history included. It
+    holds `MainActivity`'s UI on the plain canvas until then, so `TypewrightApp`'s reopen-last
+    can't open a second session beside it. On this path the replaced project's recent-list
+    summary isn't refreshed (`ProjectWorkspace` updates it only in `closeCurrent`, which would
+    have to run first). The palette's own "Open project…" calls `workspace.open` without closing
+    the session it replaces at all. When P13's router and S01 land, this belongs to them, and
+    `ProjectWorkspace` may want a "switch to" that does both in order.
+
+    *lead, P13.*
+
+135. **No mockup boards for the widgets.** SCREENS_V1 §9 is text only, built from §2–§3, UI_SPEC
+    §2 and the explorer's marks, because `ui/v1-screens/` is still absent (item 123) and has no
+    widget boards. If the widgets should look different, edit the Design canvas and §9 together.
+
+    *Madhav.*

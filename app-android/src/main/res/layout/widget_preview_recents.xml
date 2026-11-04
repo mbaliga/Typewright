@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- W3 Recent projects picker preview (docs/SCREENS_V1.md §9.3): the mockups' sample, never on a home screen. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    style="@style/TypewrightWidget.Root"
+    android:orientation="vertical">
+
+    <TextView
+        style="@style/TypewrightWidget.Text.Label"
+        android:text="@string/widget_recents_label" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:baselineAligned="false"
+        android:minHeight="@dimen/widget_touch_target"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                style="@style/TypewrightWidget.Text.Title"
+                android:text="@string/widget_preview_recent_title" />
+
+            <TextView
+                style="@style/TypewrightWidget.Text.Label"
+                android:text="@string/widget_preview_recent_meta" />
+        </LinearLayout>
+
+        <TextView
+            style="@style/TypewrightWidget.Text.Block"
+            android:layout_marginStart="8dp"
+            android:text="@string/widget_recents_open" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:minHeight="@dimen/widget_touch_target"
+        android:orientation="vertical">
+
+        <TextView
+            style="@style/TypewrightWidget.Text.Title"
+            android:text="@string/widget_preview_recent_title_2" />
+
+        <TextView
+            style="@style/TypewrightWidget.Text.Label"
+            android:text="@string/widget_preview_recent_meta_2" />
+    </LinearLayout>
+</LinearLayout>

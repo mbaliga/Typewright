@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- Picker preview for launchers that don't draw previewLayout: the canvas, an ink block and a bar. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="80dp"
+    android:viewportWidth="160"
+    android:viewportHeight="80">
+    <path
+        android:pathData="M0,0 h160 v80 h-160 z"
+        android:fillColor="#EFE9DC" />
+    <path
+        android:pathData="M14,14 h64 v18 h-64 z"
+        android:fillColor="#1B1915" />
+    <path
+        android:pathData="M14,58 h132 v4 h-132 z"
+        android:fillColor="#3317150F" />
+    <path
+        android:pathData="M14,58 h52 v4 h-52 z"
+        android:fillColor="#1B1915" />
+</vector>

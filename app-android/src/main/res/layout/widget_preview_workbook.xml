@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- W4 Workbook picker preview (docs/SCREENS_V1.md §9.3): the mockups' sample, never on a home screen. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    style="@style/TypewrightWidget.Root"
+    android:orientation="vertical">
+
+    <TextView
+        style="@style/TypewrightWidget.Text.Label"
+        android:text="@string/widget_workbook_label" />
+
+    <TextView
+        style="@style/TypewrightWidget.Text.Title"
+        android:layout_marginTop="2dp"
+        android:text="@string/widget_preview_task_title" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="@dimen/widget_mark"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitCenter"
+            android:src="@drawable/widget_mark_pass" />
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="@dimen/widget_mark"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitCenter"
+            android:src="@drawable/widget_mark_pass" />
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="@dimen/widget_mark"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitCenter"
+            android:src="@drawable/widget_mark_pass" />
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="@dimen/widget_mark"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitCenter"
+            android:src="@drawable/widget_mark_block" />
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="@dimen/widget_mark"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitCenter"
+            android:src="@drawable/widget_mark_todo" />
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="@dimen/widget_mark"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitCenter"
+            android:src="@drawable/widget_mark_todo" />
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="@dimen/widget_mark"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitCenter"
+            android:src="@drawable/widget_mark_todo" />
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="@dimen/widget_mark"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitCenter"
+            android:src="@drawable/widget_mark_todo" />
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="@dimen/widget_mark"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitCenter"
+            android:src="@drawable/widget_mark_todo" />
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="@dimen/widget_mark"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitCenter"
+            android:src="@drawable/widget_mark_todo" />
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="@dimen/widget_mark"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitCenter"
+            android:src="@drawable/widget_mark_todo" />
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="@dimen/widget_mark"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitCenter"
+            android:src="@drawable/widget_mark_todo" />
+    </LinearLayout>
+
+    <TextView
+        style="@style/TypewrightWidget.Text.Label"
+        android:layout_marginTop="@dimen/widget_gap"
+        android:text="@string/widget_preview_task_done" />
+</LinearLayout>

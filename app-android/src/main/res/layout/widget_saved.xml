@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- W2 Saved (docs/SCREENS_V1.md §9.2), every size; the saved or as-of line is pinned last. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@android:id/background"
+    style="@style/TypewrightWidget.Root"
+    android:orientation="vertical">
+
+    <!-- Takes the height the as-of line leaves and clips what overflows it (e.g. at a large font scale),
+         so the as-of line is the last thing to leave the frame (§9.1 "States"). -->
+    <LinearLayout
+        android:id="@+id/widget_content"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/widget_title"
+            style="@style/TypewrightWidget.Text.Title"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            tools:ignore="UseCompoundDrawables">
+
+            <ImageView
+                android:id="@+id/widget_state_mark"
+                style="@style/TypewrightWidget.Mark"
+                android:importantForAccessibility="no"
+                android:layout_width="@dimen/widget_mark_large"
+                android:layout_height="@dimen/widget_mark_large"
+                android:src="@drawable/widget_mark_pass" />
+
+            <TextView
+                android:id="@+id/widget_state_word"
+                style="@style/TypewrightWidget.Text.State" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/widget_sentence"
+            style="@style/TypewrightWidget.Text.Body"
+            android:layout_marginTop="@dimen/widget_gap"
+            android:maxLines="4"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widget_when"
+        style="@style/TypewrightWidget.Text.Label"
+        android:layout_marginTop="@dimen/widget_gap"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/widget_message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/widget_message_title"
+            style="@style/TypewrightWidget.Text.Title"
+            android:maxLines="2" />
+
+        <TextView
+            android:id="@+id/widget_message_body"
+            style="@style/TypewrightWidget.Text.Body"
+            android:layout_marginTop="2dp" />
+    </LinearLayout>
+</LinearLayout>

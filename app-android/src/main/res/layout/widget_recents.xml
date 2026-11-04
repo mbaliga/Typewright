@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- W3 Recent projects (docs/SCREENS_V1.md §9.2): up to five fixed rows, unused rows hidden. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    style="@style/TypewrightWidget.Root"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:id="@+id/widget_content"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/widget_label"
+            style="@style/TypewrightWidget.Text.Label"
+            android:text="@string/widget_recents_label" />
+
+        <LinearLayout
+            android:id="@+id/widget_recent_0"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:minHeight="@dimen/widget_touch_target"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/widget_recent_0_name"
+                    style="@style/TypewrightWidget.Text.Title" />
+
+                <TextView
+                    android:id="@+id/widget_recent_0_meta"
+                    style="@style/TypewrightWidget.Text.Label" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/widget_recent_0_open"
+                style="@style/TypewrightWidget.Text.Block"
+                android:layout_marginStart="8dp"
+                android:text="@string/widget_recents_open"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_recent_1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:minHeight="@dimen/widget_touch_target"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/widget_recent_1_name"
+                    style="@style/TypewrightWidget.Text.Title" />
+
+                <TextView
+                    android:id="@+id/widget_recent_1_meta"
+                    style="@style/TypewrightWidget.Text.Label" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/widget_recent_1_open"
+                style="@style/TypewrightWidget.Text.Block"
+                android:layout_marginStart="8dp"
+                android:text="@string/widget_recents_open"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_recent_2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:minHeight="@dimen/widget_touch_target"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/widget_recent_2_name"
+                    style="@style/TypewrightWidget.Text.Title" />
+
+                <TextView
+                    android:id="@+id/widget_recent_2_meta"
+                    style="@style/TypewrightWidget.Text.Label" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/widget_recent_2_open"
+                style="@style/TypewrightWidget.Text.Block"
+                android:layout_marginStart="8dp"
+                android:text="@string/widget_recents_open"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_recent_3"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:minHeight="@dimen/widget_touch_target"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/widget_recent_3_name"
+                    style="@style/TypewrightWidget.Text.Title" />
+
+                <TextView
+                    android:id="@+id/widget_recent_3_meta"
+                    style="@style/TypewrightWidget.Text.Label" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/widget_recent_3_open"
+                style="@style/TypewrightWidget.Text.Block"
+                android:layout_marginStart="8dp"
+                android:text="@string/widget_recents_open"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_recent_4"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:minHeight="@dimen/widget_touch_target"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/widget_recent_4_name"
+                    style="@style/TypewrightWidget.Text.Title" />
+
+                <TextView
+                    android:id="@+id/widget_recent_4_meta"
+                    style="@style/TypewrightWidget.Text.Label" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/widget_recent_4_open"
+                style="@style/TypewrightWidget.Text.Block"
+                android:layout_marginStart="8dp"
+                android:text="@string/widget_recents_open"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/widget_more"
+            style="@style/TypewrightWidget.Text.Label"
+            android:layout_marginTop="@dimen/widget_gap"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/widget_message_title"
+            style="@style/TypewrightWidget.Text.Title"
+            android:maxLines="2" />
+
+        <TextView
+            android:id="@+id/widget_message_body"
+            style="@style/TypewrightWidget.Text.Body"
+            android:layout_marginTop="2dp" />
+    </LinearLayout>
+</LinearLayout>

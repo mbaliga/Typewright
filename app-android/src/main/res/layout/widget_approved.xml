@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- W1 Approved (docs/SCREENS_V1.md §9.2), every size: the renderer shows the parts each size has; the as-of line is pinned last. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    style="@style/TypewrightWidget.Root"
+    android:orientation="vertical">
+
+    <!-- Takes the height the as-of line leaves and clips what overflows it (e.g. at a large font scale),
+         so the as-of line is the last thing to leave the frame (§9.1 "States"). -->
+    <LinearLayout
+        android:id="@+id/widget_content"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/widget_title"
+            style="@style/TypewrightWidget.Text.Title"
+            android:layout_marginBottom="2dp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:baselineAligned="true"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/widget_value"
+                style="@style/TypewrightWidget.Text.Number" />
+
+            <TextView
+                android:id="@+id/widget_label"
+                style="@style/TypewrightWidget.Text.Label"
+                android:layout_marginStart="8dp"
+                android:importantForAccessibility="no"
+                android:text="@string/widget_approved_label" />
+        </LinearLayout>
+
+        <ProgressBar
+            android:id="@+id/widget_bar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/widget_bar"
+            android:layout_marginTop="@dimen/widget_gap"
+            android:importantForAccessibility="no"
+            android:indeterminate="false"
+            android:maxHeight="@dimen/widget_bar"
+            android:minHeight="@dimen/widget_bar"
+            android:progressDrawable="@drawable/widget_bar" />
+
+        <LinearLayout
+            android:id="@+id/widget_row_approved"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/widget_gap"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/widget_row_approved_mark"
+                style="@style/TypewrightWidget.Mark"
+                android:importantForAccessibility="no"
+                android:src="@drawable/widget_mark_pass" />
+
+            <TextView
+                android:id="@+id/widget_row_approved_word"
+                style="@style/TypewrightWidget.Text.Body"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:maxLines="1" />
+
+            <TextView
+                android:id="@+id/widget_row_approved_count"
+                style="@style/TypewrightWidget.Text.Label"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_row_unlocked"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/widget_gap"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/widget_row_unlocked_mark"
+                style="@style/TypewrightWidget.Mark"
+                android:importantForAccessibility="no"
+                android:src="@drawable/widget_mark_pass" />
+
+            <TextView
+                android:id="@+id/widget_row_unlocked_word"
+                style="@style/TypewrightWidget.Text.Body"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:maxLines="1" />
+
+            <TextView
+                android:id="@+id/widget_row_unlocked_count"
+                style="@style/TypewrightWidget.Text.Label"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_row_not_yet"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/widget_gap"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/widget_row_not_yet_mark"
+                style="@style/TypewrightWidget.Mark"
+                android:importantForAccessibility="no"
+                android:src="@drawable/widget_mark_pass" />
+
+            <TextView
+                android:id="@+id/widget_row_not_yet_word"
+                style="@style/TypewrightWidget.Text.Body"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:maxLines="1" />
+
+            <TextView
+                android:id="@+id/widget_row_not_yet_count"
+                style="@style/TypewrightWidget.Text.Label"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widget_as_of"
+        style="@style/TypewrightWidget.Text.Label"
+        android:layout_marginTop="@dimen/widget_gap"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/widget_message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/widget_message_title"
+            style="@style/TypewrightWidget.Text.Title"
+            android:maxLines="2" />
+
+        <TextView
+            android:id="@+id/widget_message_body"
+            style="@style/TypewrightWidget.Text.Body"
+            android:layout_marginTop="2dp" />
+    </LinearLayout>
+</LinearLayout>

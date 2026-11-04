@@ -84,6 +84,30 @@ class ProjectWorkspaceTest {
         }
 
     @Test
+    fun loadRecentProjectsReadsTheSavedListWithoutOpeningAnything() =
+        runTest {
+            val storage = FakeStorageProvider()
+            val config = InMemoryAppConfigStore()
+            val writer = ProjectWorkspace(storage, config) { Fixtures.env(backgroundScope) }
+            writer.create(root, spec("First"))
+            writer.closeCurrent()
+
+            val reader = ProjectWorkspace(storage, config) { Fixtures.env(backgroundScope) }
+            assertTrue(reader.recents.value.isEmpty())
+            val loaded = reader.loadRecentProjects()
+            assertEquals(listOf("First"), loaded.map { it.name })
+            assertEquals(loaded, reader.recents.value)
+            assertNull(reader.current.value)
+        }
+
+    @Test
+    fun loadRecentProjectsWithNoConfigIsEmpty() =
+        runTest {
+            val (workspace, _) = workspace(backgroundScope)
+            assertTrue(workspace.loadRecentProjects().isEmpty())
+        }
+
+    @Test
     fun closeCurrentClosesAndClearsCurrent() =
         runTest {
             val (workspace, _) = workspace(backgroundScope)

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- Home-screen widget colours (docs/SCREENS_V1.md §9.1): the System theme's day texture, Paper (UI_SPEC §2). -->
+<resources>
+    <color name="widget_canvas">#EFE9DC</color>
+    <color name="widget_fg">#1B1915</color>
+    <!-- Paper's line token: ink #17150F at 20%. -->
+    <color name="widget_line">#3317150F</color>
+</resources>

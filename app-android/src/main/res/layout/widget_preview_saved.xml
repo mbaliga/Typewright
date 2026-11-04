@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- W2 Saved picker preview (docs/SCREENS_V1.md §9.3): the mockups' sample, never on a home screen. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@android:id/background"
+    style="@style/TypewrightWidget.Root"
+    android:orientation="vertical">
+
+    <TextView
+        style="@style/TypewrightWidget.Text.Title"
+        android:text="@string/widget_your_font" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        tools:ignore="UseCompoundDrawables">
+
+        <ImageView
+            style="@style/TypewrightWidget.Mark"
+            android:importantForAccessibility="no"
+            android:layout_width="@dimen/widget_mark_large"
+            android:layout_height="@dimen/widget_mark_large"
+            android:src="@drawable/widget_mark_pass" />
+
+        <TextView
+            style="@style/TypewrightWidget.Text.State"
+            android:text="@string/widget_saved_saved" />
+    </LinearLayout>
+
+    <TextView
+        style="@style/TypewrightWidget.Text.Label"
+        android:layout_marginTop="@dimen/widget_gap"
+        android:text="@string/widget_preview_saved_at" />
+</LinearLayout>

@@ -14,6 +14,101 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+            Home-screen widgets (docs/SCREENS_V1.md §9). A launcher binds them, so they are
+            exported, as every App Widget provider must be. Each also redraws when the time,
+            time zone or language changes, because they print dates and their own words.
+        -->
+        <receiver
+            android:name=".widget.ApprovedWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_approved_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_approved" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.SavedWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_saved_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_saved" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.RecentsWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_recents_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_recents" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.WorkbookWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_workbook_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_workbook" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.LineagesWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_lineages_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_lineages" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.ShortcutsWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_shortcuts_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_shortcuts" />
+        </receiver>
     </application>
 
 </manifest>

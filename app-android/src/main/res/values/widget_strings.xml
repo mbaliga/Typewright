@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: FSL-1.1-ALv2 -->
+<!-- Home-screen widget copy, from docs/SCREENS_V1.md §9. Labels are drawn uppercase by their views. -->
+<resources>
+    <!-- Picker names and descriptions. -->
+    <string name="widget_approved_name">Approved</string>
+    <string name="widget_approved_description">How many of the open project\'s glyphs are approved</string>
+    <string name="widget_saved_name">Saved</string>
+    <string name="widget_saved_description">Whether the open project\'s changes are on disk</string>
+    <string name="widget_recents_name">Recent projects</string>
+    <string name="widget_recents_description">Your recent projects; tap one to open it</string>
+    <string name="widget_workbook_name">Workbook</string>
+    <string name="widget_workbook_description">Where the open project stands in the Workbook</string>
+    <string name="widget_lineages_name">Lineages</string>
+    <string name="widget_lineages_description">One era from Learn\'s Lineages, a different one each day</string>
+    <string name="widget_shortcuts_name">Shortcuts</string>
+    <string name="widget_shortcuts_description">Resume, the Workbook and Learn, one tap each</string>
+
+    <!-- States every widget can be in (§9.1 "States"). -->
+    <string name="widget_loading">Typewright</string>
+    <string name="widget_no_project_title">No project open</string>
+    <string name="widget_no_project_body">Typewright reopens your last project when it starts</string>
+    <!-- The open project's title while names are withheld (§9.1 Privacy; OPEN_QUESTIONS 131). -->
+    <string name="widget_your_font">Your font</string>
+    <string name="widget_unreadable_title">Couldn\'t read the project\'s widget data</string>
+    <string name="widget_unreadable_body">Open Typewright to refresh it</string>
+    <string name="widget_as_of">as of %1$s</string>
+
+    <!-- W1 Approved. -->
+    <string name="widget_approved_label">Approved</string>
+    <string name="widget_approved_value">%1$s / %2$s</string>
+    <string name="widget_approved_spoken">%1$s of %2$s glyphs approved</string>
+    <string name="widget_approved_row_approved">Approved</string>
+    <string name="widget_approved_row_unlocked">Unlocked for editing</string>
+    <string name="widget_approved_row_not_yet">Not yet approved</string>
+    <string name="widget_approved_empty_title">No glyphs yet</string>
+    <string name="widget_approved_empty_body">Draw or trace your first letter</string>
+
+    <!-- W2 Saved: the header's own words, then one sentence each. -->
+    <string name="widget_saved_saved">Saved</string>
+    <string name="widget_saved_saving">Saving</string>
+    <string name="widget_saved_failed">Save failed</string>
+    <string name="widget_saved_conflict">Save conflict</string>
+    <string name="widget_saved_read_only">Read-only</string>
+    <string name="widget_saved_tab_only">In this tab only</string>
+    <string name="widget_saved_not_confirmed">Not confirmed</string>
+    <string name="widget_saved_at">saved %1$s</string>
+    <string name="widget_saved_sentence_saved">Your changes are in the project folder.</string>
+    <string name="widget_saved_sentence_saving">A change is waiting to be written.</string>
+    <string name="widget_saved_sentence_failed">The last save failed. Open the project to see why; your change is still there while Typewright runs.</string>
+    <string name="widget_saved_sentence_conflict">A file changed outside Typewright. Open the project to choose which to keep.</string>
+    <string name="widget_saved_sentence_read_only">This project is open elsewhere or was made by a newer Typewright; changes here aren\'t saved.</string>
+    <string name="widget_saved_sentence_tab_only">This project lives in memory only; export it to keep it.</string>
+    <string name="widget_saved_sentence_not_confirmed">Typewright stopped while a change was waiting to save. Open the project to check.</string>
+
+    <!-- W3 Recent projects. -->
+    <string name="widget_recents_label">Recent</string>
+    <string name="widget_recents_opened">opened %1$s</string>
+    <string name="widget_recents_opened_title">Opened %1$s</string>
+    <string name="widget_recents_meta">%1$s · %2$s</string>
+    <string name="widget_recents_open">Open</string>
+    <string name="widget_recents_row_spoken">Open %1$s. %2$s</string>
+    <string name="widget_recents_row_spoken_open">Open %1$s. %2$s. Open now</string>
+    <string name="widget_recents_row_spoken_withheld">Open recent project. %1$s</string>
+    <string name="widget_recents_row_spoken_withheld_open">Open recent project. %1$s. Open now</string>
+    <string name="widget_recents_empty_title">No projects yet</string>
+    <string name="widget_recents_empty_body">Projects you open in Typewright show here</string>
+    <string name="widget_recents_error_title">Couldn\'t read your recent projects</string>
+    <string name="widget_recents_error_body">This list redraws when Typewright next opens a project</string>
+    <plurals name="widget_glyph_count">
+        <item quantity="one">%1$s glyph</item>
+        <item quantity="other">%1$s glyphs</item>
+    </plurals>
+    <plurals name="widget_recents_more">
+        <item quantity="one">%1$s more in Typewright</item>
+        <item quantity="other">%1$s more in Typewright</item>
+    </plurals>
+
+    <!-- W4 Workbook. -->
+    <string name="widget_workbook_label">Workbook · Early</string>
+    <string name="widget_workbook_task_of">Task %1$d of %2$d</string>
+    <string name="widget_workbook_title">Task %1$d · %2$s</string>
+    <string name="widget_workbook_task_done">Task %1$d, done</string>
+    <string name="widget_workbook_task_current">Task %1$d, current</string>
+    <string name="widget_workbook_task_todo">Task %1$d, to do</string>
+    <plurals name="widget_workbook_done">
+        <item quantity="one">%1$d of %2$d done</item>
+        <item quantity="other">%1$d of %2$d done</item>
+    </plurals>
+    <plurals name="widget_workbook_check_fail">
+        <item quantity="one">%1$d fail</item>
+        <item quantity="other">%1$d fail</item>
+    </plurals>
+    <plurals name="widget_workbook_check_warn">
+        <item quantity="one">%1$d warn</item>
+        <item quantity="other">%1$d warn</item>
+    </plurals>
+    <plurals name="widget_workbook_check_pass">
+        <item quantity="one">%1$d pass</item>
+        <item quantity="other">%1$d pass</item>
+    </plurals>
+    <plurals name="widget_workbook_check_info">
+        <item quantity="one">%1$d info</item>
+        <item quantity="other">%1$d info</item>
+    </plurals>
+    <plurals name="widget_workbook_check_not_measured">
+        <item quantity="one">%1$d not measured</item>
+        <item quantity="other">%1$d not measured</item>
+    </plurals>
+    <string name="widget_workbook_gate">Gate · %1$s</string>
+    <string name="widget_scaffold">Scaffold</string>
+    <string name="widget_workbook_not_run_title">Workbook not worked out yet</string>
+    <string name="widget_workbook_not_run_body">Typewright works it out the next time it has a project open</string>
+    <string name="widget_workbook_error_title">Couldn\'t run the Workbook gates</string>
+    <string name="widget_workbook_error_body">Open the Workbook in Typewright</string>
+
+    <!-- W5 Lineages. -->
+    <string name="widget_lineages_label">Lineages · %1$d of %2$d</string>
+    <string name="widget_lineages_made_with">Made with %1$s</string>
+    <string name="widget_lineages_error_title">Couldn\'t load Lineages</string>
+    <string name="widget_lineages_error_body">Open Learn in Typewright</string>
+
+    <!-- W6 Shortcuts. -->
+    <string name="widget_pad_resume">Resume</string>
+    <string name="widget_pad_workbook">Workbook</string>
+    <string name="widget_pad_learn">Learn</string>
+    <string name="widget_pad_resume_default">Typewright</string>
+    <string name="widget_pad_workbook_default">Latin workbook</string>
+    <string name="widget_pad_learn_era">Lineages · %1$s</string>
+    <string name="widget_pad_learn_default">Lineages</string>
+
+    <!-- What the app says when a recent-project tap can't open it (§9.2 W3). -->
+    <string name="widget_open_not_in_recents">That project is no longer in your recent list.</string>
+    <string name="widget_open_missing">%1$s\'s folder was moved or deleted.</string>
+    <string name="widget_open_no_access">Typewright needs access to %1$s\'s folder again. On Android, granting it needs a keyboard for now.</string>
+    <string name="widget_open_failed">Couldn\'t open %1$s. %2$s</string>
+    <string name="widget_open_not_a_project">%1$s isn\'t a Typewright project any more.</string>
+
+    <!-- Picker previews only (§9.3): the mockups' Hyle Deco sample, never shown on a home screen. -->
+    <string name="widget_preview_recent_title" translatable="false">338 glyphs</string>
+    <string name="widget_preview_recent_title_2" translatable="false">212 glyphs</string>
+    <string name="widget_preview_approved_value" translatable="false">52 / 338</string>
+    <string name="widget_preview_as_of" translatable="false">as of 4 Nov, 14:02</string>
+    <string name="widget_preview_saved_at" translatable="false">saved 4 Nov, 14:02</string>
+    <string name="widget_preview_recent_meta" translatable="false">opened 4 Nov, 14:02</string>
+    <string name="widget_preview_recent_meta_2" translatable="false">opened 3 Nov, 09:40</string>
+    <string name="widget_preview_task_title" translatable="false">Task 4 · Control characters</string>
+    <string name="widget_preview_task_done" translatable="false">3 of 12 done</string>
+    <string name="widget_preview_era_label" translatable="false">Lineages · 4 of 10</string>
+    <string name="widget_preview_era_title" translatable="false">Didone</string>
+    <string name="widget_preview_era_date" translatable="false">c. 1790</string>
+    <string name="widget_preview_era_caption" translatable="false">Bodoni and Didot. Vertical stress, hairline serifs, maximum contrast. Type stops imitating the hand.</string>
+</resources>
