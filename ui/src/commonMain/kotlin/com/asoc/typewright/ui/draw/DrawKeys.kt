@@ -78,6 +78,9 @@ sealed interface DrawKeyAction {
 
     data object Tidy : DrawKeyAction
 
+    /** Ctrl Shift K: split the contour at the selected places, or arm the knife. */
+    data object Split : DrawKeyAction
+
     data object CorrectDirection : DrawKeyAction
 
     data object ReverseContour : DrawKeyAction
@@ -203,6 +206,7 @@ object DrawKeyMap {
                     DrawKey.Z -> DrawKeyAction.Redo
                     DrawKey.E -> DrawKeyAction.AddExtremes
                     DrawKey.Y -> DrawKeyAction.Tidy
+                    DrawKey.K -> DrawKeyAction.Split
                     DrawKey.R -> DrawKeyAction.CorrectDirection
                     DrawKey.B -> DrawKeyAction.BreakHandles
                     DrawKey.A -> DrawKeyAction.AlignToMetric

@@ -162,8 +162,8 @@ class DrawControllerTest {
         val controller = controller(host)
         val touch = space.toScreen(Vec2(350.0, 400.0))
         controller.onOutput(CanvasOutput.HoldOpened(Hit.OnPoint(PointRef(0, 6), true, 0.0), touch), frame(PointerKind.TOUCH))
-        // Left and a little down: the sector across the hub is on the right, where the node's ring has no command.
-        val away = Vec2(touch.x - 50.0, touch.y + 5.0)
+        // Right and a little down: the sector across the hub is on the left, Tangent's, which is not built so the ring leaves it empty.
+        val away = Vec2(touch.x + 50.0, touch.y + 5.0)
         controller.onOutput(CanvasOutput.HeldMoved(away), frame(PointerKind.TOUCH))
         controller.onOutput(CanvasOutput.HeldReleased(away), frame(PointerKind.TOUCH))
         assertEquals(0, host.thumps, "nothing ran, so nothing thumps")

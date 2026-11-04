@@ -3,13 +3,23 @@
 package com.asoc.typewright.ui.draw
 
 import com.asoc.typewright.core.geometry.Contour
+import com.asoc.typewright.core.geometry.ContourCutResult
 import com.asoc.typewright.core.geometry.CurveFormat
+import com.asoc.typewright.core.geometry.CutPlace
+import com.asoc.typewright.core.geometry.DEFAULT_SIMPLIFY_TOLERANCE_UNITS
+import com.asoc.typewright.core.geometry.Direction
 import com.asoc.typewright.core.geometry.Glyph
+import com.asoc.typewright.core.geometry.PenClosed
+import com.asoc.typewright.core.geometry.PenPath
 import com.asoc.typewright.core.geometry.Point
+import com.asoc.typewright.core.geometry.TidyReport
+import com.asoc.typewright.core.geometry.cutBetween
+import com.asoc.typewright.core.geometry.direction
 import com.asoc.typewright.core.geometry.enforceContourDirections
 import com.asoc.typewright.core.geometry.reverse
 import com.asoc.typewright.core.geometry.segmentLayout
 import com.asoc.typewright.core.geometry.tidied
+import com.asoc.typewright.core.geometry.tidyReport
 import com.asoc.typewright.core.geometry.withExtremesAdded
 import com.asoc.typewright.core.geometry.withHandlesRemoved
 import com.asoc.typewright.core.geometry.withNodeDeleted
@@ -33,6 +43,7 @@ import com.asoc.typewright.project.SetAdvance
 import com.asoc.typewright.project.SetSidebearings
 import com.asoc.typewright.project.Unlock
 import kotlin.math.abs
+import kotlin.math.floor
 
 /** What an edit did, in the terms the screen needs to answer with. */
 sealed interface EditOutcome {
@@ -78,6 +89,29 @@ sealed interface EditPlan {
     data class Blocked(
         val reason: String,
     ) : EditPlan
+}
+
+/**
+ * A tidy worked out but not made: the plan that would make it and the [report] that measured it. [text] is the
+ * line shown before it is applied ("1,252 → 12 nodes · outline within 1.5 units (our heuristic)").
+ */
+data class TidyPreview(
+    val report: TidyReport,
+    val plan: EditPlan.Change,
+) {
+    val text: String
+        get() =
+            "${grouped(report.before.onCurveEquivalent)} → ${grouped(report.after.onCurveEquivalent)} nodes · " +
+                "outline within ${report.toleranceUnits} units (our heuristic)"
+
+    private fun grouped(n: Int): String {
+        val digits = n.toString()
+        return digits
+            .reversed()
+            .chunked(3)
+            .joinToString(",")
+            .reversed()
+    }
 }
 
 /** What a drag update did. */
@@ -514,6 +548,104 @@ class DrawEditor(
         t: Double,
     ): EditOutcome = perform(planAddNode(key, t))
 
+    // ---- the pen -----------------------------------------------------------------------------
+
+    /**
+     * Closes the pen [path] into a new contour of [format], wound the way an outer (or, inside another
+     * contour, an inner) contour of that format winds, and adds it to the glyph as one step. Blocked, with the
+     * reason, when the path cannot be closed into a shape yet.
+     */
+    fun planPen(
+        path: PenPath,
+        closingPull: Point?,
+        format: CurveFormat,
+    ): EditPlan =
+        planning {
+            val current = glyph ?: return@planning EditPlan.Blocked("There is no glyph to edit.")
+            when (val closed = path.closed(closingPull, format)) {
+                is PenClosed.Refused -> {
+                    EditPlan.Blocked(closed.why.reason)
+                }
+
+                is PenClosed.Shape -> {
+                    var contour = closed.contour
+                    val inner = current.contours.any { DrawSubject.encloses(it, contour) }
+                    // A traced TrueType outline winds clockwise outside and anticlockwise inside; a UFO's the other way round.
+                    val wantAnticlockwise = (format == CurveFormat.CUBIC) != inner
+                    if (wantAnticlockwise != (contour.direction() == Direction.COUNTER_CLOCKWISE)) contour = contour.reverse()
+                    EditPlan.Change("Draw contour", current.contours + contour, DrawSelection.EMPTY)
+                }
+            }
+        }
+
+    // ---- the knife -----------------------------------------------------------------------------
+
+    /**
+     * Cuts contour [contour] in two along the straight line between [a] and [b] (places on its outline), as one
+     * step: the two pieces replace it in the glyph's contour list, side by side. Blocked, with the reason, where the
+     * cut would cross the outline, leave the shape, leave a piece with no area, or the contour is not cubic.
+     */
+    fun planCut(
+        contour: Int,
+        a: CutPlace,
+        b: CutPlace,
+    ): EditPlan =
+        planning {
+            val current = glyph ?: return@planning EditPlan.Blocked("There is no glyph to edit.")
+            val target = current.contours.getOrNull(contour) ?: return@planning EditPlan.Blocked(SEGMENT_GONE)
+            val others = current.contours.filterIndexed { i, _ -> i != contour }
+            when (val result = target.cutBetween(a, b, others)) {
+                is ContourCutResult.Refused -> {
+                    EditPlan.Blocked(result.reason)
+                }
+
+                is ContourCutResult.Cut -> {
+                    val contours = current.contours.toMutableList()
+                    contours[contour] = result.first
+                    contours.add(contour + 1, result.second)
+                    EditPlan.Change("Split contour", contours, DrawSelection.EMPTY, "Split into two contours along a straight cut.")
+                }
+            }
+        }
+
+    fun cutContour(
+        contour: Int,
+        a: CutPlace,
+        b: CutPlace,
+    ): EditOutcome = perform(planCut(contour, a, b))
+
+    /**
+     * The cut the [selection] already names: exactly two nodes of one contour (or one node and a picked spot on a side
+     * of it) are the two ends. Null when the selection does not name a cut (fewer than two places), in which case the
+     * knife is armed instead and waits for taps.
+     */
+    fun planSplit(selection: DrawSelection): EditPlan? {
+        val places = splitPlaces(selection)
+        if (places.size < 2) return null
+        val (c0, a) = places[0]
+        val (c1, b) = places[1]
+        if (places.size > 2) return EditPlan.Blocked("A cut has two ends; select two nodes.")
+        if (c0 != c1) return EditPlan.Blocked("Both ends of a cut must be on the same contour.")
+        return planCut(c0, a, b)
+    }
+
+    /** The cut places [selection] names: its on-curve nodes, then the spot picked on a side, each with its contour. */
+    fun splitPlaces(selection: DrawSelection): List<Pair<Int, CutPlace>> {
+        val current = glyph ?: return emptyList()
+        val nodes =
+            selection.points
+                .sortedWith(compareBy({ it.contour }, { it.point }))
+                .filter {
+                    current.contours
+                        .getOrNull(it.contour)
+                        ?.points
+                        ?.getOrNull(it.point)
+                        ?.onCurve == true
+                }.map { it.contour to CutPlace.AtNode(it.point) }
+        val spot = selection.segment?.let { it.contour to CutPlace.OnSegment(it.segment, selection.segmentT) }
+        return nodes + listOfNotNull(spot)
+    }
+
     // ---- contours and the glyph --------------------------------------------------------------
 
     /** Reverses the selected contours (or every contour when none is selected). */
@@ -570,14 +702,32 @@ class DrawEditor(
     /** Removes nodes that do not change the shape, from the selected contours (cubic outlines only). */
     fun planTidy(selection: DrawSelection): EditPlan = planning { computeTidy(selection) }
 
+    /**
+     * The tidy of the selected contours worked out on a copy, with the count before and after and how far the
+     * shape would move (measured, within [TIDY_TOLERANCE_UNITS], which is our heuristic), or null when there is nothing to tidy.
+     */
+    fun tidyPreview(selection: DrawSelection): TidyPreview? {
+        val plan = planTidy(selection) as? EditPlan.Change ?: return null
+        val current = glyph ?: return null
+        val report = current.tidyReport(contoursFor(current, selection).filter { current.contours[it].format == CurveFormat.CUBIC }.toSet())
+        return TidyPreview(report, plan)
+    }
+
     private fun computeTidy(selection: DrawSelection): EditPlan {
         val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
         if (current.contours.isEmpty()) return EditPlan.Blocked("There is no contour to work on.")
         val which = contoursFor(current, selection).filter { current.contours[it].format == CurveFormat.CUBIC }
         if (which.isEmpty()) return EditPlan.Blocked("Tidying needs a cubic outline; this glyph's contours are quadratic.")
-        val contours = current.contours.mapIndexed { i, c -> if (i in which) c.tidied().contour else c }
-        if (contours == current.contours) return EditPlan.Blocked("Nothing to tidy: every node is needed.")
-        return EditPlan.Change("Tidy", contours, DrawSelection.EMPTY)
+        val report = current.tidyReport(which.toSet(), TIDY_TOLERANCE_UNITS)
+        if (report.contours == current.contours) return EditPlan.Blocked("Nothing to tidy: every node is needed.")
+        val counts = "${report.before.onCurveEquivalent} → ${report.after.onCurveEquivalent}"
+        val note = "Tidied $counts nodes; the outline moved at most ${oneDecimal(report.maxShift)} units."
+        return EditPlan.Change("Tidy", report.contours, DrawSelection.EMPTY, note)
+    }
+
+    private fun oneDecimal(value: Double): String {
+        val tenths = floor(value * 10.0 + 0.5).toInt()
+        return "${tenths / 10}.${tenths % 10}"
     }
 
     fun tidy(selection: DrawSelection): EditOutcome = perform(planTidy(selection))
@@ -766,6 +916,9 @@ class DrawEditor(
     companion object {
         /** How far a node may be from a metric line, in font units, and still align to it (the V1 menu says "within 20 units"). */
         const val ALIGN_WITHIN_UNITS: Double = 20.0
+
+        /** How far, at most, tidying may move the outline, in font units: our heuristic (not a measured distribution). */
+        const val TIDY_TOLERANCE_UNITS: Double = DEFAULT_SIMPLIFY_TOLERANCE_UNITS
 
         private const val MIN_INSERT_T = 0.04
         private const val SEGMENT_GONE = "That segment is gone."

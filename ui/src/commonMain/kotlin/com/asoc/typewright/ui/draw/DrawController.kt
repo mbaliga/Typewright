@@ -6,13 +6,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.asoc.typewright.core.geometry.CurveFormat
-import com.asoc.typewright.core.geometry.Direction
+import com.asoc.typewright.core.geometry.CutPlace
 import com.asoc.typewright.core.geometry.Glyph
+import com.asoc.typewright.core.geometry.PenAnchor
+import com.asoc.typewright.core.geometry.PenClosed
+import com.asoc.typewright.core.geometry.PenPath
+import com.asoc.typewright.core.geometry.PenRefusal
 import com.asoc.typewright.core.geometry.Point
 import com.asoc.typewright.core.geometry.Vec2
-import com.asoc.typewright.core.geometry.direction
-import com.asoc.typewright.core.geometry.polygonContour
-import com.asoc.typewright.core.geometry.reverse
+import com.asoc.typewright.core.geometry.pointAt
+import com.asoc.typewright.core.geometry.segmentLayout
 import com.asoc.typewright.core.geometry.sidebearings
 import com.asoc.typewright.project.PointRef
 import com.asoc.typewright.project.ProjectSession
@@ -42,11 +45,24 @@ sealed interface DrawNotice {
         val serial: Long,
     ) : DrawNotice
 
+    /** An edit worked out but not made, with its measured effect in [text]: the screen offers Apply and Cancel (a tidy shows "n → m" here). */
+    data class Proposal(
+        val text: String,
+        val serial: Long,
+    ) : DrawNotice
+
     /** The glyph is locked: the screen says so and offers Unlock. */
     data class Locked(
         val glyph: String,
     ) : DrawNotice
 }
+
+/** The knife's state: armed, with the first end of the cut once it has been placed. */
+data class KnifeState(
+    val contour: Int? = null,
+    val first: CutPlace? = null,
+    val firstAt: Vec2? = null,
+)
 
 /** The numbers a finger drag shows above itself so the finger never covers them (INTERACTION_V1 T1). */
 data class Readout(
@@ -133,7 +149,21 @@ class DrawController(
     var radial: RadialUi? by mutableStateOf(null)
     var menu: MenuUi? by mutableStateOf(null)
     var notice: DrawNotice? by mutableStateOf(null)
-    var penPoints: List<Vec2> by mutableStateOf(emptyList())
+    var penPath: PenPath by mutableStateOf(PenPath())
+
+    /** The point being dragged out right now (pen down, handles being pulled), shown as a live preview. */
+    var penLive: PenAnchor? by mutableStateOf(null)
+
+    /** The anchors waiting in the pen's path, in font units. */
+    val penPoints: List<Vec2> get() = penPath.anchors.map { Vec2(it.point.x.toDouble(), it.point.y.toDouble()) }
+
+    /** The knife, once armed: the first place of a cut when it has been tapped, and where it is in font units. */
+    var knife: KnifeState? by mutableStateOf(null)
+
+    /** The nodes a tidy waiting for Apply would remove, in font units, drawn as crosses on the outline. */
+    var tidyRemoved: List<Point> by mutableStateOf(emptyList())
+    private var pendingTidy: Pair<DrawSelection, TidyPreview>? = null
+    private var penDragFrom: Vec2? = null
     var hover: Hit? by mutableStateOf(null)
     var recent: List<String> by mutableStateOf(emptyList())
 
@@ -197,6 +227,8 @@ class DrawController(
         snaps = emptyList()
         readout = null
         sweep = null
+        penDragFrom = null
+        penLive = null
         if (radial?.state is RadialState.Sweeping) radial = null
     }
 
@@ -206,6 +238,10 @@ class DrawController(
     ) {
         if (overlayOpen) {
             closeOverlays()
+            return
+        }
+        if (knife != null) {
+            knifeTap(output.hit, frame)
             return
         }
         if (!toolIsConnected(frame.tool)) return
@@ -222,6 +258,11 @@ class DrawController(
 
     private fun doubleTap(output: CanvasOutput.DoubleTap) {
         val current = glyph ?: return
+        if (knife != null) {
+            // Two quick taps on one place with the knife armed are the "same place twice" of a cut: a node and no cut.
+            lastFrame?.let { knifeTap(output.hit, it) }
+            return
+        }
         when (val hit = output.hit) {
             is Hit.OnPoint -> selection = selection.wholeContour(current, hit.ref.contour)
             is Hit.OnSegment -> selection = selection.wholeContour(current, hit.key.contour)
@@ -351,6 +392,13 @@ class DrawController(
 
     private fun beginSweep(output: CanvasOutput.BeginSweep) {
         if (overlayOpen) return
+        val frame = lastFrame
+        if (frame != null && frame.tool == Tool.PEN && knife == null) {
+            // With the pen a drag from empty canvas pulls handles out of the new point; it is not a selection sweep.
+            penDragFrom = output.from
+            penLive = null
+            return
+        }
         sweepPoints = mutableListOf(output.from)
         sweepLasso = output.lasso
         sweepAdditive = output.additive
@@ -358,6 +406,14 @@ class DrawController(
     }
 
     private fun moveSweep(output: CanvasOutput.SweepMoved) {
+        val from = penDragFrom
+        val frame = lastFrame
+        if (from != null && frame != null) {
+            val anchor = penPointAt(from, frame)
+            val pull = penPullTo(anchor, output.to, frame)
+            penLive = PenAnchor(anchor, pull.takeIf { it.x != 0 || it.y != 0 })
+            return
+        }
         val shape = sweep ?: return
         if (sweepLasso) sweepPoints.add(output.to)
         sweep = SweepShape(shape.from, output.to, if (sweepLasso) sweepPoints.toList() else null)
@@ -367,6 +423,13 @@ class DrawController(
         output: CanvasOutput.EndSweep,
         frame: DrawFrame,
     ) {
+        val penFrom = penDragFrom
+        if (penFrom != null) {
+            penDragFrom = null
+            penLive = null
+            if (output.committed) penPlace(penFrom, output.to, frame)
+            return
+        }
         val shape = sweep
         sweep = null
         val current = glyph
@@ -536,34 +599,65 @@ class DrawController(
         hit: Hit,
         frame: DrawFrame,
     ) {
-        val current = glyph ?: return
-        val font = frame.space.toFont(position)
-        val point = Vec2(floor(font.x + 0.5), floor(font.y + 0.5))
-        val first = penPoints.firstOrNull()
-        val closesLoop =
-            first != null && penPoints.size >= MIN_PEN_POINTS &&
-                (frame.space.toScreen(first) - position).length() <= PEN_CLOSE_DP
-        if (closesLoop) {
-            finishPen(current)
-            return
-        }
         if (hit is Hit.OnPoint) return
-        penPoints = penPoints + point
+        penPlace(position, position, frame)
     }
 
-    private fun finishPen(current: Glyph) {
-        val points = penPoints.map { Point(it.x.toInt(), it.y.toInt()) }
-        penPoints = emptyList()
-        if (points.size < MIN_PEN_POINTS) return
-        val format = current.contours.firstOrNull()?.format ?: projectFormat()
-        var contour = polygonContour(points, format)
-        val inner = current.contours.any { DrawSubject.encloses(it, contour) }
-        // A traced TrueType outline winds clockwise outside and anticlockwise inside; a UFO's the other way round.
-        val wantAnticlockwise = (format == CurveFormat.CUBIC) != inner
-        val isAnticlockwise = contour.direction() == Direction.COUNTER_CLOCKWISE
-        if (wantAnticlockwise != isAnticlockwise) contour = contour.reverse()
-        applied(editor.perform(EditPlan.Change("Draw contour", current.contours + contour, DrawSelection.EMPTY)))
+    /** Where a pointer at [screen] puts a pen point: the nearest whole font unit. */
+    private fun penPointAt(
+        screen: Vec2,
+        frame: DrawFrame,
+    ): Point {
+        val font = frame.space.toFont(screen)
+        return Point(floor(font.x + 0.5).toInt(), floor(font.y + 0.5).toInt())
     }
+
+    /** How far the handle was pulled, in whole font units, from the new point to where the pointer is now. */
+    private fun penPullTo(
+        anchor: Point,
+        to: Vec2,
+        frame: DrawFrame,
+    ): Point {
+        val end = penPointAt(to, frame)
+        return Point(end.x - anchor.x, end.y - anchor.y)
+    }
+
+    /** The pen pointer went down at [from] and came up at [to] (the same place for a click): a corner, or a smooth point if it was pulled. */
+    private fun penPlace(
+        from: Vec2,
+        to: Vec2,
+        frame: DrawFrame?,
+    ) {
+        frame ?: return
+        val anchor = penPointAt(from, frame)
+        val dragged = (to - from).length() > PEN_DRAG_DP
+        val pull = if (dragged) penPullTo(anchor, to, frame).takeIf { it.x != 0 || it.y != 0 } else null
+        val first = penPath.anchors.firstOrNull()
+        val nearFirst = first != null && (frame.space.toScreen(first.point.toVec2()) - from).length() <= PEN_CLOSE_DP
+        if (nearFirst && penPath.anchors.size >= 2) {
+            val closed = penPath.closed(pull, projectFormat())
+            // Two plain corners are not a shape yet: the click is another point, not a close.
+            if (closed !is PenClosed.Refused || closed.why != PenRefusal.TOO_FEW) {
+                finishPen(pull)
+                return
+            }
+        }
+        penPath = penPath.plus(anchor, pull)
+    }
+
+    /** Closes the path in progress into a contour and adds it to the glyph, as one step; the path stays when it cannot close, so the person can go on. */
+    fun finishPen(closingPull: Point? = null) {
+        val plan = editor.planPen(penPath, closingPull, glyphFormat())
+        if (plan is EditPlan.Blocked) {
+            notice = toast(plan.reason)
+            return
+        }
+        val outcome = editor.perform(plan)
+        if (outcome !is EditOutcome.Locked) penPath = PenPath()
+        applied(outcome)
+    }
+
+    private fun glyphFormat(): CurveFormat = glyph?.contours?.firstOrNull()?.format ?: projectFormat()
 
     private fun projectFormat(): CurveFormat {
         val master =
@@ -573,7 +667,148 @@ class DrawController(
     }
 
     fun cancelPen() {
-        penPoints = emptyList()
+        penPath = PenPath()
+        penLive = null
+        penDragFrom = null
+    }
+
+    override fun penInProgress(): Boolean = !penPath.isEmpty
+
+    /** Undo while the pen is drawing steps back one point first, so a mis-click costs one point and the history is untouched. */
+    override fun stepBackPen(): Boolean {
+        if (penPath.isEmpty) return false
+        penPath = penPath.withoutLast()
+        return true
+    }
+
+    // ---- the knife ---------------------------------------------------------------------------
+
+    /** Arms the knife for taps; a node or a picked spot already selected is the first end of the cut. */
+    override fun startKnife() {
+        val places = editor.splitPlaces(selection)
+        val first = places.firstOrNull()
+        knife = KnifeState(first?.first, first?.second, first?.let { placePosition(it.first, it.second) })
+        closeOverlays()
+        say(
+            if (first == null) {
+                "Knife: tap where the cut starts, then where it ends. Esc puts the knife down."
+            } else {
+                "Knife: tap where the cut ends. Tap the same place again to add a node only. Esc puts the knife down."
+            },
+        )
+    }
+
+    private fun placePosition(
+        contour: Int,
+        place: CutPlace,
+    ): Vec2? {
+        val c = glyph?.contours?.getOrNull(contour) ?: return null
+        return when (place) {
+            is CutPlace.AtNode -> {
+                c.points
+                    .getOrNull(place.pointIndex)
+                    ?.point
+                    ?.toVec2()
+            }
+
+            is CutPlace.OnSegment -> {
+                c
+                    .segmentLayout()
+                    .getOrNull(place.segment)
+                    ?.segment
+                    ?.pointAt(place.t)
+            }
+        }
+    }
+
+    private fun knifeTap(
+        hit: Hit,
+        frame: DrawFrame,
+    ) {
+        val current = glyph ?: return
+        val state = knife ?: return
+        val picked: Triple<Int, CutPlace, Vec2>? =
+            when (hit) {
+                is Hit.OnPoint -> {
+                    val point = current.contours[hit.ref.contour].points[hit.ref.point]
+                    if (point.onCurve) Triple(hit.ref.contour, CutPlace.AtNode(hit.ref.point), point.point.toVec2()) else null
+                }
+
+                is Hit.OnSegment -> {
+                    Triple(hit.key.contour, CutPlace.OnSegment(hit.key.segment, hit.t), hit.at)
+                }
+
+                Hit.Nothing -> {
+                    null
+                }
+            }
+        if (picked == null) {
+            say("Tap the outline itself, on a node or on a curve, not on empty canvas or a handle.")
+            return
+        }
+        val (contour, place, at) = picked
+        val first = state.first
+        val firstAt = state.firstAt
+        if (first == null || firstAt == null || state.contour == null) {
+            knife = KnifeState(contour, place, at)
+            return
+        }
+        if (state.contour != contour) {
+            say("Both ends of a cut must be on the same contour.")
+            return
+        }
+        if ((frame.space.toScreen(firstAt) - frame.space.toScreen(at)).length() <= KNIFE_SAME_DP) {
+            // The same place twice: no cut, only the node.
+            if (place is CutPlace.OnSegment) {
+                knife = null
+                applied(editor.addNode(SegmentKey(contour, place.segment), place.t))
+            } else {
+                say("That is already a node. Tap a different place to cut.")
+            }
+            return
+        }
+        val outcome = editor.cutContour(contour, first, place)
+        // A refused cut leaves the knife armed with its first end, so the person can pick a different second place.
+        if (outcome is EditOutcome.Done) knife = null
+        applied(outcome)
+    }
+
+    // ---- tidy with the live count ----------------------------------------------------------------
+
+    /** Works out the tidy of what is selected, shows "n → m" and the nodes that would go, and waits for Apply. */
+    override fun proposeTidy() {
+        if (editor.isLocked) {
+            applied(EditOutcome.Locked(glyph?.name ?: ""))
+            return
+        }
+        val preview = editor.tidyPreview(selection)
+        if (preview == null) {
+            applied(editor.perform(editor.planTidy(selection)))
+            return
+        }
+        pendingTidy = selection to preview
+        tidyRemoved = preview.report.removed
+        closeOverlays()
+        notice = DrawNotice.Proposal("Tidy · ${preview.text}", ++toastSerial)
+    }
+
+    /** Apply on the tidy proposal: worked out again against the outline as it is now, and made only if it still says the same. */
+    fun applyProposal() {
+        val (chosen, shown) = pendingTidy ?: return
+        pendingTidy = null
+        tidyRemoved = emptyList()
+        val fresh = editor.tidyPreview(chosen)
+        if (fresh == null || fresh.report.after != shown.report.after || fresh.report.removed != shown.report.removed) {
+            notice = toast("The outline changed since the count was shown. Ask for Tidy again.")
+            return
+        }
+        applied(editor.perform(fresh.plan))
+    }
+
+    fun dismissProposal() {
+        pendingTidy = null
+        tidyRemoved = emptyList()
+        if (notice is DrawNotice.Proposal) notice = null
     }
 
     // ---- keys --------------------------------------------------------------------------------
@@ -587,6 +822,7 @@ class DrawController(
         val current = glyph
         when (action) {
             is DrawKeyAction.PickTool -> {
+                if (action.tool != Tool.PEN) cancelPen()
                 host.pickTool(action.tool)
             }
 
@@ -595,7 +831,7 @@ class DrawController(
             }
 
             DrawKeyAction.Undo -> {
-                editor.undo()
+                if (!stepBackPen()) editor.undo()
                 afterHistory()
             }
 
@@ -617,7 +853,15 @@ class DrawController(
             }
 
             DrawKeyAction.Tidy -> {
-                applied(editor.tidy(selection))
+                proposeTidy()
+            }
+
+            DrawKeyAction.Split -> {
+                DrawCommands
+                    .build(DrawCommandContext(editor, selection, metrics(), this))
+                    .firstOrNull { it.id == "split" }
+                    ?.takeIf { it.enabled }
+                    ?.let(::run) ?: applied(EditOutcome.Locked(glyph?.name ?: ""))
             }
 
             DrawKeyAction.CorrectDirection -> {
@@ -706,7 +950,9 @@ class DrawController(
     private fun escape() {
         when {
             overlayOpen -> closeOverlays()
-            penPoints.isNotEmpty() -> cancelPen()
+            pendingTidy != null -> dismissProposal()
+            knife != null -> knife = null
+            !penPath.isEmpty -> cancelPen()
             !selection.isEmpty -> selection = DrawSelection.EMPTY
             notice != null -> notice = null
         }
@@ -916,7 +1162,8 @@ class DrawController(
         /** How far a pen click may be from the first point and still close the contour. */
         const val PEN_CLOSE_DP = 14.0
 
-        private const val MIN_PEN_POINTS = 3
+        private const val PEN_DRAG_DP = 4.0
+        private const val KNIFE_SAME_DP = 10.0
         private const val DEFAULT_UPM = 1000
         private const val PRECISION_SCALE = 0.25
         private const val RADIAL_HUB_TAP_DP = 30.0
@@ -958,6 +1205,7 @@ object RadialLabels {
             "toggle-smooth" -> if (command.label.startsWith("Make corner")) "CORNER" else "SMOOTH"
             "add-node" -> "ADD NODE"
             "tidy" -> "TIDY"
+            "split" -> "SPLIT"
             "undo" -> "UNDO"
             "redo" -> "REDO"
             "fit" -> "FIT"

@@ -18,6 +18,9 @@ import com.asoc.typewright.core.geometry.Contour
 import com.asoc.typewright.core.geometry.CurveSegment
 import com.asoc.typewright.core.geometry.Glyph
 import com.asoc.typewright.core.geometry.Guideline
+import com.asoc.typewright.core.geometry.PenAnchor
+import com.asoc.typewright.core.geometry.PenPath
+import com.asoc.typewright.core.geometry.Point
 import com.asoc.typewright.core.geometry.Vec2
 import com.asoc.typewright.core.geometry.handleOwner
 import com.asoc.typewright.core.geometry.isRetracted
@@ -50,7 +53,13 @@ class DrawScene(
     val hover: Hit?,
     val snaps: List<SnapTarget>,
     val sweep: SweepShape?,
-    val pen: List<Vec2>,
+    val pen: PenPath,
+    /** The point the pen is dragging out right now, so its handles show as they are pulled. */
+    val penLive: PenAnchor? = null,
+    /** Where the knife's first cut end sits, once placed (font units). */
+    val knifeMark: Vec2? = null,
+    /** The nodes a tidy waiting for Apply would remove (font units): each shows as a cross on the outline. */
+    val tidyRemoved: List<Point> = emptyList(),
     /**
      * How strongly the glyph itself (its body, handles and nodes) is drawn: 1 normally, 0.3 while a radial ring
      * is open over it (S12). The metric lines, guidelines, snap targets and the selection stay at full strength (C4).
@@ -94,7 +103,17 @@ fun DrawScope.drawDrawRoom(
     }
     drawSnapTargets(scene.snaps, space, colors)
     scene.sweep?.let { drawSweep(it, colors) }
-    if (scene.pen.isNotEmpty()) drawPenTrail(scene.pen, space, colors)
+    if (!scene.pen.isEmpty || scene.penLive != null) drawPenTrail(scene.pen, scene.penLive, space, colors)
+    // A run of a thousand removals would be a smear of crosses: one is drawn per gap, which still shows where they lie.
+    var lastCross: Offset? = null
+    for (removed in scene.tidyRemoved) {
+        val at = screenOf(space, removed.toVec2())
+        val previous = lastCross
+        if (previous != null && (at - previous).getDistance() < REMOVAL_GAP_DP.dp.toPx()) continue
+        drawRemovalCross(at, colors)
+        lastCross = at
+    }
+    scene.knifeMark?.let { drawKnifeMark(screenOf(space, it), colors) }
 }
 
 private fun DrawScope.px(v: Vec2): Offset = Offset(v.x.dp.toPx(), v.y.dp.toPx())
@@ -529,39 +548,88 @@ private fun DrawScope.drawSweep(
     }
 }
 
+/**
+ * The pen's path so far: its curves as drawn (a dashed construction stroke), a handle line and dot for every
+ * pulled handle (the incoming one mirrored), and every anchor as a node of its kind, a square for a corner and a
+ * circle for a smooth point; the first is ringed in the selection colour because a click on it closes the shape.
+ */
 private fun DrawScope.drawPenTrail(
-    points: List<Vec2>,
+    path: PenPath,
+    live: PenAnchor?,
     space: DrawSpace,
     colors: DrawColors,
 ) {
     val dash = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))
-    val path = Path()
-    val first = screenOf(space, points[0])
-    path.moveTo(first.x, first.y)
-    for (p in points.drop(1)) {
-        val o = screenOf(space, p)
-        path.lineTo(o.x, o.y)
+    val curve = Path()
+    val segments = path.previewSegments(live)
+    for ((i, segment) in segments.withIndex()) {
+        val a = screenOf(space, segment.start)
+        if (i == 0) curve.moveTo(a.x, a.y)
+        val c1 = screenOf(space, segment.control1)
+        val c2 = screenOf(space, segment.control2)
+        val b = screenOf(space, segment.end)
+        curve.cubicTo(c1.x, c1.y, c2.x, c2.y, b.x, b.y)
     }
-    drawPath(path, colors.construction, style = Stroke(width = 1.5.dp.toPx(), pathEffect = dash))
-    for ((i, p) in points.withIndex()) {
-        val o = screenOf(space, p)
-        val half = CORNER_HALF.dp.toPx()
-        drawRect(colors.canvas, Offset(o.x - half, o.y - half), Size(2 * half, 2 * half))
-        drawRect(
-            if (i ==
-                0
-            ) {
-                colors.selected
-            } else {
-                colors.ink
-            },
-            Offset(o.x - half, o.y - half),
-            Size(2 * half, 2 * half),
-            style = Stroke(1.5.dp.toPx()),
-        )
+    drawPath(curve, colors.construction, style = Stroke(width = 1.5.dp.toPx(), pathEffect = dash))
+    val anchors = path.anchors + listOfNotNull(live)
+    for ((i, anchor) in anchors.withIndex()) {
+        val at = screenOf(space, anchor.point.toVec2())
+        val pull = anchor.pull
+        if (pull != null && anchor.hasHandles) {
+            for (sign in listOf(1, -1)) {
+                val end = screenOf(space, Vec2((anchor.point.x + sign * pull.x).toDouble(), (anchor.point.y + sign * pull.y).toDouble()))
+                drawLine(colors.handleLine, at, end, strokeWidth = 1.dp.toPx())
+                drawCircle(colors.canvas, HANDLE_RADIUS.dp.toPx(), end)
+                drawCircle(colors.offCurve, HANDLE_RADIUS.dp.toPx(), end, style = Stroke(1.5.dp.toPx()))
+            }
+        }
+        val tint = if (i == 0) colors.selected else colors.ink
+        if (anchor.hasHandles) {
+            val r = SMOOTH_RADIUS.dp.toPx()
+            drawCircle(colors.canvas, r, at)
+            drawCircle(tint, r, at, style = Stroke(1.5.dp.toPx()))
+        } else {
+            val half = CORNER_HALF.dp.toPx()
+            drawRect(colors.canvas, Offset(at.x - half, at.y - half), Size(2 * half, 2 * half))
+            drawRect(tint, Offset(at.x - half, at.y - half), Size(2 * half, 2 * half), style = Stroke(1.5.dp.toPx()))
+        }
+        if (i == 0 && anchors.size > 1) drawCircle(colors.selected, PEN_CLOSE_RING.dp.toPx(), at, style = Stroke(1.dp.toPx()))
     }
 }
 
+/** A node a tidy would remove: a cross (a shape, not only a colour) in ink on a ring of canvas, so it reads on any outline. */
+private fun DrawScope.drawRemovalCross(
+    at: Offset,
+    colors: DrawColors,
+) {
+    val arm = REMOVAL_ARM.dp.toPx()
+    drawCircle(colors.canvas, arm + 2.dp.toPx(), at)
+    drawLine(colors.ink, Offset(at.x - arm, at.y - arm), Offset(at.x + arm, at.y + arm), strokeWidth = 1.5.dp.toPx())
+    drawLine(colors.ink, Offset(at.x - arm, at.y + arm), Offset(at.x + arm, at.y - arm), strokeWidth = 1.5.dp.toPx())
+}
+
+/** The knife's first cut end: a diamond ringed in the selection colour, the one place the knife has been put down. */
+private fun DrawScope.drawKnifeMark(
+    at: Offset,
+    colors: DrawColors,
+) {
+    val r = KNIFE_MARK_RADIUS.dp.toPx()
+    val diamond =
+        Path().apply {
+            moveTo(at.x, at.y - r)
+            lineTo(at.x + r, at.y)
+            lineTo(at.x, at.y + r)
+            lineTo(at.x - r, at.y)
+            close()
+        }
+    drawPath(diamond, colors.canvas)
+    drawPath(diamond, colors.selected, style = Stroke(2.dp.toPx()))
+}
+
+private const val PEN_CLOSE_RING = 10
+private const val REMOVAL_ARM = 4
+private const val REMOVAL_GAP_DP = 22
+private const val KNIFE_MARK_RADIUS = 7
 private const val VERTICAL_OVERHANG_UNITS = 60.0
 private const val VERTICAL_FADE = 0.12f
 private const val FILL_SOLID_ALPHA = 0.88f

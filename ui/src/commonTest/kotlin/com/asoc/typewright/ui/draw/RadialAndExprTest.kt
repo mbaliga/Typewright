@@ -73,7 +73,7 @@ class RadialModelTest {
         assertEquals(8, RadialLayouts.NODE.size)
         assertEquals("delete", RadialLayouts.NODE[0])
         assertEquals("toggle-smooth", RadialLayouts.NODE[7])
-        assertNull(RadialLayouts.NODE[2], "Split is not built, so its slot is empty rather than faked")
+        assertEquals("split", RadialLayouts.NODE[2], "Split is built, so the board's SPLIT sector holds it")
         assertNull(RadialLayouts.NODE[6], "Tangent is not built either")
         assertEquals(
             RadialLayouts.NODE,

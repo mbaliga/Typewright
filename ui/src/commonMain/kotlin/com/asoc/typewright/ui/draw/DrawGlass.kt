@@ -152,10 +152,22 @@ fun DrawEmptyState(
     val glyph = room.controller?.let { c -> state?.font?.glyph(c.editor.ref) }
     val (headline, detail) =
         when {
-            room.session == null -> "No project is open" to "Open or start a project and its letters appear here to draw."
-            room.controller == null -> "This project has no glyphs yet" to "Add a letter from Home, or trace a cell, and it appears here."
-            glyph != null && glyph.contours.isEmpty() -> "${glyph.name} is empty" to "Draw with the pen (P), or trace a cell."
-            else -> return
+            room.session == null -> {
+                "No project is open" to "Open or start a project and its letters appear here to draw."
+            }
+
+            room.controller == null -> {
+                "This project has no glyphs yet" to "Add a letter from Home, or trace a cell, and it appears here."
+            }
+
+            glyph != null && glyph.contours.isEmpty() && room.controller?.penPath?.isEmpty != false -> {
+                "${glyph.name} is empty" to
+                    "Draw with the pen (P), or trace a cell."
+            }
+
+            else -> {
+                return
+            }
         }
     Column(modifier = modifier.padding(horizontal = 36.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         BasicText(
@@ -206,6 +218,25 @@ fun DrawNoticeBar(
                 BasicText(
                     text = notice.text,
                     style = TextStyle(fontFamily = FontFamily.Default, fontSize = 12.5.sp, lineHeight = 17.sp, color = onInk),
+                )
+            }
+
+            is DrawNotice.Proposal -> {
+                Column(modifier = Modifier.weight(1f, fill = false)) {
+                    BasicText(
+                        text = notice.text,
+                        style = TextStyle(fontFamily = FontFamily.Default, fontSize = 12.5.sp, lineHeight = 17.sp, color = onInk),
+                    )
+                }
+                BasicText(
+                    text = "Apply",
+                    style = TextStyle(fontFamily = FontFamily.Default, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = onInk),
+                    modifier = Modifier.clickable { controller.applyProposal() }.padding(vertical = 8.dp, horizontal = 4.dp),
+                )
+                BasicText(
+                    text = "Cancel",
+                    style = TextStyle(fontFamily = FontFamily.Default, fontSize = 12.5.sp, color = onInk),
+                    modifier = Modifier.clickable { controller.dismissProposal() }.padding(vertical = 8.dp, horizontal = 4.dp),
                 )
             }
 

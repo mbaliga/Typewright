@@ -427,6 +427,19 @@ defaults from §2.
 - **States:** a locked glyph (the outline muted, a lock in the header, and Unlock in the ⋯
   menu); an empty glyph ("Draw with the pen, or trace a cell").
 - **Done when:** the P17 edit fuzz test passes, and the construction lines never fade.
+- **Built so far (tools).** *Pen* (P): a click is a corner, a drag from empty canvas pulls
+  symmetric handles out of a smooth point, a click on the ringed first point closes the path
+  (a drag while closing sets the incoming handle), Esc drops the path and undo steps back one point
+  before it touches history; contours are always closed in the model, so an open path is only a
+  preview and goes in as one undo step when it closes. *Split the contour here* (⌃⇧K, the SPLIT
+  sector of the node ring): with two nodes (or a node and a spot on a side) selected it cuts the
+  contour in two along a straight line; with fewer it arms the knife, which takes taps on the
+  outline (a second tap cuts, the same place twice only adds a node, Esc puts the knife down). The
+  board's "opens the contour" cannot be shown because open contours are not in the model. *Tidy with
+  live count* (⌃⇧Y, TIDY in the segment ring): shows "n → m nodes · outline within 1.5 units (our
+  heuristic)" with a cross on every node that would go, and applies on Apply as one step, after
+  re-checking that the outline still gives the same count. Not built: Tangent, Hobby, Measure,
+  Primitives on the sheet, the economy strip, the desktop frame.
 
 ### S12 Draw: the radial (a state of S11)
 - The tool radial on a puck hold, or the object radial on a hold on a node or contour,

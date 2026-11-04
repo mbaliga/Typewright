@@ -47,6 +47,18 @@ interface DrawHooks {
     fun selectAll()
 
     fun openPalette(goToGlyph: Boolean)
+
+    /** Tidy was asked for: work it out, show "n → m" and wait for Apply. */
+    fun proposeTidy() = Unit
+
+    /** Split was asked for with fewer than two places named: arm the knife and wait for taps. */
+    fun startKnife() = Unit
+
+    /** True while the pen has a path in progress, which an undo steps back through before it touches the history. */
+    fun penInProgress(): Boolean = false
+
+    /** Steps the pen back one point (or drops a lone one); false when it has no path, and nothing was done. */
+    fun stepBackPen(): Boolean = false
 }
 
 /** Everything the registry reads to decide what each command would do right now. */
@@ -89,6 +101,7 @@ object DrawCommands {
             keys: String?,
             destructive: Boolean = false,
             consequenceOverride: String? = null,
+            runOverride: (() -> Unit)? = null,
         ): DrawCommand {
             val reason =
                 when {
@@ -105,7 +118,7 @@ object DrawCommands {
                 keys = keys,
                 gesture = gesture(id),
                 destructive = destructive,
-                run = { ctx.hooks.applied(editor.perform(plan)) },
+                run = runOverride ?: { ctx.hooks.applied(editor.perform(plan)) },
             )
         }
 
@@ -145,6 +158,30 @@ object DrawCommands {
                 "⌫",
             )
         out += fromPlan("align", "Align to a metric line", DrawScope.NODE, editor.planAlignToMetrics(selection, ctx.metrics), "Ctrl ⇧ A")
+        // Two places named: the cut itself, with what it would do; fewer: the knife, which waits for taps.
+        val splitPlan = editor.planSplit(selection)
+        out +=
+            if (splitPlan != null) {
+                fromPlan(
+                    "split",
+                    "Split the contour here",
+                    DrawScope.NODE,
+                    splitPlan,
+                    "Ctrl ⇧ K",
+                    consequenceOverride = "one contour → two · cut along a straight line",
+                )
+            } else {
+                DrawCommand(
+                    "split",
+                    "Split the contour here",
+                    DrawScope.NODE,
+                    "knife: tap two places on the outline",
+                    if (locked) LOCKED_REASON else null,
+                    "Ctrl ⇧ K",
+                    gesture("split"),
+                    false,
+                ) { ctx.hooks.startKnife() }
+            }
         // This segment
         val segment = selection.segment
         out +=
@@ -158,7 +195,16 @@ object DrawCommands {
         // This contour
         out += fromPlan("add-extremes", "Add extremes", DrawScope.CONTOUR, editor.planAddExtremes(selection), "Ctrl ⇧ E")
         out += fromPlan("reverse", "Reverse direction", DrawScope.CONTOUR, editor.planReverse(selection), "Ctrl Alt R")
-        out += fromPlan("tidy", "Tidy with live count", DrawScope.CONTOUR, editor.planTidy(selection), "Ctrl ⇧ Y")
+        out +=
+            fromPlan(
+                "tidy",
+                "Tidy with live count",
+                DrawScope.CONTOUR,
+                editor.planTidy(selection),
+                "Ctrl ⇧ Y",
+                consequenceOverride = editor.tidyPreview(selection)?.text,
+                runOverride = { ctx.hooks.proposeTidy() },
+            )
         // This glyph
         out += fromPlan("correct-direction", "Correct path direction", DrawScope.GLYPH, editor.planCorrectDirection(selection), "Ctrl ⇧ R")
         out +=
@@ -215,12 +261,12 @@ object DrawCommands {
                 "Undo",
                 DrawScope.EDIT,
                 null,
-                if (editor.canUndo) null else "nothing to undo",
+                if (editor.canUndo || ctx.hooks.penInProgress()) null else "nothing to undo",
                 "Ctrl Z",
                 TWO_FINGER_TAP,
                 false,
             ) {
-                editor.undo()
+                if (!ctx.hooks.stepBackPen()) editor.undo()
                 ctx.hooks.applied(EditOutcome.Done(ctx.selection))
             }
         out +=

@@ -107,9 +107,9 @@ sealed interface RadialState {
 
 /** What a radial for each kind of object holds, by command id, clockwise from the top; null leaves the slot empty (a feature that is not built is omitted, not faked). */
 object RadialLayouts {
-    /** A node: the board's ring, with Split and Tangent left empty because those commands are not built. */
+    /** A node: the board's ring, with Tangent left empty because that command is not built. */
     val NODE: List<String?> =
-        listOf("delete", "add-extremes", null, "break-handles", "reverse", "align", null, "toggle-smooth")
+        listOf("delete", "add-extremes", "split", "break-handles", "reverse", "align", null, "toggle-smooth")
 
     /** A curve between nodes. */
     val SEGMENT: List<String?> =

@@ -1006,9 +1006,9 @@ fun Contour.withExtremesAdded(): Contour {
     return carrySmooth(this, insertExtremaOnCurvePoints(this), newNodesSmooth = true)
 }
 
-/** [simplifyContour] that keeps the smooth flags of the nodes it leaves. */
-fun Contour.tidied(): SimplifyResult {
-    val result = simplifyContour(this)
+/** [simplifyContour] (at [toleranceUnits]) that keeps the smooth flags of the nodes it leaves. */
+fun Contour.tidied(toleranceUnits: Double = DEFAULT_SIMPLIFY_TOLERANCE_UNITS): SimplifyResult {
+    val result = simplifyContour(this, toleranceUnits)
     return result.copy(contour = carrySmooth(this, result.contour, newNodesSmooth = false))
 }
 

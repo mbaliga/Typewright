@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.asoc.typewright.core.geometry.Guideline
+import com.asoc.typewright.core.geometry.PenPath
 import com.asoc.typewright.core.geometry.Vec2
 import com.asoc.typewright.ui.sheet.GridFocus
 import com.asoc.typewright.ui.sheet.SheetCameraState
@@ -138,7 +139,10 @@ fun DrawInkLayer(
                     hover = controller?.hover,
                     snaps = controller?.snaps.orEmpty(),
                     sweep = controller?.sweep,
-                    pen = controller?.penPoints.orEmpty(),
+                    pen = controller?.penPath ?: PenPath(),
+                    penLive = controller?.penLive,
+                    knifeMark = controller?.knife?.firstAt,
+                    tidyRemoved = controller?.tidyRemoved.orEmpty(),
                     glyphAlpha = glyphAlpha,
                 )
             drawDrawRoom(scene, DrawSpace.of(cameraState.camera), colors)
