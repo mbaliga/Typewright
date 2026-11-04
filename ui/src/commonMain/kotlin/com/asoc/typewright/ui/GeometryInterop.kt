@@ -13,27 +13,15 @@ import com.asoc.typewright.core.geometry.Vec2
 import com.asoc.typewright.core.geometry.segments
 import kotlin.math.roundToInt
 
-// The one place raw Compose pixels convert to and from `core-geometry`'s Vec2 as screen dp. Every
-// P4a file (`ui.sheet` / `.puck` / `.tokens`) is deliberately Compose-free and works only in
-// screen dp (see `PuckGestureEvents.kt`'s own KDoc: "already density-converted by the caller");
-// this file is that caller's conversion, and the only place in `ui` that mixes raw pixels with
-// Vec2.
+// The one place raw Compose pixels convert to and from `core-geometry`'s Vec2 as screen dp. The
+// sheet, puck and token files are deliberately Compose-free and work only in screen dp (see
+// `PuckGestureEvents.kt`: "already density-converted by the caller"); this file is that caller's
+// conversion, and the only place in `ui` that mixes raw pixels with Vec2.
 //
-// [Contour.addToComposePath]/[Glyph.toComposePath] below are the outline-to-Compose-path bridge
-// `ui.learn.LearnFaceFonts.kt`'s own KDoc already names and describes ("that bridge draws this
-// app's own traced/constructed geometry -- the Draw sheet's ink, and the Overlay tab's colour +
-// line-pattern comparison layers -- where the caller needs the raw contour"), built here for real
-// by task P6 (Overlay tab) rather than assumed to already exist: `RoomInk.kt`'s `WorldInkPass`
-// (the Draw sheet's own ink pass, checked before writing this) draws a placeholder rounded-rect
-// stand-in, not real letterforms yet ("Real glyph outlines are P5b's job" -- P5b never actually
-// wired one either), so this is the *first* real glyph-outline renderer in `ui`, not a reuse of
-// an existing one; it lives in this file because this file's own charter is exactly "the one
-// place raw Compose pixels convert to and from core-geometry", and a second such bridge
-// elsewhere would be exactly the duplication CLAUDE.md's "reuse, do not reinvent" warns against.
-// General over [com.asoc.typewright.core.geometry.CurveFormat.QUADRATIC] (`core-font`'s sfnt
-// reader) and [com.asoc.typewright.core.geometry.CurveFormat.CUBIC] (a UFO source) alike, since
-// both go through [Contour.segments] -- the same primitive every `qa/corpus` style probe already
-// builds on -- rather than assuming one format.
+// [Contour.addToComposePath]/[Glyph.toComposePath] are the outline-to-Compose-path bridge: general
+// over [com.asoc.typewright.core.geometry.CurveFormat.QUADRATIC] (a TrueType source) and
+// [com.asoc.typewright.core.geometry.CurveFormat.CUBIC] (a UFO source) alike, because both go
+// through [Contour.segments].
 
 /**
  * Appends [contour]'s outline to this [Path], projecting every anchor and control point through
@@ -80,24 +68,20 @@ fun Path.addContour(
 /**
  * This glyph's whole outline (every [Glyph.contours] entry) as a new [Path], each point projected
  * through [transform]. One [Path] per glyph is the right grain for a caller that fills it as one
- * shape (even-odd winding handles inner counters correctly, the same way a rasterizer already
- * does) or strokes it as one dashed outline (CLAUDE.md law 8's "colour plus a line pattern").
+ * shape or strokes it as one dashed outline (CLAUDE.md law 8's "colour plus a line pattern").
  *
- * [Path.fillType] is set to [PathFillType.EvenOdd] explicitly -- found necessary, not just
- * cautious, while building the Anatomy Lens tab (P6): Compose's own default,
- * [PathFillType.NonZero], relies on an outer contour and its counter winding in genuinely opposite
- * directions, and a real check against `fonts/HyleDeco-Regular.ttf`'s own `o` rendered as a solid
- * filled stadium with no counter hole under that default (a real screenshot, not a guess) --
- * confirmed fixed by this one-line change (same screenshot, counter now visible). Even-odd never
- * depends on winding direction at all, only crossing parity, so it is correct for a glyph's own
- * outline regardless of which convention (TrueType on-disk, this module's own "outer
- * counter-clockwise, inner clockwise" cubic-source convention) the source contours actually follow
- * -- the standard, safe choice for rendering an arbitrary font outline for exactly this reason.
+ * [fillType] is [PathFillType.NonZero] unless a caller says otherwise, because that is how a font
+ * is rasterised: an outer contour and its counter wind in opposite directions, and a glyph whose
+ * contours do not is drawn by a compiled font as the solid shape it would show here. A caller that
+ * wants to be forgiving of mis-wound sources asks for [PathFillType.EvenOdd] by name.
  */
-fun Glyph.toComposePath(transform: (Vec2) -> Offset): Path {
+fun Glyph.toComposePath(
+    transform: (Vec2) -> Offset,
+    fillType: PathFillType = PathFillType.NonZero,
+): Path {
     val path = Path()
     for (contour in contours) path.addContour(contour, transform)
-    path.fillType = PathFillType.EvenOdd
+    path.fillType = fillType
     return path
 }
 

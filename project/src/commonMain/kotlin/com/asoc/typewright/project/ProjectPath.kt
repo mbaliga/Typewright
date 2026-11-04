@@ -2,6 +2,8 @@
 
 package com.asoc.typewright.project
 
+import com.asoc.typewright.project.capture.CaptureManifest
+
 /**
  * The one rule every store applies to a project-relative path, and the temp-file names the
  * atomic-write protocols (docs/PROJECT_MODEL.md §5) leave behind after a crash.
@@ -95,6 +97,7 @@ object ProjectPath {
  *   `glyphs/contents.plist` and the `.glif` files in `glyphs/`;
  * - the `.glif` and `.diff` files in `locks/<master>/`;
  * - `scrapbook/manifest.json` and the `.jpg`, `.png` and `.webp` images in `scrapbook/`;
+ * - `captures/manifest.json` and the stored pictures and SVG drawings in `captures/`;
  * - `lessons/workbook-<script>.json`;
  * - `comparisons/overlays.json` and the `.ttf` files in `comparisons/`;
  * - anything in `build/`, which holds only regenerable output.
@@ -112,6 +115,7 @@ object ProjectLayout {
             PROJECT_RECORD -> segments.size == 1
             "locks" -> segments.size == 3 && (hasStemAndSuffix(name, ".glif") || hasStemAndSuffix(name, ".diff"))
             "scrapbook" -> segments.size == 2 && (name == "manifest.json" || PIN_IMAGE_SUFFIXES.any { hasStemAndSuffix(name, it) })
+            "captures" -> segments.size == 2 && (name == "manifest.json" || CAPTURE_SUFFIXES.any { hasStemAndSuffix(name, it) })
             "lessons" -> segments.size == 2 && LESSONS_FILE.matches(name)
             "comparisons" -> segments.size == 2 && (name == "overlays.json" || hasStemAndSuffix(name, ".ttf"))
             "build" -> segments.size >= 2
@@ -135,6 +139,7 @@ object ProjectLayout {
     private val UFO_TOP_FILES =
         setOf("metainfo.plist", "fontinfo.plist", "layercontents.plist", "lib.plist", "groups.plist", "kerning.plist", "features.fea")
     private val PIN_IMAGE_SUFFIXES = listOf(".jpg", ".png", ".webp")
+    private val CAPTURE_SUFFIXES = CaptureManifest.IMAGE_SUFFIXES
     private val LESSONS_FILE = Regex("workbook-[a-z0-9]+\\.json")
 }
 

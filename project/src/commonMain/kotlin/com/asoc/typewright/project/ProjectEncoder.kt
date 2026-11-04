@@ -6,6 +6,8 @@ import com.asoc.typewright.core.font.ufo.readGlyphFileNames
 import com.asoc.typewright.core.font.ufo.writeGlif
 import com.asoc.typewright.core.font.ufo.writeUfoProject
 import com.asoc.typewright.core.geometry.Glyph
+import com.asoc.typewright.project.capture.CaptureManifest
+import com.asoc.typewright.project.capture.CaptureManifestCodec
 import com.asoc.typewright.project.scrapbook.ScrapbookManifest
 import com.asoc.typewright.project.scrapbook.ScrapbookManifestCodec
 
@@ -76,6 +78,17 @@ internal object ProjectEncoder {
             val bytes = caches.images[path] ?: continue
             files[path] = bytes
             usedImages[path] = bytes
+        }
+
+        if (state.meta.captures.records
+                .isNotEmpty()
+        ) {
+            files[CaptureManifest.PATH] = CaptureManifestCodec.encode(state.meta.captures).encodeToByteArray()
+        }
+        for (record in state.meta.captures.records) {
+            val bytes = caches.images[record.imagePath] ?: continue
+            files[record.imagePath] = bytes
+            usedImages[record.imagePath] = bytes
         }
 
         for ((key, lessons) in state.meta.lessons) {

@@ -16,10 +16,15 @@ data class ResumePoint(
     val glyph: String?,
 )
 
-/** S01's row cache for one recent project; the project itself stays the source of truth. */
+/**
+ * S01's row cache for one recent project; the project itself stays the source of truth. [outliers]
+ * is null when nothing measured it: the workspace has no node-economy corpus of its own, so the app
+ * hands it a counter (the `outlierCount` of [ProjectWorkspace]) and a build without one shows no
+ * count rather than a zero.
+ */
 data class ProjectSummary(
     val glyphs: Int,
-    val outliers: Int,
+    val outliers: Int?,
     val styleClass: String?,
 )
 
@@ -42,6 +47,7 @@ data class RecentProject(
 class ProjectWorkspace(
     private val storage: StorageProvider,
     private val config: AppConfigStore,
+    private val outlierCount: (ProjectState) -> Int? = { null },
     private val env: () -> SessionEnvironment,
 ) {
     /** The app's own small config files (recent projects, settings, themes), outside any project. */
@@ -82,6 +88,32 @@ class ProjectWorkspace(
             rememberOpened(location, session)
         }
         return result
+    }
+
+    /**
+     * Runs [prepare] on the store at [location], then opens that folder as a project: how a folder
+     * that holds a UFO but no `typewright.json` is adopted in place (the import writes the project
+     * files, then this opens it). A [location] with no store, or one that needs permission again, answers
+     * [OpenResult.Damaged] without running [prepare]. Whatever [prepare] throws is passed on to the caller.
+     */
+    suspend fun openAfterPreparing(
+        location: ProjectLocation,
+        prepare: suspend (ProjectStore) -> Unit,
+    ): OpenResult {
+        when (val lookup = storage.storeFor(location)) {
+            is StoreLookup.Available -> {
+                prepare(lookup.store)
+            }
+
+            is StoreLookup.Missing -> {
+                return OpenResult.Damaged(displayNameOf(location), "The folder was moved or deleted.")
+            }
+
+            is StoreLookup.PermissionNeeded -> {
+                return OpenResult.Damaged(displayNameOf(location), "Access to this folder needs to be granted again.")
+            }
+        }
+        return open(location)
     }
 
     /** Creates `<spec.name>/` inside [parent] and opens it; on success it becomes [current] and is added to recents. */
@@ -162,7 +194,7 @@ class ProjectWorkspace(
         val state = session.state.value
         val glyphs = state.font.masters.sumOf { it.ufo.glyphs.size }
         val styleClass = state.meta.manifest.brief.styleClass.confirmed ?: state.meta.manifest.brief.styleClass.declared
-        return ProjectSummary(glyphs, outliers = 0, styleClass = styleClass)
+        return ProjectSummary(glyphs, outliers = runCatching { outlierCount(state) }.getOrNull(), styleClass = styleClass)
     }
 
     private fun withOpened(

@@ -9,7 +9,7 @@ import com.asoc.typewright.core.geometry.Glyph
 import com.asoc.typewright.core.geometry.Point
 
 /**
- * Law 1's "shape" for a glyph: its contours and anchors, never its advance width, unicodes,
+ * Law 1's "shape" for a glyph: its contours (points, kinds and smooth flags) and anchors, never its advance width, unicodes,
  * guidelines or name (docs/PROJECT_MODEL.md §7.1). A locked glyph may still have those other
  * things changed; only a shape change is refused.
  */
@@ -62,6 +62,9 @@ internal object GlyphShape {
         if (before.points.size != after.points.size) return false
         for ((beforePoint, afterPoint) in before.points.zip(after.points)) {
             if (beforePoint.onCurve != afterPoint.onCurve) return false
+            // Smooth versus corner is the designer's statement about the drawing, so changing it is
+            // a change of shape: a locked glyph refuses it like any other edit.
+            if (beforePoint.smooth != afterPoint.smooth) return false
             if (beforePoint.point.y != afterPoint.point.y) return false
             if (!consider(beforePoint.point.x, afterPoint.point.x)) return false
         }

@@ -78,16 +78,19 @@ class GoldenPathTest {
     // --- Step 4: Check -------------------------------------------------------------------------
 
     /**
-     * Seed: S-ufo ([Seeds.newSUfoDirectory]), plus a deliberately failing variant for the anti-fake
-     * assertion below.
+     * Seed: S-ufo ([Seeds.newSUfoDirectory]), a copy of it with its names and copyright line taken away for
+     * the anti-fake assertion, and S-project compiled for layer one. Fully built now -- see
+     * [GoldenPathSteps.step4Check] for the arrange/act/assert.
      *
-     * Real assertions this step must clear (P14):
+     * Real assertions this step clears:
      * - Layer two covers every qa check with a severity.
      * - An alignment miss is found.
-     * - ⚑ The failing seed has fails > 0.
-     * - On desktop, layer one is Available and not SKIP.
+     * - ⚑ The failing seed has fails > 0, and the stripped copy has exactly two more.
+     * - On desktop, layer one is Available and not SKIP, and its fail count equals a direct Fontbakery run.
      * - The report's economy equals `checkNodeEconomy`.
      * - The report is deterministic.
+     *
+     * Needs a Python with fontmake and Fontbakery's googlefonts profile (`TYPEWRIGHT_PYTHON`); without one it fails, naming what is missing.
      */
     @Test
     fun step4Check() = GoldenPathSteps.step4Check()
@@ -95,10 +98,10 @@ class GoldenPathTest {
     // --- Step 5: Compile -----------------------------------------------------------------------
 
     /**
-     * Seed: S-project ([Seeds.newSProject]), written to a fresh temp project directory. Fully
-     * built now, real code all the way to whatever
-     * [com.asoc.typewright.compile.platformCompileBackend] actually answers -- see
-     * [GoldenPathSteps.step5CompileTtf] for the arrange/act/assert.
+     * Seed: S-project ([Seeds.newSProject]), written to a fresh temp project directory, then S-ufo with
+     * its quadratic outlines. Fully built now, real code all the way to the real fontmake -- see
+     * [GoldenPathSteps.step5CompileTtf] for the arrange/act/assert. Needs a Python with fontmake
+     * (`TYPEWRIGHT_PYTHON`); without one it fails with the backend's own sentence.
      */
     @Test
     fun step5CompileTtf() = GoldenPathSteps.step5CompileTtf()
@@ -106,12 +109,14 @@ class GoldenPathTest {
     // --- Step 6: Ship --------------------------------------------------------------------------
 
     /**
-     * Seed: a compiled S-project TTF (once step 5 is real) plus a deliberately failing Check seed.
+     * Seeds: the deliberately failing one (Hyle Deco, which Check fails) and a clean one ([CleanSeed], a box font that Check has nothing
+     * against and that covers Google Fonts' Latin core). Fully built now -- see [GoldenPathSteps.step6ShipFolder] for the arrange/act/assert.
      *
-     * Real assertions this step must clear (P15):
      * - ⚑ The failing seed is Blocked, naming every fail, and the target directory stays empty.
-     * - The clean seed writes OFL.txt, DESCRIPTION/ARTICLE, METADATA.pb, `sources/<F>-Regular.ufo`
-     *   (equal to the project) and `fonts/ttf/<F>-Regular.ttf` (parses), plus the issue body.
+     * - The clean seed writes OFL.txt, DESCRIPTION, METADATA.pb, upstream.yaml, `sources/<F>-Regular.ufo` (equal to the project) and
+     *   `fonts/ttf/<F>-Regular.ttf` (parses), plus the request text; Fontbakery's Google Fonts profile finds no fail in the folder.
+     *
+     * Needs a Python with fontmake and Fontbakery (`TYPEWRIGHT_PYTHON`); without one it fails, naming what is missing.
      */
     @Test
     fun step6ShipFolder() = GoldenPathSteps.step6ShipFolder()

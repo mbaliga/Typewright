@@ -23,6 +23,7 @@ artifacts, all Apache-2.0 by their POMs except the two test-only ones listed fur
 | Compose Multiplatform internals: `org.jetbrains.compose.collection-internal`, `.annotation-internal` | 1.10.0 | Apache-2.0 | POM |
 | JetBrains ports of AndroidX: `org.jetbrains.androidx.lifecycle` 2.9.6, `.savedstate` 1.3.6, `.navigationevent` 1.1.0 | as listed | Apache-2.0 | POM |
 | AndroidX (Android app, and a few desktop/web artifacts): `activity` 1.13.0 (`activity-compose`), `compose.*` 1.12.1, `lifecycle` 2.11.0, `savedstate` 1.4.0, `navigationevent` 1.1.1, `annotation`, `arch.core`, `autofill`, `collection`, `concurrent`, `core`, `customview`, `emoji2`, `graphics`, `interpolator`, `profileinstaller`, `startup`, `tracing`, `versionedparcelable`, `window` | as resolved | Apache-2.0 | POM |
+| AndroidX CameraX (Android app only, for Capture's Camera): `camera-core`, `camera-camera2`, `camera-lifecycle`, `camera-view` (and `camera-video` and `auto-value-annotations`, which `camera-view` pulls in) | 1.6.2 | Apache-2.0 | POM. Linked into `app-android` only; not in the desktop or web builds. Compile-verified only: no phone here |
 | kotlinx.coroutines | 1.9.0 | Apache-2.0 | POM. Since P9, `shape-preview` also declares `kotlinx-coroutines-core` directly (its own `wasmJsMain`/`wasmJsTest`, `gradle/libs.versions.toml`'s `kotlinx-coroutines` version), pinned to this same 1.9.0 rather than only reached transitively through `ui`'s Compose dependency as before, the same reason `skiko-awt` below already gives — `BrowserFontFaceVisualPreview.renderPng`'s one genuinely async step (`FontFace.load()`) uses its real `Promise<T>.await()` |
 | kotlinx.serialization core | 1.7.3 | Apache-2.0 | POM |
 | kotlinx-atomicfu | 0.28.0 | Apache-2.0 | POM |
@@ -94,6 +95,25 @@ distributions. The apps have no licences screen yet; see `docs/OPEN_QUESTIONS.md
 
 Webpack writes its MIT-licensed runtime bootstrap into `typewright.js`. The production bundle
 carries no licence banners, which is one more reason the web app needs a licences page.
+
+## Python tools the desktop app runs (not bundled, not linked)
+
+Check's layer one and the desktop compile run these as separate programs in the Python on the person's own
+computer (`TYPEWRIGHT_PYTHON`, else `python3` on the PATH). Typewright installs none of them, ships none of them
+in any app and links none of them; the apps only start them and read what they print. The versions below are the
+ones `tools/requirements-golden-path.txt` pins, which CI installs into a virtualenv and the golden path runs.
+Licences were read from each distribution's own metadata and licence file in that virtualenv.
+
+| Component | Version | Licence | Verified |
+|---|---|---|---|
+| fontmake (`fontmake[pathops]`): compiles a UFO to a TTF | 3.12.2 | Apache-2.0 | package metadata |
+| fontTools, which fontmake and Fontbakery both run on | 4.67.0 | MIT | package metadata |
+| ufo2ft, the compiler fontmake drives | 3.9.1 | MIT | package metadata |
+| skia-pathops (`pathops`), which removes overlaps and accepts quadratic outlines | 0.9.2 | BSD-3-Clause | package metadata |
+| Fontbakery (`fontbakery[googlefonts]`), run as `python -m fontbakery check-googlefonts --skip-network` | 0.12.10 | Apache-2.0 | file (`LICENSE.txt` in the distribution) |
+| The data packages Fontbakery's Google Fonts profile imports, pinned together because pip's resolver, left alone, picks a set that does not install: `gflanguages` 0.6.5, `glyphsets` 1.0.0, `axisregistry` 0.4.16, `shaperglot` 0.5.1, `gfsubsets` 2025.11.4 | as listed | Apache-2.0 | file (each distribution's licence file) |
+| The other packages pip resolves for the above (for example ufoLib2, defcon, booleanOperations, compreffor, cffsubr, uharfbuzz, freetype-py, protobuf, beautifulsoup4) | as resolved | Apache-2.0, MIT or BSD-3-Clause, each as its own metadata says | package metadata; they are not enumerated here, and `pip list` in the virtualenv names them |
+| ttfautohint, only if it is on the PATH, run as a separate program to hint the build | not installed here | FreeType License or GPL-2.0 (a separate program, never linked) | not checked here; recorded from its own project's documentation |
 
 ## Ported (reimplemented in Kotlin; not linked as a binary dependency)
 
@@ -252,5 +272,5 @@ Noto Nastaliq Urdu's copyright as given by the review that found this gap. Full 
 |---|---|---|
 | fontTools (used by `data/scripts/build_node_economy_corpus.py` and `data/scripts/build_script_node_economy_corpus.py`) | MIT | Not installed or run by the build. |
 | Playwright (used by `tools/explorer-shots.mjs`) | Apache-2.0 | Resolved from the machine's global install, not a project dependency. |
-| Hyle Deco Regular and Italic in `fonts/` (Copyright 2026 The Hyle Deco Project Authors) | OFL-1.1 | Verified from the fonts' name table (IDs 0 and 13); the full licence text is now in `fonts/OFL.txt`. Regular ships inside the app itself: `ui`'s `HyleDecoProjectFontBytes.kt` embeds it in `ui`'s own main source set (Overlay tab's project layer, P6), not only as a test fixture (`core-font`'s `HyleDecoRegularTtfBase64.kt`, `commonTest`). Italic is not currently read by any module. |
+| Hyle Deco Regular and Italic in `fonts/` (Copyright 2026 The Hyle Deco Project Authors) | OFL-1.1 | Verified from the fonts' name table (IDs 0 and 13); the full licence text is now in `fonts/OFL.txt`. Regular ships inside the app itself: `ui`'s `imports/BundledSampleFont.kt` embeds a byte-for-byte copy (base64 text, so every target can open it with no file access) in `ui`'s own main source set. It is read only when the person chooses "Try the sample" on Projects, through the same licence check as any font they bring, and opens as an ordinary project in their own folder; no other screen reads it, and a test (`NoFixtureFontInMainSourcesTest`) fails if any other main source file names it. It is also a test fixture (`core-font`'s `HyleDecoRegularTtfBase64.kt`, `commonTest`). Italic is not currently read by any module. |
 | Noto Sans Devanagari Regular and Noto Naskh Arabic Regular in `fonts/` (Copyright 2022 The Noto Project Authors, `github.com/notofonts/devanagari` and `github.com/notofonts/arabic`) | OFL-1.1 | Verified from the fonts' name table (IDs 0 and 13), same method as Hyle Deco above; the full licence text is now in `fonts/OFL.txt`. Added P8 as `SkikoShaperTest`'s real conjunct/joining fixtures (`shape-preview`, `desktopTest`) — the module `docs/ARCHITECTURE_REVIEW.md` section 4.3 already named these two families by name. Test fixtures only (Devanagari also embedded as a `wasmJsTest` fixture, `shape-preview`'s `EmbeddedNotoSansDevanagariBytes.kt`). |

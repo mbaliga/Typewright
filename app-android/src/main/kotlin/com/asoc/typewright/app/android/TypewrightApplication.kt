@@ -3,10 +3,13 @@
 package com.asoc.typewright.app.android
 
 import android.app.Application
+import android.os.Build
 import com.asoc.typewright.project.ProjectWorkspace
 import com.asoc.typewright.project.storage.AndroidAppConfigStore
 import com.asoc.typewright.project.storage.AndroidStorageProvider
+import com.asoc.typewright.ui.crash.buildCrashReport
 import com.asoc.typewright.ui.project.createProjectWorkspace
+import com.asoc.typewright.ui.settings.APP_VERSION
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -19,11 +22,37 @@ import kotlinx.coroutines.SupervisorJob
  * intends; [ProjectWorkspace.reopenLast] then rebuilds it from disk.
  */
 class TypewrightApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        // Any crash leaves a report on this device for the next launch to show (nothing is sent anywhere).
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            runCatching {
+                val report =
+                    buildCrashReport(
+                        error,
+                        thread.name,
+                        APP_VERSION,
+                        "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}",
+                        java.util.Date().toString(),
+                    )
+                java.io.File(filesDir, CRASH_FILE).writeText(report)
+            }
+            previous?.uncaughtException(thread, error)
+        }
+    }
+
+    /** The document-tree storage the workspace and Ship's folder both write through. */
+    val storage: AndroidStorageProvider by lazy { AndroidStorageProvider(this) }
+
     val workspace: ProjectWorkspace by lazy {
         createProjectWorkspace(
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
-            storage = AndroidStorageProvider(this),
+            storage = storage,
             config = AndroidAppConfigStore(filesDir),
         )
     }
 }
+
+/** The file, in the app's private files, that holds the last crash's report until it has been shown. */
+const val CRASH_FILE: String = "last-crash.txt"

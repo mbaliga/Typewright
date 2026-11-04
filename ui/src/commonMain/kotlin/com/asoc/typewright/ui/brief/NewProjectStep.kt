@@ -34,6 +34,8 @@ import com.asoc.typewright.scripts.arabic.ArabicGlyphInventory
 import com.asoc.typewright.scripts.devanagari.DevanagariGlyphInventory
 import com.asoc.typewright.scripts.kana.HIRAGANA_GLYPH_INVENTORY
 import com.asoc.typewright.scripts.kana.KATAKANA_GLYPH_INVENTORY
+import com.asoc.typewright.ui.capture.LinkText
+import com.asoc.typewright.ui.capture.LocalOpenTemplates
 import com.asoc.typewright.ui.deck.ownsDeckKeys
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.MeaningColors
@@ -66,6 +68,16 @@ internal fun NewProjectStep(
                 sizeSp = 20.0,
                 weight = FontWeight.Medium,
             )
+        }
+
+        LocalOpenTemplates.current?.let { openTemplates ->
+            Field(label = "Source", texture = texture) {
+                Small(
+                    text = "Start from your own letters on paper: print the sheets, draw, then photograph or scan them.",
+                    texture = texture,
+                )
+                LinkText("Draw on paper · print the sheets", texture, openTemplates)
+            }
         }
 
         Field(label = "Scripts", texture = texture) {

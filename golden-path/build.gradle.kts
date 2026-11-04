@@ -15,11 +15,19 @@ dependencies {
     testImplementation(project(":core-geometry"))
     testImplementation(project(":core-font"))
     testImplementation(project(":engine-trace"))
+    // Steps 1b and 2 photograph the printed Latin sheets with the same synthetic-photograph generator, photograph library and judge that
+    // engine-trace's own tests use, so the golden path and the unit tests cannot disagree about what a photograph is or what is right.
+    testImplementation(project(":capture-testkit"))
     testImplementation(project(":engine-construct"))
     testImplementation(project(":qa"))
     testImplementation(project(":qa:corpus"))
     testImplementation(project(":compile"))
     testImplementation(project(":project"))
+    // Step 6 drives Ship's controller (ui/ship/ShipController.kt), which holds the block rule and the order of the build and has no Compose in
+    // it; nothing of the UI's screens is touched.
+    testImplementation(project(":ui"))
+    // Step 6 reads Fontbakery's --json report the way the app's own checker does.
+    testImplementation(libs.kotlinx.serialization.json)
     // CompileBackend.compile is suspend (compile/src/commonMain/.../CompileBackend.kt); step 5
     // calls it from a plain JUnit test with kotlinx.coroutines.runBlocking.
     testImplementation(libs.kotlinx.coroutines.core)
@@ -32,6 +40,8 @@ val goldenPathTest =
         // other module's PR. `goldenPathRatchet`, not this task, is what enforces "may not
         // regress" (CLAUDE.md's standing rule for P10-P19).
         ignoreFailures = true
+        // Steps 1b and 2 read two dozen synthetic photographs, each a few megapixels of doubles while it is made and warped.
+        maxHeapSize = "2g"
         // Real filesystem state (a python3/fontmake/fontspector lookup on PATH -- qa's
         // FontspectorCliChecker, compile's SystemPythonFontmakeBackend) that the configuration
         // cache cannot see as an input; re-running this task every invocation is the honest

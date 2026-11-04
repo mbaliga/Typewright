@@ -23,11 +23,11 @@ fun PrimitiveKindMenu(
     onSelect: (PrimitiveKind) -> Unit,
 ) {
     val rows =
-        PrimitiveKind.ORDERED.map { kind ->
+        PrimitiveKind.ON_SHEET.map { kind ->
             GlassListRow(label = kind.label.uppercase())
         }
     GlassList(pin = pin, canvasSizeDp = canvasSizeDp, texture = texture, rows = rows) { index ->
-        onSelect(PrimitiveKind.ORDERED[index])
+        onSelect(PrimitiveKind.ON_SHEET[index])
     }
 }
 

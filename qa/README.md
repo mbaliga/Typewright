@@ -5,8 +5,16 @@ The quality gate: Typewright's own checks (node economy, extrema, overshoot, anc
 ## What P1-qa built
 
 - `LayerOneChecker` (`LayerOneChecker.kt` + platform actuals): the bridge to a real googlefonts-profile
-  tool. `jvmMain`'s `FontspectorCliChecker` shells out to a `fontspector` binary on `PATH`;
-  `wasmJsMain`'s actual is always `Unavailable`, honestly labelled (no runtime for it on the web yet).
+  tool. On the desktop, `DesktopLayerOneChecker` runs Fontspector when its binary is on `PATH` and
+  otherwise Fontbakery (`python -m fontbakery check-googlefonts`) in the Python `TYPEWRIGHT_PYTHON`
+  names, and Fontbakery too when Fontspector's report cannot be read (the report says so in its `notes`);
+  with neither it reports one SKIP that names the pip command. A tool's INFO is `CheckStatus.INFO`, counted
+  apart from the warnings. On Android and the web the actual
+  is `Unavailable` and says "Layer one needs the desktop app". The desktop checker is handed out wrapped in
+  `BackgroundLayerOneChecker`: every call runs on a background thread and cancelling the caller interrupts it,
+  which stops the tool and everything it started, so a screen can call it from its own thread and cancel it.
+  Where Fontbakery was found is remembered for the process (a miss never is). See "The Check report" below
+  and `docs/CHECK_AND_COMPILE.md`.
 - `checkNodeEconomy` (`NodeEconomyCheck.kt`): per-glyph on/off-curve counts against a `qa:corpus`
   style-class box, with a plain-language rationale (brief §8.3's legend restated as a sentence).
 - The geometric heuristics (`GeometricChecks.kt`): alignment-miss, collinear segments, jaggy turns,
@@ -17,10 +25,30 @@ The quality gate: Typewright's own checks (node economy, extrema, overshoot, anc
   file's own KDoc, per law 5.
 - `checkAnchorsPresent` (`AnchorPresenceCheck.kt`): a best-effort, allow-list-based check over the
   52 base Latin letters -- see "Deferred checks" below for why it stops there.
-- `com.asoc.typewright.qa.ship` (`ShipPipeline.kt`): pure string generators for `OFL.txt`,
-  `DESCRIPTION.en_us.html` and a `METADATA.pb`-shaped scaffold (not `upstream.yaml`, which
-  `gftools` now treats as legacy -- docs/ARCHITECTURE_REVIEW.md section 5 item 52). No file I/O, no
-  compile step, no Fontspector requirement.
+- `com.asoc.typewright.qa.ship` is Ship's pure half (docs/SHIP.md), with no file I/O and no compiler.
+  `buildShipPlan` makes the repository folder as data (`OFL.txt`, `AUTHORS.txt`, `DESCRIPTION.en_us.html`,
+  `METADATA.pb`, `upstream.yaml`, `sources/<F>-<S>.ufo/`, `fonts/ttf/<F>-<S>.ttf` and the request text, or the
+  Own-licence subset) from `ShipFacts`, which reads the project's font info; a fact the project does not state is
+  an `Omission` and a line the file leaves out, never a placeholder. `shipGate` is the block rule (layer two's
+  fails, and layer one's on a compiled binary), and `shipChecklist` is the Ship page's list of lines with the Font
+  info field that fixes each unmet one. `ShipPipeline.kt` keeps the older string generators that the lessons'
+  campaign task still calls; they are not what Ship writes.
+
+## The Check report
+
+`com.asoc.typewright.qa.report` turns the layer-two checks into the report the Check screen shows.
+`buildCheckReport(CheckInputs)` is a pure function of a project's UFO and the node-economy corpus: it
+runs fourteen checks in five groups (Outlines, Metrics, Provenance, Names, Licence), gives each a
+severity that is a shape and a word (● fail, ◐ warn, ✓ pass, ○ not measured), and sorts them in a
+documented order, the order a Google Fonts reviewer attacks a font in (`ReviewOrder`). The counts and the
+severity bar are derived from the items every time, never stored. `economyListing` gives the Economy view one
+line per glyph (a glyph with no box says so and is counted, not dropped) and `faceSpread` the faces behind each box. `NotMeasured.PARAGRAPHS` is the text of "What
+these checks do not measure". Layer one's results, when a tool ran, are attached with `withLayerOne`;
+they are the tool's own words and are never merged into the fourteen. How the thresholds are chosen and
+what is a heuristic is in `docs/CHECK_AND_COMPILE.md`.
+
+`./gradlew :qa:jvmTest` needs no Python. `./gradlew :qa:pythonIntegrationTest` runs the real Fontbakery
+and needs `TYPEWRIGHT_PYTHON` to name a Python with `tools/requirements-golden-path.txt` installed.
 
 ## Deferred checks
 

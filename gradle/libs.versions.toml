@@ -7,6 +7,8 @@ agp = "9.4.1"
 spotless = "8.10.2"
 ktlint = "1.8.0"
 androidx-activity = "1.13.0"
+# CameraX for Capture's Camera (Android only): one release train, Apache-2.0.
+androidx-camera = "1.6.2"
 
 # P11 WP3's Android instrumented tests (docs/PROJECT_MODEL.md §13): androidx.test's runner and
 # rules are one release train (1.7.0); the JUnit4 extension, UiAutomator and the orchestrator are
@@ -70,6 +72,10 @@ compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.re
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
 compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
+androidx-camera-core = { module = "androidx.camera:camera-core", version.ref = "androidx-camera" }
+androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "androidx-camera" }
+androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "androidx-camera" }
+androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "androidx-camera" }
 
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }

@@ -4,6 +4,7 @@ package com.asoc.typewright.ui.learn
 
 import com.asoc.typewright.core.font.sfnt.SfntFont
 import com.asoc.typewright.core.geometry.Glyph
+import com.asoc.typewright.ui.project.ProjectFont
 import com.asoc.typewright.ui.tokens.MeaningColor
 
 /**
@@ -17,9 +18,8 @@ import com.asoc.typewright.ui.tokens.MeaningColor
  * task P6's other half, checked and reused rather than re-derived): the glyph's own drawn ink
  * height is primary, `OS/2`'s `sCapHeight`/`sxHeight` only a fallback (CLAUDE.md law 1, "the
  * user's drawing is the source of truth") -- both are `null` only when a font has neither its own
- * `H`/`x` glyph nor a positive `OS/2` fallback, which none of this build's own three demo layers
- * (Hyle Deco, EB Garamond, Libre Baskerville) ever hits, but [OverlayTab] still handles it
- * honestly (CLAUDE.md law 5) rather than assuming a font always has one.
+ * `H`/`x` glyph nor a positive fallback, and [OverlayTab] handles that honestly (CLAUDE.md law 5)
+ * rather than assuming a font always has one.
  */
 data class OverlayLayer(
     val id: String,
@@ -109,6 +109,34 @@ fun buildOverlayLayer(
         unitsPerEm = font.head.unitsPerEm,
         capHeightUnits = capHeight,
         xHeightUnits = xHeight,
+        glyphs = glyphs,
+    )
+}
+
+/**
+ * The project's own layer, built from the open project's glyphs by character exactly as
+ * [buildOverlayLayer] builds one from a font file: [chars] plus `n`/`H`/`o` for the stroke probe,
+ * `H`/`x` for the alignment metrics (the project's own `capHeight`/`xHeight` only as a fallback), and
+ * a character the project has no glyph for left out rather than replaced.
+ */
+fun buildProjectOverlayLayer(
+    font: ProjectFont,
+    id: String,
+    label: String,
+    sourceLabel: String,
+    chars: String,
+): OverlayLayer {
+    val neededChars = (chars.toSet() + setOf('H', 'x', 'b', 'o', 'n')).sorted()
+    val glyphs = neededChars.mapNotNull { ch -> font.glyphFor(ch)?.let { ch to it } }.toMap()
+    return OverlayLayer(
+        id = id,
+        label = label,
+        sourceLabel = sourceLabel,
+        dashPattern = null,
+        meaningColor = null,
+        unitsPerEm = font.unitsPerEm,
+        capHeightUnits = realCapHeightUnits(glyphs['H'], font.ufo.fontInfo.capHeight),
+        xHeightUnits = realXHeightUnits(glyphs['x'], font.ufo.fontInfo.xHeight),
         glyphs = glyphs,
     )
 }

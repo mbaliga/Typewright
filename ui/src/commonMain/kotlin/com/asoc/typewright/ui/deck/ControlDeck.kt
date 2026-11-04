@@ -87,6 +87,8 @@ fun ControlDeck(
     right: DeckRight = DeckRight.MENU,
     toggles: List<DeckToggle> = emptyList(),
     dimSections: Boolean = false,
+    /** Hides the section arc altogether, as the Camera does: nothing is drawn or can be hit there, and a swipe turns nothing. */
+    hideSections: Boolean = false,
     rightDimmed: Boolean = false,
     rightLabel: String? = null,
     sectionStatus: (DeckSection) -> StationStatus? = { null },
@@ -102,7 +104,7 @@ fun ControlDeck(
     val haptics = LocalHapticFeedback.current
     val hapticsOn = LocalAppearance.current?.settings?.haptics ?: true
     var dragged by remember { mutableStateOf(0.0) }
-    val turned = if (onSection == null) 0.0 else DeckKeys.turned(dragged)
+    val turned = if (onSection == null || hideSections) 0.0 else DeckKeys.turned(dragged)
     val sectionLabels = DeckGeometry.sectionLabels(section, shift = turned, status = sectionStatus)
     val toggleLabels = DeckGeometry.toggleLabels(toggles)
     val ring = texture.ink.toColor()
@@ -110,8 +112,8 @@ fun ControlDeck(
         modifier
             .fillMaxWidth()
             .height(DeckGeometry.HEIGHT.dp)
-            .pointerInput(section, onSection) {
-                if (onSection == null) return@pointerInput
+            .pointerInput(section, onSection, hideSections) {
+                if (onSection == null || hideSections) return@pointerInput
                 var turning = false
                 var lastApex = section
                 detectHorizontalDragGestures(
@@ -157,7 +159,7 @@ fun ControlDeck(
                 translate(left = ox, top = oy)
                 scale(scaleX = k * density.density, scaleY = k * density.density, pivot = Offset.Zero)
             }) {
-                drawDeck(texture, measurer, sectionLabels, toggleLabels, section, left, right, dimSections, rightDimmed)
+                drawDeck(texture, measurer, sectionLabels, toggleLabels, section, left, right, dimSections, hideSections, rightDimmed)
             }
         }
         if (left != DeckLeft.NONE) {
@@ -179,6 +181,14 @@ fun ControlDeck(
                         "More"
                     } else if (right == DeckRight.PLUS) {
                         "New project"
+                    } else if (right == DeckRight.REFRESH) {
+                        "Run again"
+                    } else if (right == DeckRight.BUILD) {
+                        "Build"
+                    } else if (right == DeckRight.DOWNLOAD) {
+                        "Export"
+                    } else if (right == DeckRight.SHUTTER) {
+                        "Shutter"
                     } else {
                         "Next"
                     },
@@ -209,7 +219,7 @@ fun ControlDeck(
                 onClick = { onToggle(index) },
             )
         }
-        if (onSection != null) {
+        if (onSection != null && !hideSections) {
             sectionLabels.filter { it.section != null }.forEach { label ->
                 val (cx, cy) = DeckGeometry.pointAt(DeckGeometry.SECTION_RADIUS, DeckGeometry.SECTION_HALF_ANGLE, label.centerLength)
                 val w = max(label.bandLength, MIN_HIT)
@@ -299,6 +309,7 @@ private fun DrawScope.drawDeck(
     left: DeckLeft,
     right: DeckRight,
     dimSections: Boolean,
+    hideSections: Boolean,
     rightDimmed: Boolean,
 ) {
     val ink = texture.ink.toColor()
@@ -308,35 +319,37 @@ private fun DrawScope.drawDeck(
     val c = Offset(DeckGeometry.CENTER_X.toFloat(), DeckGeometry.CENTER_Y.toFloat())
 
     // The section arc: two hairlines either side of it, a band behind the current label, the labels.
-    arcLine(c, 544.0, DeckGeometry.SECTION_HALF_ANGLE, line.copy(alpha = line.alpha * sectionsAlpha))
-    arcLine(c, 510.0, DeckGeometry.SECTION_HALF_ANGLE, line.copy(alpha = line.alpha * sectionsAlpha))
-    sectionLabels.firstOrNull { it.current && it.text.isNotEmpty() }?.let {
-        band(
-            c,
-            DeckGeometry.SECTION_RADIUS,
-            DeckGeometry.SECTION_HALF_ANGLE,
-            DeckGeometry.SECTION_BAND_THICKNESS,
-            it,
-            ink.copy(
-                alpha =
-                    ink.alpha * sectionsAlpha,
-            ),
-        )
-    }
-    for (label in sectionLabels) {
-        if (label.text.isEmpty()) continue
-        val color = (if (label.current) paper else ink).copy(alpha = label.alpha.toFloat() * sectionsAlpha)
-        textAlongArc(
-            measurer,
-            c,
-            label,
-            DeckGeometry.SECTION_RADIUS,
-            DeckGeometry.SECTION_HALF_ANGLE,
-            size = 10.5f,
-            spacing = 1.5f,
-            weight = if (label.current) FontWeight.SemiBold else FontWeight.Medium,
-            color = color,
-        )
+    if (!hideSections) {
+        arcLine(c, 544.0, DeckGeometry.SECTION_HALF_ANGLE, line.copy(alpha = line.alpha * sectionsAlpha))
+        arcLine(c, 510.0, DeckGeometry.SECTION_HALF_ANGLE, line.copy(alpha = line.alpha * sectionsAlpha))
+        sectionLabels.firstOrNull { it.current && it.text.isNotEmpty() }?.let {
+            band(
+                c,
+                DeckGeometry.SECTION_RADIUS,
+                DeckGeometry.SECTION_HALF_ANGLE,
+                DeckGeometry.SECTION_BAND_THICKNESS,
+                it,
+                ink.copy(
+                    alpha =
+                        ink.alpha * sectionsAlpha,
+                ),
+            )
+        }
+        for (label in sectionLabels) {
+            if (label.text.isEmpty()) continue
+            val color = (if (label.current) paper else ink).copy(alpha = label.alpha.toFloat() * sectionsAlpha)
+            textAlongArc(
+                measurer,
+                c,
+                label,
+                DeckGeometry.SECTION_RADIUS,
+                DeckGeometry.SECTION_HALF_ANGLE,
+                size = 10.5f,
+                spacing = 1.5f,
+                weight = if (label.current) FontWeight.SemiBold else FontWeight.Medium,
+                color = color,
+            )
+        }
     }
 
     // The toggle arc: hairlines, a band behind each toggle that is on, the labels.
@@ -413,6 +426,7 @@ private fun DrawScope.drawDeck(
     }
     val rightAlpha = if (rightDimmed) 0.35f else 1f
     val rightAt = Offset(DeckGeometry.RIGHT_CIRCLE_X.toFloat(), cy)
+    val refreshPath = if (right == DeckRight.REFRESH) DeckGlyphs.refresh() else null
     when (right) {
         DeckRight.MENU -> {
             drawCircle(paper, DeckGeometry.CIRCLE_RADIUS.toFloat(), rightAt, alpha = rightAlpha)
@@ -460,6 +474,41 @@ private fun DrawScope.drawDeck(
                 paper.copy(alpha = paper.alpha * rightAlpha),
                 2.4f,
             )
+        }
+
+        DeckRight.REFRESH -> {
+            drawCircle(ink, DeckGeometry.FILLED_CIRCLE_RADIUS.toFloat(), rightAt, alpha = rightAlpha)
+            // The board's own path (Deck.dc.html), about the circle's centre, with the board's width and the plain ends it draws it with.
+            withTransform({ translate(rightAt.x, rightAt.y) }) {
+                drawPath(
+                    checkNotNull(refreshPath),
+                    paper.copy(alpha = paper.alpha * rightAlpha),
+                    style = Stroke(width = DeckGlyphs.REFRESH_STROKE, cap = StrokeCap.Butt),
+                )
+            }
+        }
+
+        DeckRight.BUILD, DeckRight.DOWNLOAD -> {
+            drawCircle(ink, DeckGeometry.FILLED_CIRCLE_RADIUS.toFloat(), rightAt, alpha = rightAlpha)
+            val arrow = if (right == DeckRight.BUILD) DeckGlyphs.build() else DeckGlyphs.download()
+            withTransform({ translate(rightAt.x, rightAt.y) }) {
+                drawPath(
+                    arrow,
+                    paper.copy(alpha = paper.alpha * rightAlpha),
+                    style = Stroke(width = DeckGlyphs.ARROW_STROKE, cap = StrokeCap.Butt),
+                )
+            }
+        }
+
+        DeckRight.SHUTTER -> {
+            drawCircle(ink, DeckGeometry.FILLED_CIRCLE_RADIUS.toFloat(), rightAt, alpha = rightAlpha)
+            drawCircle(
+                paper.copy(alpha = paper.alpha * rightAlpha),
+                DeckGlyphs.SHUTTER_RING_RADIUS,
+                rightAt,
+                style = Stroke(DeckGlyphs.SHUTTER_RING_STROKE),
+            )
+            drawCircle(paper.copy(alpha = paper.alpha * rightAlpha), DeckGlyphs.SHUTTER_CORE_RADIUS, rightAt)
         }
 
         DeckRight.NONE -> {

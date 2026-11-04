@@ -207,6 +207,27 @@ private fun isPlainGlifFileName(name: String): Boolean =
         name.none { it == '/' || it == '\\' || it == '\u0000' }
 
 /**
+ * The font info of the UFO 3 in [files] (its `fontinfo.plist`, or an empty [UfoFontInfo] when it has
+ * none), read without parsing a single glyph: for a caller that must decide something from the
+ * names and licence before it reads the outlines. Throws [IllegalArgumentException] under the same
+ * conditions as [readUfoProject] for `metainfo.plist`.
+ */
+fun readUfoFontInfo(files: Map<String, String>): UfoFontInfo {
+    requireUfo3(files)
+    return files["fontinfo.plist"]?.let { fontInfoFromPlist(parsePlistDict(it)) } ?: UfoFontInfo()
+}
+
+private fun requireUfo3(files: Map<String, String>) {
+    val metaInfoXml =
+        files["metainfo.plist"] ?: throw IllegalArgumentException("UFO project is missing required file metainfo.plist")
+    val metaInfo = parsePlistDict(metaInfoXml)
+    val formatVersion = metaInfo.longOrNull("formatVersion")
+    require(formatVersion == UFO_FORMAT_VERSION) {
+        "core-font reads UFO format version 3 only, found ${formatVersion ?: "none"}"
+    }
+}
+
+/**
  * Reads a UFO 3 project from [files] (as [writeUfoProject] produces, or any spec-conforming UFO's
  * files read off disk by a caller). `metainfo.plist` must declare format version 3.
  * `fontinfo.plist` and `lib.plist` are read when present. Every glyph `contents.plist` lists is
@@ -218,13 +239,7 @@ private fun isPlainGlifFileName(name: String): Boolean =
  * read when present (absent gives, respectively, an empty map, an empty map and `null`).
  */
 fun readUfoProject(files: Map<String, String>): UfoProject {
-    val metaInfoXml =
-        files["metainfo.plist"] ?: throw IllegalArgumentException("UFO project is missing required file metainfo.plist")
-    val metaInfo = parsePlistDict(metaInfoXml)
-    val formatVersion = metaInfo.longOrNull("formatVersion")
-    require(formatVersion == UFO_FORMAT_VERSION) {
-        "core-font reads UFO format version 3 only, found ${formatVersion ?: "none"}"
-    }
+    requireUfo3(files)
 
     val fontInfo = files["fontinfo.plist"]?.let { fontInfoFromPlist(parsePlistDict(it)) } ?: UfoFontInfo()
     val readLib = files["lib.plist"]?.let { libFromPlist(parsePlistDict(it)) }

@@ -17,9 +17,8 @@ import kotlin.test.assertEquals
  * (this task's own instruction: "compute the REAL result by running this function against this
  * build's own reference font, do not hardcode the mockup's numbers as if measured").
  *
- * There is no SFNT-to-[UfoProject] bridge in `core-font` (this task's own note), so this follows
- * this build's own established precedent (`core-geometry`'s `FitPipelineHyleDecoValidationTest`,
- * `ui`'s `HyleDecoProjectFontBytes.kt`): read `fonts/HyleDeco-Regular.ttf` with `core-font`'s real
+ * This follows `core-geometry`'s `FitPipelineHyleDecoValidationTest`: read
+ * `fonts/HyleDeco-Regular.ttf` with `core-font`'s real
  * SFNT reader ([readSfntFont]) to get real [com.asoc.typewright.core.geometry.Glyph] objects --
  * with their real point counts, matching CLAUDE.md's own pinned fixture numbers for `n`/`H` (and
  * `o`, restated in `qa/corpus`'s own `HyleDecoNodeEconomyTest`) -- and build a small real

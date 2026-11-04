@@ -3,9 +3,9 @@
 package com.asoc.typewright.compile
 
 /**
- * Android backend, planned: fontmake and fontTools bundled into the app through Chaquopy.
- * Chaquopy is not added yet (its licence text is still to confirm, brief §15 item 7).
- * Stub until built: it reports itself unavailable and compiles nothing.
+ * Android backend. Compiling on a phone is not built: whether the route is Chaquopy with fontmake or
+ * fontc over JNI is an owner decision that rests on a measurement only a device can give, so this
+ * says so in words, compiles nothing and fakes nothing.
  */
 class ChaquopyBackend : CompileBackend {
     override val name: String = "fontmake (Chaquopy)"
@@ -13,14 +13,18 @@ class ChaquopyBackend : CompileBackend {
     override val location: CompileLocation =
         CompileLocation.OnThisDevice(runtime = "fontmake and fontTools in the app's bundled Python")
 
-    override suspend fun availability(): BackendAvailability = BackendAvailability.Unavailable(PLANNED)
+    override suspend fun availability(): BackendAvailability = BackendAvailability.Unavailable(NOT_BUILT)
 
-    override suspend fun compile(request: CompileRequest): CompileResult = notImplemented(name, PLANNED)
+    override suspend fun compile(
+        request: CompileRequest,
+        onLog: (CompileLogLine) -> Unit,
+    ): CompileResult = notImplemented(name, NOT_BUILT).also { result -> result.log.forEach(onLog) }
 
-    private companion object {
-        const val PLANNED =
-            "Not built yet. Planned: Chaquopy bundles Python with fontmake and fontTools into the " +
-                "app, and the build runs on the device with no network use."
+    companion object {
+        /** What the UI shows wherever it would offer to build on this device. */
+        const val NOT_BUILT =
+            "Compiling on this phone is not built in this version (the Android route is an owner decision, D5); " +
+                "build in the desktop app."
     }
 }
 

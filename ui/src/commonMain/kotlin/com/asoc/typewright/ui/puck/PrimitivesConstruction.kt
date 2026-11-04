@@ -17,8 +17,14 @@ import com.asoc.typewright.engine.construct.RoundedRectanglePrimitive
 import com.asoc.typewright.engine.construct.StemPrimitive
 import com.asoc.typewright.engine.construct.SuperellipsePrimitive
 import com.asoc.typewright.engine.construct.TwoPointLine
+import com.asoc.typewright.engine.construct.ellipseInBox
+import com.asoc.typewright.engine.construct.rectangleInBox
+import com.asoc.typewright.engine.construct.roundedRectangleInBox
+import com.asoc.typewright.ui.draw.DrawSpace
 import com.asoc.typewright.ui.sheet.SheetCamera
 import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.floor
 import kotlin.math.roundToInt
 
 /**
@@ -358,17 +364,89 @@ private fun Contour.boundingWidthUnits(): Double {
 }
 
 /**
- * The sheet's current view centre, in font units, y up (CLAUDE.md's own "y up" convention;
- * `com.asoc.typewright.ui.sheet.GridAndMetrics.kt`'s own `worldToScreenFontUp` negates y going
- * world-to-screen for the identical reason). Defined locally, not by importing or editing that
- * file, per this task's own instruction to touch shared `sheet/` files as little as possible --
- * this is the one small inverse it needs, restated rather than reused across a package boundary.
+ * The middle of the screen in the open glyph's font units (y up), where a primitive is made when it is
+ * picked: the same map the glyph is drawn through, so the primitive appears where the person is looking
+ * and not at some other place on the sheet.
  */
 fun viewCentreFontUnits(
     camera: SheetCamera,
     canvasSizeDp: Vec2,
 ): Point {
-    val screenCenter = Vec2(canvasSizeDp.x / 2.0, canvasSizeDp.y / 2.0)
-    val world = camera.screenToFont(screenCenter)
-    return Point(world.x.roundToInt(), (-world.y).roundToInt())
+    val font = DrawSpace.of(camera).toFont(Vec2(canvasSizeDp.x / 2.0, canvasSizeDp.y / 2.0))
+    return Point(font.x.roundToInt(), font.y.roundToInt())
+}
+
+/** A shape dragged out on the sheet: its closed [contour] and the box it fills, in font units. */
+data class PrimitiveShape(
+    val kind: PrimitiveKind,
+    val contour: Contour,
+    val minX: Int,
+    val minY: Int,
+    val maxX: Int,
+    val maxY: Int,
+) {
+    /** "circle 500 × 500" for the readout. */
+    val text: String get() = "${kind.label.lowercase()} ${maxX - minX} × ${maxY - minY}"
+}
+
+/**
+ * What a drag with the Primitives tool makes: a circle, an ellipse, a rectangle or a rounded rectangle as a real
+ * closed contour with the node count a type designer draws (a circle is four on-curve points on its extremes and
+ * their handles; a rectangle four corners; a rounded rectangle eight), not a bitmap or a parametric stand-in. The
+ * drag runs from one corner of the box to the opposite one; a circle takes the larger of the two sides as its
+ * diameter. [snap] pulls a font-unit point onto the metric lines and the glyph's own edges and nodes (the drag's
+ * own snapper), applied to both corners, so a shape dragged from the baseline to the x-height lands on both.
+ */
+object PrimitiveDragPlan {
+    /** The shortest side, in font units, a shape is made at: a drag that has not gone this far makes nothing. */
+    const val MIN_SIDE_UNITS = 2
+
+    /** The corner radius of a rounded rectangle, in font units, before it is held to what the box allows. */
+    const val ROUNDED_RADIUS_UNITS = 24.0
+
+    fun plan(
+        kind: PrimitiveKind,
+        from: Vec2,
+        to: Vec2,
+        snap: (Vec2) -> Vec2 = { it },
+    ): PrimitiveShape? {
+        if (kind !in PrimitiveKind.ON_SHEET) return null
+        val a = snap(from)
+        var b = snap(to)
+        if (kind == PrimitiveKind.CIRCLE) {
+            val dx = to.x - from.x
+            val dy = to.y - from.y
+            val diameter = maxOf(abs(dx), abs(dy))
+            val sx = if (dx < 0) -1.0 else 1.0
+            val sy = if (dy < 0) -1.0 else 1.0
+            val free = Vec2(a.x + sx * diameter, a.y + sy * diameter)
+            val snapped = snap(free)
+            // Heights are what the metric lines fix, so a snapped height decides the diameter before a snapped width does.
+            val size =
+                when {
+                    snapped.y != free.y -> abs(snapped.y - a.y)
+                    snapped.x != free.x -> abs(snapped.x - a.x)
+                    else -> diameter
+                }
+            b = Vec2(a.x + sx * size, a.y + sy * size)
+        }
+        val minX = nearestWhole(minOf(a.x, b.x))
+        val maxX = nearestWhole(maxOf(a.x, b.x))
+        val minY = nearestWhole(minOf(a.y, b.y))
+        val maxY = nearestWhole(maxOf(a.y, b.y))
+        if (maxX - minX < MIN_SIDE_UNITS || maxY - minY < MIN_SIDE_UNITS) return null
+        val x0 = minX.toDouble()
+        val y0 = minY.toDouble()
+        val x1 = maxX.toDouble()
+        val y1 = maxY.toDouble()
+        val contour =
+            when (kind) {
+                PrimitiveKind.CIRCLE, PrimitiveKind.ELLIPSE -> ellipseInBox(x0, y0, x1, y1)
+                PrimitiveKind.RECTANGLE -> rectangleInBox(x0, y0, x1, y1)
+                else -> roundedRectangleInBox(x0, y0, x1, y1, ROUNDED_RADIUS_UNITS)
+            }
+        return PrimitiveShape(kind, contour, minX, minY, maxX, maxY)
+    }
+
+    private fun nearestWhole(value: Double): Int = floor(value + 0.5).toInt()
 }

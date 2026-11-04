@@ -13,9 +13,11 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.unit.Density
 import com.asoc.typewright.core.geometry.Vec2
 import com.asoc.typewright.ui.toVec2
 import kotlinx.coroutines.CoroutineScope
@@ -53,18 +55,22 @@ import kotlinx.coroutines.launch
 fun Modifier.sheetRootGestures(
     cameraState: SheetCameraState,
     onGestureSettled: (Room) -> Unit,
+    /** Two fingers down together and up again without travelling: the gesture for undo. */
+    onTwoFingerTap: () -> Unit = {},
+    /** The same with three fingers: the gesture for redo. */
+    onThreeFingerTap: () -> Unit = {},
+    /** True while the first finger on the screen is held on the puck, as a modifier for the other hand: it is not half of a pinch. */
+    firstFingerBusy: () -> Boolean = { false },
 ): Modifier =
     this.pointerInput(cameraState) {
         awaitEachGesturePinchPan(
             currentRoom = { cameraState.currentRoom },
+            onTwoFingerTap = onTwoFingerTap,
+            onThreeFingerTap = onThreeFingerTap,
+            firstFingerBusy = firstFingerBusy,
             onTransform = { panDp, zoomFactor, focusDp ->
-                val zoomed =
-                    cameraState.camera
-                        .zoomedBy(zoomFactor, focusDp)
-                        .zoom
-                        .coerceIn(PINCH_ZOOM_MIN, PINCH_ZOOM_MAX)
-                val reZoomed = cameraState.camera.zoomedTo(zoomed, focusDp)
-                cameraState.snapTo(reZoomed.pannedBy(panDp))
+                cameraState.zoomBy(zoomFactor, focusDp)
+                cameraState.panBy(panDp)
             },
             onSettled = { startRoom, flingDirection ->
                 val target =
@@ -88,6 +94,9 @@ fun Modifier.sheetRootGestures(
  */
 private suspend fun PointerInputScope.awaitEachGesturePinchPan(
     currentRoom: () -> Room,
+    onTwoFingerTap: () -> Unit,
+    onThreeFingerTap: () -> Unit,
+    firstFingerBusy: () -> Boolean,
     onTransform: (panDp: Vec2, zoomFactor: Double, focusDp: Vec2) -> Unit,
     onSettled: (startRoom: Room, flingDirection: Int) -> Unit,
 ) {
@@ -97,10 +106,20 @@ private suspend fun PointerInputScope.awaitEachGesturePinchPan(
         var prevCentroid: Offset? = null
         var prevSpan: Float? = null
         val velocityTracker = VelocityTracker()
+        val twoFingerTap = FingerTap(2)
+        val threeFingerTap = FingerTap(3)
 
         while (true) {
             val event = awaitPointerEvent(PointerEventPass.Initial)
-            val pressed = event.changes.filter { it.pressed }
+            val down = event.changes.filter { it.pressed }
+            // A finger resting on the puck is not part of a pinch or a pan: the other hand is using the puck as a modifier.
+            val pressed = if (down.size >= 2 && firstFingerBusy()) down.drop(1) else down
+            if (pressed.size >= 2) {
+                val centroid = pressed.centroidDp(this)
+                val span = pressed.spanDp(this)
+                twoFingerTap.onPointers(pressed.size, centroid, span, pressed[0].uptimeMillis)
+                threeFingerTap.onPointers(pressed.size, centroid, span, pressed[0].uptimeMillis)
+            }
             if (pressed.size >= 2) {
                 if (startRoom == null) startRoom = currentRoom()
                 val p0 = pressed[0].position
@@ -122,7 +141,12 @@ private suspend fun PointerInputScope.awaitEachGesturePinchPan(
                 prevCentroid = null
                 prevSpan = null
             }
-            if (event.changes.none { it.pressed }) break
+            if (event.changes.none { it.pressed }) {
+                val lifted = event.changes.first().uptimeMillis
+                if (twoFingerTap.onPointers(0, Vec2(0.0, 0.0), 0.0, lifted)) onTwoFingerTap()
+                if (threeFingerTap.onPointers(0, Vec2(0.0, 0.0), 0.0, lifted)) onThreeFingerTap()
+                break
+            }
         }
 
         if (startRoom != null) {
@@ -137,6 +161,26 @@ private suspend fun PointerInputScope.awaitEachGesturePinchPan(
             onSettled(startRoom, direction)
         }
     }
+}
+
+/** The middle of the pressed pointers, in dp. */
+private fun List<PointerInputChange>.centroidDp(density: Density): Vec2 {
+    var x = 0f
+    var y = 0f
+    for (change in this) {
+        x += change.position.x
+        y += change.position.y
+    }
+    return Offset(x / size, y / size).toVec2(density)
+}
+
+/** The widest gap between any two of the pressed pointers, in dp. */
+private fun List<PointerInputChange>.spanDp(density: Density): Double {
+    var widest = 0.0
+    for (i in indices) {
+        for (j in i + 1 until size) widest = maxOf(widest, (this[i].position - this[j].position).toVec2(density).length())
+    }
+    return widest
 }
 
 /**
@@ -170,6 +214,4 @@ fun Modifier.roomKeyboardNavigation(
         }
     }
 
-private const val PINCH_ZOOM_MIN = 0.05
-private const val PINCH_ZOOM_MAX = 8.0
 private const val FLING_VELOCITY_THRESHOLD_DP_PER_S = 800.0

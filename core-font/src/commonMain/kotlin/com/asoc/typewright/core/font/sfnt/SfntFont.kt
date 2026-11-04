@@ -2,7 +2,10 @@
 
 package com.asoc.typewright.core.font.sfnt
 
+import com.asoc.typewright.core.geometry.Contour
+import com.asoc.typewright.core.geometry.ContourPoint
 import com.asoc.typewright.core.geometry.Glyph
+import com.asoc.typewright.core.geometry.Point
 
 /**
  * A parsed TrueType-outline (`glyf`) sfnt font: every table [readSfntFont] knows how to read, plus
@@ -23,9 +26,16 @@ class SfntFont internal constructor(
     val post: PostTable?,
     private val glyphOrder: List<String>,
     private val rawGlyphs: List<RawGlyfRecord>,
+    /** The four-character tag of every table in the font's directory, e.g. `fvar` for a variable font or `GPOS` for kerning. */
+    val tableTags: Set<String> = emptySet(),
+    /** The `xMin` of each glyph's `glyf` header (null for a glyph with no outline), by glyph id; empty where unknown, which leaves every outline where `glyf` put it. */
+    private val glyphXMin: List<Int?> = emptyList(),
 ) {
     /** Number of glyphs in the font, i.e. `maxp.numGlyphs`. */
     val numGlyphs: Int get() = maxp.numGlyphs
+
+    /** How many glyphs the file builds out of other glyphs (accented letters, usually); [glyph] and [allGlyphs] return every one of them already flattened. */
+    val compositeGlyphCount: Int get() = rawGlyphs.count { it is RawGlyfRecord.Composite }
 
     /** The resolved name of glyph [gid]: from `post` when it has names, else `"glyphNNNNN"`. */
     fun glyphName(gid: Int): String = glyphOrder[gid]
@@ -33,10 +43,17 @@ class SfntFont internal constructor(
     /** The glyph id for Unicode code point [codePoint], via `cmap`'s best subtable, or `null` if unmapped. */
     fun glyphIdForCodePoint(codePoint: Int): Int? = cmap.bestMapping[codePoint]
 
-    /** Glyph [gid] as a `core-geometry` [Glyph], with any composite components already decomposed and transformed. */
+    /**
+     * Glyph [gid] as a `core-geometry` [Glyph], with any composite components already decomposed and
+     * transformed, and drawn where a rasteriser draws it: the outline's left edge (the `xMin` of its
+     * `glyf` header) sits on the glyph's `hmtx` left side bearing, so a font whose `glyf` coordinates
+     * and `hmtx` disagree (the sample font's `n` is stored at x = 61 with a left side bearing of 46)
+     * gives the outline every other tool shows. A font that keeps the two equal is untouched.
+     */
     fun glyph(gid: Int): Glyph {
         val contours = decomposeGlyf(rawGlyphs, gid)
-        return Glyph(glyphOrder[gid], hmtx[gid].advanceWidth, contours)
+        val shift = glyphXMin.getOrNull(gid)?.let { hmtx[gid].leftSideBearing - it } ?: 0
+        return Glyph(glyphOrder[gid], hmtx[gid].advanceWidth, if (shift == 0) contours else contours.map { it.shiftedRight(shift) })
     }
 
     /** The glyph named [name], or `null` if no glyph has that resolved name (see [glyphName]). */
@@ -80,6 +97,7 @@ fun readSfntFont(fontBytes: ByteArray): SfntFont {
 
     val glyfRecord = directory["glyf"] ?: throw IllegalArgumentException("font has no 'glyf' table")
     val rawGlyphs = List(maxp.numGlyphs) { gid -> readGlyfRecord(fontBytes, glyfRecord.offset, loca, gid) }
+    val glyphXMin = List(maxp.numGlyphs) { gid -> readGlyfHeaderXMin(fontBytes, glyfRecord.offset, loca, gid) }
 
     val cmap = readCmapTable(requiredCursor("cmap"))
     val hmtx = readHmtxTable(requiredCursor("hmtx"), hhea.numberOfHMetrics, maxp.numGlyphs)
@@ -104,5 +122,11 @@ fun readSfntFont(fontBytes: ByteArray): SfntFont {
         post = post,
         glyphOrder = glyphOrder,
         rawGlyphs = rawGlyphs,
+        tableTags = directory.tables.keys.toSet(),
+        glyphXMin = glyphXMin,
     )
 }
+
+/** This contour moved [dx] font units to the right. */
+private fun Contour.shiftedRight(dx: Int): Contour =
+    Contour(points.map { ContourPoint(Point(it.point.x + dx, it.point.y), it.onCurve) }, format)
