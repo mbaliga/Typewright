@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Desktop-class Android devices may have no touchscreen; phones still declare one. -->
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+
     <application
         android:name=".TypewrightApplication"
         android:allowBackup="false"
@@ -8,7 +13,14 @@
         android:supportsRtl="true">
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:resizeableActivity="true">
+            <!-- Freeform and desktop windows only; phones ignore it. -->
+            <layout
+                android:defaultWidth="900dp"
+                android:defaultHeight="700dp"
+                android:minWidth="360dp"
+                android:minHeight="480dp" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

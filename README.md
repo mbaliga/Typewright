@@ -17,6 +17,9 @@ environment, so on-device behaviour is verified by the owner only and never clai
 Read `CLAUDE.md` (the laws) before changing anything, then `TYPEWRIGHT_BUILD_BRIEF.md` and
 `UI_SPEC.md`. Open questions live in `docs/OPEN_QUESTIONS.md`, licences in `THIRD_PARTY.md`.
 
+Porting beyond V1's three targets (Ubuntu Touch, iOS, macOS, Windows) is planned, not built:
+`docs/PORTING_PLAN.md`.
+
 ## Licence
 
 Typewright is licensed in parts (`docs/LICENSING.md`):
@@ -61,7 +64,7 @@ build-tools it needs if the SDK licences are accepted.
 | Format the code | `./gradlew spotlessApply` | rewrites files in place |
 | Android debug APK | `./gradlew :app-android:assembleDebug` | `app-android/build/outputs/apk/debug/app-android-debug.apk` (installs on API 31+; on-device behaviour is owner-verified) |
 | Desktop app | `./gradlew :app-desktop:run` | opens the window (seen under Xvfb) |
-| Desktop packages | `./gradlew :app-desktop:packageDeb` (or `packageRpm`, `packageAppImage`) | declared; not run at P0 (they need `jpackage` and the distro's packaging tools) |
+| Desktop packages | `./gradlew :app-desktop:packageDeb` (or `packageRpm`); `createDistributable` builds the app-image directory | declared; not run at P0 (they need `jpackage` and the distro's packaging tools) |
 | Screenshot harness | `./gradlew :ui:desktopTest --rerun` | renders composables headlessly to `ui/build/screenshots/*.png` (e.g. `draw-paper-rest.png`, `app-learn-open.png`) |
 | Web, production | `./gradlew :app-web:wasmJsBrowserDistribution` | `app-web/build/dist/wasmJs/productionExecutable/`; serve it with `python3 -m http.server -d app-web/build/dist/wasmJs/productionExecutable 8080` |
 | Web, development server | `./gradlew :app-web:wasmJsBrowserDevelopmentRun` | not run at P0 |
@@ -177,6 +180,7 @@ docs/
   DECISIONS.md                 the decision register from the design sessions
   OPEN_QUESTIONS.md            questions raised during the build, by prompt
   HOSTED_BUILD_ENDPOINT.md     the web compile backend's wire contract and zero-retention policy (not deployed yet)
+  PORTING_PLAN.md              the multi-platform porting plan: Ubuntu Touch, iOS, macOS, Windows (a plan; nothing built)
   hyle-outline-explainer.html  the explainer that started this
 data/
   node-economy-latin.json      per-style, per-glyph distributions + per-family counts (10 classes)
