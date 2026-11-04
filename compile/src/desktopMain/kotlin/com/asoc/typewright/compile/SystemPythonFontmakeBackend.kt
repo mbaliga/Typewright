@@ -149,7 +149,7 @@ class SystemPythonFontmakeBackend internal constructor(
                 else -> CompileResult.Success(binaries, log.lines())
             }
         } finally {
-            work.deleteRecursively()
+            removeWorkFolder(work)
         }
     }
 
@@ -255,7 +255,17 @@ class SystemPythonFontmakeBackend internal constructor(
         } catch (e: Throwable) {
             // Cancelled (or failed) while fontmake was running: nothing it started may outlive the build.
             process.killTree()
+            // Let the killed tree finish dying before the caller removes the folder it was writing into.
+            runCatching { process.waitFor(READER_JOIN_MILLIS, TimeUnit.MILLISECONDS) }
             throw e
+        }
+    }
+
+    /** Removes the build folder, trying again briefly: a just-killed process may still be closing a file inside it. */
+    private fun removeWorkFolder(work: File) {
+        repeat(REMOVE_ATTEMPTS) {
+            if (work.deleteRecursively() || !work.exists()) return
+            Thread.sleep(REMOVE_RETRY_MILLIS)
         }
     }
 
@@ -286,6 +296,8 @@ class SystemPythonFontmakeBackend internal constructor(
         const val MILLIS_PER_MINUTE = 60_000L
         const val MILLIS_PER_SECOND = 1_000L
         const val READER_JOIN_MILLIS = 5_000L
+        const val REMOVE_ATTEMPTS = 10
+        const val REMOVE_RETRY_MILLIS = 100L
     }
 }
 
