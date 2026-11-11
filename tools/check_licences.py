@@ -50,6 +50,7 @@ LICENCE_BY_DIR = {
     "golden-path": FSL,
     "build-logic": APACHE,
     "tools": APACHE,
+    "packaging": APACHE,  # distribution scripts (packaging/linux)
     "data/scripts": APACHE,
 }
 ROOT_BUILD_FILES = {"settings.gradle.kts": APACHE, "build.gradle.kts": APACHE}

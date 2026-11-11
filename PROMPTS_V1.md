@@ -329,7 +329,8 @@ Requires D2 (name clearance started). If it's missing, stop and say so.
   AAB for Play, an APK for direct download. targetSdk stays 36 unless the owner has
   verified 37 on device (OQ 12).
 - Linux: one packaged format (recommend AppImage or Flatpak; say which and why) with the JRE
-  bundled through jpackage. Python/fontmake is detected, not bundled; the first-run check
+  bundled through jpackage. (Erratum: with Compose Desktop 1.12 `TargetFormat.AppImage`
+  produces an app-image *directory*, not a single `.AppImage` file; see packaging/linux/README.md.) Python/fontmake is detected, not bundled; the first-run check
   explains how to install it.
 - Web: static build with the locale guard from OQ 13; a "Preview" banner stating what the
   web can't do (compile, layer one); deploy instructions for a static host.
