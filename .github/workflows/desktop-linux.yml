@@ -39,6 +39,8 @@ jobs:
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
       - name: install.sh syntax
         run: bash -n packaging/linux/install.sh
+      - name: install.sh against a fake app-image
+        run: bash packaging/linux/test-install.sh
       - name: createDistributable
         run: ./gradlew :app-desktop:createDistributable
       - name: Install into a scratch prefix
