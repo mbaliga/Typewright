@@ -1,0 +1,1494 @@
+// SPDX-License-Identifier: FSL-1.1-ALv2
+
+package com.asoc.typewright.ui.draw
+
+import com.asoc.typewright.core.font.ufo.UfoFontInfo
+import com.asoc.typewright.core.geometry.Anchor
+import com.asoc.typewright.core.geometry.Contour
+import com.asoc.typewright.core.geometry.ContourCutResult
+import com.asoc.typewright.core.geometry.CurveFormat
+import com.asoc.typewright.core.geometry.CutPlace
+import com.asoc.typewright.core.geometry.DEFAULT_SIMPLIFY_TOLERANCE_UNITS
+import com.asoc.typewright.core.geometry.Direction
+import com.asoc.typewright.core.geometry.Glyph
+import com.asoc.typewright.core.geometry.PenClosed
+import com.asoc.typewright.core.geometry.PenPath
+import com.asoc.typewright.core.geometry.Point
+import com.asoc.typewright.core.geometry.TangentResult
+import com.asoc.typewright.core.geometry.TidyReport
+import com.asoc.typewright.core.geometry.Vec2
+import com.asoc.typewright.core.geometry.cutBetween
+import com.asoc.typewright.core.geometry.direction
+import com.asoc.typewright.core.geometry.enforceContourDirections
+import com.asoc.typewright.core.geometry.handleOwner
+import com.asoc.typewright.core.geometry.reverse
+import com.asoc.typewright.core.geometry.segmentLayout
+import com.asoc.typewright.core.geometry.tidied
+import com.asoc.typewright.core.geometry.tidyReport
+import com.asoc.typewright.core.geometry.withExtremesAdded
+import com.asoc.typewright.core.geometry.withHandleTangentToLine
+import com.asoc.typewright.core.geometry.withHandleTangentToNeighbour
+import com.asoc.typewright.core.geometry.withHandlesRemoved
+import com.asoc.typewright.core.geometry.withNodeDeleted
+import com.asoc.typewright.core.geometry.withNodeInserted
+import com.asoc.typewright.core.geometry.withSelectionMoved
+import com.asoc.typewright.core.geometry.withSmooth
+import com.asoc.typewright.core.geometry.writtenCount
+import com.asoc.typewright.engine.construct.BooleanManyResult
+import com.asoc.typewright.engine.construct.BooleanOp
+import com.asoc.typewright.engine.construct.HobbyRunResult
+import com.asoc.typewright.engine.construct.LineCap
+import com.asoc.typewright.engine.construct.LineJoin
+import com.asoc.typewright.engine.construct.StrokeParameters
+import com.asoc.typewright.engine.construct.StrokeResult
+import com.asoc.typewright.engine.construct.booleanMany
+import com.asoc.typewright.engine.construct.strokeCentreline
+import com.asoc.typewright.engine.construct.strokeRing
+import com.asoc.typewright.engine.construct.strokeWidthProblem
+import com.asoc.typewright.engine.construct.withHobbyHandles
+import com.asoc.typewright.project.ApprovalOrigin
+import com.asoc.typewright.project.Approve
+import com.asoc.typewright.project.Batch
+import com.asoc.typewright.project.EditResult
+import com.asoc.typewright.project.FontCommand
+import com.asoc.typewright.project.Gesture
+import com.asoc.typewright.project.GlyphLock
+import com.asoc.typewright.project.GlyphRef
+import com.asoc.typewright.project.LockState
+import com.asoc.typewright.project.PointRef
+import com.asoc.typewright.project.ProjectSession
+import com.asoc.typewright.project.Refusal
+import com.asoc.typewright.project.ReplaceOutline
+import com.asoc.typewright.project.SetAdvance
+import com.asoc.typewright.project.SetAnchors
+import com.asoc.typewright.project.SetSidebearings
+import com.asoc.typewright.project.Unlock
+import com.asoc.typewright.project.UpdateFontInfo
+import com.asoc.typewright.ui.puck.PrimitiveShape
+import kotlin.math.abs
+import kotlin.math.floor
+
+/** What an edit did, in the terms the screen needs to answer with. */
+sealed interface EditOutcome {
+    /** The edit went in as one undo step; [selection] is what should be selected afterwards and [note], when set, says plainly what happened. */
+    data class Done(
+        val selection: DrawSelection,
+        val note: String? = null,
+    ) : EditOutcome
+
+    /** The glyph is approved and locked, so the edit was refused (law 1); the screen offers Unlock. */
+    data class Locked(
+        val glyph: String,
+    ) : EditOutcome {
+        val message: String get() = "$glyph is approved and locked. Unlock it to edit; the change is kept as a diff."
+    }
+
+    /** Nothing was changed, and [reason] says why in a sentence. */
+    data class Unchanged(
+        val reason: String,
+    ) : EditOutcome
+
+    /** The project refused for another reason. */
+    data class Refused(
+        val message: String,
+    ) : EditOutcome
+}
+
+/**
+ * An edit worked out but not yet made: the outline it would produce ([contours]), what should be
+ * selected afterwards, and the note to show. The menu reads a plan to say what a row would do (its
+ * measured point-count change) and whether it can run; [DrawEditor.perform] makes it.
+ */
+sealed interface EditPlan {
+    data class Change(
+        val label: String,
+        val contours: List<Contour>,
+        val selection: DrawSelection,
+        val note: String? = null,
+        val coalesceKey: Any? = null,
+    ) : EditPlan
+
+    /** The edit cannot be made, for [reason] in a sentence. */
+    data class Blocked(
+        val reason: String,
+    ) : EditPlan
+}
+
+/**
+ * A tidy worked out but not made: the plan that would make it and the [report] that measured it. [text] is the
+ * line shown before it is applied ("1,252 → 12 nodes · outline within 1.5 units (our heuristic)").
+ */
+data class TidyPreview(
+    val report: TidyReport,
+    val plan: EditPlan.Change,
+) {
+    val text: String
+        get() =
+            "${grouped(report.before.onCurveEquivalent)} → ${grouped(report.after.onCurveEquivalent)} nodes · " +
+                "outline within ${report.toleranceUnits} units (our heuristic)"
+
+    private fun grouped(n: Int): String {
+        val digits = n.toString()
+        return digits
+            .reversed()
+            .chunked(3)
+            .joinToString(",")
+            .reversed()
+    }
+}
+
+/** What a drag update did. */
+enum class DragUpdate {
+    /** The outline followed the pointer. */
+    FOLLOWED,
+
+    /** The session ended the drag (an undo, an edit from elsewhere): nothing more is drawn, and the caller stops. */
+    ENDED,
+
+    /** The glyph is locked or the project refused; the drag is over. */
+    REFUSED,
+}
+
+/**
+ * Every edit Draw makes to one glyph, through the open [session] and nothing else (the user's
+ * drawing is the source of truth; this never holds a second copy of it). The geometry is
+ * `core-geometry`'s contour editing, so a drag, a typed value and a menu command move the same
+ * points the same way. A discrete edit is one `execute`, one undo step; a drag is one session
+ * gesture, committed once at the end.
+ *
+ * The drag's lifecycle is the editor's problem, not the caller's: [dragTo] asks the gesture whether
+ * it is still open before every update (the session ends it on an undo, an execute or a new
+ * gesture), and [endDrag] is safe to call any number of times, so a pointer loop can end the drag
+ * in a `finally`.
+ */
+class DrawEditor(
+    private val session: ProjectSession,
+    val ref: GlyphRef,
+) {
+    private var gesture: Gesture? = null
+    private var dragStart: Glyph? = null
+    private var dragOp: DragOp? = null
+
+    /** The glyph as the project has it now, or null if it no longer exists. */
+    val glyph: Glyph? get() =
+        session.state.value.font
+            .glyph(ref)
+
+    val lock: GlyphLock? get() = session.lockOf(ref)
+
+    val isLocked: Boolean get() = lock?.state == LockState.LOCKED
+
+    /** True while a drag is open in the session. */
+    val isDragging: Boolean get() = gesture?.isOpen == true
+
+    // ---- dragging --------------------------------------------------------------------------
+
+    /** Opens a drag of [op]. Null means it began; anything else is why it did not. */
+    fun beginDrag(op: DragOp): EditOutcome? {
+        endDrag(commit = true)
+        val start = glyph ?: return missing()
+        if (isLocked) return EditOutcome.Locked(start.name)
+        gesture = session.beginGesture(op.label)
+        dragStart = start
+        dragOp = op
+        return null
+    }
+
+    /** Moves the open drag to a total movement of ([dxUnits], [dyUnits]) font units from where it began. */
+    fun dragTo(
+        dxUnits: Double,
+        dyUnits: Double,
+    ): DragUpdate {
+        val open = gesture
+        val start = dragStart
+        val op = dragOp
+        if (open == null || start == null || op == null || !open.isOpen) {
+            clearDrag()
+            return DragUpdate.ENDED
+        }
+        val result = open.update(ReplaceOutline(ref, DragPlan.apply(start, op, dxUnits, dyUnits), op.label))
+        if (result is EditResult.Refused) {
+            open.cancel()
+            clearDrag()
+            return DragUpdate.REFUSED
+        }
+        return DragUpdate.FOLLOWED
+    }
+
+    /**
+     * Opens a scrub of the glyph's advance or sidebearings: one session gesture, so everything scrubbed
+     * between here and [endDrag] is a single undo step by construction, however long the finger rests,
+     * and cancelling it puts the glyph back. Width is not shape, so a locked glyph may be scrubbed.
+     * Null means it began; anything else is why it did not.
+     */
+    fun beginMetricScrub(label: String): EditOutcome? {
+        endDrag(commit = true)
+        if (glyph == null) return missing()
+        gesture = session.beginGesture(label)
+        return null
+    }
+
+    /** Sets the advance width to [width] inside the open scrub. */
+    fun scrubAdvance(width: Int): DragUpdate = scrubMetric(SetAdvance(ref, width))
+
+    /** Sets the sidebearing(s) inside the open scrub; either may be null to leave that side as it is. */
+    fun scrubSidebearings(
+        left: Int?,
+        right: Int?,
+    ): DragUpdate = scrubMetric(SetSidebearings(ref, left, right))
+
+    private fun scrubMetric(command: FontCommand): DragUpdate {
+        val open = gesture
+        // An outline drag is not a metric scrub: dragOp is only set by beginDrag.
+        if (open == null || !open.isOpen || dragOp != null) {
+            clearDrag()
+            return DragUpdate.ENDED
+        }
+        if (open.update(command) is EditResult.Refused) {
+            open.cancel()
+            clearDrag()
+            return DragUpdate.REFUSED
+        }
+        return DragUpdate.FOLLOWED
+    }
+
+    /** Ends the drag: one undo step when [commit], otherwise as if it never began. Does nothing if no drag is open. */
+    fun endDrag(commit: Boolean) {
+        val open = gesture
+        if (open != null && open.isOpen) {
+            if (commit) open.commit() else open.cancel()
+        }
+        clearDrag()
+    }
+
+    private fun clearDrag() {
+        gesture = null
+        dragStart = null
+        dragOp = null
+    }
+
+    // ---- performing a plan -------------------------------------------------------------------
+
+    /** Makes [plan] as one undo step, or says why it was not made. */
+    fun perform(plan: EditPlan): EditOutcome {
+        val current = glyph ?: return missing()
+        return when (plan) {
+            is EditPlan.Blocked -> {
+                EditOutcome.Unchanged(plan.reason)
+            }
+
+            is EditPlan.Change -> {
+                if (isLocked) return EditOutcome.Locked(current.name)
+                if (plan.contours == current.contours) return EditOutcome.Unchanged("That would not change the outline.")
+                when (val result = session.execute(ReplaceOutline(ref, plan.contours, plan.label, plan.coalesceKey))) {
+                    is EditResult.Applied -> {
+                        EditOutcome.Done(plan.selection.clippedTo(glyph ?: current), plan.note)
+                    }
+
+                    is EditResult.NoChange -> {
+                        EditOutcome.Unchanged("That would not change the outline.")
+                    }
+
+                    is EditResult.Refused -> {
+                        if (result.refusal is Refusal.Locked) {
+                            EditOutcome.Locked(
+                                current.name,
+                            )
+                        } else {
+                            EditOutcome.Refused(result.refusal.message)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ---- moving ----------------------------------------------------------------------------
+
+    /**
+     * Moves what is selected by ([dx], [dy]) font units. This is what an arrow key, a typed x or y and
+     * a drag all come down to: nodes take their handles with them and straight sides stay straight.
+     * With [merge] a burst of nudges is one undo step.
+     */
+    fun planMove(
+        selection: DrawSelection,
+        dx: Int,
+        dy: Int,
+        label: String = "Move",
+        merge: Boolean = false,
+    ): EditPlan = planning { computeMove(selection, dx, dy, label, merge) }
+
+    private fun computeMove(
+        selection: DrawSelection,
+        dx: Int,
+        dy: Int,
+        label: String,
+        merge: Boolean,
+    ): EditPlan {
+        val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
+        if (selection.points.isEmpty()) return EditPlan.Blocked("Select a node or a handle to move.")
+        // The same plan a drag of this selection makes, so a typed value, an arrow key and a drag cannot disagree.
+        val contours = DragPlan.apply(current, dragOpFor(selection), dx.toDouble(), dy.toDouble())
+        // A smooth node keeps its handles in line wherever they can turn; where nothing of its own can, it becomes a corner, and that is said.
+        val cornered = current.contours.sumOf { c -> c.points.count { it.smooth } } - contours.sumOf { c -> c.points.count { it.smooth } }
+        val note =
+            when {
+                cornered <= 0 -> null
+                cornered == 1 -> "A node is now a corner: nothing of its own could stay in line with its sides."
+                else -> "$cornered nodes are now corners: nothing of their own could stay in line with their sides."
+            }
+        return EditPlan.Change(label, contours, selection, note, coalesceKey = if (merge) Triple(ref, "nudge", selection.points) else null)
+    }
+
+    /**
+     * The drag that moves [selection]: one handle on its own, which swings the other handle of a smooth
+     * node to stay in line (unless [breakSymmetry]), or otherwise everything selected together, nodes with
+     * their handles.
+     */
+    fun dragOpFor(
+        selection: DrawSelection,
+        breakSymmetry: Boolean = false,
+    ): DragOp {
+        val only = selection.points.singleOrNull()
+        val isHandle =
+            only != null && glyph
+                ?.contours
+                ?.getOrNull(only.contour)
+                ?.points
+                ?.getOrNull(only.point)
+                ?.onCurve == false
+        return if (only != null && isHandle) DragOp.MoveHandle(only, breakSymmetry) else DragOp.MoveSelection(selection.points)
+    }
+
+    fun moveBy(
+        selection: DrawSelection,
+        dx: Int,
+        dy: Int,
+        label: String = "Move",
+        merge: Boolean = false,
+    ): EditOutcome = perform(planMove(selection, dx, dy, label, merge))
+
+    /** Moves the single selected point so it sits at ([x], [y]); a null coordinate stays as it is. Same movement as a drag. */
+    fun placePoint(
+        selection: DrawSelection,
+        x: Int?,
+        y: Int?,
+    ): EditOutcome {
+        val current = glyph ?: return missing()
+        val point = selection.points.singleOrNull() ?: return EditOutcome.Unchanged("Select one point to place it.")
+        val at = current.contours[point.contour].points[point.point].point
+        val wanted = Point(x ?: at.x, y ?: at.y)
+        val outcome = moveBy(selection, wanted.x - at.x, wanted.y - at.y, label = "Set position")
+        if (outcome !is EditOutcome.Done) return outcome
+        val landed =
+            glyph
+                ?.contours
+                ?.getOrNull(point.contour)
+                ?.points
+                ?.getOrNull(point.point)
+                ?.point
+        // The handle of a smooth node beside a straight side may only slide along it; say where it went rather than leave the field disagreeing.
+        return if (landed != null && landed != wanted) {
+            outcome.copy(
+                note =
+                    "Placed at ${landed.x}, ${landed.y}: a smooth node's handle stays on the straight side it is in line with. " +
+                        "Make the node a corner to place it freely.",
+            )
+        } else {
+            outcome
+        }
+    }
+
+    // ---- nodes -----------------------------------------------------------------------------
+
+    /** Smooth becomes corner and corner becomes smooth: if every selected node is smooth they all become corners, otherwise they all become smooth. */
+    fun planToggleSmooth(selection: DrawSelection): EditPlan = planning { computeToggleSmooth(selection) }
+
+    private fun computeToggleSmooth(selection: DrawSelection): EditPlan {
+        val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
+        val nodes = selection.nodes(current)
+        if (nodes.isEmpty()) return EditPlan.Blocked("Select a node first.")
+        val makeSmooth = !nodes.all { current.contours[it.contour].points[it.point].smooth }
+        return smoothPlan(current, selection, nodes, makeSmooth, if (makeSmooth) "Make smooth" else "Make corner")
+    }
+
+    fun toggleSmooth(selection: DrawSelection): EditOutcome = perform(planToggleSmooth(selection))
+
+    /** Makes every selected smooth node a corner, so its two handles are independent. */
+    fun planBreakHandles(selection: DrawSelection): EditPlan = planning { computeBreakHandles(selection) }
+
+    private fun computeBreakHandles(selection: DrawSelection): EditPlan {
+        val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
+        val nodes = selection.nodes(current).filter { current.contours[it.contour].points[it.point].smooth }
+        if (nodes.isEmpty()) return EditPlan.Blocked("The handles are already independent.")
+        return smoothPlan(current, selection, nodes, false, "Break handles")
+    }
+
+    fun breakHandles(selection: DrawSelection): EditOutcome = perform(planBreakHandles(selection))
+
+    private fun smoothPlan(
+        current: Glyph,
+        selection: DrawSelection,
+        nodes: List<PointRef>,
+        smooth: Boolean,
+        label: String,
+    ): EditPlan {
+        val contours = current.contours.toMutableList()
+        var stayed = 0
+        for (node in nodes) {
+            val after = contours[node.contour].withSmooth(node.point, smooth)
+            // A node that cannot be smooth without moving what is not its own stays a corner; the flag is never set where it would lie.
+            if (after.points[node.point].smooth != smooth) stayed++
+            contours[node.contour] = after
+        }
+        if (stayed == nodes.size) {
+            return EditPlan.Blocked(
+                if (nodes.size == 1) {
+                    "This corner has no handle of its own to line up, so it cannot be smooth. Pull a handle out of one side first."
+                } else {
+                    "None of these corners has a handle of its own to line up, so none can be smooth. Pull a handle out of one side first."
+                },
+            )
+        }
+        val note =
+            if (stayed > 0) {
+                "$stayed of ${nodes.size} nodes stay corners: they have no handle of their own to line up. Pull a handle out of a side first."
+            } else {
+                null
+            }
+        return EditPlan.Change(label, contours, selection, note)
+    }
+
+    /**
+     * Deletes what is selected. Nodes go and the curve is kept as close as one segment can; a contour
+     * left with too little to draw goes with them, and the note says so. With only handles selected
+     * they are taken away (retracted onto their node on a cubic outline, removed from a quadratic
+     * one) and the note says which, rather than leaving the person to guess.
+     */
+    fun planDelete(selection: DrawSelection): EditPlan = planning { computeDelete(selection) }
+
+    private fun computeDelete(selection: DrawSelection): EditPlan {
+        val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
+        val nodes = selection.nodes(current)
+        if (nodes.isNotEmpty()) return deleteNodesPlan(current, nodes)
+        val handles = selection.handles(current)
+        if (handles.isEmpty()) return EditPlan.Blocked("Select a node or a handle to delete.")
+        val contours = current.contours.toMutableList()
+        var retracted = 0
+        val quadraticNotes = mutableListOf<String>()
+        var cornered = 0
+        for (contourIndex in handles.map { it.contour }.toSet()) {
+            val contour = contours[contourIndex]
+            val picked = handles.filter { it.contour == contourIndex }.map { it.point }.toSet()
+            val after = contour.withHandlesRemoved(picked)
+            if (after != contour) {
+                if (contour.format == CurveFormat.CUBIC) {
+                    retracted += picked.size
+                } else {
+                    QuadraticHandleRemoval.of(contour, picked).sentence()?.let { quadraticNotes += it }
+                }
+                cornered += contour.points.count { it.smooth } - after.points.count { it.smooth }
+            }
+            contours[contourIndex] = after
+        }
+        val cornerNote =
+            when (cornered) {
+                0 -> ""
+                1 -> " A node is now a corner: its sides no longer meet in line."
+                else -> " $cornered nodes are now corners: their sides no longer meet in line."
+            }
+        val note =
+            when {
+                retracted > 0 || quadraticNotes.isNotEmpty() -> {
+                    val cubic =
+                        if (retracted > 0) {
+                            "Retracted $retracted handle${plural(retracted)} onto ${if (retracted == 1) "its node" else "their nodes"}."
+                        } else {
+                            null
+                        }
+                    (listOfNotNull(cubic) + quadraticNotes).joinToString(" ") + cornerNote
+                }
+
+                else -> {
+                    return EditPlan.Blocked("That handle is already retracted onto its node.")
+                }
+            }
+        return EditPlan.Change("Delete handle", contours, DrawSelection.EMPTY, note)
+    }
+
+    fun deleteSelection(selection: DrawSelection): EditOutcome = perform(planDelete(selection))
+
+    private fun deleteNodesPlan(
+        current: Glyph,
+        nodes: List<PointRef>,
+    ): EditPlan {
+        val contours = current.contours.toMutableList()
+        val dropped = mutableSetOf<Int>()
+        for (contourIndex in nodes.map { it.contour }.toSet()) {
+            var contour: Contour? = contours[contourIndex]
+            val targets =
+                nodes
+                    .filter { it.contour == contourIndex }
+                    .map { current.contours[contourIndex].points[it.point].point }
+                    .toMutableSet()
+            while (contour != null && targets.isNotEmpty()) {
+                val here: Contour = contour
+                val index = here.points.indices.lastOrNull { here.points[it].onCurve && here.points[it].point in targets } ?: break
+                targets.remove(here.points[index].point)
+                contour = here.withNodeDeleted(index)
+            }
+            if (contour == null) dropped += contourIndex else contours[contourIndex] = contour
+        }
+        val kept = contours.filterIndexed { i, _ -> i !in dropped }
+        val note =
+            if (dropped.isNotEmpty()) {
+                "Removed ${dropped.size} contour${plural(
+                    dropped.size,
+                )}: too few nodes were left to draw one."
+            } else {
+                null
+            }
+        return EditPlan.Change("Delete node${plural(nodes.size)}", kept, DrawSelection.EMPTY, note)
+    }
+
+    /** Adds a node to segment [key] at [t] without changing the curve; the new node is selected. */
+    fun planAddNode(
+        key: SegmentKey,
+        t: Double,
+    ): EditPlan =
+        planning {
+            val current = glyph ?: return@planning EditPlan.Blocked("There is no glyph to edit.")
+            val contour = current.contours.getOrNull(key.contour) ?: return@planning EditPlan.Blocked(SEGMENT_GONE)
+            // A segment picked before an undo or an edit elsewhere may no longer exist: say so, never ask the geometry for it.
+            if (key.segment !in contour.segmentLayout().indices) return@planning EditPlan.Blocked(SEGMENT_GONE)
+            val inserted = contour.withNodeInserted(key.segment, t.coerceIn(MIN_INSERT_T, 1.0 - MIN_INSERT_T))
+            val contours = current.contours.toMutableList().also { it[key.contour] = inserted.contour }
+            EditPlan.Change("Add node", contours, DrawSelection(setOf(PointRef(key.contour, inserted.nodeIndex))))
+        }
+
+    fun addNode(
+        key: SegmentKey,
+        t: Double,
+    ): EditOutcome = perform(planAddNode(key, t))
+
+    // ---- the pen -----------------------------------------------------------------------------
+
+    /**
+     * Closes the pen [path] into a new contour of [format], wound the way an outer (or, inside another
+     * contour, an inner) contour of that format winds, and adds it to the glyph as one step. Blocked, with the
+     * reason, when the path cannot be closed into a shape yet.
+     */
+    fun planPen(
+        path: PenPath,
+        closingPull: Point?,
+        format: CurveFormat,
+    ): EditPlan =
+        planning {
+            val current = glyph ?: return@planning EditPlan.Blocked("There is no glyph to edit.")
+            when (val closed = path.closed(closingPull, format)) {
+                is PenClosed.Refused -> {
+                    EditPlan.Blocked(closed.why.reason)
+                }
+
+                is PenClosed.Shape -> {
+                    var contour = closed.contour
+                    val inner = current.contours.any { DrawSubject.encloses(it, contour) }
+                    // A traced TrueType outline winds clockwise outside and anticlockwise inside; a UFO's the other way round.
+                    val wantAnticlockwise = (format == CurveFormat.CUBIC) != inner
+                    if (wantAnticlockwise != (contour.direction() == Direction.COUNTER_CLOCKWISE)) contour = contour.reverse()
+                    EditPlan.Change("Draw contour", current.contours + contour, DrawSelection.EMPTY)
+                }
+            }
+        }
+
+    // ---- the knife -----------------------------------------------------------------------------
+
+    /**
+     * Cuts contour [contour] in two along the straight line between [a] and [b] (places on its outline), as one
+     * step: the two pieces replace it in the glyph's contour list, side by side. Blocked, with the reason, where the
+     * cut would cross the outline, leave the shape, leave a piece with no area, or the contour is not cubic.
+     */
+    fun planCut(
+        contour: Int,
+        a: CutPlace,
+        b: CutPlace,
+    ): EditPlan =
+        planning {
+            val current = glyph ?: return@planning EditPlan.Blocked("There is no glyph to edit.")
+            val target = current.contours.getOrNull(contour) ?: return@planning EditPlan.Blocked(SEGMENT_GONE)
+            val others = current.contours.filterIndexed { i, _ -> i != contour }
+            when (val result = target.cutBetween(a, b, others)) {
+                is ContourCutResult.Refused -> {
+                    EditPlan.Blocked(result.reason)
+                }
+
+                is ContourCutResult.Cut -> {
+                    val contours = current.contours.toMutableList()
+                    contours[contour] = result.first
+                    contours.add(contour + 1, result.second)
+                    EditPlan.Change("Split contour", contours, DrawSelection.EMPTY, "Split into two contours along a straight cut.")
+                }
+            }
+        }
+
+    fun cutContour(
+        contour: Int,
+        a: CutPlace,
+        b: CutPlace,
+    ): EditOutcome = perform(planCut(contour, a, b))
+
+    /**
+     * The cut the [selection] already names: exactly two nodes of one contour (or one node and a picked spot on a side
+     * of it) are the two ends. Null when the selection does not name a cut (fewer than two places), in which case the
+     * knife is armed instead and waits for taps.
+     */
+    fun planSplit(selection: DrawSelection): EditPlan? {
+        val places = splitPlaces(selection)
+        if (places.size < 2) return null
+        val (c0, a) = places[0]
+        val (c1, b) = places[1]
+        if (places.size > 2) return EditPlan.Blocked("A cut has two ends; select two nodes.")
+        if (c0 != c1) return EditPlan.Blocked("Both ends of a cut must be on the same contour.")
+        return planCut(c0, a, b)
+    }
+
+    /** The cut places [selection] names: its on-curve nodes, then the spot picked on a side, each with its contour. */
+    fun splitPlaces(selection: DrawSelection): List<Pair<Int, CutPlace>> {
+        val current = glyph ?: return emptyList()
+        val nodes =
+            selection.points
+                .sortedWith(compareBy({ it.contour }, { it.point }))
+                .filter {
+                    current.contours
+                        .getOrNull(it.contour)
+                        ?.points
+                        ?.getOrNull(it.point)
+                        ?.onCurve == true
+                }.map { it.contour to CutPlace.AtNode(it.point) }
+        val spot = selection.segment?.let { it.contour to CutPlace.OnSegment(it.segment, selection.segmentT) }
+        return nodes + listOfNotNull(spot)
+    }
+
+    // ---- tangent, Hobby and the primitives ---------------------------------------------------
+
+    /**
+     * Turns each selected handle in line with the other side of its node (the curve or straight side that arrives where
+     * it leaves), so the node has no corner. Blocked, with the reason, when no handle is selected or none can turn
+     * (a retracted handle, a quadratic outline, a node whose other side has no direction).
+     */
+    fun planTangent(selection: DrawSelection): EditPlan = planning { tangentPlan(selection, null) }
+
+    /**
+     * Turns each selected handle to run along the metric line nearest its node (within [ALIGN_WITHIN_UNITS]), the level
+     * handle every extreme wants. Blocked when a node is not near a metric line.
+     */
+    fun planTangentToMetric(
+        selection: DrawSelection,
+        metrics: DrawMetrics,
+    ): EditPlan = planning { tangentPlan(selection, metrics) }
+
+    private fun tangentPlan(
+        selection: DrawSelection,
+        metrics: DrawMetrics?,
+    ): EditPlan {
+        val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
+        val handles = selection.handles(current)
+        if (handles.isEmpty()) {
+            return EditPlan.Blocked(
+                if (selection.nodes(current).isEmpty()) {
+                    "Select a handle first."
+                } else {
+                    "Select a handle of the node. To line up both of a node's handles, make the node smooth."
+                },
+            )
+        }
+        val contours = current.contours.toMutableList()
+        var turned = 0
+        var refusal: String? = null
+        for (handle in handles) {
+            val contour = contours[handle.contour]
+            val result =
+                if (metrics == null) {
+                    contour.withHandleTangentToNeighbour(handle.point)
+                } else {
+                    val owner = contour.handleOwner(handle.point)
+                    val line =
+                        owner?.let {
+                            metrics.nearestLine(
+                                contour.points[it]
+                                    .point.y
+                                    .toDouble(),
+                                ALIGN_WITHIN_UNITS,
+                            )
+                        }
+                    if (line == null) {
+                        TangentResult.Refused("This handle's node is not within ${ALIGN_WITHIN_UNITS.toInt()} units of a metric line.")
+                    } else {
+                        contour.withHandleTangentToLine(handle.point, Vec2(0.0, line.y.toDouble()), Vec2(1.0, line.y.toDouble()))
+                    }
+                }
+            when (result) {
+                is TangentResult.Done -> {
+                    contours[handle.contour] = result.contour
+                    turned++
+                }
+
+                is TangentResult.Refused -> {
+                    if (refusal == null) refusal = result.reason
+                }
+            }
+        }
+        if (turned == 0) return EditPlan.Blocked(refusal ?: "Nothing to turn.")
+        val note = refusal?.let { "$turned of ${handles.size} handles turned. The rest: $it" }
+        return EditPlan.Change(if (metrics == null) "Make tangent" else "Level handle", contours, selection, note)
+    }
+
+    /**
+     * Draws a Hobby curve through each run of three or more neighbouring selected nodes: their handles are replaced by the
+     * Hobby spline's and the nodes stay where they are. Blocked, with the reason, when the selection has no such run.
+     */
+    fun planHobby(selection: DrawSelection): EditPlan = planning { hobbyPlan(selection) }
+
+    private fun hobbyPlan(selection: DrawSelection): EditPlan {
+        val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
+        val nodes = selection.nodes(current)
+        if (nodes.size < 3) return EditPlan.Blocked("Select three or more nodes in a row to draw a Hobby curve through.")
+        val contours = current.contours.toMutableList()
+        var changed = 0
+        var refusal: String? = null
+        for (index in nodes.map { it.contour }.toSet()) {
+            val picked = nodes.filter { it.contour == index }.map { it.point }.toSet()
+            when (val result = contours[index].withHobbyHandles(picked)) {
+                is HobbyRunResult.Done -> {
+                    contours[index] = result.contour
+                    changed += result.segmentsChanged
+                }
+
+                is HobbyRunResult.Refused -> {
+                    if (refusal == null) refusal = result.reason
+                }
+            }
+        }
+        if (changed == 0) return EditPlan.Blocked(refusal ?: "Nothing to change.")
+        return EditPlan.Change(
+            "Hobby curve",
+            contours,
+            selection,
+            "Hobby curve: $changed segment${plural(changed)} reshaped, the nodes stay.",
+        )
+    }
+
+    fun hobby(selection: DrawSelection): EditOutcome = perform(planHobby(selection))
+
+    fun tangent(selection: DrawSelection): EditOutcome = perform(planTangent(selection))
+
+    /**
+     * Adds [shape], a circle, ellipse or rectangle dragged out on the sheet, to the glyph as one closed contour of [format],
+     * wound the way an outer (or, inside another contour, an inner) contour winds. Blocked on a quadratic outline: the
+     * shapes are cubic.
+     */
+    fun planPrimitive(
+        shape: PrimitiveShape,
+        format: CurveFormat,
+    ): EditPlan =
+        planning {
+            val current = glyph ?: return@planning EditPlan.Blocked("There is no glyph to edit.")
+            if (format != CurveFormat.CUBIC) {
+                return@planning EditPlan.Blocked("Shapes are cubic curves; this project's outlines are quadratic.")
+            }
+            var contour = shape.contour
+            val inner = current.contours.any { DrawSubject.encloses(it, contour) }
+            val wantAnticlockwise = !inner
+            if (wantAnticlockwise != (contour.direction() == Direction.COUNTER_CLOCKWISE)) contour = contour.reverse()
+            EditPlan.Change("Draw ${shape.kind.label.lowercase()}", current.contours + contour, DrawSelection.EMPTY)
+        }
+
+    // ---- contours and the glyph --------------------------------------------------------------
+
+    /** Reverses the selected contours (or every contour when none is selected). */
+    fun planReverse(selection: DrawSelection): EditPlan = planning { computeReverse(selection) }
+
+    private fun computeReverse(selection: DrawSelection): EditPlan {
+        val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
+        if (current.contours.isEmpty()) return EditPlan.Blocked("There is no contour to reverse.")
+        val which = contoursFor(current, selection)
+        val contours = current.contours.mapIndexed { i, c -> if (i in which) c.reverse() else c }
+        // Reversing re-orders a contour's points, so a point selection would name different points; select the contour instead.
+        val keep = selection.points.filter { it.contour !in which }.toMutableSet()
+        for (c in which) {
+            if (selection.indicesIn(c).isNotEmpty()) {
+                keep +=
+                    current.contours[c]
+                        .points.indices
+                        .map { PointRef(c, it) }
+            }
+        }
+        return EditPlan.Change("Reverse direction", contours, DrawSelection(keep))
+    }
+
+    fun reverseContours(selection: DrawSelection): EditOutcome = perform(planReverse(selection))
+
+    /** Makes outer contours wind the way the project's format expects and inner ones the other way (`enforceContourDirections`). */
+    fun planCorrectDirection(selection: DrawSelection): EditPlan = planning { computeCorrectDirection(selection) }
+
+    private fun computeCorrectDirection(selection: DrawSelection): EditPlan {
+        val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
+        if (current.contours.isEmpty()) return EditPlan.Blocked("There is no contour to correct.")
+        val contours = enforceContourDirections(current.contours)
+        if (contours == current.contours) return EditPlan.Blocked("Every contour already winds the right way.")
+        return EditPlan.Change("Correct direction", contours, selection)
+    }
+
+    fun correctDirection(selection: DrawSelection): EditOutcome = perform(planCorrectDirection(selection))
+
+    /** Adds a node at every curve extreme of the selected contours (cubic outlines only). */
+    fun planAddExtremes(selection: DrawSelection): EditPlan = planning { computeAddExtremes(selection) }
+
+    private fun computeAddExtremes(selection: DrawSelection): EditPlan {
+        val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
+        if (current.contours.isEmpty()) return EditPlan.Blocked("There is no contour to work on.")
+        val which = contoursFor(current, selection).filter { current.contours[it].format == CurveFormat.CUBIC }
+        if (which.isEmpty()) return EditPlan.Blocked("Adding extremes needs a cubic outline; this glyph's contours are quadratic.")
+        val contours = current.contours.mapIndexed { i, c -> if (i in which) c.withExtremesAdded() else c }
+        if (contours == current.contours) return EditPlan.Blocked("Already has its extremes.")
+        return EditPlan.Change("Add extremes", contours, DrawSelection.EMPTY)
+    }
+
+    fun addExtremes(selection: DrawSelection): EditOutcome = perform(planAddExtremes(selection))
+
+    /** Removes nodes that do not change the shape, from the selected contours (cubic outlines only). */
+    fun planTidy(selection: DrawSelection): EditPlan = planning { computeTidy(selection) }
+
+    /**
+     * The tidy of the selected contours worked out on a copy, with the count before and after and how far the
+     * shape would move (measured, within [TIDY_TOLERANCE_UNITS], which is our heuristic), or null when there is nothing to tidy.
+     */
+    fun tidyPreview(selection: DrawSelection): TidyPreview? {
+        val plan = planTidy(selection) as? EditPlan.Change ?: return null
+        val current = glyph ?: return null
+        val report = tidyReportOf(current, tidyTargets(current, selection).toSet())
+        return TidyPreview(report, plan)
+    }
+
+    /** The contours a tidy of [selection] works on: the selected ones (every one when none is), cubic only. */
+    private fun tidyTargets(
+        current: Glyph,
+        selection: DrawSelection,
+    ): List<Int> = contoursFor(current, selection).filter { current.contours[it].format == CurveFormat.CUBIC }
+
+    private class TidyCache(
+        val contours: List<Contour>,
+        val which: Set<Int>,
+        val report: TidyReport,
+    )
+
+    private var tidyCache: TidyCache? = null
+
+    /** How many tidies have actually been worked out, so a test can tell a cached answer from a repeated one. */
+    internal var tidyRuns: Int = 0
+        private set
+
+    /**
+     * The tidy of [which] contours of [current], worked out once per state of the outline: the plan, the preview text and the
+     * crosses all read this one answer, so opening a menu or a radial (which asks for the plan) never repeats a tidy it has done.
+     */
+    private fun tidyReportOf(
+        current: Glyph,
+        which: Set<Int>,
+    ): TidyReport {
+        tidyCache?.takeIf { it.contours === current.contours && it.which == which }?.let { return it.report }
+        tidyRuns++
+        return current.tidyReport(which, TIDY_TOLERANCE_UNITS).also { tidyCache = TidyCache(current.contours, which, it) }
+    }
+
+    /** Why a tidy cannot be asked for at all (no outline, or none that is cubic), worked out without tidying anything; null when it can. */
+    fun tidyBlockedReason(selection: DrawSelection): String? {
+        val current = glyph ?: return "There is no glyph to edit."
+        if (current.contours.isEmpty()) return "There is no contour to work on."
+        if (tidyTargets(current, selection).isEmpty()) return "Tidying needs a cubic outline; this glyph's contours are quadratic."
+        return null
+    }
+
+    private fun computeTidy(selection: DrawSelection): EditPlan {
+        tidyBlockedReason(selection)?.let { return EditPlan.Blocked(it) }
+        val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
+        val report = tidyReportOf(current, tidyTargets(current, selection).toSet())
+        if (report.contours == current.contours) return EditPlan.Blocked("Nothing to tidy: every node is needed.")
+        val counts = "${report.before.onCurveEquivalent} → ${report.after.onCurveEquivalent}"
+        val note = "Tidied $counts nodes; the outline moved at most ${oneDecimal(report.maxShift)} units."
+        return EditPlan.Change("Tidy", report.contours, DrawSelection.EMPTY, note)
+    }
+
+    private fun oneDecimal(value: Double): String {
+        val tenths = floor(value * 10.0 + 0.5).toInt()
+        return "${tenths / 10}.${tenths % 10}"
+    }
+
+    fun tidy(selection: DrawSelection): EditOutcome = perform(planTidy(selection))
+
+    /** Moves each selected node to the nearest metric line within [withinUnits] (vertically), carrying its handles. */
+    fun planAlignToMetrics(
+        selection: DrawSelection,
+        metrics: DrawMetrics,
+        withinUnits: Double = ALIGN_WITHIN_UNITS,
+    ): EditPlan = planning { computeAlignToMetrics(selection, metrics, withinUnits) }
+
+    private fun computeAlignToMetrics(
+        selection: DrawSelection,
+        metrics: DrawMetrics,
+        withinUnits: Double,
+    ): EditPlan {
+        val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
+        val nodes = selection.nodes(current)
+        if (nodes.isEmpty()) return EditPlan.Blocked("Select a node first.")
+        val contours = current.contours.toMutableList()
+        var moved = 0
+        for (node in nodes) {
+            val at = contours[node.contour].points[node.point].point
+            val line = metrics.nearestLine(at.y.toDouble(), withinUnits) ?: continue
+            if (line.y == at.y) continue
+            contours[node.contour] = contours[node.contour].withSelectionMoved(setOf(node.point), 0, line.y - at.y)
+            moved++
+        }
+        if (moved == 0) return EditPlan.Blocked("Nothing within ${withinUnits.toInt()} units of a metric line.")
+        return EditPlan.Change("Align to metric line", contours, selection)
+    }
+
+    fun alignToMetrics(
+        selection: DrawSelection,
+        metrics: DrawMetrics,
+    ): EditOutcome = perform(planAlignToMetrics(selection, metrics))
+
+    /** Takes every contour out of the glyph. One undo step brings them back. */
+    fun planClear(): EditPlan = planning { computeClear() }
+
+    private fun computeClear(): EditPlan {
+        val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
+        if (current.contours.isEmpty()) return EditPlan.Blocked("The glyph is already empty.")
+        return EditPlan.Change("Clear glyph", emptyList(), DrawSelection.EMPTY)
+    }
+
+    fun clearGlyph(): EditOutcome = perform(planClear())
+
+    // ---- the glyph's own metrics ------------------------------------------------------------
+
+    /** Sets the advance width; repeated sets in a burst (a scrub) are one undo step. Allowed on a locked glyph: width is not shape. */
+    fun setAdvance(width: Int): EditOutcome = metricCommand(SetAdvance(ref, width))
+
+    /** Sets the sidebearing(s) as the project measures them; either may be null to leave that side as it is. */
+    fun setSidebearings(
+        left: Int?,
+        right: Int?,
+    ): EditOutcome = metricCommand(SetSidebearings(ref, left, right))
+
+    private fun metricCommand(command: FontCommand): EditOutcome =
+        when (val result = session.execute(command)) {
+            is EditResult.Applied -> {
+                EditOutcome.Done(DrawSelection.EMPTY)
+            }
+
+            is EditResult.NoChange -> {
+                EditOutcome.Unchanged("That is the value already.")
+            }
+
+            is EditResult.Refused -> {
+                if (result.refusal is Refusal.Locked) {
+                    EditOutcome.Locked(
+                        ref.glyph,
+                    )
+                } else {
+                    EditOutcome.Refused(result.refusal.message)
+                }
+            }
+        }
+
+    // ---- booleans and strokes ----------------------------------------------------------------
+
+    /**
+     * [op] across the selected contours (two or more) as one step. The result replaces them at the place of the first, the
+     * others go, and the contours it leaves are selected. [order] is the order the person picked them in, which decides what
+     * Subtract keeps (the first picked) and what it takes away (the rest); contours picked some other way follow in the
+     * glyph's own order. Blocked, with the reason, when fewer than two contours are selected, the outline is quadratic, the
+     * shapes touch where the boolean cannot resolve, or nothing would be left.
+     */
+    fun planBoolean(
+        op: BooleanOp,
+        selection: DrawSelection,
+        order: List<Int> = emptyList(),
+    ): EditPlan = planning { computeBoolean(op, selection, order) }
+
+    private fun computeBoolean(
+        op: BooleanOp,
+        selection: DrawSelection,
+        order: List<Int>,
+    ): EditPlan {
+        val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
+        val picked = selection.contours.filter { it in current.contours.indices }.sorted()
+        if (picked.size < 2) return EditPlan.Blocked(BOOLEAN_NEEDS_TWO)
+        val ordered = order.filter { it in picked }.distinct().let { first -> first + picked.filter { it !in first } }
+        val inputs = ordered.map { current.contours[it] }
+        val label = BOOLEAN_LABELS.getValue(op)
+        return when (val result = booleanMany(inputs, op)) {
+            is BooleanManyResult.Refused -> {
+                EditPlan.Blocked(result.reason)
+            }
+
+            is BooleanManyResult.Done -> {
+                val rebuilt = mutableListOf<Contour>()
+                var firstResult = 0
+                for ((i, contour) in current.contours.withIndex()) {
+                    when {
+                        i == picked.first() -> {
+                            firstResult = rebuilt.size
+                            rebuilt += result.contours
+                        }
+
+                        i in picked -> {
+                            Unit
+                        }
+
+                        else -> {
+                            rebuilt += contour
+                        }
+                    }
+                }
+                val made = wholeContours(rebuilt, firstResult until firstResult + result.contours.size)
+                val before = inputs.sumOf { it.writtenCount().onCurveEquivalent }
+                val after = result.contours.sumOf { it.writtenCount().onCurveEquivalent }
+                val note =
+                    "$label: ${inputs.size} contours → ${result.contours.size}, $before → $after nodes. " +
+                        "Curves that survive are kept exactly; only the nodes the crossings need are new."
+                EditPlan.Change(label, rebuilt, made, note)
+            }
+        }
+    }
+
+    fun boolean(
+        op: BooleanOp,
+        selection: DrawSelection,
+        order: List<Int> = emptyList(),
+    ): EditOutcome = perform(planBoolean(op, selection, order))
+
+    private fun wholeContours(
+        contours: List<Contour>,
+        which: Iterable<Int>,
+    ): DrawSelection = DrawSelection(which.flatMap { c -> contours[c].points.indices.map { PointRef(c, it) } }.toSet())
+
+    /**
+     * A stroke of [width] font units made as one step. With a [centreline] laid down, the closed outline of that open line is
+     * added to the glyph; with none, each closed contour in [selection] becomes a ring (an outer and an inner contour). Blocked,
+     * with the reason, on a quadratic outline (strokes are cubic), an unusable width, a centreline that crosses itself, a width
+     * too wide for the shape, or when there is neither a centreline nor a selected contour. Only miter and round joins are offered;
+     * ends are butt.
+     */
+    fun planStroke(
+        centreline: List<Point>,
+        selection: DrawSelection,
+        width: Double,
+        join: LineJoin,
+        format: CurveFormat,
+    ): EditPlan = planning { computeStroke(centreline, selection, width, join, format) }
+
+    private fun computeStroke(
+        centreline: List<Point>,
+        selection: DrawSelection,
+        width: Double,
+        join: LineJoin,
+        format: CurveFormat,
+    ): EditPlan {
+        val current = glyph ?: return EditPlan.Blocked("There is no glyph to edit.")
+        if (format != CurveFormat.CUBIC) return EditPlan.Blocked("Strokes are cubic curves; this project's outlines are quadratic.")
+        strokeWidthProblem(width)?.let { return EditPlan.Blocked(it) }
+        val params = StrokeParameters(width = width, cap = LineCap.BUTT, join = join)
+        val joinWord = join.name.lowercase()
+        if (centreline.isNotEmpty()) {
+            return when (val result = strokeCentreline(centreline, params)) {
+                is StrokeResult.Refused -> {
+                    EditPlan.Blocked(result.reason)
+                }
+
+                is StrokeResult.Done -> {
+                    val contours = current.contours + result.contours
+                    val nodes = result.contours.sumOf { it.writtenCount().onCurveEquivalent }
+                    EditPlan.Change(
+                        "Stroke",
+                        contours,
+                        wholeContours(contours, current.contours.size until contours.size),
+                        "Stroked ${width.toInt()} units wide, $joinWord joins, butt ends: $nodes nodes.",
+                    )
+                }
+            }
+        }
+        val picked = selection.contours.filter { it in current.contours.indices }.sorted()
+        if (picked.isEmpty()) return EditPlan.Blocked(STROKE_NEEDS_A_LINE)
+        val rebuilt = mutableListOf<Contour>()
+        val made = mutableListOf<Int>()
+        for ((i, contour) in current.contours.withIndex()) {
+            if (i !in picked) {
+                rebuilt += contour
+                continue
+            }
+            when (val result = strokeRing(contour, params)) {
+                is StrokeResult.Refused -> {
+                    return EditPlan.Blocked(result.reason)
+                }
+
+                is StrokeResult.Done -> {
+                    for (ring in result.contours) {
+                        made += rebuilt.size
+                        rebuilt += ring
+                    }
+                }
+            }
+        }
+        val nodes = made.sumOf { rebuilt[it].writtenCount().onCurveEquivalent }
+        return EditPlan.Change(
+            "Stroke contour",
+            rebuilt,
+            wholeContours(rebuilt, made),
+            "Stroked ${picked.size} contour${plural(picked.size)} into rings ${width.toInt()} units wide: $nodes nodes.",
+        )
+    }
+
+    // ---- anchors -------------------------------------------------------------------------------
+
+    /** The glyph's anchors as the project has them now. */
+    val anchors: List<Anchor> get() = glyph?.anchors.orEmpty()
+
+    /** Adds an anchor called [name] at [at] as one step; refused, with the reason, for a blank or repeated name. */
+    fun addAnchor(
+        name: String,
+        at: Point,
+    ): EditOutcome {
+        val current = glyph ?: return missing()
+        val clean = name.trim()
+        anchorNameProblem(clean, current.anchors, except = null)?.let { return EditOutcome.Unchanged(it) }
+        return anchorsCommand("Add anchor $clean", current.anchors + Anchor(clean, at), "Anchor $clean added at ${at.x}, ${at.y}.")
+    }
+
+    /** Moves the anchor [name] to [to] as one step. */
+    fun moveAnchor(
+        name: String,
+        to: Point,
+    ): EditOutcome {
+        val current = glyph ?: return missing()
+        if (current.anchors.none { it.name == name }) return EditOutcome.Unchanged(ANCHOR_GONE)
+        return anchorsCommand("Move anchor $name", current.anchors.map { if (it.name == name) it.copy(point = to) else it }, null)
+    }
+
+    /** Renames the anchor [from] to [to] as one step; refused, with the reason, for a blank or repeated name. */
+    fun renameAnchor(
+        from: String,
+        to: String,
+    ): EditOutcome {
+        val current = glyph ?: return missing()
+        if (current.anchors.none { it.name == from }) return EditOutcome.Unchanged(ANCHOR_GONE)
+        val clean = to.trim()
+        if (clean == from) return EditOutcome.Unchanged("That is the name already.")
+        anchorNameProblem(clean, current.anchors, except = from)?.let { return EditOutcome.Unchanged(it) }
+        return anchorsCommand(
+            "Rename anchor $from",
+            current.anchors.map { if (it.name == from) it.copy(name = clean) else it },
+            "Anchor $from is now $clean.",
+        )
+    }
+
+    /** Takes the anchor [name] away as one step. */
+    fun deleteAnchor(name: String): EditOutcome {
+        val current = glyph ?: return missing()
+        if (current.anchors.none { it.name == name }) return EditOutcome.Unchanged(ANCHOR_GONE)
+        return anchorsCommand("Delete anchor $name", current.anchors.filter { it.name != name }, "Anchor $name deleted.")
+    }
+
+    private fun anchorNameProblem(
+        name: String,
+        existing: List<Anchor>,
+        except: String?,
+    ): String? =
+        when {
+            name.isEmpty() -> "An anchor needs a name."
+            name.length > MAX_ANCHOR_NAME -> "An anchor's name can be at most $MAX_ANCHOR_NAME characters."
+            name.any { it.isISOControl() } -> "An anchor's name cannot hold a line break or control character."
+            existing.any { it.name == name && it.name != except } -> "There is already an anchor called $name."
+            else -> null
+        }
+
+    private fun anchorsCommand(
+        label: String,
+        anchors: List<Anchor>,
+        note: String?,
+    ): EditOutcome =
+        when (val result = session.execute(Batch(label, listOf(SetAnchors(ref, anchors))))) {
+            is EditResult.Applied -> EditOutcome.Done(DrawSelection.EMPTY, note)
+            is EditResult.NoChange -> EditOutcome.Unchanged("That is where it is already.")
+            is EditResult.Refused -> refusedOutcome(result)
+        }
+
+    /** Opens a drag of an anchor: one session gesture, so everything dragged is a single undo step. Null means it began; anything else is why it did not. */
+    fun beginAnchorDrag(name: String): EditOutcome? {
+        endDrag(commit = true)
+        val start = glyph ?: return missing()
+        if (isLocked) return EditOutcome.Locked(start.name)
+        if (start.anchors.none { it.name == name }) return EditOutcome.Unchanged(ANCHOR_GONE)
+        gesture = session.beginGesture("Move anchor $name")
+        return null
+    }
+
+    /** Moves the anchor [name] to [to] inside the open drag. */
+    fun dragAnchorTo(
+        name: String,
+        to: Point,
+    ): DragUpdate {
+        val current = glyph ?: return DragUpdate.ENDED
+        return scrubMetric(SetAnchors(ref, current.anchors.map { if (it.name == name) it.copy(point = to) else it }))
+    }
+
+    // ---- the font's metric lines ---------------------------------------------------------------
+
+    /** The font info of the master being drawn, or null if it is gone. */
+    private fun fontInfo(): UfoFontInfo? =
+        session.state.value.font
+            .master(ref.master)
+            ?.ufo
+            ?.fontInfo
+
+    /** Why [kind] cannot be [value], in a sentence, or null when it can. Ordering (an x-height above the cap height) is only noted, never refused. */
+    fun metricProblem(
+        kind: MetricKind,
+        value: Int,
+    ): String? {
+        val upm = fontInfo()?.unitsPerEm ?: DEFAULT_UPM
+        return when {
+            kind == MetricKind.BASELINE -> "The baseline is where every glyph's y is 0, so it is fixed: a UFO has no field to move it."
+            abs(value) > METRIC_LIMIT_EMS * upm -> "A metric line at $value is more than $METRIC_LIMIT_EMS ems from the baseline."
+            kind == MetricKind.DESCENDER && value >= 0 -> "The descender sits below the baseline, so it is a negative number."
+            kind != MetricKind.DESCENDER && value <= 0 -> "The ${kind.label} sits above the baseline, so it is a positive number."
+            else -> null
+        }
+    }
+
+    private fun UfoFontInfo.with(
+        kind: MetricKind,
+        value: Int,
+    ): UfoFontInfo =
+        when (kind) {
+            MetricKind.ASCENDER -> copy(ascender = value)
+            MetricKind.CAP_HEIGHT -> copy(capHeight = value)
+            MetricKind.X_HEIGHT -> copy(xHeight = value)
+            MetricKind.DESCENDER -> copy(descender = value)
+            MetricKind.BASELINE -> this
+        }
+
+    private fun UfoFontInfo.valueOf(kind: MetricKind): Int? =
+        when (kind) {
+            MetricKind.ASCENDER -> ascender
+            MetricKind.CAP_HEIGHT -> capHeight
+            MetricKind.X_HEIGHT -> xHeight
+            MetricKind.DESCENDER -> descender
+            MetricKind.BASELINE -> 0
+        }
+
+    /**
+     * Sets the font's [kind] metric to [value] in its font info as one step. This is the font's, not the glyph's: it changes the
+     * line every glyph is drawn against and checked against, and moves no outline, so it is allowed on a locked glyph and the
+     * note says what it touches.
+     */
+    fun setMetric(
+        kind: MetricKind,
+        value: Int,
+    ): EditOutcome {
+        val info = fontInfo() ?: return missing()
+        metricProblem(kind, value)?.let { return EditOutcome.Unchanged(it) }
+        val command = UpdateFontInfo(ref.master, info.with(kind, value))
+        return when (val result = session.execute(Batch("Set ${kind.label} to $value", listOf(command)))) {
+            is EditResult.Applied -> EditOutcome.Done(DrawSelection.EMPTY, metricNote(kind, value, info))
+            is EditResult.NoChange -> EditOutcome.Unchanged("That is the value already.")
+            is EditResult.Refused -> refusedOutcome(result)
+        }
+    }
+
+    /** What a metric edit changes, said once: every glyph's alignment, no outline. */
+    fun metricNote(
+        kind: MetricKind,
+        value: Int,
+        info: UfoFontInfo? = fontInfo(),
+    ): String {
+        val after = info?.with(kind, value)
+        val x = after?.xHeight
+        val cap = after?.capHeight
+        val odd = if (x != null && cap != null && x > cap) " An x-height above the cap height is unusual (our heuristic)." else ""
+        return "${kind.label.replaceFirstChar { it.uppercase() }} is now $value. $METRIC_EFFECT$odd"
+    }
+
+    /** Opens a drag of the metric line [kind]; null means it began, anything else is why it did not. */
+    fun beginMetricDrag(kind: MetricKind): EditOutcome? {
+        endDrag(commit = true)
+        val info = fontInfo() ?: return missing()
+        if (kind == MetricKind.BASELINE) return EditOutcome.Unchanged(metricProblem(kind, 0).orEmpty())
+        if (info.valueOf(kind) == null) return EditOutcome.Unchanged("This font does not give a ${kind.label}.")
+        gesture = session.beginGesture("Move ${kind.label}")
+        return null
+    }
+
+    /** Moves the line [kind] to [value] inside the open drag; a value the font cannot take leaves the line where it was. */
+    fun dragMetricTo(
+        kind: MetricKind,
+        value: Int,
+    ): DragUpdate {
+        val info = fontInfo() ?: return DragUpdate.ENDED
+        if (metricProblem(kind, value) != null) return if (gesture?.isOpen == true) DragUpdate.FOLLOWED else DragUpdate.ENDED
+        return scrubMetric(UpdateFontInfo(ref.master, info.with(kind, value)))
+    }
+
+    /** The value of the metric [kind] now, or null if the font does not give one. */
+    fun metricValue(kind: MetricKind): Int? = fontInfo()?.valueOf(kind)
+
+    private fun refusedOutcome(result: EditResult.Refused): EditOutcome =
+        if (result.refusal is Refusal.Locked) EditOutcome.Locked(ref.glyph) else EditOutcome.Refused(result.refusal.message)
+
+    // ---- locks -----------------------------------------------------------------------------
+
+    /** Approves and locks the glyph as it is; what is [selected] stays selected. */
+    fun approve(selected: DrawSelection = DrawSelection.EMPTY): EditOutcome =
+        lockCommand(Approve(ref, ApprovalOrigin.DRAW), "${ref.glyph} is locked as approved.", selected)
+
+    /** Unlocks the glyph for editing, the session recording the unlock and keeping the diff; what is [selected] stays selected. */
+    fun unlock(selected: DrawSelection = DrawSelection.EMPTY): EditOutcome =
+        lockCommand(Unlock(ref), "${ref.glyph} is unlocked. Edits are kept as a diff against the approved outline.", selected)
+
+    private fun lockCommand(
+        command: FontCommand,
+        note: String,
+        selected: DrawSelection,
+    ): EditOutcome =
+        when (val result = session.execute(command)) {
+            is EditResult.Applied -> EditOutcome.Done(selected, note)
+            is EditResult.NoChange -> EditOutcome.Unchanged("${ref.glyph} is already ${if (command is Unlock) "unlocked" else "locked"}.")
+            is EditResult.Refused -> EditOutcome.Refused(result.refusal.message)
+        }
+
+    // ---- undo and redo ---------------------------------------------------------------------
+
+    fun undo(): Boolean = session.undo()
+
+    fun redo(): Boolean = session.redo()
+
+    val canUndo: Boolean get() = session.history.value.canUndo || isDragging
+
+    val canRedo: Boolean get() = session.history.value.canRedo
+
+    // ---- consequence estimates ---------------------------------------------------------------
+
+    /**
+     * The measured effect of [plan]: "−1 on · −2 off", "no change in points", or the reason it cannot
+     * be made. Run through the session's own `simulate`, so the number is what the edit would really
+     * do, not a guess (law 5), and a locked glyph comes back as "locked".
+     */
+    fun consequenceOf(plan: EditPlan): String {
+        if (plan is EditPlan.Blocked) return plan.reason
+        plan as EditPlan.Change
+        val simulation = session.simulate(ReplaceOutline(ref, plan.contours, plan.label))
+        return when (val result = simulation.result) {
+            is EditResult.Refused -> {
+                if (result.refusal is Refusal.Locked) "locked" else result.refusal.message
+            }
+
+            is EditResult.NoChange -> {
+                "no change"
+            }
+
+            is EditResult.Applied -> {
+                // Counted as the file stores the outline, so a straight side of a cubic contour is not two off-curve points.
+                val current = glyph
+                if (current == null) {
+                    "changes the outline"
+                } else {
+                    val before = current.writtenCount()
+                    val after = current.copy(contours = plan.contours).writtenCount()
+                    val on = after.onCurveEquivalent - before.onCurveEquivalent
+                    val off = after.offCurve - before.offCurve
+                    if (on == 0 && off == 0) "no change in points" else "${signed(on)} on · ${signed(off)} off"
+                }
+            }
+        }
+    }
+
+    // ---- helpers -----------------------------------------------------------------------------
+
+    /**
+     * Runs a planner so that it can never throw into a menu, a key or a composition: a plan that cannot
+     * be worked out (a selection that names something an undo removed, an outline the geometry cannot edit
+     * that way) is "not available", with the reason a sentence, and the outline is not touched.
+     */
+    private inline fun planning(block: () -> EditPlan): EditPlan =
+        try {
+            block()
+        } catch (_: IllegalArgumentException) {
+            EditPlan.Blocked(NOT_AVAILABLE)
+        } catch (_: IndexOutOfBoundsException) {
+            EditPlan.Blocked(NOT_AVAILABLE)
+        } catch (_: NoSuchElementException) {
+            EditPlan.Blocked(NOT_AVAILABLE)
+        } catch (_: IllegalStateException) {
+            EditPlan.Blocked(NOT_AVAILABLE)
+        }
+
+    private fun missing(): EditOutcome = EditOutcome.Refused("There is no glyph named ${ref.glyph} to edit.")
+
+    private fun contoursFor(
+        glyph: Glyph,
+        selection: DrawSelection,
+    ): Set<Int> = if (selection.contours.isEmpty()) glyph.contours.indices.toSet() else selection.contours
+
+    private fun signed(n: Int): String =
+        if (n > 0) {
+            "+$n"
+        } else if (n < 0) {
+            "−${abs(n)}"
+        } else {
+            "0"
+        }
+
+    private fun plural(n: Int): String = if (n == 1) "" else "s"
+
+    companion object {
+        /** How far a node may be from a metric line, in font units, and still align to it (the V1 menu says "within 20 units"). */
+        const val ALIGN_WITHIN_UNITS: Double = 20.0
+
+        /** How far, at most, tidying may move the outline, in font units: our heuristic (not a measured distribution). */
+        const val TIDY_TOLERANCE_UNITS: Double = DEFAULT_SIMPLIFY_TOLERANCE_UNITS
+
+        private const val MIN_INSERT_T = 0.04
+        private const val DEFAULT_UPM = 1000
+        private const val METRIC_LIMIT_EMS = 2
+        private const val MAX_ANCHOR_NAME = 64
+        private const val ANCHOR_GONE = "That anchor is gone."
+        private const val BOOLEAN_NEEDS_TWO =
+            "A boolean needs two or more contours. Tap each contour with the Boolean tool, or sweep over them."
+        private const val STROKE_NEEDS_A_LINE =
+            "Lay a centreline first: tap its points with the Stroke tool and press Enter. Or select a closed contour to turn into a ring."
+        private const val METRIC_EFFECT =
+            "This changes every glyph's alignment: it is the font's line, not this glyph's, so snapping, align and the checks " +
+                "that read it all follow it. No outline moves."
+        private val BOOLEAN_LABELS =
+            mapOf(
+                BooleanOp.UNION to "Union",
+                BooleanOp.SUBTRACT to "Subtract",
+                BooleanOp.INTERSECT to "Intersect",
+                BooleanOp.EXCLUDE to "Exclude",
+            )
+        private const val SEGMENT_GONE = "That segment is gone."
+        private const val NOT_AVAILABLE = "That is not available for this outline."
+
+        /** The editor for the glyph named [name] in the default master of [session], or null if the project has no such glyph. */
+        fun forGlyph(
+            session: ProjectSession,
+            name: String,
+        ): DrawEditor? {
+            val font = session.state.value.font
+            val master = font.masters.firstOrNull { it.isDefault } ?: font.masters.firstOrNull() ?: return null
+            if (master.ufo.glyphs.none { it.name == name }) return null
+            return DrawEditor(session, GlyphRef(master.id, name))
+        }
+    }
+}

@@ -35,7 +35,12 @@ class ProjectsScreenTest {
 
     @Test
     fun theRowSaysWhatTheProjectHoldsAndWhenItWasEdited() {
-        assertEquals("338 glyphs · 38 outliers · edited 2 h ago", summaryLine(project, now))
+        assertEquals("338 glyphs · ● 38 outliers · edited 2 h ago", summaryLine(project, now))
+        // A project nothing has measured shows its glyph count and no outlier count, never a zero.
+        assertEquals(
+            "338 glyphs · edited 2 h ago",
+            summaryLine(project.copy(summary = ProjectSummary(glyphs = 338, outliers = null, styleClass = null)), now),
+        )
         assertEquals("not opened since it was listed", summaryLine(project.copy(summary = null, lastEdited = null), now))
         assertEquals("/home/me/Fonts/hyle-deco", locationText(project.location))
     }

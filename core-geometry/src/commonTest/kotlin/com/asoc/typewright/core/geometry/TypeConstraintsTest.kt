@@ -189,6 +189,38 @@ class TypeConstraintsTest {
     }
 
     @Test
+    fun snappingASmoothNodeKeepsItsFlagAndKeepsItTrueToTheOutline() {
+        // A flat top two units above the baseline: A and B are smooth, joined by a straight side, with a curve either end.
+        fun smoothOn(
+            x: Int,
+            y: Int,
+        ) = ContourPoint(Point(x, y), onCurve = true, smooth = true)
+        val contour =
+            Contour(
+                listOf(
+                    smoothOn(0, 2),
+                    off(0, 2),
+                    off(100, 2),
+                    smoothOn(100, 2),
+                    off(150, 2),
+                    off(200, -50),
+                    on(200, -100),
+                    off(200, -100),
+                    off(0, -100),
+                    on(0, -100),
+                    off(-50, -100),
+                    off(-50, 2),
+                ),
+                CurveFormat.CUBIC,
+            )
+        assertEquals(emptyList(), contour.brokenSmoothNodes(), "the fixture is smooth before the snap")
+        val snapped = snapPointsToMetricLines(contour, metricLines = listOf(0), snapDistance = 2)
+        assertEquals(listOf(Point(0, 0), Point(100, 0)), listOf(snapped.points[0].point, snapped.points[3].point))
+        assertTrue(snapped.points[0].smooth && snapped.points[3].smooth, "snapping does not silently drop the flag")
+        assertEquals(emptyList(), snapped.brokenSmoothNodes(), "and the flag is still true to the outline")
+    }
+
+    @Test
     fun aPointAlreadyExactlyOnTheLineIsLeftAlone() {
         val contour = straightPolygonContour(listOf(Point(10, 0), Point(50, 60), Point(-10, 60)))
         assertEquals(contour, snapPointsToMetricLines(contour, metricLines = listOf(0), snapDistance = 2))

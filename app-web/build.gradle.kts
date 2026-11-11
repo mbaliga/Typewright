@@ -57,3 +57,14 @@ providers.gradleProperty("typewright.wasmOpt").orNull?.let { wasmOpt ->
         }
     }
 }
+
+// The licences, the notices in full and the privacy policy are served beside the app as plain files
+// (docs/release/WEB_DEPLOY.md), as well as inside About, so a static host's visitors can read them
+// without running the app. The Skiko binary in this bundle carries no licence banner of its own.
+tasks.named<ProcessResources>("wasmJsProcessResources") {
+    val root = isolated.rootProject.projectDirectory
+    from(listOf(root.file("LICENSE"), root.file("THIRD_PARTY.md"), root.file("TRADEMARKS.md"), root.file("docs/release/PRIVACY.md"))) {
+        into("legal")
+    }
+    from(root.dir("LICENSES")) { into("legal/LICENSES") }
+}

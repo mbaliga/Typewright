@@ -3,14 +3,19 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Typewright</title>
+    <title>Typewright (Preview)</title>
     <style>
         html, body { margin: 0; height: 100%; background: #EFE9DC; }
-        #typewright { width: 100%; height: 100%; }
+        body { display: flex; flex-direction: column; }
+        #typewright { width: 100%; flex: 1 1 auto; min-height: 0; }
     </style>
 </head>
 <body>
+    <!-- The Preview banner is added above this by Main.kt, from the same text About shows. -->
     <div id="typewright"></div>
+    <!-- Runs first: makes navigator.language something Intl.Locale accepts (docs/OPEN_QUESTIONS.md item 13). -->
+    <script src="locale-guard.js"></script>
     <script src="typewright.js"></script>
+    <noscript>Typewright needs JavaScript and WebAssembly.</noscript>
 </body>
 </html>

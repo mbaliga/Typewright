@@ -4,6 +4,7 @@ package com.asoc.typewright.project
 
 import com.asoc.typewright.core.font.ufo.UfoProject
 import com.asoc.typewright.core.geometry.Glyph
+import com.asoc.typewright.project.capture.CaptureManifest
 import com.asoc.typewright.project.scrapbook.ScrapbookManifest
 import kotlinx.serialization.json.JsonObject
 import kotlin.time.Instant
@@ -110,6 +111,8 @@ data class ProjectMeta(
     val scrapbook: ScrapbookManifest,
     val lessons: Map<String, WorkbookLessons>,
     val unknownKeys: JsonObject,
+    /** The sheet photographs, scans and SVG drawings Capture holds (`captures/`). */
+    val captures: CaptureManifest = CaptureManifest(),
 )
 
 /** `typewright.json`'s metadata fields (docs/PROJECT_MODEL.md §3.1); `masters` and `locks` live on [FontState] instead. */

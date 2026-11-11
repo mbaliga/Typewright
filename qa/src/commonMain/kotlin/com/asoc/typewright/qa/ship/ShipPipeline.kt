@@ -4,15 +4,11 @@ package com.asoc.typewright.qa.ship
 
 import com.asoc.typewright.core.font.ufo.UfoFontInfo
 
-// This file (com.asoc.typewright.qa.ship) is the Ship room's repository-scaffold generators
-// (brief §12: "The Ship room is a checklist that produces a repository"). Every function below is
-// pure string generation over a UfoFontInfo plus a handful of parameters (family, designer, year,
-// gitUrl) -- no file I/O (a platform caller writes the returned text to a file), no compile step
-// and no Fontspector requirement, so this stays testable in commonTest on both targets.
-// data/scripts never hand-writes these files; a real GF submission has its own packager (gftools)
-// that does the same job from a config file -- these generators exist so the app can show the user
-// a preview of what Ship will write, and so a hosted/local packaging step (out of this module's
-// scope) has something to start from.
+// The older repository-scaffold generators (brief §12). Every function below is pure string generation over a UfoFontInfo plus a
+// handful of parameters (family, designer, year, gitUrl) -- no file I/O, no compile step and no Fontspector requirement.
+// The Ship room does not use them: it writes the folder from buildShipPlan (ShipPlan.kt), which takes every fact from the project and
+// leaves out what the project does not state. These stay for the campaign workbook's gate, which still passes them a family, year and
+// address of its own, and they share the licence body (OflBody.kt) and the copyright line with the plan.
 
 /**
  * Google Fonts' copyright-string pattern (docs/RESEARCH_font_quality.md, "Provenance": `Copyright
@@ -27,116 +23,16 @@ fun gfCopyrightLine(
 
 /**
  * The complete text of `OFL.txt`: [gfCopyrightLine] followed by the standard SIL Open Font License
- * 1.1 body, reproduced verbatim (the licence text itself is not Typewright's to paraphrase or
- * alter -- the OFL is, by its own terms, meant to be copied whole). The FAQ line points at
- * `openfontlicense.org`, the licence's current home per docs/RESEARCH_font_quality.md's
- * provenance section; many already-onboarded Google Fonts still carry the older
- * `scripts.sil.org/OFL` URL from when they were submitted, which still resolves, but a file this
- * function generates today should point new readers at the current one.
+ * 1.1 body, reproduced verbatim as Google Fonts' template wraps it ([OFL_BODY]; the licence text
+ * itself is not Typewright's to paraphrase or alter -- the OFL is, by its own terms, meant to be
+ * copied whole). The FAQ line points at `openfontlicense.org`, the licence's current home per
+ * docs/RESEARCH_font_quality.md's provenance section.
  */
 fun generateOflText(
     family: String,
     year: Int,
     gitUrl: String,
-): String =
-    buildString {
-        append(gfCopyrightLine(year, family, gitUrl)).append('\n')
-        append('\n')
-        append(OFL_BODY)
-    }
-
-private const val OFL_BODY =
-    """This Font Software is licensed under the SIL Open Font License, Version 1.1.
-This license is copied below, and is also available with a FAQ at:
-https://openfontlicense.org
-
------------------------------------------------------------
-SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
------------------------------------------------------------
-
-PREAMBLE
-The goals of the Open Font License (OFL) are to stimulate worldwide
-development of collaborative font projects, to support the font
-creation efforts of academic and linguistic communities, and to
-provide a free and open framework in which fonts may be shared and
-improved in partnership with others.
-
-The OFL allows the licensed fonts to be used, studied, modified and
-redistributed freely as long as they are not sold by themselves. The
-fonts, including any derivative works, can be bundled, embedded,
-redistributed and/or sold with any software provided that any reserved
-names are not used by derivative works. The fonts and derivatives,
-however, cannot be released under any other type of license. The
-requirement for fonts to remain under this license does not apply to
-any document created using the fonts or their derivatives.
-
-DEFINITIONS
-"Font Software" refers to the set of files released by the Copyright
-Holder(s) under this license and clearly marked as such. This may
-include source files, build scripts and documentation.
-
-"Reserved Font Name" refers to any names specified as such after the
-copyright statement(s).
-
-"Original Version" refers to the collection of Font Software
-components as distributed by the Copyright Holder(s).
-
-"Modified Version" refers to any derivative made by adding to,
-deleting, or substituting -- in part or in whole -- any of the
-components of the Original Version, by changing formats or by porting
-the Font Software to a new environment.
-
-"Author" refers to any designer, engineer, programmer, technical
-writer or other person who contributed to the Font Software.
-
-PERMISSION & CONDITIONS
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of the Font Software, to use, study, copy, merge, embed,
-modify, redistribute, and sell modified and unmodified copies of the
-Font Software, subject to the following conditions:
-
-1) Neither the Font Software nor any of its individual components, in
-Original or Modified Versions, may be sold by itself.
-
-2) Original or Modified Versions of the Font Software may be bundled,
-redistributed and/or sold with any software, provided that each copy
-contains the above copyright notice and this license. These can be
-included either as stand-alone text files, human-readable headers or
-in the appropriate machine-readable metadata fields within text or
-binary files as long as those fields can be easily viewed by the user.
-
-3) No Modified Version of the Font Software may use the Reserved Font
-Name(s) unless explicit written permission is granted by the
-corresponding Copyright Holder. This restriction only applies to the
-primary font name as presented to the users.
-
-4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
-Software shall not be used to promote, endorse or advertise any
-Modified Version, except to acknowledge the contribution(s) of the
-Copyright Holder(s) and the Author(s) or with their explicit written
-permission.
-
-5) The Font Software, modified or unmodified, in part or in whole,
-must be distributed entirely under this license, and must not be
-distributed under any other license. The requirement for fonts to
-remain under this license does not apply to any document created using
-the Font Software.
-
-TERMINATION
-This license becomes null and void if any of the above conditions are
-not met.
-
-DISCLAIMER
-THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
-OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
-COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
-DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
-OTHER DEALINGS IN THE FONT SOFTWARE.
-"""
+): String = oflFile(gfCopyrightLine(year, family, gitUrl))
 
 /**
  * A minimal `DESCRIPTION.en_us.html` scaffold: one placeholder paragraph the user is expected to
@@ -160,8 +56,8 @@ fun generateDescriptionHtml(
         append(escapeHtml(family)).append(" is a Typewright-made font. Replace this paragraph with a real description.\n")
         append("</p>\n")
         append("<p>\n")
-        append("To contribute, see <a href=\"").append(escapeHtmlAttribute(gitUrl)).append("\">")
-        append(escapeHtml(displayUrl(gitUrl))).append("</a>\n")
+        append("To contribute, see <a href=\"").append(escapeAttribute(gitUrl)).append("\">")
+        append(escapeHtml(displayAddress(gitUrl))).append("</a>\n")
         append("</p>\n")
     }
 
@@ -209,11 +105,7 @@ fun generateMetadataPbText(
     }
 }
 
-private fun escapeHtml(text: String): String = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-private fun escapeHtmlAttribute(text: String): String = escapeHtml(text).replace("\"", "&quot;")
-
-/** [gitUrl] with a leading `https://` stripped for display text, the way google/fonts' own DESCRIPTION files show a link's text. */
-private fun displayUrl(gitUrl: String): String = gitUrl.removePrefix("https://").removePrefix("http://")
+/** `OFL.txt` with [copyrightLine] first and the licence after it, ending in a newline. */
+internal fun oflFile(copyrightLine: String): String = copyrightLine + "\n" + OFL_BODY + "\n"
 
 private fun escapeProtoText(text: String): String = text.replace("\\", "\\\\").replace("\"", "\\\"")

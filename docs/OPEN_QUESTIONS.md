@@ -95,13 +95,13 @@ says what was done in the meantime, and names who decides. Answered entries move
     `RangeError: Incorrect locale information provided`; the first composition fails and
     only the page background shows. The same build renders correctly with `en-GB`. Options:
     report it upstream and wait, or add a small guard in `index.html` that normalises
-    `navigator.languages` before Compose starts. *Decide at P9.*
+    `navigator.languages` before Compose starts. *Decide at P9.* **Built in P18: see item 233.**
 
 14. **A licences page.** Skiko's desktop and web binaries contain Skia, FreeType, libpng,
     libjpeg-turbo, libwebp and others (`THIRD_PARTY.md`); their BSD-style licences and
     the FreeType License require notices in binary distributions, and the web bundle carries
     no licence banners. The explorer has no licences or about screen. Per law 6, this needs
-    an explorer design before it is built. *Madhav, before the first release.*
+    an explorer design before it is built. *Madhav, before the first release.* **Built in P18 from the V1 About board: see item 233.**
 
 15. **Kotlin build statistics.** The Kotlin Gradle plugin writes build statistics (plugin
     versions, task counts, durations, core count) to `~/.gradle/kotlin-profile/` for
@@ -3408,3 +3408,612 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     changed here; `ThemeTest` holds them where they are, and a duplicate of Paper or Vellum cannot be
     saved until those roles are adjusted. ΔE is CIE76 in CIELAB (OKLab × 100 would call a warm grey
     "within 20" of the close red). Owner: Madhav.
+
+150. **The sample opens declared as Geometric sans, which the owner has not said (P12).** "Try the
+    sample" imports Hyle Deco with its brief declaring `sans-geometric`, because `qa/corpus`'s own
+    `HyleDecoNodeEconomyTest` treats it as that class and the S01 and S04 boards read "against 30
+    geometric sans". Everything on Home that is judged (38 outliers, 7 above, 7 in range of 52 letters)
+    depends on it. With no class declared the detector reads one and every screen then says "our
+    heuristic". Should the sample open with no class, so its first Home shows the heuristic's reading,
+    or keep the declared one? Owner: Madhav.
+
+151. **What the no-fixture rule's allow-list leaves out (P12).** `NoFixtureFontInMainSourcesTest` scans
+    the Kotlin of every module's main source sets with comments removed, and allows two files:
+    `BundledSampleFont.kt` (the one loader) and `NoticeData.kt` (generated licence notices that must
+    name every font that ships). It does not read non-Kotlin resources: the Craft lesson
+    `a1-tracing-destroys-the-drawing.yaml` names `fonts/HyleDeco-Regular.ttf` as a teaching example and
+    nothing in code loads that path. Comments in `core-font`, `core-geometry`, `qa` and `learn/scenes`
+    cite the sample as where a measured number came from; they are left as documentation. Should the
+    lesson YAML be scanned and allow-listed too, or the lesson stop naming a path? Owner: Madhav.
+
+152. **Workbook figures that nothing here can check, and three that were wrong (P12).**
+    `WorkbookMeasuredNumbersTest` reads every figure the workbook quotes for the sample out of the
+    YAML and compares it with the font: n's sidebearings (46 and 51), baseline 0 and x-height 500,
+    stems 44, counter 292, overshoot 0 for task 3 and 4, the Overlay probe, and the stems task 5 copies
+    forward. Three were wrong and are corrected in the YAML: the probe's bar is 43 (not 44) and its
+    contrast 1.25 (not 1.00), which is what the app's own stroke probe measures, and task 5's "stem 44
+    (from H)" is n's stem (H's two measure 43 and 45). Not checkable and left as written: task 11's
+    "4 fail · 4 warn · 141 pass (run locally)" (no Fontbakery or fontspector on the build machine, so
+    the run could not be repeated), task 4's "round : straight = 1 : 1", and "r about 118 outer / 74
+    inner" (brief §7). Should task 11 quote a run that is repeated and dated? Owner: Madhav.
+
+153. **Desktop storage after an import (P12).** `app-desktop` now builds its workspace over
+    `DesktopImportStorage`: a disk folder for a `FileSystem` location, memory for the in-memory root
+    that "New project…" still uses. "Open a font" asks for a folder when Import is pressed and makes
+    `<name>/` in it; a UFO is adopted where it lies. The app config is still held in memory, so after a
+    restart the project is not in Recent and is opened with Open project…. There is no default folder
+    (`~/Fonts`? an XDG data directory?) and "New project…" still uses the in-memory root; moving it to
+    WP3's `DesktopFolderPicker` and a persistent config store is the same decision. Android asks for a
+    folder through its folder picker each time. Owner: Madhav.
+
+154. **Script codes: Hrkt, or Hira and Kana (P12).** An import records the scripts its cmap reaches as
+    `Latn`, `Hrkt` (kana as one), `Deva` and `Arab`; New project (S02) records Hiragana and Katakana
+    separately. Home names `Hrkt` "Kana" and counts characters per script, and nothing breaks, but one
+    project can now say "Kana" and another "Hiragana" for the same coverage. Which vocabulary should the
+    project file use? Owner: Madhav.
+
+155. **What a tap on Home's counts should do (P12).** The S04 board draws "● 38 outliers ◐ 7 above ✓ 7
+    in range of 52 letters ›" with a chevron. Check is not built, so the counts are not tappable and
+    the chevron is left out. When Check exists, should the tap open its Economy view, or the Glyphs view
+    filtered to that verdict (which exists today as the ● ◐ ✓ chips)? Owner: Madhav.
+
+156. **Outlines are drawn on the left side bearing, which changes what the sample's glyphs read (P12).**
+    `SfntFont.glyph` now places each outline with its `glyf` header `xMin` on its `hmtx` left side
+    bearing, as a rasteriser does. 49 glyphs of `fonts/HyleDeco-Regular.ttf` store a different value
+    (n at x = 61 with a left side bearing of 46; `head.flags` bit 1 is unset), and 9 of Limelight and 17 of
+    UnifrakturMaguntia do. Only x coordinates change, so no count or verdict does; the font file is
+    unchanged. `USE_MY_METRICS` on a composite is not honoured. Should the sample's `hmtx` be corrected
+    at the source so no reader needs the rule? Owner: Madhav.
+
+157. **What an import does not carry, and the kerning that follows (P12).** Refused with a plain
+    message: CFF (OpenType with PostScript outlines: "not built yet"), WOFF, WOFF2 and collections.
+    Not carried over, and listed on S03: GPOS kerning and layout features, GSUB, hinting, colour
+    tables, a variable font's other instances (the default instance is imported). Because GPOS is not
+    read, a TrueType import has no kerning, so Home's hero word is set with advances only for it, though
+    the font kerns; a UFO's own `kerning.plist` is used. Should GPOS pair kerning become UFO kerning on
+    import? Owner: Madhav.
+
+158. **The Android and web pickers are compile-verified only (P12).** Owner-verified on a device:
+    Android's document picker (a pick in flight is cancelled with its activity; a result delivered to a
+    recreated activity afterwards is dropped and the person chooses again, so please try a pick with the
+    screen rotated), the folder picker for where the project goes, and the browser's file input (the
+    `cancel` event is missing from older browsers; the import then waits until Close). Offline,
+    `:app-web:compileKotlinWasmJs` could not resolve `kotlinx-serialization-core-wasm-js` 1.7.3, so
+    `WebFontFilePicker.kt` was compiled once inside `:ui:compileKotlinWasmJs` and the lines added
+    to `app-web`'s `Main.kt` were not compiled. UFO folders are offered on the desktop only, and
+    Android and the browser say why on the Projects screen and on S03. Owner: Madhav.
+    *Fix pass:* while the picker is open S03 now draws a waiting screen with the deck's Close, and a new
+    request replaces a wait that never answered, so a browser that sends no `cancel` is no longer a dead
+    end; a late answer from a wait that was ended is dropped. `WebFontFilePicker.kt` and `Main.kt` of
+    `app-web` were compiled inside `:ui:compileKotlinWasmJs` again (the offline resolution failure remains).
+
+159. **Until the router is wired, three things are built but not on screen (P12).** The import flow
+    reaches the command palette and the S03 audit over any section only when `TypewrightApp` provides
+    `LocalFontImport` and hosts `FontImportHost` last in its root layout; the deck's status shapes
+    appear only when `SectionNav.statusOf` is `rememberProjectStationStatus()`; and the current glyph is
+    saved and restored only when `ProjectResumeEffect` is composed. Projects hosts its own import
+    until then. `TypewrightApp.kt` is outside this package, so the wiring lines are in its report.
+    Owner: the lead. *Fix pass:* all three are wired in `TypewrightApp.kt`; this item is resolved.
+
+160. **Draw's one-tap unlock, for the owner of Draw (P12).** An import locks every glyph (D1), so the
+    first thing a person does in Draw on their own font is unlock a glyph. `docs/PROJECT_MODEL.md` §15
+    asks Draw to make that one tap; `ui/draw` is not this package's and was not checked. Owner: Madhav.
+
+161. **Opened as a person opens a font, the sample is read as humanist sans, so Task 4 is judged against another box than before (P12 fix pass).**
+    With no class declared, the detector (our heuristic) reads Hyle Deco's letters as `sans-humanist`, not
+    the `sans-geometric` the sample's own brief declares (150). Task 4's gate and Home's counts are then
+    judged against the humanist box, so "the Task 4 gate matches what it showed before" holds only when the
+    class is declared. `ProjectInsightsTest` pins the detector's reading so a change to it shows. Should S03
+    or the Brief ask for the closest class on the way in? Owner: Madhav.
+
+162. **The web build cannot yet save a project to the person's computer (P12 fix pass).** S03 on the web
+    now says the project lives in the memory of the tab and that this build cannot yet save it out, instead
+    of pointing at the palette's "Download project (.zip)", which builds the zip bytes (`ProjectZip`) but has
+    no browser download behind it: that needs a Blob download in `app-web` and a hook for `ui` to reach it,
+    neither of which can be tried here (no browser). Wire it, and put it back in the audit's sentence?
+    Owner: Madhav.
+
+163. **Projects rows have no specimen strip (S01, P12 fix pass).** The board draws each recent project with
+    "Hamburgefonstiv" set in its own font; the rows show the name, a mono line and the folder. Recents keep a
+    summary only, so a strip needs the project's outlines: read the UFO when listing, or cache a few glyphs in
+    `recent-projects.json`. Which? Owner: Madhav.
+
+164. **Two of the Workbook's sample figures have no measurement defined (P12 fix pass).** The Workbook now
+    measures the open font's own stem, counter, overshoot, sidebearings and Overlay probe for tasks 2, 3, 4,
+    5 and 7, and shows the lesson's figures as the lesson's. "round : straight = 1 : 1" (task 4) and "r about
+    118 / 74" (task 5, the corner radius of the sample's rounded-rectangle `o`) have no definition of what is
+    counted or how a radius is read off a contour, so they appear only in the lesson's block. Define them, or
+    drop them from the lesson? Owner: Madhav.
+
+165. **Home's task card still runs the twelve gates inside composition (P12 fix pass).** The Workbook runs
+    them off the UI thread behind a Loading state. Home's specimen reads the same snapshot to name the
+    current task and still computes it on the UI thread whenever the project changes while Home is showing.
+    Moving it needs Home's screenshot tests to wait for the result (the harness renders one frame).
+    Owner: the lead.
+
+166. **Renaming a UFO in place edits `fontinfo.plist`; should a copy be the default? (P12 fix pass).** For
+    a UFO that reserves a name, S03 offers to rename it where it lies (the one file changed is
+    `fontinfo.plist`, rewritten from the model, so its keys are re-sorted and any comments dropped) or to
+    import a renamed copy. In place is the default because the project folder is the folder that holds the
+    `.ufo`. Should the copy be the default for a UFO that is under version control? Owner: Madhav.
+
+167. **Close/open contour is not representable (Draw).** A Contour in core-geometry is closed by
+    construction and the UFO model only has closed contours here, so Draw has no Close/Open action
+    and an open path cannot be stored. INTERACTION_V1 lists close/open; decide whether the model
+    gains an open flag (UFO 'move' point type) or the action is dropped from the spec. Owner:
+    Madhav.
+
+168. **Shared quadratic control stays put (Draw).** On a quadratic (TrueType) contour consecutive
+    off-curve points imply on-curve midpoints. Moving or deleting one on-curve node does not move a
+    shared off-curve control point. Draw keeps the control where it is, which can change the curve
+    beyond the edited neighbourhood. Decide whether quadratic editing should re-derive controls or
+    whether imports should elevate to cubic first. Owner: Madhav.
+
+169. **Imports elevating quadratic to cubic (Draw).** The UFO model holds cubic and the TrueType
+    import is quadratic (OQ 125). Draw edits quadratic contours verbatim (move/delete on-curve
+    only). If the import step elevates to cubic, Draw's quadratic path becomes dead code; if it does
+    not, handle editing on quadratic needs a decision. Owner: Madhav.
+
+170. **Hold on a node: radial vs grab (Draw).** On touch, holding a node opens the radial
+    (HoldOpened) at the hold threshold, which competes with press-and-drag to grab the node. The
+    simplest reading was taken: a hold without movement opens the radial, movement before the
+    threshold drags. The threshold and whether a slow drag should win need owner confirmation on a
+    device. Owner: Madhav.
+
+171. **Puck grip hit region (Draw).** Where on the puck the grip (carry) begins versus the body
+    (tap, swipe, hold) is not pinned down in INTERACTION_V1. The build treats the top rim band as
+    the grip (about 25 dp above the centre) and the rest as the body. Confirm region and size on a
+    device. Owner: Madhav.
+
+172. **Puck default position (Draw).** The puck defaults to the LEFT edge at 40% of the height, 18
+    dp in. INTERACTION_V1 does not give a default. Confirm left versus right and the height,
+    including for left-handed use. Owner: Madhav.
+
+173. **Puck side setting (Draw).** There is no setting to choose the puck's side or to reset its
+    position; the user can only carry it, and it pins to the nearer edge on release. Decide whether
+    Settings gets a side/reset control and where it lives. Owner: Madhav.
+
+174. **Wasm test compile cannot run offline (Draw).** kotlin-test-wasm-js is not resolvable in this
+    container, so :ui wasm tests (the commonTest additions in this package) were not compiled for
+    Wasm. Main sources compile for Wasm. CI should confirm the commonTest sources compile there.
+    Owner: Madhav.
+
+175. **Haptics are owner-verified only (Draw).** tick() on a changed snap or sector and thump() on a
+    radial sector run use LocalHapticFeedback. Felt behaviour, strength and whether Linux/Web should
+    do anything are unverified; only the call counts are tested. Owner: Madhav.
+
+176. **Digit keys 1-8 pick radial sectors (Draw).** INTERACTION_V1 does not say whether a keyboard
+    can pick a radial sector. 1-8 select a sector of an open ring (an added accelerator, listed in
+    the shortcuts sheet). Confirm or remove. Owner: Madhav.
+
+177. **Smooth node beside a straight side: slide or break (Draw).** Dragging, nudging or typing a
+    position for the curve handle of a smooth node whose other side is a straight line now keeps the
+    handle on that line (the drag slides along it; the field reports where it landed) unless Alt is
+    held, which makes the node a corner. Glyphs behaves this way; some editors let it go free and
+    just clear the flag. Confirm on a device that a designer does not find the sliding surprising,
+    and whether a typed value off the line should instead break the node. Owner: Madhav.
+
+178. **Make smooth refused on a corner between two straight sides (Draw).** A right-angle corner of
+    two straight sides has no handle of its own to turn, so Make smooth is refused with the reason
+    'pull a handle out of one side first' instead of writing smooth="yes" onto an outline that has a
+    visible corner. This changes the earlier behaviour where the flag was just set. Confirm this is
+    the wanted designer-facing behaviour, or whether the node should be given handles automatically.
+    Owner: Madhav.
+
+179. **Quadratic smooth nodes lose the flag when an edit cannot keep them in line (Draw).** On a
+    TrueType-style contour a lone control between two on-curve points belongs to neither, so no
+    handle can be turned to keep its neighbours smooth. Moving, bending or deleting beside such a
+    node therefore clears its smooth flag when its controls stop being collinear. Decide whether the
+    import should elevate to cubic first (OQ already open on quadratic editing) so this case
+    disappears. Owner: Madhav.
+
+180. **Radial dimming and construction lines (C4 vs the DrawRadial board) (Draw).** The DrawRadial
+    and RadialTap boards draw the metric lines and the glyph together at 30% while a radial is open.
+    C4 says metric lines are drawn at full strength everywhere, so only the glyph body, handles and
+    nodes dim (the selection, snap targets and metric lines stay full). Confirm that C4 wins, or
+    amend the boards. Owner: Madhav.
+
+181. **Retracted-handle marks: distance and visibility (Draw).** A retracted handle shows as a
+    hollow diamond 26 dp along its side from the node, only for a selected node or a selected
+    handle, and not on a locked glyph; picking it and pulling drags the real handle out under the
+    pointer. The 26 dp (clear of the contour start triangle, inside a finger's 22 dp reach of
+    nothing else) and the select-first rule are my choice; check on a device that the mark is
+    findable and not mistaken for a handle. Owner: Madhav.
+
+182. **"Snap with overshoot" is on the Check board but not in Draw (Check fix pass).** Check.dc.html labels the
+    overshoot finding's action "Snap with overshoot ›". Draw has no such command (it shows overshoot zones and
+    nothing moves a round extreme into one), so the action reads "Open e in Draw ›", which is what it does; a label
+    that promises an edit the app cannot make was the same fault as Font info's dead end. Decide whether to build the
+    command (move a round glyph's extremes to the zone, one undo step) and then use the board's words, or to change
+    the board. Owner: Madhav.
+
+183. **The Economy sort order: the board or the explorer (Check fix pass).** Economy.dc.html puts the sort at the
+    right end of the chip line and the legend and fence sentence together above the deck; the explorer's S15 has the
+    sort on its own row under the legend and the fence in a bottom sheet. The page follows the board, as the fix
+    brief asked, though D19 says the explorer wins where they disagree on look. Confirm which, and amend the other.
+    Owner: Madhav.
+
+184. **Font info cannot set fsSelection bit 7 or the Windows metrics (Check fix pass).** The Metrics item warns when
+    "use typo metrics" is not set and fails when the Windows ascent and descent cut off ink, but Font info edits
+    only ascender, descender, cap height, x-height and line gap (an ascender or descender also moves the hhea and typo
+    values the font already states, so Google Fonts' "typo equals hhea" holds). A font drawn from scratch can clear
+    every Check fail from the page, but not the bit-7 warning. Decide whether Font info offers a "Use typo metrics"
+    switch, and whether the Windows ascent and descent are derived from the ink on Ship or typed. Owner: Madhav.
+
+185. **A proprietary or other licence writes nothing, and Check can only pass the Open Font License route (Check fix
+    pass).** Font info's OFL and Apache choices write the standard name-table lines (IDs 13 and 14); Proprietary and
+    Other open the text for the person's own words, because a licence is not Typewright's to write. Check's Licence
+    item passes only the OFL strings, and its basis note says a font under its own licence "chooses that on Ship and
+    is judged there", which Ship does not yet do. Decide how a non-OFL font clears or is excused from that item, and
+    confirm the Apache URL (https://www.apache.org/licenses/LICENSE-2.0; Roboto's name table has http://). Owner: Madhav.
+
+186. **Fontspector's report shape is still unverified, so Fontbakery stands in when it cannot be read (Check fix
+    pass).** Layer one now uses Fontspector only if its output parses, and otherwise runs Fontbakery and says so on
+    the page. No real Fontspector ran in this environment. If one is found on a computer it can be compared with
+    Fontbakery on the same file; until then the golden path always compares against a direct Fontbakery run. Fontbakery's
+    INFO is its own count and is shown as a note, never a warning. Owner: Madhav.
+
+187. **A glyph named in Kana cannot be compiled by fontmake (Check fix pass).** A real build of a project whose glyph
+    is named "あ" (rather than uni3042) stops in fontmake with a UnicodeEncodeError in the post table, which holds
+    Latin-1 names. The build copy's glyph file names are now ASCII, but the glyph names inside are the project's. Decide
+    whether the compile copy renames such glyphs to production names (uniXXXX, as fontmake does for a font with
+    code points), or whether Draw and Capture name non-Latin glyphs that way from the start. Owner: Madhav.
+
+188. **The golden-path job's time on a cold runner is estimated, not measured (Check fix pass).** The job now builds a
+    virtualenv, runs the golden path (three fontmake builds and two Fontbakery runs) and three pythonIntegrationTest
+    tasks. The steps were timed on a warm machine (see docs/CHECK_AND_COMPILE.md) and the job's limit set to a
+    multiple of that sum; the first CI runs on a cold runner are the real measurement. Confirm the limit once they
+    have run. Owner: Madhav.
+
+189. **Space: spacing a locked (approved) glyph, unlock or not? (Space).** The Space brief asked that
+    spacing a locked glyph need the same explicit Unlock as Draw. docs/PROJECT_MODEL.md D2 (and the lock
+    rules at section 7) say the opposite on purpose: sidebearings, advance, kerning and unicodes stay
+    editable on a locked glyph, because shape is compared modulo one horizontal translation, and an
+    opened font's glyphs are all locked by import, so Space would otherwise need every glyph unlocked
+    first. Draw's inspector already edits sidebearings with no refusal. Space follows D2: the drawing is
+    unchanged apart from a sideways shift, the approved snapshot shifts with it, and Unlock is offered
+    only if the project ever refuses. Confirm D2 stands for Space, or say what Unlock should gate.
+    Owner: Madhav.
+
+190. **Space: the `.fea` editor has a real parser on the desktop only (Space).** It now reads its text
+    with fontTools' feaLib in the same Python the build uses, with the font's glyph names as the glyph
+    set, and shows the line and column feaLib stops at, marked in the margin. On Android (no bundled
+    Python, D5) and the web the editor shows its own shape check, labelled as that, with the reason and
+    the statement that the language itself was not parsed. Decide whether Android's route should carry
+    feaLib, and whether the web should offer to send the text to the hosted build endpoint for a check
+    (law 3: opt-in, named every time, nothing kept). Owner: Madhav.
+
+191. **Space: a hand-written kern feature drops the Kerning page's pairs at build (Space).** Checked
+    against the real tools (fontmake 3.12.2, ufo2ft 3.9.1) by `KerningFeaturePythonIntegrationTest`: when
+    `features.fea` has its own `feature kern` and no `# Automatic Code` marker inside it, the compiled
+    font holds only the hand-written pairs; with the marker it holds both. The page says so on the
+    Kerning view and in the `.fea` editor and names the marker, but no longer quotes ufo2ft's log line
+    (the tool's wording can change; the test guards the behaviour instead). It blocks nothing. Decide
+    whether Space should refuse, offer to insert the marker, or keep warning; it must be settled before
+    Compile and Ship build a font from such a project. Owner: Madhav.
+
+192. **Space: the Shaping preview entry waits on a compiled font (Space).** SCREENS_V1 S13 lists Shaping
+    preview in the Space menu. shape-preview shapes real font bytes and the project holds none until
+    Compile runs. The desktop compile backend now exists, but it builds from the UFO and takes seconds,
+    so the entry would either run a build each time it is opened (named as running on this computer) or
+    wait for a build the session holds, which none does yet. The entry stays out rather than being faked.
+    Decide between the two; Android is owner-verified only and the web keeps it absent. Owner: Madhav.
+
+193. **Space: should the Before baseline persist or follow approvals? (Space).** Before is the project's
+    spacing, kerning, groups and features as opened, or since "Make this the Before" (the page says
+    which). It is held in memory and resets when the project is reopened. "Last approved" has no source
+    because approval is per glyph and nothing snapshots spacing. A durable Before needs a small stored
+    snapshot (the scrapbook or a comparisons file) and a decision on when it is taken. Owner: Madhav.
+
+194. **Space: control strings beyond the Workbook's two (Space).** The build brief names none. Space
+    ships the Workbook's nnonnonon and HHOHOHOH (docs/TYPEWRIGHT_HANDOFF.md M5) and lets the person add
+    their own, stored in project preferences. docs/RESEARCH_font_quality.md describes Paul Barnes style
+    sandwich strings that could be generated from the glyphs drawn so far; none are offered. Say whether
+    they should be. Owner: Madhav.
+
+195. **Space: the board's heuristic row has no measurement behind it (Space).** The S13 board draws
+    "Our heuristic: n's arch side is 5 units looser than its stem side, where most faces set it a little
+    tighter. Try 46 . 44". Nothing in the repository measures how far an arch side's sidebearing differs
+    from a stem side's: qa/corpus holds node-economy and style-atlas data, and the research file gives
+    only Glyphs' one-third and 1.5 times starting ratios and says no canonical numbers exist. Law 5 says
+    a number the app judges a person by comes from the corpus, so the row is left out. If it is wanted, a
+    sidebearing measurement over the exemplar faces (per style class) has to be made first; until then
+    a sentence without numbers could be shown as "our heuristic". Owner: Madhav.
+
+196. **Space: the arrow keys (Space).** The left and right arrows change the selected number (Shift: 10)
+    while a letter, or in Kerning a pair, is selected and After is showing, as Draw's do for a selected
+    point. With Ctrl or Cmd held, and wherever the page has no number to change (a sub-view open, no pair
+    in the string), they are left for the sheet and move between sections as on every other screen.
+    SCREENS_V1 2.6 and C1 keep the arrows for sections; this resolves the clash the way Draw does. Confirm
+    Ctrl or Cmd with the arrows is the right way to change section from Space with a letter selected, or
+    choose another (for instance Esc to deselect first). Owner: Madhav.
+
+197. **Space: unsaved `.fea` text survives leaving only while the project is open (Space).** Every way
+    out of the editor that the page can see asks first (the left circle, Esc, the seats, a section on the
+    arc, the Map, the other entries of the menu). The ways it cannot stop (the command palette, a swipe
+    to another room, Ctrl or Cmd with an arrow) leave the text where it is, in memory, and the page shows
+    it again marked as kept and not saved. Closing the project or the app loses it. Decide whether it
+    should also be written to a recovery file in the project folder; such a file would be a second copy
+    that no other editor knows to ignore. Owner: Madhav.
+
+198. **Space: Before's picture where letters were drawn since (Space).** A letter that was not drawn
+    when the Before was made is not in the Before picture: it fades in as the page moves to After, and a
+    sentence names it. The alternatives are to hide Before while the letters differ, or to compare only
+    the letters both have. Confirm by eye on a device. Owner: Madhav.
+
+199. **Space: groups that share a glyph (Space).** fontmake (ufo2ft 3.9.1) keeps the first group of a
+    side that claims a glyph and skips any later group that claims one of the same, with all its other
+    members; a test builds random fonts and compares every pair with the table. The table reads groups
+    that way and the Groups view flags the group the build ignores, but nothing repairs it. A font
+    opened from a binary can produce such groups. Should the import repair them, or only flag them?
+    Owner: Madhav.
+
+200. **Space on a wide screen (Space).** Space uses the phone-style header and the inspector row at the
+    foot of the page at every width, centred in a column. The explorer's desktop frame (top bar, tool
+    rail, inspector column) is not used, and SCREENS_V1 2.6 keeps the rail and the column for Draw. The
+    grab-handle square on the line a drag changes and the junction labels in Kerning are additions the
+    board does not show. Decide whether Space gets the desktop frame. Owner: Madhav.
+
+201. **Space is owner-verified on a device only (Space).** Touch drags of sidebearing edges and letters,
+    the soft keyboard for typed values and the `.fea` editor, a two-finger swipe out of Space, the system
+    back gesture, and how a control string longer than the row moves under a finger have only been run
+    with a mouse and keyboard on the desktop. Owner: Madhav.
+
+202. **Check's layer-one run names the compiled file after the UFO folder (Ship).** The Check page
+    passes the compiler's file name, derived from the UFO folder (`Regular.ufo` gives
+    `Regular.ttf`), to layer one. For a project whose UFO folder is not `Family-Style.ufo` (an
+    adopted UFO), Google Fonts' canonical_filename check FAILs there, and because Ship counts the
+    Check page's layer-one fails, that false FAIL can block Ship. Ship itself checks the binary
+    under the name the folder gives it (`shipFileStem`). Suggest Check use the same name; not
+    changed here, it is Check's file. Owner: Madhav.
+
+203. **ARTICLE.en_us.html or DESCRIPTION.en_us.html (Ship).** Google Fonts now prefers an ARTICLE
+    for long-form text; Fontbakery 0.12.10 still requires a DESCRIPTION.en_us.html over 200 bytes
+    and warns about a missing article. Ship writes a DESCRIPTION draft and no ARTICLE. Decide
+    whether Ship should also draft an ARTICLE. Owner: Madhav.
+
+204. **upstream.yaml and date_added are written only from what the person states (Ship).** The
+    project knows neither the branch of the person's repository nor the day Google Fonts accepts a
+    family. Ship writes `upstream.yaml` only when the person types a branch, and `date_added` only
+    when they type a day; otherwise the file or line is left out and the checklist's Details say so.
+    docs/ARCHITECTURE_REVIEW.md item 52 says gftools treats `upstream.yaml` as legacy. Confirm with
+    the Google Fonts onboarding checklist that this is what is wanted, and whether the branch should
+    be read from a `.git` folder in a chosen repository. Owner: Madhav.
+
+205. **Should new projects and imports write Google Fonts fontinfo defaults at creation? (Ship).**
+    The compile step fixes `fsType` (4 to 0), USE_TYPO_METRICS and, for an unhinted font, gasp and
+    prep on the compiled binary only when the project does not state them; a stated
+    `openTypeOS2Type` or `openTypeOS2Selection` is kept and Google Fonts' profile then fails on it
+    with a link to Font info. Alternatively the project could state these in fontinfo.plist from
+    creation. Owner decision. Owner: Madhav.
+
+206. **Campaign Task 12 still uses the old scaffold generators with placeholders (Ship).**
+    `campaign/WorkbookGates.kt` calls the legacy string generators in `qa/ship/ShipPipeline.kt` with
+    its own family, year and address. Ship uses `buildShipPlan`. The campaign gate should move to
+    `buildShipPlan`, or the old generators should be removed. Owner: Madhav.
+
+207. **Real Hyle Deco is blocked by Check in the app, so Ship's acceptance used a flipped-clean
+    report (Ship).** Hyle Deco has four layer-two fails (node economy, curves are polygons, anchors,
+    source is a fossil), so Ship refuses it in the app by design. The acceptance 'the real Hyle Deco
+    project that passed Check in-app' cannot be met literally; `ShipPythonIntegrationTest` and the
+    Ship screenshots flip those fails to passes in a test-only fixture, and everything after is
+    real. If the owner wants a Hyle Deco that passes Check in-app, it has to be redrawn. Owner:
+    Madhav.
+
+208. **The shared Python venv was broken by another agent's pip install (Ship).** An install into
+    the shared venv pulled in protobuf 7.x, and Fontbakery 0.12.10, gflanguages and axisregistry
+    require protobuf<4, so every Fontbakery check that touches those packages errors with
+    'Descriptors cannot be created directly'. A private venv built from tools/requirements-golden-
+    path.txt (protobuf 3.20.3) was used for the Python-backed gates. Later packages should use a
+    private venv, or the shared one needs protobuf<4 restored. Owner: Madhav.
+
+209. **Layer-one warnings the owner may want to act on (Ship).** On the real Hyle Deco folder:
+    vendor_id is '????' (set four letters in Font info or on Ship's Own licence line),
+    gpos_kerning_info (no kerning), unreachable_glyphs and metadata/unreachable_subsetting. None
+    blocks Ship. Owner: Madhav.
+
+210. **Check's layer-one compile judges a patched binary (Ship).** Check and Ship share the compile
+    default, which applies Google Fonts' fix-ups (fsType, USE_TYPO_METRICS, gasp, prep). Check's
+    layer one therefore reports what Ship would write, not a plain fontmake binary, so it cannot
+    show those four fails when the sources would cause them; it does show them when the project
+    states the setting itself. The alternative, a plain compile in Check, would make every font fail
+    four checks that the build fixes. Confirm which Check should judge. Owner: Madhav.
+
+211. **Ship on Android writes into the folder the person picks, not a new folder inside it (Ship).**
+    On a computer the person picks the repository folder itself and Ship writes into it. Android
+    does the same: the tree the person grants is the repository. A person who picks Documents gets
+    the files in Documents. The alternative is to make `<family>-gf` inside the picked folder, as
+    the new-project flow does. Owner-verified on a device only. Owner: Madhav.
+
+212. **Ship replaces a repository's whole sources/<name>.ufo (Ship).** Choosing an existing
+    repository replaces the whole UFO folder, so that a deleted glyph does not linger, and removes
+    anything in it that the project does not hold (for example files another editor added). Ship
+    says so before Build and lists what was replaced after. Decide whether it should merge instead,
+    or ask before removing files the project does not hold. Owner: Madhav.
+
+213. **Own licence does not count Google Fonts' profile (Ship).** Under Own licence the font is not
+    going to Google Fonts, so layer one's Google Fonts fails no longer stop the ship and the Google
+    Fonts fix-ups are not applied to the binary; the compiled font is the compiler's own. Confirm
+    that a proprietary font should skip those fix-ups, for example fsType. Owner: Madhav.
+
+214. **Real printed-sheet photographs are needed to validate the capture engine (Capture).** Every
+    photograph the capture and trace tests and golden-path steps 1b and 2 read is synthetic: Hyle
+    Deco outlines (or rings for scripts it does not cover) drawn into the real template sheets, then
+    given tilt up to 25 degrees, roll, uneven light, blur, noise, JPEG-like compression, a paper
+    tint and a printer's guides that differ from the template's. None is a photograph of paper.
+    Printer blacks, paper texture, lens distortion, a phone's sharpening and real pens and pencils
+    are untested, and every threshold in `docs/CAPTURE.md` is "our heuristic" until a set of real
+    phone photographs of printed A4 and Letter sheets (pen, pencil, two lights, two phones) is
+    supplied and the thresholds are calibrated on it. Owner-supplied fixture; owner-verified only.
+    Owner: Madhav.
+
+215. **Three of the twelve hardest-photograph traces miss the fitted targets (Trace).** On the
+    three hardest synthetic photographs (tilt 24 to 25 degrees, blur 1.2 to 1.6 photo pixels, noise
+    6 to 9, JPEG quality 35 to 50) nine of the twelve glyphs (T, H, o, n on each) reach CLAUDE.md's
+    fitted targets exactly; three do not: the pencil photograph's `o` is 21 on-curve and 26
+    off-curve against 16 and 16, the green-paper photograph's `T` is 9 and 0 against 8 and 0, and
+    its `n` is 18 and 16 against 14 and 8. The four easier classes (straight-on, tilt 10, tilt 20
+    with noise, tilt 16 with blur) meet all sixteen exactly. The claim for the hardest class is
+    stated in `TraceTargets.hardClaim` (at most twice the target plus two points, contours and ink
+    box right) and was written after measuring them; it is not a quality bar. Decide whether to
+    accept this, add a stronger smoothing stage, or have the Camera screen tell the person to retake
+    a photograph that soft. The target numbers were not changed. Owner: Madhav.
+
+216. **Squaring up blurred corners trades fidelity for fewer points (Trace).** Photographs blur
+    every corner, and a blurred corner is a short curve to a fitter. The trace squares up a short
+    curve between two straight sides when it strays no further from a sharp corner than the edge's
+    measured softness plus the fit tolerance, and the Fit sentence says how many it squared and
+    that "Square up blurred corners" turns it off. It is what makes `T` 8 and `H` 12 on a soft
+    photograph, but it cannot tell a designed rounding of radius under about 25 units from a blurred
+    corner, so a very soft photograph squares small rounded counters. The deviation the Review
+    sentence reports (measured from the final outline to the traced boundary, both ways) reaches
+    19.5 units on the hardest photographs because of it. Decide whether the setting should default
+    to on, and how large a deviation the Review stage should call a warning. Owner: Madhav.
+
+217. **What the SVG pack import assumes (Capture).** It reads the pack's own layout (`guides`,
+    `reference_delete_me`, `DRAW_HERE`, y down from the baseline), follows transforms, puts a moved
+    viewBox origin back where the pack has it, ignores fill rules (contour directions are set by
+    nesting after the fit) and refuses a drawing made of strokes with the instruction to Outline
+    Stroke. It does not handle an editor that rescales the viewBox, units other than the file's
+    own, `use` or `clipPath`, or Nastaliq (no printable sheet exists for it). A drawing of a glyph
+    with several accents is taken as it is. Check the assumptions against the files the first
+    designers send back. Owner: Madhav.
+
+218. **Light pencil and printed-guide leftovers are told apart by heuristics (Capture).** A cell
+    with no ink at the pen level is read again at darkness 0.12, and what is found counts as a
+    faint drawing only if it has at least 80 pixels of ink in strokes at least 0.4 mm wide; the
+    leftover of a printed guide that the pooled guide model did not divide out is removed when it
+    lies wholly within 1.8 mm of a guide. Synthetic pencil from darkness 0.16 up is found and
+    flagged, and guides from 0.4 to three times as dark and from half to three times as wide, up
+    to 0.3 mm out of register, leave no ink in blank cells. A hairline drawn exactly along a guide
+    and touching nothing else would be taken for the guide. None of the numbers is measured on real
+    pencils or printers; see 214. Owner: Madhav.
+
+219. **The noise reading no longer takes a curve for grain, and a small round shape is still read as grain (Trace).**
+    `estimateBoundaryNoise` compared an edge with itself smoothed by a Gaussian 10 units wide, so
+    every clean round shape under about 90 units in radius read above the 0.8-unit floor (a clean
+    dot of radius 50 read about 1.5), and the whole glyph was then fitted at the raised tolerance.
+    It now takes the slow inward pull of the smoothing out of the residuals first (a second
+    Gaussian 20 units wide), and the tolerance, the straight-side tests and the smoothing are each
+    contour's own. A clean circle or oval of radius 30 units or more reads under the floor; one of
+    radius 20 still reads as grain (1.3), because it is smaller than the smoothing scale. The
+    scale of 20 was chosen on rectangles with synthetic grain (it reads what the old reading read
+    on a straight edge) and on clean circles, not on real photographs, and moving it to 30 changed
+    which hardest-photograph glyphs reach the targets, so the figures in `docs/CAPTURE.md` depend on
+    it. Decide whether a dot under 25 units in radius needs its own rule, and measure the scale on
+    real photographs (see 214). Owner: Madhav.
+
+220. **The hardest-photograph claim is now the measured maximum per glyph, and four of twelve glyphs
+    still miss the targets (Trace).** After the noise reading changed (219), eight of the twelve
+    glyphs on the three hardest synthetic photographs reach CLAUDE.md's fitted targets exactly; the
+    others are the pencil photograph's `T` (8 on-curve, 2 off against 8 and 0) and `o` (22 and 28
+    against 16 and 16) and the green-paper photograph's `T` (9 and 0) and `n` (18 and 16 against
+    14 and 8). The claim in `TraceTargets.hardClaim` replaces the earlier twice-the-target-plus-two
+    bound with those measured maxima per glyph (T 9-2, H 12-0, o 22-28, n 18-16), so a fitter that
+    gets worse on the hardest photographs fails; it is still a statement of what was measured, not
+    a quality bar, and 215 stays open. The CLAUDE.md target numbers did not move. Owner: Madhav.
+
+221. **A thin pen line lying wholly on a printed guide is still taken for the guide (Capture).** The
+    ghost removal now keeps a mark inside the 1.8 mm guide band when it is 1.0 mm or more across
+    (a marker underscore or hyphen on a guide), where before every mark wholly inside the band
+    went; the 1.0 mm is our heuristic (three times the template's 0.3 mm guide is 0.9 mm, the
+    widest the tests print). A pen line thinner than that, drawn exactly along a guide and touching
+    nothing else, is still painted out and its cell reads empty with no flag (218 said the same of
+    a hairline). Decide whether such a cell should come back `Uncertain` instead of `Empty`, and
+    whether 1.0 mm is right for real pens and printers. Owner: Madhav.
+
+222. **Booleans fold pair by pair, and nothing measures whether their result is as economical as a drawn one (Draw).**
+    The Boolean tool runs union, subtract, intersect and exclude across the picked contours by folding
+    `booleanOp` one contour at a time (it does not resolve a side whose own contours overlap), so the order
+    the contours are picked in decides what Subtract keeps. A pair that meets along an exact edge or at one
+    point is refused with a sentence rather than guessed at. The curves of the inputs are kept exactly where they
+    survive, and the note after a boolean states the node counts before and after, but no `qa/corpus` figure says
+    how many nodes a good union of two letter parts has, so "no gratuitous nodes" is our heuristic and is not
+    checked against a distribution. Quadratic outlines are refused. Owner: Madhav.
+
+223. **Stroke lays straight centrelines only, and its default width and limits are ours (Draw).**
+    The Stroke tool takes a centreline of tapped points joined by straight sides (or turns a selected closed
+    contour into a ring), with miter or round joins and butt ends. A curved centreline (the pen's pulled handles)
+    is not stroked yet; it would be flattened to a polyline first. The default width of 60 units, the 2 to 2000
+    limits and the miter limit of 4 are our heuristic: nothing measured says how wide a stroke should be, and the
+    inspector says so. The outline is built directly (lines and quarter-circle cubics) instead of through
+    `strokeOpenPolyline`'s refit, which writes straight sides with handles a third of the way along and bulges a
+    line that follows an arc (a 115-unit control point on a 110-unit corner in the round-join elbow); that function
+    is untouched, and rings still go through `strokeClosedContour` with straight sides rewritten as lines.
+    Decide whether the refit should be fixed or retired. Owner: Madhav.
+
+224. **Anchors are named points with no rules about their names yet (Draw).**
+    Anchors are added, moved, renamed and deleted through `SetAnchors` (a `.glif` `<anchor>`, already read and
+    written by the UFO codec) and are refused on a locked glyph because they are part of its shape. A name is
+    trimmed, must be unique on the glyph and at most 64 characters; nothing checks that a `_name` mark anchor has
+    a base anchor to meet, and the starter names (top, bottom, ogonek, topright, center) are a convenience, not a
+    list from a source. The inspector's list of anchors is a display, not a picker: an anchor is selected by
+    tapping it on the sheet. Owner: Madhav.
+
+225. **The metric lines are the font's four, the baseline cannot move, and the other vertical metrics do not follow (Draw).**
+    Dragging or typing ascender, cap height, x-height or descender writes `fontinfo.plist` through one undo step
+    and says it changes every glyph's alignment; no outline moves, so it is allowed on a locked glyph. The baseline
+    is where every glyph's y is 0 and a UFO has no field for it, so it is shown as fixed. The OS/2, hhea and win
+    metrics are separate fields and are not changed with the ascender and descender, and nothing re-derives the
+    overshoot zones (`postscriptBlueValues`), which are drawn read-only. An x-height above the cap height is
+    allowed with a note that it is unusual (our heuristic); signs and a limit of two ems are refused. Owner: Madhav.
+
+## P18: release engineering
+
+226. **The name "Typewright" is not cleared (D2), and the rc tag waits for it.**
+    P18 requires name clearance to have started; nothing in the repository shows that it has. The Play app name,
+    the application id `com.asoc.typewright`, the landing copy and `TRADEMARKS.md` all carry the name, and a
+    published Play application id cannot be changed. `docs/release/RELEASE_CHECKLIST.md` section 0 holds the tag, the
+    listing and the website until the search through Shiva (Classes 9 and 42) is back. No tag has been created.
+    Owner: Madhav.
+
+227. **The support page does not exist, so About's support row says so (P18, docs/LICENSING.md section 3).**
+    `SUPPORT_URL` (`ui/.../settings/BuildChannel.kt`) is blank until there is a merchant-of-record page. On desktop,
+    web and GitHub-release builds About then shows "Support page: not open yet" and no link; the Play build shows
+    no support row at all (`-Ptypewright.channel=play`, tested). No payment code is in any build. Owner: Madhav sets
+    the merchant-of-record account (PROMPTS_V1 owner step 2) and the address.
+
+228. **No build makes a network call of its own, so the privacy policy says "none in this version" rather than
+    describing the comparison fetch.** The Google Fonts comparison fetch and the web's hosted build are not wired to
+    any screen (the hosted-build transport exists in `compile` and nothing calls it), there is no GitHub push, and the
+    Android manifest has no `INTERNET` permission (the release smoke test fails if one appears). Law 3's wording and
+    About's privacy statement describe what the app may do on request, which is a ceiling and still true.
+    `docs/release/PRIVACY.md` and `PLAY_DATA_SAFETY.md` must change before any such feature ships. Owner: Madhav.
+
+229. **Crash reports exist on Android only.** `TypewrightApplication` keeps a local report that the next launch
+    shows for the person to copy (nothing is sent). The desktop and web shells install no handler, so an uncaught
+    exception there is the platform's default (a console trace; a blank page). P18 asks that a crash show a report the
+    person may share; that is done for Android and not for the other two targets. Owner: Madhav decides whether
+    1.0.0 needs it on desktop.
+
+230. **The desktop has no first-run Python panel.** The missing-tool message appears where the tool is needed
+    (Check's layer one, Ship's compile) in the words `PythonToolchain` gives, and `docs/release/LINUX_PACKAGING.md`
+    has the install lines. A one-time panel on Home that checks `TYPEWRIGHT_PYTHON`/`python3` and shows the same
+    lines is not built. Owner: Madhav.
+
+231. **The AppImage file has not been built or started.** Gradle builds the jpackage app image with the JRE bundled
+    (`:app-desktop:packageAppImage`; the Compose plugin's `TargetFormat.AppImage` is that directory). The wrapper
+    `tools/release/build_appimage.sh` needs `appimagetool`, which is not in the build container and is not downloaded
+    by the script. Unsigned, x86_64 only. Whether it starts on any distribution is owner-verified only.
+
+232. **Release signing and R8 on a device.** The release APK and AAB are unsigned until signing secrets are given
+    through the environment (`app-android/build.gradle.kts`, `RELEASE_CHECKLIST.md`). R8's keep rules are checked
+    only by building and by `tools/release/android_smoke.py` (the package, manifest, icon, size and that names were
+    shortened); a minified build that starts, saves, reopens and runs the camera on the RedMagic is owner-verified
+    only, and a missing keep rule would show as a crash there. Owner: Madhav.
+
+233. **Update to items 13 and 14.** Item 13 (the locale guard) is built as `app-web/.../locale-guard.js`, loaded by
+    `index.html` before the app, and tested under Node (`tools/locale_guard_test.mjs`); a real Chromium with no `LANG`
+    was not run here. Item 14 (a licences page) is built as About & licences (S23) from the V1 board, with every
+    `THIRD_PARTY.md` entry (generated, checked in CI) in the Android, desktop and web builds, and the same files served
+    beside the web app under `legal/`. The Skiko binary itself still has no banner. The web `skiko.wasm`'s contents
+    were not checked, as `THIRD_PARTY.md` says.
+
+234. **`tools/check_resolved_dependencies.py` found nine Android-only AndroidX/Dagger/annotation libraries with no
+    `THIRD_PARTY.md` row** (they reach the release classpath through CameraX's `camera-view`); rows were added from
+    their POMs. The check matches on artifact or group names, so it catches a library nobody mentioned, not a wrong
+    licence or version; and it is not in CI because it needs Gradle to resolve all three apps. Run it before a release.
+    Owner: Madhav decides whether to run it in CI.
+
+235. **The README's status paragraph still says "prompts P0 to P9 are built".** It is out of date; updating it is
+    on the release checklist, not done here. Owner: Madhav.

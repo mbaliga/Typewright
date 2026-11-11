@@ -312,6 +312,46 @@ class GlyfTableTest {
         assertEquals(listOf(Point(10, 10), Point(110, 10), Point(60, 110)), decomposed.single().points.map { it.point })
     }
 
+    /** A glyph record that is only a header: [numberOfContours] and a bounding box whose xMin is [xMin]. */
+    private fun headerOnlyGlyphBytes(
+        numberOfContours: Int,
+        xMin: Int,
+    ): ByteArray =
+        TestBytes()
+            .i16(numberOfContours)
+            .i16(xMin)
+            .i16(-20) // yMin
+            .i16(300) // xMax
+            .i16(400) // yMax
+            .toByteArray()
+
+    @Test
+    fun theHeaderXMinIsReadSignedFromTheGlyphsOwnRecord() {
+        val first = headerOnlyGlyphBytes(1, xMin = 61)
+        val second = headerOnlyGlyphBytes(1, xMin = -37)
+        val prefix = ByteArray(7) // the glyf table does not start at the beginning of the file
+        val fontBytes = prefix + first + second
+        val loca = LocaTable(intArrayOf(0, first.size, first.size + second.size))
+        assertEquals(61, readGlyfHeaderXMin(fontBytes, glyfTableOffset = prefix.size, loca = loca, gid = 0))
+        assertEquals(-37, readGlyfHeaderXMin(fontBytes, glyfTableOffset = prefix.size, loca = loca, gid = 1))
+    }
+
+    @Test
+    fun theHeaderXMinOfACompositeGlyphIsReadToo() {
+        val composite = headerOnlyGlyphBytes(-1, xMin = 12)
+        val loca = LocaTable(intArrayOf(0, composite.size))
+        assertEquals(12, readGlyfHeaderXMin(composite, glyfTableOffset = 0, loca = loca, gid = 0))
+    }
+
+    @Test
+    fun aGlyphWithNoDataHasNoHeaderXMinAndDoesNotDisturbItsNeighbours() {
+        val real = headerOnlyGlyphBytes(1, xMin = 9)
+        // gid 0 is empty (equal loca offsets), gid 1 has data.
+        val loca = LocaTable(intArrayOf(0, 0, real.size))
+        assertEquals(null, readGlyfHeaderXMin(real, glyfTableOffset = 0, loca = loca, gid = 0))
+        assertEquals(9, readGlyfHeaderXMin(real, glyfTableOffset = 0, loca = loca, gid = 1))
+    }
+
     @Test
     fun decomposeGuardsAgainstUnboundedRecursion() {
         assertFailsWith<IllegalArgumentException> {

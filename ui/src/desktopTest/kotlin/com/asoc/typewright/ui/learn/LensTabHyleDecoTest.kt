@@ -19,8 +19,8 @@ import kotlin.test.assertTrue
 
 /**
  * The real end-to-end check this task's own instructions ask for: [LensScene.kt]'s own logic run
- * against `fonts/HyleDeco-Regular.ttf` (through [HyleDecoProjectFontBytes]'s embedded bytes, the
- * exact path [LensTab] itself reads), cross-checked against `AnatomyLensDataHyleDecoTest`'s own
+ * against `fonts/HyleDeco-Regular.ttf` (read off disk, the same bytes the sample project is made from, the
+ * font the tab reads once it is imported), cross-checked against `AnatomyLensDataHyleDecoTest`'s own
  * pinned real numbers for the terms both files cover -- a real regression check, not a fresh,
  * disconnected assertion (that sibling file's own KDoc explains why this shape catches a stale
  * wiring bug that a same-side-only assertion would not). JVM-only (`desktopTest`): reading a file

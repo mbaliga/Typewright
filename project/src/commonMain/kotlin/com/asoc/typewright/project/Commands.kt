@@ -7,6 +7,7 @@ import com.asoc.typewright.core.geometry.Anchor
 import com.asoc.typewright.core.geometry.Contour
 import com.asoc.typewright.core.geometry.Glyph
 import com.asoc.typewright.core.geometry.Guideline
+import com.asoc.typewright.project.capture.CaptureRecord
 import com.asoc.typewright.project.scrapbook.ScrapbookPin
 
 /**
@@ -34,11 +35,16 @@ data class MovePoints(
     override val coalesceKey: Any = glyph to points
 }
 
-/** Replaces [glyph]'s outline with [contours] wholesale (a tool result, a boolean, a knife cut, …). */
+/**
+ * Replaces [glyph]'s outline with [contours] wholesale (a tool result, a boolean, a knife cut, …).
+ * A non-null [coalesceKey] lets a burst of the same edit (arrow-key nudges, say) merge into one
+ * history entry; left null, every replacement is its own step.
+ */
 data class ReplaceOutline(
     val glyph: GlyphRef,
     val contours: List<Contour>,
     override val label: String,
+    override val coalesceKey: Any? = null,
 ) : FontCommand
 
 /** Replaces [glyph]'s anchors. */
@@ -249,6 +255,22 @@ sealed interface MetaChange {
         val id: String,
     ) : MetaChange
 
+    /** Adds a captured sheet photograph, scan or SVG drawing: [record] says what it is and [image] is the file's bytes, stored as given. */
+    data class AddCapture(
+        val record: CaptureRecord,
+        val image: ByteArray,
+    ) : MetaChange
+
+    /** Replaces a capture record (matched by id), for a relabelled cell. The stored picture is untouched. */
+    data class UpdateCapture(
+        val record: CaptureRecord,
+    ) : MetaChange
+
+    /** Removes the capture with this id and its stored file. */
+    data class RemoveCapture(
+        val id: String,
+    ) : MetaChange
+
     /** Saves a Workbook reflection on [task] of [workbook]. */
     data class AddReflection(
         val workbook: String,
@@ -364,6 +386,14 @@ interface Gesture {
 
     /** Discards every update since [ProjectSession.beginGesture]; no history entry. */
     fun cancel()
+
+    /**
+     * True until the gesture is committed or cancelled, whether by [commit]/[cancel] or because the
+     * session ended it (an [ProjectSession.execute], [ProjectSession.undo] or another
+     * [ProjectSession.beginGesture] while it was open). [update] on a gesture that is no longer open
+     * throws, so a caller that holds one across other session calls checks this first.
+     */
+    val isOpen: Boolean
 }
 
 /** The default coalescing window (docs/PROJECT_MODEL.md §6): 1,000 ms. */

@@ -19,6 +19,7 @@ import com.asoc.typewright.project.NewProjectSpec
 import com.asoc.typewright.project.OpenResult
 import com.asoc.typewright.project.ProjectLocation
 import com.asoc.typewright.project.ProjectSession
+import com.asoc.typewright.project.ProjectState
 import com.asoc.typewright.project.ProjectWorkspace
 import com.asoc.typewright.project.ProjectZip
 import com.asoc.typewright.project.SaveStatus
@@ -134,7 +135,13 @@ fun createProjectWorkspace(
     io: CoroutineDispatcher = Dispatchers.Default,
     storage: StorageProvider = InMemoryStorageProvider(),
     config: AppConfigStore = InMemoryAppConfigStore(),
-): ProjectWorkspace = ProjectWorkspace(storage, config) { SessionEnvironment(scope = scope, io = io) }
+): ProjectWorkspace = ProjectWorkspace(storage, config, outlierCount = ::outliersIn) { SessionEnvironment(scope = scope, io = io) }
+
+/** How many of [state]'s glyphs are node-economy outliers against the project's style class, or null when that cannot be measured. */
+private fun outliersIn(state: ProjectState): Int? {
+    val master = state.font.masters.firstOrNull { it.isDefault } ?: state.font.masters.firstOrNull() ?: return null
+    return projectEconomy(state.meta.manifest, ProjectFont.of(master))?.outliers
+}
 
 /** [createProjectWorkspace], remembered for the composition's lifetime -- [com.asoc.typewright.ui.TypewrightApp]'s own default when no platform `main()` supplies one. */
 @Composable
@@ -186,6 +193,20 @@ suspend fun createUntitledProject(
     workspace: ProjectWorkspace,
     picker: ProjectFolderPicker,
     onCreated: (() -> Unit)? = null,
+): String =
+    try {
+        createUntitledProjectIn(workspace, picker, onCreated)
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+    } catch (error: Exception) {
+        // A storage that cannot make the folder says so here instead of taking the app down.
+        "New project…: could not create the project (${error.message ?: error::class.simpleName})."
+    }
+
+private suspend fun createUntitledProjectIn(
+    workspace: ProjectWorkspace,
+    picker: ProjectFolderPicker,
+    onCreated: (() -> Unit)?,
 ): String {
     val parent = picker.pickNewProjectParent() ?: return "New project…: no folder was chosen."
     for (suffix in 1..MAX_UNTITLED_ATTEMPTS) {
@@ -207,6 +228,26 @@ suspend fun createUntitledProject(
         }
     }
     return "New project…: too many existing \"Untitled\" projects."
+}
+
+/**
+ * The platform's own folder for new projects: where the build keeps them (a disk folder on a computer, a
+ * folder the person grants on Android, memory in a browser tab), asked for when the platform has to ask.
+ * [pickProjectToOpen] reopens the project touched last, as [InMemoryProjectFolderPicker] does.
+ */
+class PlatformProjectFolderPicker(
+    private val workspace: ProjectWorkspace,
+) : ProjectFolderPicker {
+    override suspend fun pickNewProjectParent(): ProjectLocation? {
+        val destination =
+            com.asoc.typewright.ui.imports.PlatformImportSupport.destination
+        return destination.parentFolder() ?: destination.chooseParentFolder()
+    }
+
+    override suspend fun pickProjectToOpen(): ProjectLocation? =
+        workspace.recents.value
+            .maxByOrNull { it.lastOpened }
+            ?.location
 }
 
 /** "Open project…": a location from [picker], then [ProjectWorkspace.open] on it. Returns the command palette's own result-line text. */

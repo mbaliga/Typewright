@@ -76,10 +76,9 @@ public data class WorkbookGateResult(
  * "not implemented" state [WorkbookGateSpec.notImplementedReason] describes for tasks 1, 2, 7, 8
  * and 10.
  *
- * Task 4's own numbers on this project's real Hyle Deco reference font, computed for real (never
- * hardcoded from the explorer's mockup) -- see `HyleDecoTask4GateTest.kt` (`jvmTest`) for how a
- * real [UfoProject] is built from `fonts/HyleDeco-Regular.ttf` and the resulting counts and
- * verdicts.
+ * Every number a gate reports is computed from the [UfoProject] it is given, never typed in; the
+ * `jvmTest` suite runs task 4's gate on a real font read from the repository to check the counts
+ * and verdicts it gives.
  */
 public object WorkbookGates {
     /** Round glyphs task 3's gate checks by default -- the Check room's own list, "o e c s", plus their capitals. */
@@ -271,6 +270,7 @@ public object WorkbookGates {
                         CheckStatus.WARN -> GateCheckStatus.WARN
                         CheckStatus.FAIL -> GateCheckStatus.FAIL
                         CheckStatus.SKIP -> GateCheckStatus.NOT_IMPLEMENTED
+                        CheckStatus.INFO -> GateCheckStatus.INFO
                     }
                 GateCheckResult(outcome.id, status, outcome.message)
             }

@@ -50,13 +50,17 @@ data class OvershootFinding(
  * sits exactly on a metric line; a flat one is named as such (informational, not a problem) and a
  * non-flat one is the "gets no overshoot" case brief §7 asks the app to say out loud. Glyphs judged
  * not round by the heuristic above, or with no contours, produce no findings at all.
+ *
+ * [treatAsRound] skips that roundness heuristic, for a caller that has a better reason to call the glyph
+ * round (the Check report only asks about glyphs whose extremes are joined to curves, and checks that itself).
  */
 fun checkOvershootPresence(
     glyph: Glyph,
     fontInfo: UfoFontInfo,
+    treatAsRound: Boolean = false,
 ): List<OvershootFinding> {
     if (glyph.contours.isEmpty()) return emptyList()
-    val isRound = glyph.contours.size >= 2 || glyph.contours.any { it.extrema().isNotEmpty() }
+    val isRound = treatAsRound || glyph.contours.size >= 2 || glyph.contours.any { it.extrema().isNotEmpty() }
     if (!isRound) return emptyList()
 
     // Baseline (y=0) is a font-wide convention (CLAUDE.md: "integers at rest ... y up"), not a

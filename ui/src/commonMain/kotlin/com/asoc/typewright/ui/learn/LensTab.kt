@@ -35,6 +35,8 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.asoc.typewright.core.font.sfnt.readSfntFont
+import com.asoc.typewright.ui.project.NoProjectState
+import com.asoc.typewright.ui.project.rememberOpenProject
 import com.asoc.typewright.ui.tokens.CanvasTexture
 import com.asoc.typewright.ui.tokens.MeaningColors
 import com.asoc.typewright.ui.tokens.SpacingTokens
@@ -48,11 +50,9 @@ import kotlin.math.roundToInt
  * `.defs` / `.def` / `.def.on` CSS -- CLAUDE.md law 6, reproduced rather than improvised). Its own
  * standalone tab, matching [com.asoc.typewright.ui.learn.OverlayTab]'s and
  * [com.asoc.typewright.ui.learn.LineagesTab]'s own shape (`texture: CanvasTexture, modifier:
- * Modifier = Modifier`), fully self-contained: it reads this build's own real
- * [com.asoc.typewright.ui.learn.HyleDecoProjectFontBytes] (the same "project" stand-in the
- * Overlay tab's own ink layer already uses, per that file's own KDoc), builds an
- * [com.asoc.typewright.ui.learn.AnatomyLensGlyphSet] from it, and keeps its own selected-term
- * state -- no caller-supplied font, glyph set or selection needed.
+ * Modifier = Modifier`): it builds an [com.asoc.typewright.ui.learn.AnatomyLensGlyphSet] from the
+ * open project's own glyphs and keeps its own selected-term state. With no project open there is
+ * no letter to label, so it says to open or start one ([NoProjectState]) and shows no stand-in.
  *
  * **Real geometry, real measurements, never invented (CLAUDE.md laws 1 and 5).** The glyph on
  * stage is drawn from real [com.asoc.typewright.core.geometry.Glyph] contours through
@@ -73,10 +73,16 @@ public fun LensTab(
     texture: CanvasTexture,
     modifier: Modifier = Modifier,
 ) {
-    val glyphSetResult =
-        remember {
-            runCatching { AnatomyLensGlyphSet.fromSfntFont(readSfntFont(HyleDecoProjectFontBytes.bytes)) }
-        }
+    val project = rememberOpenProject()?.font
+    if (project == null) {
+        NoProjectState(
+            texture = texture,
+            what = "the anatomy of your letters",
+            modifier = modifier.fillMaxSize().background(texture.canvas.toColor()).padding(SpacingTokens.GUTTER_DP.dp, 14.dp),
+        )
+        return
+    }
+    val glyphSetResult = remember(project) { runCatching { AnatomyLensGlyphSet.fromProject(project) } }
     val ink = texture.ink.toColor()
     val fg = texture.fg.toColor()
     val muted = texture.muted.toColor()

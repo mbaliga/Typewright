@@ -8,6 +8,8 @@ import com.asoc.typewright.core.font.ufo.readUfoProject
 import com.asoc.typewright.core.font.ufo.writeGlif
 import com.asoc.typewright.core.geometry.Glyph
 import com.asoc.typewright.core.geometry.count
+import com.asoc.typewright.project.capture.CaptureManifest
+import com.asoc.typewright.project.capture.CaptureManifestCodec
 import com.asoc.typewright.project.scrapbook.ScrapbookManifest
 import com.asoc.typewright.project.scrapbook.ScrapbookManifestCodec
 import kotlinx.coroutines.CoroutineScope
@@ -229,6 +231,8 @@ class ProjectSession private constructor(
         var workingFont = startFont
         var active = true
 
+        override val isOpen: Boolean get() = active
+
         override fun update(command: FontCommand): EditResult {
             check(active) { "This gesture is no longer open" }
             if (readOnly != null) return EditResult.Refused(Refusal.ReadOnly(readOnly))
@@ -434,6 +438,28 @@ class ProjectSession private constructor(
                 removePin(meta, change)
             }
 
+            is MetaChange.AddCapture -> {
+                addCapture(meta, change)
+            }
+
+            is MetaChange.UpdateCapture -> {
+                if (meta.captures.records.none { it.id == change.record.id }) {
+                    MetaOutcome.Refused(Refusal.Invalid("No capture \"${change.record.id}\""))
+                } else {
+                    val records = meta.captures.records.map { if (it.id == change.record.id) change.record else it }
+                    MetaOutcome.Applied(meta.copy(captures = CaptureManifest(records)), "Update capture")
+                }
+            }
+
+            is MetaChange.RemoveCapture -> {
+                if (meta.captures.records.none { it.id == change.id }) {
+                    MetaOutcome.NoChange
+                } else {
+                    val records = meta.captures.records.filterNot { it.id == change.id }
+                    MetaOutcome.Applied(meta.copy(captures = CaptureManifest(records)), "Remove capture")
+                }
+            }
+
             is MetaChange.AddReflection -> {
                 addReflection(meta, change)
             }
@@ -462,6 +488,22 @@ class ProjectSession private constructor(
                 MetaOutcome.Applied(meta.copy(manifest = meta.manifest.copy(name = change.name)), "Rename project")
             }
         }
+
+    private fun addCapture(
+        meta: ProjectMeta,
+        change: MetaChange.AddCapture,
+    ): MetaOutcome {
+        val record = change.record
+        if (meta.captures.records.any { it.id == record.id }) return MetaOutcome.Refused(Refusal.NameClash(record.id))
+        val suffix = CaptureManifest.IMAGE_SUFFIXES.firstOrNull { record.imagePath == "captures/${record.id}$it" }
+        if (suffix == null) {
+            return MetaOutcome.Refused(
+                Refusal.Invalid("A capture is stored as captures/<id> with one of ${CaptureManifest.IMAGE_SUFFIXES}"),
+            )
+        }
+        val captures = CaptureManifest(meta.captures.records + record)
+        return MetaOutcome.Applied(meta.copy(captures = captures), "Add capture", record.imagePath to change.image)
+    }
 
     private fun addPin(
         meta: ProjectMeta,
@@ -816,6 +858,15 @@ private suspend fun loadProject(
         lastWritten[path] = bytes
     }
 
+    val captureBytes = store.read(CaptureManifest.PATH)
+    val captures = captureBytes?.let { CaptureManifestCodec.decode(it.decodeToString()) } ?: CaptureManifest()
+    if (captureBytes != null) lastWritten[CaptureManifest.PATH] = captureBytes
+    for (record in captures.records) {
+        val bytes = store.read(record.imagePath) ?: continue
+        images[record.imagePath] = bytes
+        lastWritten[record.imagePath] = bytes
+    }
+
     val lessons = mutableMapOf<String, WorkbookLessons>()
     for (workbookKey in decoded.manifest.workbook.keys) {
         val path = WorkbookLessonsCodec.path(workbookKey)
@@ -826,7 +877,7 @@ private suspend fun loadProject(
 
     store.read(ProjectEncoder.BUILD_GITIGNORE_PATH)?.let { lastWritten[ProjectEncoder.BUILD_GITIGNORE_PATH] = it }
 
-    val meta = ProjectMeta(decoded.manifest, scrapbook, lessons, decoded.unknownKeys)
+    val meta = ProjectMeta(decoded.manifest, scrapbook, lessons, decoded.unknownKeys, captures)
     val state = ProjectState(FontState(masters, locks), meta)
     val caches = EncodeCaches(glyphFiles, fileNameHints, lockStemHints, images)
     return LoadOutcome.Opened(state, caches, lastWritten, externalEdits, migratedFrom = null)

@@ -35,6 +35,7 @@ include(
     ":core-geometry",
     ":core-font",
     ":engine-trace",
+    ":capture-testkit",
     ":engine-construct",
     ":qa",
     ":qa:corpus",

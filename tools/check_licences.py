@@ -38,6 +38,7 @@ LICENCE_BY_DIR = {
     "core-geometry": APACHE,
     "core-font": APACHE,
     "engine-trace": APACHE,
+    "capture-testkit": APACHE,  # test support: synthetic photographs for the capture tests and the golden path
     "engine-construct": APACHE,
     "qa": APACHE,  # includes qa/corpus
     "scripts": APACHE,  # generator and pipeline scripts; scripts/templates is called out below
@@ -62,8 +63,8 @@ ROOT_BUILD_FILES = {"settings.gradle.kts": APACHE, "build.gradle.kts": APACHE}
 LICENCE_BY_FILE = {
     # Hyle Deco Regular, base64-embedded as core-font's own commonTest cross-check fixture.
     "core-font/src/commonTest/kotlin/com/asoc/typewright/core/font/sfnt/HyleDecoRegularTtfBase64.kt": OFL,
-    # Hyle Deco Regular, base64-embedded and shipped in the app itself (Overlay tab project layer).
-    "ui/src/commonMain/kotlin/com/asoc/typewright/ui/learn/HyleDecoProjectFontBytes.kt": OFL,
+    # Hyle Deco Regular, base64-embedded and shipped in the app itself as the "Try the sample" font.
+    "ui/src/commonMain/kotlin/com/asoc/typewright/ui/imports/BundledSampleFont.kt": OFL,
     # The Brief's cue faces, subset and renamed Modified Versions of OFL families (THIRD_PARTY.md).
     "ui/src/commonMain/kotlin/com/asoc/typewright/ui/brief/BriefCueFontData.kt": OFL,
     # Hyle Deco Regular, base64-embedded wasmJsTest fixture for the browser shaping preview.

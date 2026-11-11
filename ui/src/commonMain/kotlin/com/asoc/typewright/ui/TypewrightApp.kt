@@ -25,19 +25,32 @@ import com.asoc.typewright.ui.brief.LocalOpenBrief
 import com.asoc.typewright.ui.brief.LocalOpenNewProjectBrief
 import com.asoc.typewright.ui.brief.rememberBriefScreenUiState
 import com.asoc.typewright.ui.brief.rememberBriefStateKeeper
+import com.asoc.typewright.ui.capture.CaptureScreen
+import com.asoc.typewright.ui.capture.LocalOpenTemplates
+import com.asoc.typewright.ui.capture.rememberCaptureStatus
+import com.asoc.typewright.ui.check.CheckScreen
+import com.asoc.typewright.ui.check.rememberCheckShipStatus
 import com.asoc.typewright.ui.deck.DeckSection
 import com.asoc.typewright.ui.deck.LocalSystemBack
+import com.asoc.typewright.ui.deck.StationStatus
 import com.asoc.typewright.ui.deck.SystemBack
+import com.asoc.typewright.ui.imports.FontImportHost
+import com.asoc.typewright.ui.imports.LocalFontImport
+import com.asoc.typewright.ui.imports.rememberFontImportController
 import com.asoc.typewright.ui.learn.LearnScreen
 import com.asoc.typewright.ui.project.LocalProjectWorkspace
 import com.asoc.typewright.ui.project.LocalZipTransferSupported
+import com.asoc.typewright.ui.project.ProjectResumeEffect
+import com.asoc.typewright.ui.project.rememberProjectStationStatus
 import com.asoc.typewright.ui.project.rememberProjectWorkspace
 import com.asoc.typewright.ui.settings.AboutScreen
 import com.asoc.typewright.ui.settings.SettingsScreen
 import com.asoc.typewright.ui.settings.ThemeEditorScreen
 import com.asoc.typewright.ui.settings.ThemeEditorState
 import com.asoc.typewright.ui.sheet.TypewrightSheet
+import com.asoc.typewright.ui.shell.GlyphNav
 import com.asoc.typewright.ui.shell.HomeScreen
+import com.asoc.typewright.ui.shell.LocalGlyphNav
 import com.asoc.typewright.ui.shell.LocalOpenProjects
 import com.asoc.typewright.ui.shell.LocalOpenSettings
 import com.asoc.typewright.ui.shell.LocalSectionNav
@@ -45,9 +58,12 @@ import com.asoc.typewright.ui.shell.MapScreen
 import com.asoc.typewright.ui.shell.ProjectsScreen
 import com.asoc.typewright.ui.shell.SectionNav
 import com.asoc.typewright.ui.shell.StubSection
+import com.asoc.typewright.ui.shell.sectionFor
+import com.asoc.typewright.ui.ship.ShipScreen
 import com.asoc.typewright.ui.theme.AppearanceState
 import com.asoc.typewright.ui.theme.LocalAppearance
 import com.asoc.typewright.ui.theme.Theme
+import com.asoc.typewright.ui.trace.TraceScreen
 import com.asoc.typewright.ui.workbook.WorkbookScreen
 import com.asoc.typewright.ui.workbook.rememberWorkbookScreenUiState
 
@@ -59,8 +75,8 @@ import com.asoc.typewright.ui.workbook.rememberWorkbookScreenUiState
  * deck itself and reaches the router through [LocalSectionNav], so a tap, a swipe, the arrow or digit
  * keys or the Map take the person to any section from any screen. Draw and Space are two regions of
  * one sheet ([TypewrightSheet], kept in composition so its camera and tool survive a trip to another
- * section); Home, Learn and Workbook are screens; Capture, Trace, Check and Ship are not built, and
- * say so inside the real deck rather than being hidden (law 4). The Brief opens over the section it
+ * section); Home, Learn and Workbook are screens; Capture (with Templates as a state under it), Trace, Check and Ship are screens too; a
+ * section nothing builds says so inside the real deck rather than being hidden (law 4). The Brief opens over the section it
  * was opened from and keeps its answers when the person leaves it ([rememberBriefStateKeeper]).
  *
  * [workspace] is the app-wide project holder, reachable everywhere through [LocalProjectWorkspace];
@@ -80,9 +96,18 @@ fun TypewrightApp(
     // must not have it silently replaced by whatever the workspace would reopen from disk.
     LaunchedEffect(workspace) {
         if (workspace.current.value == null) workspace.reopenLast()
-        // First launch, or nothing to reopen: the app's root is Projects.
-        if (workspace.current.value == null) navState.openProjects()
+        val reopened = workspace.current.value
+        if (reopened == null) {
+            // First launch, or nothing to reopen: the app's root is Projects.
+            navState.openProjects()
+        } else {
+            // Back on the section the project was left on.
+            workspace.recents.value
+                .firstOrNull { it.location == reopened.store.location }
+                ?.let { navState.goToSection(sectionFor(it)) }
+        }
     }
+    val fontImport = rememberFontImportController(inWorkspace = workspace) { navState.goToSection(DeckSection.HOME) }
     val briefKeeper = rememberBriefStateKeeper()
     val scope = rememberCoroutineScope()
     val appearance = remember(workspace) { AppearanceState(workspace.appConfig, scope) }
@@ -94,6 +119,7 @@ fun TypewrightApp(
             current = navState.section,
             goTo = navState::goToSection,
             openMap = { navState.mapOpen = true },
+            statusOf = rememberDeckStatus(workspace),
         )
     CompositionLocalProvider(
         LocalProjectWorkspace provides workspace,
@@ -102,11 +128,20 @@ fun TypewrightApp(
         LocalSystemBack provides systemBack,
         LocalOpenNewProjectBrief provides navState::openNewProjectBrief,
         LocalSectionNav provides nav,
+        LocalFontImport provides fontImport,
+        LocalOpenTemplates provides navState::openTemplates,
+        LocalGlyphNav provides
+            GlyphNav(
+                current = navState.currentGlyph,
+                open = navState::openGlyph,
+                select = { navState.currentGlyph = it },
+            ),
         LocalAppearance provides appearance,
         LocalOpenSettings provides navState::openSettings,
         LocalOpenProjects provides navState::openProjects,
         LocalDensity provides Density(density.density, density.fontScale * appearance.settings.textScale.toFloat()),
     ) {
+        ProjectResumeEffect(section = navState.section, glyph = navState.currentGlyph) { navState.currentGlyph = it }
         Box(modifier = modifier.fillMaxSize()) {
             val onSheet = navState.section == DeckSection.DRAW || navState.section == DeckSection.SPACE
             TypewrightSheet(
@@ -228,10 +263,29 @@ fun TypewrightApp(
                     )
                 }
 
+                navState.section == DeckSection.CAPTURE -> {
+                    CaptureScreen(texture = texture, modifier = Modifier.fillMaxSize(), startOnTemplates = navState.pendingTemplates)
+                    LaunchedEffect(navState.pendingTemplates) { if (navState.pendingTemplates) navState.pendingTemplates = false }
+                }
+
+                navState.section == DeckSection.TRACE -> {
+                    TraceScreen(texture = texture, modifier = Modifier.fillMaxSize())
+                }
+
+                navState.section == DeckSection.CHECK -> {
+                    CheckScreen(texture = texture, modifier = Modifier.fillMaxSize())
+                }
+
+                navState.section == DeckSection.SHIP -> {
+                    ShipScreen(texture = texture, modifier = Modifier.fillMaxSize())
+                }
+
                 !onSheet -> {
                     StubSection(texture = texture, section = navState.section, modifier = Modifier.fillMaxSize())
                 }
             }
+            // Last, so the import's audit covers whichever screen the person started it from.
+            fontImport?.let { FontImportHost(controller = it, texture = texture, modifier = Modifier.fillMaxSize()) }
         }
     }
 }
@@ -263,6 +317,25 @@ class TypewrightAppNavState(
 
     var showBrief: Boolean by mutableStateOf(initialShowBrief)
         internal set
+
+    /** The glyph Draw and Space are on, by name; null until one is chosen. The open project's resume point is where it is remembered. */
+    var currentGlyph: String? by mutableStateOf(null)
+
+    /** Makes [name] the current glyph and goes to Draw. */
+    fun openGlyph(name: String) {
+        currentGlyph = name
+        goToSection(DeckSection.DRAW)
+    }
+
+    /** [openTemplates] was called: Capture opens on Templates, consumed (and cleared) by the Capture branch. */
+    var pendingTemplates: Boolean by mutableStateOf(false)
+        internal set
+
+    /** Goes to Capture on its Templates state: where New project's "draw on paper" leads. */
+    fun openTemplates() {
+        pendingTemplates = true
+        goToSection(DeckSection.CAPTURE)
+    }
 
     /** True while the Map (S24) covers the screen. */
     var mapOpen: Boolean by mutableStateOf(false)
@@ -400,3 +473,12 @@ fun rememberTypewrightAppNavState(
     rememberSaveable(saver = TypewrightAppNavState.Saver) {
         TypewrightAppNavState(initialShowLearn, initialShowWorkbook, initialShowBrief)
     }
+
+/** One status function for the deck: Check and Ship from Typewright's own checks, Draw and Trace from the project's locks and outliers, Capture from the sheets held. */
+@Composable
+private fun rememberDeckStatus(workspace: ProjectWorkspace): (DeckSection) -> StationStatus? {
+    val project = rememberProjectStationStatus(workspace)
+    val checkShip = rememberCheckShipStatus(workspace)
+    val capture = rememberCaptureStatus(workspace)
+    return remember(project, checkShip, capture) { { section -> checkShip(section) ?: project(section) ?: capture(section) } }
+}
