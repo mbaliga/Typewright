@@ -31,6 +31,9 @@ artifacts, all Apache-2.0 by their POMs except the two test-only ones listed fur
 | `org.jetbrains:annotations` | 23.0.0 | Apache-2.0 | POM |
 | JSpecify | 1.0.0 | Apache-2.0 | POM |
 | Guava `listenablefuture` | 1.0 | Apache-2.0 | POM |
+| AndroidX libraries the Android release variant also resolves, mostly through CameraX's `camera-view`: `appcompat` 1.1.0 and `appcompat-resources`, `cursoradapter`, `drawerlayout`, `fragment`, `viewpager`, `vectordrawable` and `vectordrawable-animated`, `exifinterface` 1.4.2, `media3-common`, `-container`, `-muxer` 1.9.0, `camera.featurecombinationquery` 1.6.2, `camera.viewfinder:viewfinder-core` 1.5.1 | as listed | Apache-2.0 | POM. Found by `tools/check_resolved_dependencies.py` against `app-android`'s `releaseRuntimeClasspath`, which the debug-test classpath above does not cover. Android only |
+| Dagger 2.59 (`com.google.dagger:dagger`, from `camera-core`), `jakarta.inject:jakarta.inject-api` 2.0.1, `javax.inject:javax.inject` 1 | as listed | Apache-2.0 | POM. Android only |
+| Annotation-only libraries behind `media3-common`: `com.google.code.findbugs:jsr305` 3.0.2 (Apache-2.0), `com.google.errorprone:error_prone_annotations` 2.28.0 (Apache-2.0), `com.google.j2objc:j2objc-annotations` 3.0.0 (Apache-2.0), `org.checkerframework:checker-qual` 3.43.0 (MIT) | as listed | Apache-2.0 and MIT, as named | POM. Android only |
 | Skiko (`skiko`, `skiko-awt`, `skiko-awt-runtime-linux-x64`, `skiko-wasm-js`, `skiko-js-wasm-runtime`) | 0.150.1 | Apache-2.0 | POM; file (JetBrains/skiko `LICENSE`). Since P8, `shape-preview` also declares `skiko-awt`/`skiko-awt-runtime-linux-x64` directly (its own `desktopMain`/`desktopTest`, `gradle/libs.versions.toml`'s `skiko` version), pinned to this same 0.150.1 rather than only reached transitively through `ui`'s Compose dependency as before |
 | `org.jetbrains.runtime:jbr-api` | 1.9.0 | Apache-2.0 | POM. Not declared by any module directly; pulled in transitively by Compose Multiplatform's desktop UI artifact (`org.jetbrains.compose.ui:ui-desktop`) onto `app-desktop`'s `runtimeClasspath` only (`./gradlew :app-desktop:dependencies --configuration runtimeClasspath`; a 1.5.0 constraint is raised to 1.9.0) — `app-android` and `app-web` never resolve it |
 | xmlutil core (`io.github.pdvrieze.xmlutil:core`, `core-jvm`, `core-wasm-js`), used by `core-font`'s UFO 3 / glif reader | 1.0.2 | Apache-2.0 | POM. Resolved via `:core-font:dependencies`: the `jvm`/`wasmJs` platform artifacts pull in nothing beyond `kotlin-stdlib` — `core-font` uses xmlutil's raw pull-parser API, not `xmlutil-serialization`, so `kotlinx-serialization-core` 1.11.0 (declared only on xmlutil's common-metadata variant) is never resolved into a classpath and does not collide with Compose's 1.7.3 |
@@ -60,7 +63,8 @@ from each upstream repository's licence file, not from a versioned copy.
 | libwebp | BSD-3-Clause | file (libwebp `COPYING`) |
 
 The BSD-style licences and the FTL require their notices in the documentation of binary
-distributions. The apps have no licences screen yet; see `docs/OPEN_QUESTIONS.md` (P0).
+distributions. About & licences (S23) shows every entry in this file, these nine included, in
+the Android, desktop and web builds alike; it is generated from this file (`tools/gen_notices.py`).
 
 ## Tests only (never shipped)
 

@@ -35,6 +35,12 @@ jobs:
         run: |
           python3 tools/check_third_party.py
           python3 tools/gen_notices.py --check
+      # One version file (version.properties) feeds the Android build, the desktop package and About.
+      - name: Version file
+        run: python3 tools/sync_version.py --check
+      # The web build's locale guard (docs/OPEN_QUESTIONS.md item 13), tested under the runner's Node.
+      - name: Web locale guard
+        run: node tools/locale_guard_test.mjs
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -78,6 +84,13 @@ jobs:
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
       - name: Debug APK
         run: ./gradlew :app-android:assembleDebug
+      # Assembles the minified release APK (unsigned: CI holds no signing secrets) and checks its manifest, icon,
+      # size and that R8 ran (tools/release/android_smoke.py). It installs nothing and runs nothing on a device.
+      - name: Release APK smoke test
+        run: ./gradlew :app-android:releaseSmokeTest
+      # Every library Gradle resolves onto the three apps has a row in THIRD_PARTY.md.
+      - name: Resolved dependencies are credited
+        run: python3 tools/check_resolved_dependencies.py
       - name: Platform-module tests (desktop JVM, Android host, screenshot harness)
         run: ./gradlew :compile:desktopTest :compile:testAndroidHostTest :shape-preview:desktopTest :shape-preview:testAndroidHostTest :ui:desktopTest :ui:testAndroidHostTest :app-android:testDebugUnitTest :app-desktop:test
       # The core job's spotlessCheck runs with -Ptypewright.android=false, so it never lints the

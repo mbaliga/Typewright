@@ -50,8 +50,13 @@ class SettingsScreenshotTest {
 
     @Test
     fun aboutShowsTheLicenceThePrivacyStatementAndTheNotices() {
-        val s = shot("about") { AboutScreen(texture = CanvasTextures.PAPER, section = DeckSection.HOME, onBack = {}) }
-        assertTrue(s.file.length() > 0)
+        for (channel in listOf(DistributionChannel.PLAY, DistributionChannel.DESKTOP, DistributionChannel.WEB)) {
+            val s =
+                shot("about-${channel.id}") {
+                    AboutScreen(texture = CanvasTextures.PAPER, section = DeckSection.HOME, onBack = {}, channel = channel)
+                }
+            assertTrue(s.file.length() > 0)
+        }
         assertTrue(NOTICE_SECTIONS.size >= 8)
         assertTrue(NOTICE_SECTIONS.any { it.title.contains("Shipped inside the apps") })
     }

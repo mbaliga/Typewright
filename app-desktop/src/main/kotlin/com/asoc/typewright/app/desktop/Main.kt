@@ -17,6 +17,8 @@ import com.asoc.typewright.ui.TypewrightApp
 import com.asoc.typewright.ui.capture.PlatformCaptureSupport
 import com.asoc.typewright.ui.imports.PlatformImportSupport
 import com.asoc.typewright.ui.project.createProjectWorkspace
+import com.asoc.typewright.ui.settings.BuildChannel
+import com.asoc.typewright.ui.settings.DistributionChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -30,6 +32,8 @@ const val APP_TITLE: String = "Typewright"
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 fun main() {
+    // Desktop builds show the support link in About (docs/LICENSING.md section 3).
+    BuildChannel.current = DistributionChannel.DESKTOP
     // P11 WP5 (docs/PROJECT_MODEL.md §13): one ProjectWorkspace for the app's whole run, built
     // and held here rather than inside TypewrightApp's own default, so onCloseRequest below can
     // flush this exact instance even as the composition itself is torn down by exitApplication().

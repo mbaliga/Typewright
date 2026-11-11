@@ -95,13 +95,13 @@ says what was done in the meantime, and names who decides. Answered entries move
     `RangeError: Incorrect locale information provided`; the first composition fails and
     only the page background shows. The same build renders correctly with `en-GB`. Options:
     report it upstream and wait, or add a small guard in `index.html` that normalises
-    `navigator.languages` before Compose starts. *Decide at P9.*
+    `navigator.languages` before Compose starts. *Decide at P9.* **Built in P18: see item 233.**
 
 14. **A licences page.** Skiko's desktop and web binaries contain Skia, FreeType, libpng,
     libjpeg-turbo, libwebp and others (`THIRD_PARTY.md`); their BSD-style licences and
     the FreeType License require notices in binary distributions, and the web bundle carries
     no licence banners. The explorer has no licences or about screen. Per law 6, this needs
-    an explorer design before it is built. *Madhav, before the first release.*
+    an explorer design before it is built. *Madhav, before the first release.* **Built in P18 from the V1 About board: see item 233.**
 
 15. **Kotlin build statistics.** The Kotlin Gradle plugin writes build statistics (plugin
     versions, task counts, durations, core count) to `~/.gradle/kotlin-profile/` for
@@ -3957,3 +3957,63 @@ wrote once its own two real formatting bugs, items 72–73 below, were fixed).
     metrics are separate fields and are not changed with the ascender and descender, and nothing re-derives the
     overshoot zones (`postscriptBlueValues`), which are drawn read-only. An x-height above the cap height is
     allowed with a note that it is unusual (our heuristic); signs and a limit of two ems are refused. Owner: Madhav.
+
+## P18: release engineering
+
+226. **The name "Typewright" is not cleared (D2), and the rc tag waits for it.**
+    P18 requires name clearance to have started; nothing in the repository shows that it has. The Play app name,
+    the application id `com.asoc.typewright`, the landing copy and `TRADEMARKS.md` all carry the name, and a
+    published Play application id cannot be changed. `docs/release/RELEASE_CHECKLIST.md` section 0 holds the tag, the
+    listing and the website until the search through Shiva (Classes 9 and 42) is back. No tag has been created.
+    Owner: Madhav.
+
+227. **The support page does not exist, so About's support row says so (P18, docs/LICENSING.md section 3).**
+    `SUPPORT_URL` (`ui/.../settings/BuildChannel.kt`) is blank until there is a merchant-of-record page. On desktop,
+    web and GitHub-release builds About then shows "Support page: not open yet" and no link; the Play build shows
+    no support row at all (`-Ptypewright.channel=play`, tested). No payment code is in any build. Owner: Madhav sets
+    the merchant-of-record account (PROMPTS_V1 owner step 2) and the address.
+
+228. **No build makes a network call of its own, so the privacy policy says "none in this version" rather than
+    describing the comparison fetch.** The Google Fonts comparison fetch and the web's hosted build are not wired to
+    any screen (the hosted-build transport exists in `compile` and nothing calls it), there is no GitHub push, and the
+    Android manifest has no `INTERNET` permission (the release smoke test fails if one appears). Law 3's wording and
+    About's privacy statement describe what the app may do on request, which is a ceiling and still true.
+    `docs/release/PRIVACY.md` and `PLAY_DATA_SAFETY.md` must change before any such feature ships. Owner: Madhav.
+
+229. **Crash reports exist on Android only.** `TypewrightApplication` keeps a local report that the next launch
+    shows for the person to copy (nothing is sent). The desktop and web shells install no handler, so an uncaught
+    exception there is the platform's default (a console trace; a blank page). P18 asks that a crash show a report the
+    person may share; that is done for Android and not for the other two targets. Owner: Madhav decides whether
+    1.0.0 needs it on desktop.
+
+230. **The desktop has no first-run Python panel.** The missing-tool message appears where the tool is needed
+    (Check's layer one, Ship's compile) in the words `PythonToolchain` gives, and `docs/release/LINUX_PACKAGING.md`
+    has the install lines. A one-time panel on Home that checks `TYPEWRIGHT_PYTHON`/`python3` and shows the same
+    lines is not built. Owner: Madhav.
+
+231. **The AppImage file has not been built or started.** Gradle builds the jpackage app image with the JRE bundled
+    (`:app-desktop:packageAppImage`; the Compose plugin's `TargetFormat.AppImage` is that directory). The wrapper
+    `tools/release/build_appimage.sh` needs `appimagetool`, which is not in the build container and is not downloaded
+    by the script. Unsigned, x86_64 only. Whether it starts on any distribution is owner-verified only.
+
+232. **Release signing and R8 on a device.** The release APK and AAB are unsigned until signing secrets are given
+    through the environment (`app-android/build.gradle.kts`, `RELEASE_CHECKLIST.md`). R8's keep rules are checked
+    only by building and by `tools/release/android_smoke.py` (the package, manifest, icon, size and that names were
+    shortened); a minified build that starts, saves, reopens and runs the camera on the RedMagic is owner-verified
+    only, and a missing keep rule would show as a crash there. Owner: Madhav.
+
+233. **Update to items 13 and 14.** Item 13 (the locale guard) is built as `app-web/.../locale-guard.js`, loaded by
+    `index.html` before the app, and tested under Node (`tools/locale_guard_test.mjs`); a real Chromium with no `LANG`
+    was not run here. Item 14 (a licences page) is built as About & licences (S23) from the V1 board, with every
+    `THIRD_PARTY.md` entry (generated, checked in CI) in the Android, desktop and web builds, and the same files served
+    beside the web app under `legal/`. The Skiko binary itself still has no banner. The web `skiko.wasm`'s contents
+    were not checked, as `THIRD_PARTY.md` says.
+
+234. **`tools/check_resolved_dependencies.py` found nine Android-only AndroidX/Dagger/annotation libraries with no
+    `THIRD_PARTY.md` row** (they reach the release classpath through CameraX's `camera-view`); rows were added from
+    their POMs. The check matches on artifact or group names, so it catches a library nobody mentioned, not a wrong
+    licence or version; and it is not in CI because it needs Gradle to resolve all three apps. Run it before a release.
+    Owner: Madhav decides whether to run it in CI.
+
+235. **The README's status paragraph still says "prompts P0 to P9 are built".** It is out of date; updating it is
+    on the release checklist, not done here. Owner: Madhav.

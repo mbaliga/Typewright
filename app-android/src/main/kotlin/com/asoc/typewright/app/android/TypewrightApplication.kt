@@ -10,6 +10,8 @@ import com.asoc.typewright.project.storage.AndroidStorageProvider
 import com.asoc.typewright.ui.crash.buildCrashReport
 import com.asoc.typewright.ui.project.createProjectWorkspace
 import com.asoc.typewright.ui.settings.APP_VERSION
+import com.asoc.typewright.ui.settings.BuildChannel
+import com.asoc.typewright.ui.settings.DistributionChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,6 +26,8 @@ import kotlinx.coroutines.SupervisorJob
 class TypewrightApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        // The store this build is for (app-android/build.gradle.kts, -Ptypewright.channel): the Play build shows no support link.
+        BuildChannel.current = DistributionChannel.fromId(BuildConfig.DISTRIBUTION_CHANNEL)
         // Any crash leaves a report on this device for the next launch to show (nothing is sent anywhere).
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
