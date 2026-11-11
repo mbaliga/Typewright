@@ -92,6 +92,14 @@ tasks.register<Test>("pythonIntegrationTest") {
     classpath = files(desktopTestCompilation.output.allOutputs, desktopTestCompilation.runtimeDependencyFiles)
     systemProperty("typewright.screenshotDir", screenshotDir.get().asFile.absolutePath)
     systemProperty("typewright.repoRoot", repoRoot)
+    // Its own temporary folder: other modules' integration tests build fonts at the same time, and the cancelled-build test
+    // looks for build folders left in the temp folder, so it must see only its own.
+    val ownTmp = layout.buildDirectory.dir("python-integration-tmp").get().asFile
+    doFirst {
+        ownTmp.deleteRecursively()
+        ownTmp.mkdirs()
+    }
+    jvmArgs("-Djava.io.tmpdir=${ownTmp.absolutePath}")
     // Real processes on the machine: the result depends on what is installed, so it is never cached or up to date.
     doNotTrackState("runs fontmake and Fontbakery from the Python on this machine")
     filter {
