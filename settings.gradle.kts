@@ -63,3 +63,11 @@ if (withAndroid) {
         ":golden-path",
     )
 }
+
+// The iPad app's Kotlin half (docs/IOS_PORT.md): only with -Ptypewright.ios=true, and only where the
+// platform modules above are present, because :ui still carries an Android target. Linking its
+// framework needs macOS and Xcode; the ios.yml workflow does it.
+val withIos = providers.gradleProperty("typewright.ios").orNull?.toBoolean() ?: false
+if (withIos && withAndroid) {
+    include(":app-ios")
+}

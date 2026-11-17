@@ -34,6 +34,7 @@ LICENCE_BY_DIR = {
     "app-android": FSL,
     "app-desktop": FSL,
     "app-web": FSL,
+    "app-ios": FSL,  # SwiftUI shell, Xcode spec and the Kotlin framework module
     "core-geometry": APACHE,
     "core-font": APACHE,
     "engine-trace": APACHE,
@@ -75,7 +76,7 @@ LICENCE_BY_FILE = {
     "core-font/src/commonMain/kotlin/com/asoc/typewright/core/font/ufo/GlyphFileNames.kt": UFO_PORT,
 }
 
-COMMENT_BY_SUFFIX = {".kt": "//", ".kts": "//", ".mjs": "//", ".js": "//", ".py": "#", ".sh": "#"}
+COMMENT_BY_SUFFIX = {".kt": "//", ".kts": "//", ".mjs": "//", ".js": "//", ".py": "#", ".sh": "#", ".swift": "//"}
 
 
 def spdx_line(comment: str, licence: str) -> str:
