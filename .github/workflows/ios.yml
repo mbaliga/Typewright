@@ -90,6 +90,8 @@ jobs:
       - name: Generate the Xcode project
         working-directory: app-ios/iosApp
         run: xcodegen generate
+      # Kotlin targets are iosArm64 + iosSimulatorArm64 only; a generic simulator
+      # destination otherwise also asks for x86_64, which Compose Resources rejects.
       - name: Build for the iOS simulator, unsigned
         run: >
           xcodebuild build
@@ -97,7 +99,7 @@ jobs:
           -configuration Debug -sdk iphonesimulator
           -destination 'generic/platform=iOS Simulator'
           -derivedDataPath "$RUNNER_TEMP/dd-sim"
-          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_ALLOWED=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=NO
       - name: Build for an iPad, unsigned (compile and link only)
         run: >
           xcodebuild build
