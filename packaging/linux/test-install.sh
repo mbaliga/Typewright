@@ -25,6 +25,10 @@ fail() { echo "test-install: FAIL: $1" >&2; exit 1; }
 grep -q "^Exec=$prefix/lib/typewright/bin/typewright\$" "$prefix/share/applications/typewright.desktop" \
   || fail ".desktop Exec line wrong"
 
+[ -f "$prefix/share/icons/hicolor/scalable/apps/typewright.svg" ] || fail "icon not installed"
+grep -q "^Icon=typewright\$" "$prefix/share/applications/typewright.desktop" || fail ".desktop Icon line wrong"
+if command -v desktop-file-validate >/dev/null; then desktop-file-validate "$prefix/share/applications/typewright.desktop" || fail "installed .desktop invalid"; fi
+
 # A second install replaces the first.
 echo stale > "$prefix/lib/typewright/stale"
 "$here/install.sh" --prefix "$prefix" "$fake" > /dev/null
@@ -34,6 +38,7 @@ echo stale > "$prefix/lib/typewright/stale"
 [ ! -e "$prefix/lib/typewright" ] || fail "lib dir left behind"
 [ ! -e "$prefix/bin/typewright" ] && [ ! -L "$prefix/bin/typewright" ] || fail "launcher left behind"
 [ ! -e "$prefix/share/applications/typewright.desktop" ] || fail ".desktop left behind"
+[ ! -e "$prefix/share/icons/hicolor/scalable/apps/typewright.svg" ] || fail "icon left behind"
 
 # A missing app-image is refused.
 if "$here/install.sh" --prefix "$prefix" "$scratch/nope" > /dev/null 2>&1; then fail "accepted a missing app-image"; fi

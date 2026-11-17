@@ -14,14 +14,22 @@ import javax.swing.UIManager
  * S02's folder picker on the desktop (docs/PROJECT_MODEL.md §5, D9): `zenity
  * --file-selection --directory`, then `kdialog --getexistingdirectory`, then a Swing
  * `JFileChooser(DIRECTORIES_ONLY)` with the system look-and-feel. Each is a subprocess or a
- * library call, never linked; the first one that is actually installed (or, for Swing, that a
+ * library call, never linked; inside a Flatpak or Snap only Swing is tried ([pickerOrder]); the first one that is actually installed (or, for Swing, that a
  * display is available for) answers. Returns null when the user cancels, or when none of the
  * three could be shown at all (no binaries, no display -- this sandbox, for example).
  */
-class DesktopFolderPicker {
+class DesktopFolderPicker(
+    private val sandbox: LinuxSandbox = LinuxSandbox.detect(),
+) {
     suspend fun pick(initialDirectory: Path? = null): Path? =
         withContext(Dispatchers.IO) {
-            tryZenity(initialDirectory) ?: tryKdialog(initialDirectory) ?: trySwing(initialDirectory)
+            pickerOrder(sandbox).firstNotNullOfOrNull { backend ->
+                when (backend) {
+                    PickerBackend.Zenity -> tryZenity(initialDirectory)
+                    PickerBackend.Kdialog -> tryKdialog(initialDirectory)
+                    PickerBackend.Swing -> trySwing(initialDirectory)
+                }
+            }
         }
 
     private fun tryZenity(initialDirectory: Path?): Path? {

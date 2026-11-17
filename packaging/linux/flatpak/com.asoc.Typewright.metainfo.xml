@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: CC0-1.0 -->
+<component type="desktop-application">
+  <id>com.asoc.Typewright</id>
+  <name>Typewright</name>
+  <summary>Hand-made letterforms to fonts of Google Fonts quality</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary=https://fsl.software/</project_license>
+  <developer id="com.asoc">
+    <name>A System of Cells</name>
+  </developer>
+  <description>
+    <p>Typewright turns hand-made letterforms into fonts and shows what quality means as you go. Your drawing is the source of truth, a project is a plain folder of UFO 3 and JSON files, and nothing is sent anywhere unless you ask.</p>
+  </description>
+  <url type="homepage">https://github.com/mbaliga/Typewright</url>
+  <launchable type="desktop-id">com.asoc.Typewright.desktop</launchable>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.0.1" date="2026-11-17"/>
+  </releases>
+</component>

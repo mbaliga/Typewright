@@ -36,7 +36,7 @@ Note: the running app may still be using its in-memory workspace stopgap for par
 | # | Check | Evidence class | Result |
 |---|---|---|---|
 | 3.1 | Desktop Mode: the app installs through `install.sh` and starts | NEEDS-DEVICE-VALIDATION | [ ] |
-| 3.2 | Desktop Mode: the folder picker opens (the order is zenity, kdialog, then Swing) | NEEDS-DEVICE-VALIDATION | [ ] |
+| 3.2 | Desktop Mode: the folder picker opens (outside a sandbox the order is zenity, kdialog, then Swing; inside a Flatpak or Snap only Swing) | NEEDS-DEVICE-VALIDATION | [ ] |
 | 3.3 | Desktop Mode: touchscreen and trackpad both drive the window | NEEDS-DEVICE-VALIDATION | [ ] |
 | 3.4 | Gaming Mode under gamescope: the app can be added as a non-Steam game and starts | NEEDS-DEVICE-VALIDATION | [ ] |
 | 3.5 | Gaming Mode: the window fits the 1280x800 screen and the controls are reachable | NEEDS-DEVICE-VALIDATION | [ ] |
@@ -65,3 +65,15 @@ Software GL, no Vulkan. Whether an arm64 JVM app starts here at all is unknown, 
 | Date | Machine and OS | Display server | Build commit | Rows filled | Notes |
 |---|---|---|---|---|---|
 | | | | | | |
+
+## 6. Packages and sandbox (added 2026-11-17, see docs/LINUX_PORT.md)
+
+| # | Check | Evidence class | Result |
+|---|---|---|---|
+| 6.1 | The `.deb` installs on Ubuntu 24.04 and the entry appears in the menu | NEEDS-DEVICE-VALIDATION | [ ] |
+| 6.2 | The `.rpm` installs on Fedora and starts | NEEDS-DEVICE-VALIDATION | [ ] |
+| 6.3 | `install.sh` entry shows the icon and groups the window under one taskbar item (`StartupWMClass` is unverified) | NEEDS-DEVICE-VALIDATION | [ ] |
+| 6.4 | `flatpak install --user Typewright-x64.flatpak` works; the window draws (X11 or XWayland, GPU) | NEEDS-DEVICE-VALIDATION | [ ] |
+| 6.5 | Inside the Flatpak the Swing folder chooser opens and can create and reopen a project under the home folder | NEEDS-DEVICE-VALIDATION | [ ] |
+| 6.6 | `kill -TERM` the app after an edit: the edit is on disk (the shutdown hook; `kill -9` is expected to lose it) | NEEDS-DEVICE-VALIDATION | [ ] |
+| 6.7 | arm64 tarball starts on a Raspberry Pi 5 or other arm64 desktop | NEEDS-DEVICE-VALIDATION | [ ] |

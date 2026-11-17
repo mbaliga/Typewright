@@ -110,7 +110,7 @@ Notes:
 | `shape-preview/` | `:shape-preview` | Android, desktop JVM, Wasm | `Shaper`: TextRunShaper and Skiko real (P8), browser `FontFace` still a stub (P9) |
 | `ui/` | `:ui` | Android, desktop JVM, Wasm | Compose UI; `TypewrightApp()`; the screenshot harness |
 | `app-android/` | `:app-android` | Android | application shell |
-| `app-desktop/` | `:app-desktop` | desktop JVM | application shell, Linux packaging |
+| `app-desktop/` | `:app-desktop` | desktop JVM | application shell, Linux packaging (`docs/LINUX_PORT.md`) |
 | `app-web/` | `:app-web` | Wasm (browser) | application shell and `index.html` |
 | `golden-path/` | `:golden-path` | desktop JVM | `GoldenPathTest`, the release acceptance harness (`golden-path/README.md`); depends on `:compile`, so it needs the Android SDK to configure like the rest of this second group |
 

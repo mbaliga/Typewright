@@ -30,10 +30,12 @@ done
 dest="${prefix}/lib/typewright"
 link="${prefix}/bin/typewright"
 entry="${prefix}/share/applications/typewright.desktop"
+icon_src="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/icons/typewright.svg"
+icon="${prefix}/share/icons/hicolor/scalable/apps/typewright.svg"
 
 if [ "$uninstall" -eq 1 ]; then
   rm -rf "$dest"
-  rm -f "$link" "$entry"
+  rm -f "$link" "$entry" "$icon"
   echo "Removed Typewright from ${prefix}"
   exit 0
 fi
@@ -44,12 +46,14 @@ if [ ! -x "${app_image}/bin/typewright" ]; then
   exit 1
 fi
 
-mkdir -p "${prefix}/lib" "${prefix}/bin" "${prefix}/share/applications"
+mkdir -p "${prefix}/lib" "${prefix}/bin" "${prefix}/share/applications" "$(dirname "$icon")"
 rm -rf "$dest"
 cp -a "$app_image" "$dest"
 ln -sfn "${dest}/bin/typewright" "$link"
 
-# No application icon exists in the repository yet, so the entry names none.
+if [ -f "$icon_src" ]; then cp "$icon_src" "$icon"; fi
+# StartupWMClass is the AWT window class: the main class with dots as dashes (UNVERIFIED on a
+# real desktop; it only affects taskbar grouping and the icon shown for the window).
 cat > "$entry" <<DESKTOP
 [Desktop Entry]
 Type=Application
@@ -57,7 +61,9 @@ Name=Typewright
 Comment=Hand-made letterforms to fonts of Google Fonts quality
 Exec=${dest}/bin/typewright
 Terminal=false
-Categories=Graphics;Development;
+Icon=typewright
+StartupWMClass=com-asoc-typewright-app-desktop-MainKt
+Categories=Graphics;2DGraphics;VectorGraphics;
 DESKTOP
 
 echo "Installed Typewright to ${dest}"

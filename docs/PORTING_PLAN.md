@@ -26,6 +26,12 @@ a numbered entry in `docs/OPEN_QUESTIONS.md`, `F-n` a master shared-foundation i
 > `docs/release/DEVICE_CHECKLIST_IOS.md`. Not done: IOS-6 (Rust fontc and Fontspector), IOS-7 (Pencil and keyboard),
 > the shaper spike. Details and owner steps: `docs/IOS_PORT.md`.
 
+> **2026-11-17 status update (Linux).** Done: LX-2 lanes (`desktop-linux.yml`: x64 tests, app-image, install.sh, glibc
+> baseline, `.deb`, `.rpm`, release attach on tags only as a draft), LX-3 Flatpak manifest and bundle lane, LX-4
+> sandbox-aware folder picker (`LinuxSandbox`, BUILT-HERE in a scratch JVM module), LX-5 `ubuntu-24.04-arm` lane,
+> LX-6 checklist updates, and a shutdown flush (CODE-ONLY). All lanes CI-LANE-WRITTEN; no run seen, no desktop
+> run. Not done: true `.AppImage`, icon in `.deb`/`.rpm`, portal picker, Flathub. Details: `docs/LINUX_PORT.md`.
+
 > **2026-11-17 status update (Ubuntu Touch).** The owner's request puts Ubuntu Touch builds on GitHub Actions with
 > Clickable. Because the owner ruled "native only, no substitutes", the order of section 6.1 is reversed: UT-5
 > (JVM-in-click, the real port candidate) is built first as the click `typewright.asoc`, and the UT-3 wasm click

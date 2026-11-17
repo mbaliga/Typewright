@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>Typewright</title>
+  <rect width="256" height="256" rx="48" fill="#1d1b2f"/>
+  <path d="M64 72h128v28h-50v96h-28v-96H64z" fill="#f4f1ea"/>
+  <circle cx="204" cy="196" r="14" fill="none" stroke="#8a7bff" stroke-width="8"/>
+</svg>
