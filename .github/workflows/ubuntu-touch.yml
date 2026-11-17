@@ -108,6 +108,15 @@ jobs:
           packaging/linux/check-skiko-arm64.sh "$app"
       - name: Stage the click directory
         run: packaging/ubuntu-touch/stage.sh
+      - name: User-ID range for rootless Podman (the 24.04 CI image has files owned by uid 32011)
+        run: |
+          # Without a subuid/subgid range only uid 0 maps, and pulling that image fails with
+          # "container ID 32011 cannot be mapped to a host ID".
+          for f in /etc/subuid /etc/subgid; do
+            grep -q "^$(id -un):" "$f" || echo "$(id -un):100000:65536" | sudo tee -a "$f" >/dev/null
+          done
+          podman system migrate 2>/dev/null || true
+          grep "^$(id -un):" /etc/subuid /etc/subgid
       - name: Install Clickable
         run: pip install "clickable-ut==${CLICKABLE_VERSION}"
       - name: Build and review the click (unsigned)
@@ -157,6 +166,15 @@ jobs:
         run: ./gradlew :app-web:wasmJsBrowserDistribution
       - name: Stage the Preview click directory
         run: packaging/ubuntu-touch/preview/preview-stage.sh
+      - name: User-ID range for rootless Podman (the 24.04 CI image has files owned by uid 32011)
+        run: |
+          # Without a subuid/subgid range only uid 0 maps, and pulling that image fails with
+          # "container ID 32011 cannot be mapped to a host ID".
+          for f in /etc/subuid /etc/subgid; do
+            grep -q "^$(id -un):" "$f" || echo "$(id -un):100000:65536" | sudo tee -a "$f" >/dev/null
+          done
+          podman system migrate 2>/dev/null || true
+          grep "^$(id -un):" /etc/subuid /etc/subgid
       - name: Install Clickable
         run: pip install "clickable-ut==${CLICKABLE_VERSION}"
       - name: Build and review the Preview click (unsigned)
