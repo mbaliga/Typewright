@@ -1,0 +1,9 @@
+// SPDX-License-Identifier: FSL-1.1-ALv2
+//
+// Unsigned by default: every artefact this repository builds is "UNSIGNED, not for release".
+// Signing needs an Apple Developer Program team (OWNER-FOLLOW-UP, docs/PORTING_PLAN.md OQ-2/OQ-3).
+// A team id and provisioning profile never go in the repository; the disabled release workflow
+// reads them from a GitHub environment's secrets.
+CODE_SIGNING_ALLOWED = NO
+CODE_SIGNING_REQUIRED = NO
+CODE_SIGN_IDENTITY =

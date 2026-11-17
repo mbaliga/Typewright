@@ -1,0 +1,74 @@
+name: iOS release (TEMPLATE, DISABLED)
+
+# A template, not a lane: every job is switched off with `if: false`. Signing and TestFlight need an
+# Apple Developer Program account (docs/PORTING_PLAN.md OQ-2 and OQ-3), which only the owner can
+# open. When that exists: create a GitHub environment named `apple-release` with required
+# reviewers, put the secrets named below in it (never in this repository), delete the `if: false`,
+# and read docs/IOS_PORT.md "Owner steps" first. The secrets are readable only by the job that
+# names the environment, after a reviewer approves it.
+#
+# Privacy: TestFlight and the App Store collect crash reports and usage from testers' devices on
+# Apple's side. That is the single egress the owner has approved for this app, it is not Typewright
+# code, and the README and the app's about text must name it (CLAUDE.md law 3).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testflight:
+    if: false
+    runs-on: macos-latest
+    environment: apple-release
+    timeout-minutes: 90
+    env:
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+      APPSTORE_API_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+      - name: Android SDK packages the platform modules need
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Import the distribution certificate into a temporary keychain
+        env:
+          CERT_P12_BASE64: ${{ secrets.APPLE_DISTRIBUTION_CERT_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_CERT_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/release.keychain-db"
+          security create-keychain -p "$CERT_PASSWORD" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "$CERT_PASSWORD" "$keychain"
+          echo "$CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$CERT_PASSWORD" "$keychain"
+          security list-keychains -d user -s "$keychain" login.keychain
+      - name: Archive, signed with the team from the secret
+        run: |
+          (cd app-ios/iosApp && xcodegen generate)
+          xcodebuild archive \
+            -project app-ios/iosApp/Typewright.xcodeproj -scheme Typewright \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Typewright.xcarchive" \
+            -allowProvisioningUpdates \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
+      - name: Export and upload to TestFlight
+        env:
+          APPSTORE_API_KEY_P8: ${{ secrets.APPSTORE_API_KEY_P8 }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          printf '%s' "$APPSTORE_API_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_${APPSTORE_API_KEY_ID}.p8
+          printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>method</key><string>app-store-connect</string><key>teamID</key><string>'"$APPLE_TEAM_ID"'</string></dict></plist>' > "$RUNNER_TEMP/ExportOptions.plist"
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Typewright.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates
+          xcrun altool --upload-app --type ios --file "$RUNNER_TEMP/export/Typewright.ipa" \
+            --apiKey "$APPSTORE_API_KEY_ID" --apiIssuer "$APPSTORE_API_ISSUER_ID"

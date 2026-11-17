@@ -35,3 +35,8 @@ keystore.properties
 *.p12
 .env
 captures/
+
+# iPad shell: XcodeGen output and the generated Info.plist (app-ios/iosApp/project.yml is the source)
+app-ios/iosApp/*.xcodeproj/
+app-ios/iosApp/Info.plist
+xcuserdata/

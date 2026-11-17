@@ -1,0 +1,7 @@
+// SPDX-License-Identifier: FSL-1.1-ALv2
+//
+// The ONE place the Apple bundle identifier is set. Owner ruling 2026-11-17: Apple bundle ids are
+// com.asoc.<appname>.
+// OWNER-FOLLOW-UP: docs/PORTING_PLAN.md rule R11 wants a NAMES.md row for this id before release;
+// NAMES.md lives outside this repository. Nothing else in the repo may repeat this string.
+PRODUCT_BUNDLE_IDENTIFIER = com.asoc.typewright
