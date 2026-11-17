@@ -41,3 +41,7 @@ app-ios/iosApp/*.xcodeproj/
 app-ios/iosApp/Info.plist
 xcuserdata/
 packaging/linux/.flatpak-builder/
+
+# Python bytecode
+__pycache__/
+*.pyc
