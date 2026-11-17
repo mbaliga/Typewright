@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
 # Asserts a jpackage app-image carries Skiko's arm64 native. Usage: check-skiko-arm64.sh APP_IMAGE_DIR
 # The native ships in the skiko-awt-runtime-linux-arm64 jar (entry libskiko-linux-arm64.so); depending on how the
 # image was laid out it can sit in any jar directory, so every jar is searched, by name and by entry, and a loose
