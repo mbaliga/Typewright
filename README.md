@@ -135,6 +135,10 @@ Conventions:
 
 `app-ios/` holds an iPad port in progress: build it with the `iOS` workflow or see `docs/IOS_PORT.md`. Nothing has run on an iPad yet. If you use a TestFlight or App Store build, Apple collects crash reports and tester usage on its side; that is outside Typewright's code and is the only egress this app accepts.
 
+## Ubuntu Touch (experimental, unsigned)
+
+`packaging/ubuntu-touch/` holds a native click (the desktop app and a bundled JRE under Lomiri) and a separate, labelled "Typewright Preview" click (the browser build in a web container; not the port). Build them with the `Ubuntu Touch` workflow or see `docs/UBUNTU_TOUCH_PORT.md`. Neither has run on a phone yet.
+
 ## CI
 
 `.github/workflows/ci.yml`, four jobs on every push to `main` and every pull request; a

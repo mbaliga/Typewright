@@ -26,6 +26,16 @@ a numbered entry in `docs/OPEN_QUESTIONS.md`, `F-n` a master shared-foundation i
 > `docs/release/DEVICE_CHECKLIST_IOS.md`. Not done: IOS-6 (Rust fontc and Fontspector), IOS-7 (Pencil and keyboard),
 > the shaper spike. Details and owner steps: `docs/IOS_PORT.md`.
 
+> **2026-11-17 status update (Ubuntu Touch).** The owner's request puts Ubuntu Touch builds on GitHub Actions with
+> Clickable. Because the owner ruled "native only, no substitutes", the order of section 6.1 is reversed: UT-5
+> (JVM-in-click, the real port candidate) is built first as the click `typewright.asoc`, and the UT-3 wasm click
+> follows only as the labelled companion "Typewright Preview". Done: click metadata, Lomiri launcher, staging, both
+> `clickable.yaml` files (loaded by the real Clickable 8.10.0 here), `.github/workflows/ubuntu-touch.yml`
+> (CI-LANE-WRITTEN, `actionlint` clean), the Skiko arm64 pin, `tools/check_ubuntu_touch.py`,
+> `docs/release/DEVICE_CHECKLIST_UT.md` (UT-4). Not done: any click build or run (no Docker daemon, arm64 host or
+> device here), the S-UT2 spike, UT-1's spike page, the suspend-flush fix in `app-desktop`. Details and owner steps:
+> `docs/UBUNTU_TOUCH_PORT.md`.
+
 ## 0. Evidence labels (never dropped)
 
 `LAB` · `CI (hosted VM) evidence` · `EMULATOR EVIDENCE` · `SIMULATOR` · `CI-APPROX — NOT DEVICE EVIDENCE` ·
