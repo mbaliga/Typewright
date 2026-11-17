@@ -131,6 +131,10 @@ Conventions:
 - Wasm tests run under Node except where Compose is involved (Skiko loads only in a
   browser); see `docs/OPEN_QUESTIONS.md`.
 
+## iPad (experimental, unsigned)
+
+`app-ios/` holds an iPad port in progress: build it with the `iOS` workflow or see `docs/IOS_PORT.md`. Nothing has run on an iPad yet. If you use a TestFlight or App Store build, Apple collects crash reports and tester usage on its side; that is outside Typewright's code and is the only egress this app accepts.
+
 ## CI
 
 `.github/workflows/ci.yml`, four jobs on every push to `main` and every pull request; a

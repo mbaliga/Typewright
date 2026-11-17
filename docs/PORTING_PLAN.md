@@ -16,6 +16,16 @@ decision. `OQ-n` is a master-program owner question (`Personal-Tracker/PORTING_P
 a numbered entry in `docs/OPEN_QUESTIONS.md`, `F-n` a master shared-foundation item (§6 there), `R1` to
 `R12` the master's program rules (§3 there). `WP` ids in §6 are work packages (the lead assigns prompt numbers).
 
+
+> **2026-11-17 status update (iOS).** The owner's request of 2026-11-17 puts iOS in scope ahead of V1, overriding the
+> IOS-0 gate for *which* platforms (the plan's other rulings still bind). Done in this branch, all behind
+> `-Ptypewright.ios=true`: IOS-1 targets (BUILT-HERE as klibs on Linux, tests CI-LANE-WRITTEN), IOS-2 resource readers,
+> IOS-3 actuals (honest stubs for compile, layer one and shaping), IOS-4 sandbox storage over `SwapProtocolStore`
+> (CODE-ONLY at run time; no picker or bookmark yet), IOS-5 `app-ios` shell and XcodeGen spec (CODE-ONLY), IOS-8
+> `.github/workflows/ios.yml` (CI-LANE-WRITTEN) and the disabled `ios-release.yml` template, IOS-9
+> `docs/release/DEVICE_CHECKLIST_IOS.md`. Not done: IOS-6 (Rust fontc and Fontspector), IOS-7 (Pencil and keyboard),
+> the shaper spike. Details and owner steps: `docs/IOS_PORT.md`.
+
 ## 0. Evidence labels (never dropped)
 
 `LAB` · `CI (hosted VM) evidence` · `EMULATOR EVIDENCE` · `SIMULATOR` · `CI-APPROX — NOT DEVICE EVIDENCE` ·
