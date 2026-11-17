@@ -17,8 +17,9 @@ environment, so on-device behaviour is verified by the owner only and never clai
 Read `CLAUDE.md` (the laws) before changing anything, then `TYPEWRIGHT_BUILD_BRIEF.md` and
 `UI_SPEC.md`. Open questions live in `docs/OPEN_QUESTIONS.md`, licences in `THIRD_PARTY.md`.
 
-Porting beyond V1's three targets (Ubuntu Touch, iOS, macOS, Windows) is planned, not built:
-`docs/PORTING_PLAN.md`.
+Porting beyond V1's three targets (Ubuntu Touch, iOS, macOS, Windows) is planned: `docs/PORTING_PLAN.md`.
+Ubuntu Touch, iOS and Linux have unrun, CI-written scaffolding (sections below); macOS and Windows are
+plan only.
 
 ## Licence
 
