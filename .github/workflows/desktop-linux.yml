@@ -159,12 +159,7 @@ jobs:
       - name: The app-image is arm64 and carries the arm64 Skiko native
         run: |
           file "$APP_IMAGE/bin/typewright" | tee /dev/stderr | grep -q "ARM aarch64"
-          hits=0
-          for j in "$APP_IMAGE"/lib/app/*.jar; do
-            if unzip -l "$j" 2>/dev/null | grep -q 'libskiko-linux-arm64'; then hits=$((hits + 1)); fi
-          done
-          echo "jars carrying libskiko-linux-arm64: $hits"
-          test "$hits" -gt 0
+          packaging/linux/check-skiko-arm64.sh "$APP_IMAGE"
       - name: glibc baseline
         run: packaging/linux/check-glibc.sh --max "$MAX_GLIBC" "$APP_IMAGE" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Tarball, size and sha256

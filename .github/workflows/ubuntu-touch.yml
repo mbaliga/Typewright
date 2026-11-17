@@ -105,12 +105,7 @@ jobs:
         run: |
           app=app-desktop/build/compose/binaries/main/app/typewright
           file "$app/bin/typewright" | tee /dev/stderr | grep -q "ARM aarch64"
-          jar_hits=0
-          for j in "$app"/lib/app/*.jar; do
-            if unzip -l "$j" 2>/dev/null | grep -q 'libskiko-linux-arm64'; then jar_hits=$((jar_hits + 1)); fi
-          done
-          echo "libskiko-linux-arm64 jars carrying it: $jar_hits"
-          test "$jar_hits" -gt 0
+          packaging/linux/check-skiko-arm64.sh "$app"
       - name: Stage the click directory
         run: packaging/ubuntu-touch/stage.sh
       - name: Install Clickable
