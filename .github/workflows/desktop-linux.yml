@@ -150,8 +150,8 @@ jobs:
           fi
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
-      - name: Display and binutils
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb binutils
+      - name: Display, binutils and the GL/font libraries Skiko loads (the arm64 image lacks libEGL.so.1)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb binutils libegl1 libgl1 libfontconfig1 libfreetype6
       - name: Desktop tests on arm64 (Skiko resolves its arm64 native)
         run: xvfb-run -a ./gradlew :shape-preview:desktopTest :ui:desktopTest :project:storage:desktopTest :app-desktop:test
       - name: createDistributable
