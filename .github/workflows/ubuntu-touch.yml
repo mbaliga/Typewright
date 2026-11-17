@@ -114,9 +114,10 @@ jobs:
           # mapped to a host ID", with or without a subuid range and with ignore_chown_errors set
           # (podman info showed the option under a bogus key, so it never applied). Run Podman as
           # root instead, through a shim that Clickable finds first on PATH.
+          # The shim also strips the --uidmap/--gidmap flags Clickable adds for rootless Podman;
+          # under root they made the build tree unwritable ("PermissionError ... .click").
           mkdir -p "$RUNNER_TEMP/podman-shim"
-          printf '#!/bin/sh\nexec sudo -E "%s" "$@"\n' "$(command -v podman)" > "$RUNNER_TEMP/podman-shim/podman"
-          chmod +x "$RUNNER_TEMP/podman-shim/podman"
+          install -m 755 packaging/ubuntu-touch/podman-rootful-shim.sh "$RUNNER_TEMP/podman-shim/podman"
           echo "$RUNNER_TEMP/podman-shim" >> "$GITHUB_PATH"
           sudo podman info --format '{{.Store.GraphDriverName}} {{.Host.Security.Rootless}}'
       - name: x86-64 emulation (the arm64 click builds in an amd64 cross container)
@@ -182,9 +183,10 @@ jobs:
           # mapped to a host ID", with or without a subuid range and with ignore_chown_errors set
           # (podman info showed the option under a bogus key, so it never applied). Run Podman as
           # root instead, through a shim that Clickable finds first on PATH.
+          # The shim also strips the --uidmap/--gidmap flags Clickable adds for rootless Podman;
+          # under root they made the build tree unwritable ("PermissionError ... .click").
           mkdir -p "$RUNNER_TEMP/podman-shim"
-          printf '#!/bin/sh\nexec sudo -E "%s" "$@"\n' "$(command -v podman)" > "$RUNNER_TEMP/podman-shim/podman"
-          chmod +x "$RUNNER_TEMP/podman-shim/podman"
+          install -m 755 packaging/ubuntu-touch/podman-rootful-shim.sh "$RUNNER_TEMP/podman-shim/podman"
           echo "$RUNNER_TEMP/podman-shim" >> "$GITHUB_PATH"
           sudo podman info --format '{{.Store.GraphDriverName}} {{.Host.Security.Rootless}}'
       - name: Install Clickable
