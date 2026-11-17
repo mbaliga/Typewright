@@ -1,0 +1,4 @@
+{
+    "policy_groups": ["webview"],
+    "policy_version": "@APPARMOR_POLICY@"
+}

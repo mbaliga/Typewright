@@ -1,0 +1,15 @@
+{
+    "name": "typewright-preview.asoc",
+    "title": "Typewright Preview",
+    "description": "PREVIEW, not the Typewright app: the browser build in a web container. No compile, no layer-one check.",
+    "version": "0.0.1",
+    "framework": "@CLICK_FRAMEWORK@",
+    "architecture": "@CLICK_ARCH@",
+    "maintainer": "A System of Cells <typewright@invalid.example>",
+    "hooks": {
+        "typewright-preview": {
+            "apparmor": "typewright-preview.apparmor.json",
+            "desktop": "typewright-preview.desktop"
+        }
+    }
+}

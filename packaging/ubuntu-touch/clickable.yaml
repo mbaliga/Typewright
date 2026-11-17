@@ -1,0 +1,12 @@
+# Clickable config for the NATIVE Ubuntu Touch click (JVM-in-click; docs/UBUNTU_TOUCH_PORT.md).
+# Run from a staged directory, not from here: stage.sh writes the app-image, manifest, launcher and
+# this file into build/ubuntu-touch/stage, and `clickable build --arch arm64` runs there. The
+# `precompiled` builder copies the stage directory into the click as-is (no compile step).
+# arm64 only: the bundled JRE is whatever architecture jpackage ran on.
+clickable_minimum_required: 8.0.0
+builder: precompiled
+framework: ubuntu-touch-24.04-1.x
+restrict_arch: arm64
+kill: typewright
+ignore:
+  - clickable.yaml
