@@ -108,23 +108,17 @@ jobs:
           packaging/linux/check-skiko-arm64.sh "$app"
       - name: Stage the click directory
         run: packaging/ubuntu-touch/stage.sh
-      - name: User-ID range for rootless Podman (the 24.04 CI image has files owned by uid 32011)
+      - name: Rootful Podman for Clickable (the 24.04 CI image has files owned by uid 32011)
         run: |
-          # Without a subuid/subgid range only uid 0 maps, and pulling that image fails with
-          # "container ID 32011 cannot be mapped to a host ID".
-          for f in /etc/subuid /etc/subgid; do
-            grep -q "^$(id -un):" "$f" || echo "$(id -un):100000:65536" | sudo tee -a "$f" >/dev/null
-          done
-          # The runner already had a range (runner:165536:65536) and the pull still failed, so
-          # newuidmap is not giving rootless Podman a usable multi-ID mapping on this image. Let
-          # the layer extraction ignore chown failures (the standard rootless setting): files
-          # owned by uid 32011 land owned by the runner user, which the build does not care about.
-          mkdir -p "$HOME/.config/containers"
-          printf '[storage]\n[storage.options]\nignore_chown_errors = "true"\n' > "$HOME/.config/containers/storage.conf"
-          podman system migrate 2>/dev/null || true
-          podman system reset --force 2>/dev/null || true
-          grep "^$(id -un):" /etc/subuid /etc/subgid
-          podman info --format '{{.Store.GraphDriverName}} {{.Store.GraphOptions}}'
+          # Rootless Podman cannot unpack that image on the runner: "container ID 32011 cannot be
+          # mapped to a host ID", with or without a subuid range and with ignore_chown_errors set
+          # (podman info showed the option under a bogus key, so it never applied). Run Podman as
+          # root instead, through a shim that Clickable finds first on PATH.
+          mkdir -p "$RUNNER_TEMP/podman-shim"
+          printf '#!/bin/sh\nexec sudo -E "%s" "$@"\n' "$(command -v podman)" > "$RUNNER_TEMP/podman-shim/podman"
+          chmod +x "$RUNNER_TEMP/podman-shim/podman"
+          echo "$RUNNER_TEMP/podman-shim" >> "$GITHUB_PATH"
+          sudo podman info --format '{{.Store.GraphDriverName}} {{.Host.Security.Rootless}}'
       - name: Install Clickable
         run: pip install "clickable-ut==${CLICKABLE_VERSION}"
       - name: Build and review the click (unsigned)
@@ -174,23 +168,17 @@ jobs:
         run: ./gradlew :app-web:wasmJsBrowserDistribution
       - name: Stage the Preview click directory
         run: packaging/ubuntu-touch/preview/preview-stage.sh
-      - name: User-ID range for rootless Podman (the 24.04 CI image has files owned by uid 32011)
+      - name: Rootful Podman for Clickable (the 24.04 CI image has files owned by uid 32011)
         run: |
-          # Without a subuid/subgid range only uid 0 maps, and pulling that image fails with
-          # "container ID 32011 cannot be mapped to a host ID".
-          for f in /etc/subuid /etc/subgid; do
-            grep -q "^$(id -un):" "$f" || echo "$(id -un):100000:65536" | sudo tee -a "$f" >/dev/null
-          done
-          # The runner already had a range (runner:165536:65536) and the pull still failed, so
-          # newuidmap is not giving rootless Podman a usable multi-ID mapping on this image. Let
-          # the layer extraction ignore chown failures (the standard rootless setting): files
-          # owned by uid 32011 land owned by the runner user, which the build does not care about.
-          mkdir -p "$HOME/.config/containers"
-          printf '[storage]\n[storage.options]\nignore_chown_errors = "true"\n' > "$HOME/.config/containers/storage.conf"
-          podman system migrate 2>/dev/null || true
-          podman system reset --force 2>/dev/null || true
-          grep "^$(id -un):" /etc/subuid /etc/subgid
-          podman info --format '{{.Store.GraphDriverName}} {{.Store.GraphOptions}}'
+          # Rootless Podman cannot unpack that image on the runner: "container ID 32011 cannot be
+          # mapped to a host ID", with or without a subuid range and with ignore_chown_errors set
+          # (podman info showed the option under a bogus key, so it never applied). Run Podman as
+          # root instead, through a shim that Clickable finds first on PATH.
+          mkdir -p "$RUNNER_TEMP/podman-shim"
+          printf '#!/bin/sh\nexec sudo -E "%s" "$@"\n' "$(command -v podman)" > "$RUNNER_TEMP/podman-shim/podman"
+          chmod +x "$RUNNER_TEMP/podman-shim/podman"
+          echo "$RUNNER_TEMP/podman-shim" >> "$GITHUB_PATH"
+          sudo podman info --format '{{.Store.GraphDriverName}} {{.Host.Security.Rootless}}'
       - name: Install Clickable
         run: pip install "clickable-ut==${CLICKABLE_VERSION}"
       - name: Build and review the Preview click (unsigned)
