@@ -119,6 +119,14 @@ jobs:
           chmod +x "$RUNNER_TEMP/podman-shim/podman"
           echo "$RUNNER_TEMP/podman-shim" >> "$GITHUB_PATH"
           sudo podman info --format '{{.Store.GraphDriverName}} {{.Host.Security.Rootless}}'
+      - name: x86-64 emulation (the arm64 click builds in an amd64 cross container)
+        run: |
+          # Clickable's arm64 builds run inside the x86-64 CI image (its cross toolchain). The
+          # arm64 runner has no binfmt handler for that, so the pulled amd64 image died with
+          # "exec container process /usr/bin/bash: Exec format error". qemu-user-static registers it.
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-user-static
+          test -e /proc/sys/fs/binfmt_misc/qemu-x86_64 && head -1 /proc/sys/fs/binfmt_misc/qemu-x86_64
       - name: Install Clickable
         run: pip install "clickable-ut==${CLICKABLE_VERSION}"
       - name: Build and review the click (unsigned)
