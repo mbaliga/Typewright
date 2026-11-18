@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Typewright
+Comment=Hand-made letterforms to fonts of Google Fonts quality
+Exec=typewright
+Icon=com.asoc.Typewright
+Terminal=false
+Categories=Graphics;2DGraphics;VectorGraphics;
+Keywords=font;type;typeface;letterform;ufo;
+StartupNotify=true

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Typewright
+Comment=Hand-made letterforms to fonts of Google Fonts quality
+Exec=sh typewright-launch.sh
+Icon=assets/icon.svg
+Terminal=false
+X-Lomiri-Touch=true
+X-Ubuntu-Touch=true
+X-Ubuntu-XMir-Enable=true

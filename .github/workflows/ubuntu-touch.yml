@@ -1,0 +1,223 @@
+name: Ubuntu Touch
+
+# Builds the Ubuntu Touch clicks (docs/UBUNTU_TOUCH_PORT.md) on GitHub's runners with Clickable.
+# Everything is UNSIGNED and nothing here has run yet, so every claim is CI-LANE-WRITTEN until a run
+# is seen; no click has ever run on a device. No secret is read. The only upload is on a version
+# tag. Actions are pinned to commit SHAs (tag in the trailing comment). Private repositories bill
+# the arm64 runner; the static job is the cheap one.
+#
+#   native-click   the port: Compose Desktop app-image (arm64 JRE) in a click, unconfined template.
+#   preview-click  the "Typewright Preview" companion (webapp-container). Not the port.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - "packaging/ubuntu-touch/**"
+      - "tools/check_ubuntu_touch.py"
+      - "tools/test_check_ubuntu_touch.py"
+      - "app-desktop/**"
+      - "app-web/**"
+      - ".github/workflows/ubuntu-touch.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ubuntu-touch-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CLICKABLE_VERSION: "8.10.0"
+  # Digests read from Docker Hub on 2026-11-17 for the :latest tags of the Clickable CI images.
+  # Bump deliberately; a floating tag would make this lane irreproducible.
+  CI_IMAGE_ARM64: "clickable/ci-ut24.04-1.x-arm64@sha256:be019975449063ec5151a7b8c37a69f5cf07be2b982bbb2cc96688237cd994c2"
+  CI_IMAGE_AMD64: "clickable/ci-ut24.04-1.x-amd64@sha256:6fc41211a799653c5cf35cf2432bba1832d0f6447906e887acaf3fafca6f8859"
+  # Google's Android command-line tools zip (the arm64 runner image has no SDK); sha256 of
+  # commandlinetools-linux-11076708_latest.zip.
+  ANDROID_CLT_SHA256: "2d2d50857e4eb553af5a6dc3ad507a17adf43d115264b1afc116f95c92e5e258"
+
+jobs:
+  static:
+    name: sources, scripts and Clickable config
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - name: Shell syntax
+        run: |
+          for f in packaging/ubuntu-touch/*.sh packaging/ubuntu-touch/preview/*.sh; do bash -n "$f"; done
+          python3 -I -m py_compile packaging/ubuntu-touch/review-click.py
+          sh -n packaging/ubuntu-touch/typewright-launch.sh
+          sh -n packaging/ubuntu-touch/preview/preview-launch.sh
+      - name: Launcher and staging tests
+        run: |
+          bash packaging/ubuntu-touch/test-launcher.sh
+          bash packaging/ubuntu-touch/preview/test-preview.sh
+      - name: Manifest, apparmor and desktop checks
+        run: |
+          python3 tools/check_ubuntu_touch.py
+          python3 -I -m unittest discover -s tools -p 'test_check_ubuntu_touch.py'
+      - name: Click-review gate self-test (fixtures for the owner-allowlisted finding)
+        run: python3 -I packaging/ubuntu-touch/review-click.py --self-test
+      - name: Clickable loads both configs
+        run: |
+          pip install "clickable-ut==${CLICKABLE_VERSION}"
+          python3 packaging/ubuntu-touch/check-clickable-config.py
+      - name: Licence split
+        run: python3 tools/check_licences.py
+
+  native-click:
+    name: native click (arm64)
+    needs: static
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+        with:
+          cache-provider: basic
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - name: Android SDK packages the build needs
+        run: |
+          if [ ! -x "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" ]; then
+            export ANDROID_HOME="$HOME/android-sdk"
+            mkdir -p "$ANDROID_HOME/cmdline-tools"
+            curl -fsSL -o "$RUNNER_TEMP/clt.zip" https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+            echo "${ANDROID_CLT_SHA256}  $RUNNER_TEMP/clt.zip" | sha256sum -c -
+            unzip -q "$RUNNER_TEMP/clt.zip" -d "$ANDROID_HOME/cmdline-tools"
+            mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+            echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          fi
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
+      - name: createDistributable on arm64 (JRE and Skiko native are arm64)
+        run: ./gradlew :app-desktop:createDistributable
+      - name: The app-image really is arm64 and carries the arm64 Skiko native
+        run: |
+          app=app-desktop/build/compose/binaries/main/app/typewright
+          file "$app/bin/typewright" | tee /dev/stderr | grep -q "ARM aarch64"
+          packaging/linux/check-skiko-arm64.sh "$app"
+      - name: Stage the click directory
+        run: packaging/ubuntu-touch/stage.sh
+      - name: Rootful Podman for Clickable (the 24.04 CI image has files owned by uid 32011)
+        run: |
+          # Rootless Podman cannot unpack that image on the runner: "container ID 32011 cannot be
+          # mapped to a host ID", with or without a subuid range and with ignore_chown_errors set
+          # (podman info showed the option under a bogus key, so it never applied). Run Podman as
+          # root instead, through a shim that Clickable finds first on PATH.
+          # The shim also strips the --uidmap/--gidmap flags Clickable adds for rootless Podman;
+          # under root they made the build tree unwritable ("PermissionError ... .click").
+          mkdir -p "$RUNNER_TEMP/podman-shim"
+          install -m 755 packaging/ubuntu-touch/podman-rootful-shim.sh "$RUNNER_TEMP/podman-shim/podman"
+          echo "$RUNNER_TEMP/podman-shim" >> "$GITHUB_PATH"
+          sudo podman info --format '{{.Store.GraphDriverName}} {{.Host.Security.Rootless}}'
+      - name: x86-64 emulation (the arm64 click builds in an amd64 cross container)
+        run: |
+          # Clickable's arm64 builds run inside the x86-64 CI image (its cross toolchain). The
+          # arm64 runner has no binfmt handler for that, so the pulled amd64 image died with
+          # "exec container process /usr/bin/bash: Exec format error". qemu-user-static registers it.
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-user-static
+          test -e /proc/sys/fs/binfmt_misc/qemu-x86_64 && head -1 /proc/sys/fs/binfmt_misc/qemu-x86_64
+      - name: Install Clickable
+        run: pip install "clickable-ut==${CLICKABLE_VERSION}"
+      - name: Build the click (unsigned; review is its own gate in the next step)
+        working-directory: build/ubuntu-touch/stage
+        run: >
+          clickable build --arch arm64 --non-interactive --skip-review
+          --docker-image "${CI_IMAGE_ARM64}" --output "$GITHUB_WORKSPACE/build/ubuntu-touch/out"
+      - name: Review the click (hard gate; one owner-allowlisted finding, OQ-35)
+        working-directory: build/ubuntu-touch/stage
+        run: >
+          python3 "$GITHUB_WORKSPACE/packaging/ubuntu-touch/review-click.py" --arch arm64
+          --docker-image "${CI_IMAGE_ARM64}" --output "$GITHUB_WORKSPACE/build/ubuntu-touch/out"
+      - name: Click size and sha256
+        run: |
+          ls build/ubuntu-touch/out
+          {
+            echo '### typewright click (UNSIGNED, not for release, never run on a device)'
+            echo '```'
+            ls -l build/ubuntu-touch/out/*.click
+            sha256sum build/ubuntu-touch/out/*.click
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload the click (version tags only; convenience, may hit the artifact quota)
+        if: startsWith(github.ref, 'refs/tags/v')
+        continue-on-error: true
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: typewright-click-arm64-UNSIGNED
+          path: build/ubuntu-touch/out/*.click
+          if-no-files-found: error
+
+  preview-click:
+    name: Typewright Preview click (companion, not the port)
+    needs: static
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+        with:
+          cache-provider: basic
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - name: Android SDK packages the build needs
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
+      - name: Browser distribution
+        run: ./gradlew :app-web:wasmJsBrowserDistribution
+      - name: Stage the Preview click directory
+        run: packaging/ubuntu-touch/preview/preview-stage.sh
+      - name: Rootful Podman for Clickable (the 24.04 CI image has files owned by uid 32011)
+        run: |
+          # Rootless Podman cannot unpack that image on the runner: "container ID 32011 cannot be
+          # mapped to a host ID", with or without a subuid range and with ignore_chown_errors set
+          # (podman info showed the option under a bogus key, so it never applied). Run Podman as
+          # root instead, through a shim that Clickable finds first on PATH.
+          # The shim also strips the --uidmap/--gidmap flags Clickable adds for rootless Podman;
+          # under root they made the build tree unwritable ("PermissionError ... .click").
+          mkdir -p "$RUNNER_TEMP/podman-shim"
+          install -m 755 packaging/ubuntu-touch/podman-rootful-shim.sh "$RUNNER_TEMP/podman-shim/podman"
+          echo "$RUNNER_TEMP/podman-shim" >> "$GITHUB_PATH"
+          sudo podman info --format '{{.Store.GraphDriverName}} {{.Host.Security.Rootless}}'
+      - name: Install Clickable
+        run: pip install "clickable-ut==${CLICKABLE_VERSION}"
+      - name: Build and review the Preview click (unsigned)
+        working-directory: build/ubuntu-touch/preview-stage
+        run: >
+          clickable build --arch all --non-interactive --accept-review-warnings
+          --docker-image "${CI_IMAGE_AMD64}" --output "$GITHUB_WORKSPACE/build/ubuntu-touch/preview-out"
+      - name: Click size and sha256
+        run: |
+          {
+            echo '### typewright-preview click (UNSIGNED, PREVIEW companion, never run on a device)'
+            echo '```'
+            ls -l build/ubuntu-touch/preview-out/*.click
+            sha256sum build/ubuntu-touch/preview-out/*.click
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload the Preview click (version tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        continue-on-error: true
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: typewright-preview-click-UNSIGNED
+          path: build/ubuntu-touch/preview-out/*.click
+          if-no-files-found: error

@@ -17,6 +17,10 @@ environment, so on-device behaviour is verified by the owner only and never clai
 Read `CLAUDE.md` (the laws) before changing anything, then `TYPEWRIGHT_BUILD_BRIEF.md` and
 `UI_SPEC.md`. Open questions live in `docs/OPEN_QUESTIONS.md`, licences in `THIRD_PARTY.md`.
 
+Porting beyond V1's three targets (Ubuntu Touch, iOS, macOS, Windows) is planned: `docs/PORTING_PLAN.md`.
+Ubuntu Touch, iOS and Linux have unrun, CI-written scaffolding (sections below); macOS and Windows are
+plan only.
+
 ## Licence
 
 Typewright is licensed in parts (`docs/LICENSING.md`):
@@ -61,7 +65,7 @@ build-tools it needs if the SDK licences are accepted.
 | Format the code | `./gradlew spotlessApply` | rewrites files in place |
 | Android debug APK | `./gradlew :app-android:assembleDebug` | `app-android/build/outputs/apk/debug/app-android-debug.apk` (installs on API 31+; on-device behaviour is owner-verified) |
 | Desktop app | `./gradlew :app-desktop:run` | opens the window (seen under Xvfb) |
-| Desktop packages | `./gradlew :app-desktop:packageDeb` (or `packageRpm`, `packageAppImage`) | declared; not run at P0 (they need `jpackage` and the distro's packaging tools) |
+| Desktop packages | `./gradlew :app-desktop:packageDeb` (or `packageRpm`); `createDistributable` builds the app-image directory | declared; not run at P0 (they need `jpackage` and the distro's packaging tools) |
 | Screenshot harness | `./gradlew :ui:desktopTest --rerun` | renders composables headlessly to `ui/build/screenshots/*.png` (e.g. `draw-paper-rest.png`, `app-learn-open.png`) |
 | Web, production | `./gradlew :app-web:wasmJsBrowserDistribution` | `app-web/build/dist/wasmJs/productionExecutable/`; serve it with `python3 -m http.server -d app-web/build/dist/wasmJs/productionExecutable 8080` |
 | Web, development server | `./gradlew :app-web:wasmJsBrowserDevelopmentRun` | not run at P0 |
@@ -107,7 +111,7 @@ Notes:
 | `shape-preview/` | `:shape-preview` | Android, desktop JVM, Wasm | `Shaper`: TextRunShaper and Skiko real (P8), browser `FontFace` still a stub (P9) |
 | `ui/` | `:ui` | Android, desktop JVM, Wasm | Compose UI; `TypewrightApp()`; the screenshot harness |
 | `app-android/` | `:app-android` | Android | application shell |
-| `app-desktop/` | `:app-desktop` | desktop JVM | application shell, Linux packaging |
+| `app-desktop/` | `:app-desktop` | desktop JVM | application shell, Linux packaging (`docs/LINUX_PORT.md`) |
 | `app-web/` | `:app-web` | Wasm (browser) | application shell and `index.html` |
 | `golden-path/` | `:golden-path` | desktop JVM | `GoldenPathTest`, the release acceptance harness (`golden-path/README.md`); depends on `:compile`, so it needs the Android SDK to configure like the rest of this second group |
 
@@ -127,6 +131,14 @@ Conventions:
   actuals are desktop-specific and Android has its own.
 - Wasm tests run under Node except where Compose is involved (Skiko loads only in a
   browser); see `docs/OPEN_QUESTIONS.md`.
+
+## iPad (experimental, unsigned)
+
+`app-ios/` holds an iPad port in progress: build it with the `iOS` workflow or see `docs/IOS_PORT.md`. Nothing has run on an iPad yet. If you use a TestFlight or App Store build, Apple collects crash reports and tester usage on its side; that is outside Typewright's code and is the only egress this app accepts.
+
+## Ubuntu Touch (experimental, unsigned)
+
+`packaging/ubuntu-touch/` holds a native click (the desktop app and a bundled JRE under Lomiri) and a separate, labelled "Typewright Preview" click (the browser build in a web container; not the port). Build them with the `Ubuntu Touch` workflow or see `docs/UBUNTU_TOUCH_PORT.md`. Neither has run on a phone yet.
 
 ## CI
 
@@ -177,6 +189,7 @@ docs/
   DECISIONS.md                 the decision register from the design sessions
   OPEN_QUESTIONS.md            questions raised during the build, by prompt
   HOSTED_BUILD_ENDPOINT.md     the web compile backend's wire contract and zero-retention policy (not deployed yet)
+  PORTING_PLAN.md              the multi-platform porting plan: Ubuntu Touch, iOS, macOS, Windows (a plan; nothing built)
   hyle-outline-explainer.html  the explainer that started this
 data/
   node-economy-latin.json      per-style, per-glyph distributions + per-family counts (10 classes)

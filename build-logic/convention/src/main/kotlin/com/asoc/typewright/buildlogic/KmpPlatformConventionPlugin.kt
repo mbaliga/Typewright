@@ -51,6 +51,13 @@ class KmpPlatformConventionPlugin : Plugin<Project> {
                         }
                     }
                 }
+                if (iosEnabled) {
+                    // Opt-in (-Ptypewright.ios=true): iPad and iPhone simulator slices only. The
+                    // default hierarchy template then creates iosMain/iosTest for modules that
+                    // carry platform actuals. See docs/PORTING_PLAN.md IOS-1 and docs/IOS_PORT.md.
+                    iosArm64()
+                    iosSimulatorArm64()
+                }
                 sourceSets.named("commonTest") {
                     dependencies {
                         implementation(libs.findLibrary("kotlin-test").get())
@@ -58,5 +65,6 @@ class KmpPlatformConventionPlugin : Plugin<Project> {
                 }
             }
             configureTestLogging()
+            if (iosEnabled) configureIosSimulatorTests()
         }
 }

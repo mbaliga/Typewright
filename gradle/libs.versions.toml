@@ -92,6 +92,8 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 # the only desktop OS this build targets — app-desktop/build.gradle.kts).
 skiko-awt = { module = "org.jetbrains.skiko:skiko-awt", version.ref = "skiko" }
 skiko-awt-runtime-linux-x64 = { module = "org.jetbrains.skiko:skiko-awt-runtime-linux-x64", version.ref = "skiko" }
+# Ubuntu Touch and arm64 Linux CI (docs/UBUNTU_TOUCH_PORT.md): the arm64 native for the same Skiko pin.
+skiko-awt-runtime-linux-arm64 = { module = "org.jetbrains.skiko:skiko-awt-runtime-linux-arm64", version.ref = "skiko" }
 
 # shape-preview's wasmJs visual preview (P9; Apache-2.0; see THIRD_PARTY.md, both already listed
 # there as transitively shipped).

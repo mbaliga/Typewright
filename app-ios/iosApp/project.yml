@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: FSL-1.1-ALv2
+#
+# XcodeGen spec for the iPad shell. Generate with `xcodegen generate` in this directory; the
+# generated Typewright.xcodeproj is not committed. Everything here is unverified until a macOS run
+# builds it (evidence: CI-LANE-WRITTEN, docs/IOS_PORT.md).
+name: Typewright
+options:
+  bundleIdPrefix: com.asoc
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+configFiles:
+  Debug: Config/Build.xcconfig
+  Release: Config/Build.xcconfig
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.0.1"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "2"
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    ENABLE_BITCODE: NO
+    FRAMEWORK_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
+    OTHER_LDFLAGS: "$(inherited) -framework TypewrightKit"
+targets:
+  Typewright:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Typewright
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        ITSAppUsesNonExemptEncryption: false
+    preBuildScripts:
+      - name: Build TypewrightKit (Gradle)
+        basedOnDependencyAnalysis: false
+        script: |
+          set -euo pipefail
+          cd "$SRCROOT/../.."
+          ./gradlew -Ptypewright.ios=true :app-ios:embedAndSignAppleFrameworkForXcode
+    postCompileScripts:
+      - name: Stage data packs into the app bundle
+        basedOnDependencyAnalysis: false
+        script: |
+          set -euo pipefail
+          "$SRCROOT/../scripts/stage-resources.sh" \
+            "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/typewright-resources"

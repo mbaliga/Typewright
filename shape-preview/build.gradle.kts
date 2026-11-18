@@ -43,7 +43,10 @@ kotlin {
                 // This module applies no Compose plugin, so unlike `ui`'s desktopTest
                 // (`compose.desktop.currentOs`) there is no automatic native runtime here --
                 // add it directly so SkikoShaperTest can actually load and shape a real font.
-                runtimeOnly(libs.skiko.awt.runtime.linux.x64)
+                // arm64 hosts (the ubuntu-24.04-arm lane that builds the Ubuntu Touch click) need the
+                // arm64 native; x64 stays the default everywhere else.
+                val arm64 = System.getProperty("os.arch") in setOf("aarch64", "arm64")
+                runtimeOnly(if (arm64) libs.skiko.awt.runtime.linux.arm64 else libs.skiko.awt.runtime.linux.x64)
             }
         }
         val wasmJsMain by getting {

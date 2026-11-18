@@ -1,0 +1,256 @@
+name: Desktop Linux
+
+# Builds, tests and packages the Linux desktop app (docs/LINUX_PORT.md). Everything is UNSIGNED and
+# nothing here has run yet, so every claim is CI-LANE-WRITTEN until a run is seen. No secret is read;
+# the only write is attaching files to a DRAFT release on a version tag, with the built-in token.
+# Actions are pinned to commit SHAs (tag in the trailing comment).
+#
+#   static       scripts, metadata and licence checks (cheap; no Gradle)
+#   x64          tests, app-image tarball, install.sh, glibc baseline, .deb and .rpm
+#   arm64        the same tests and app-image on an arm64 runner (Raspberry Pi class hardware)
+#   flatpak      a .flatpak bundle from the app-image
+#   release      version tags only: attach the files to a draft release
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - "packaging/linux/**"
+      - "app-desktop/**"
+      - "project/storage/**"
+      - "tools/check_licences.py"
+      - ".github/workflows/desktop-linux.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-linux-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  APP_IMAGE: app-desktop/build/compose/binaries/main/app/typewright
+  # Highest glibc the app-image may need (Ubuntu 22.04). Raise it deliberately, never to silence a red run.
+  MAX_GLIBC: "2.35"
+
+jobs:
+  static:
+    name: scripts, metadata and licence split
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Tools the metadata checks use
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends desktop-file-utils appstream flatpak-builder
+      - name: Shell syntax
+        run: for f in packaging/linux/*.sh tools/device/linux-save-kill-restore.sh; do bash -n "$f"; done
+      - name: install.sh and check-glibc.sh against fakes
+        run: |
+          bash packaging/linux/test-install.sh
+          bash packaging/linux/test-check-glibc.sh
+      - name: .desktop, AppStream and Flatpak manifest
+        run: bash packaging/linux/test-metadata.sh
+      - name: Licence split
+        run: python3 tools/check_licences.py
+
+  x64:
+    name: x64 tests, app-image, .deb, .rpm
+    needs: static
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+        with:
+          cache-provider: basic
+      - name: Android SDK packages the build needs
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
+      # The folder-picker test never opens a dialog (a dialog under xvfb waits forever for a person);
+      # xvfb is here for the launcher smoke check and so AWT is not headless in the desktop tests.
+      - name: Packaging tools (fakeroot for .deb, rpm for .rpm, xvfb for a virtual display)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fakeroot rpm xvfb binutils
+      - name: Desktop tests (folder picker, sandbox detection, app-desktop)
+        run: xvfb-run -a ./gradlew :project:storage:desktopTest :app-desktop:test
+      - name: createDistributable
+        run: ./gradlew :app-desktop:createDistributable
+      - name: glibc baseline of the launcher, the bundled JRE and Skiko
+        run: packaging/linux/check-glibc.sh --max "$MAX_GLIBC" "$APP_IMAGE" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Install into a scratch prefix, then uninstall
+        run: |
+          packaging/linux/install.sh --prefix "$RUNNER_TEMP/prefix" "$APP_IMAGE"
+          test -x "$RUNNER_TEMP/prefix/bin/typewright"
+          test -f "$RUNNER_TEMP/prefix/share/applications/typewright.desktop"
+          test -f "$RUNNER_TEMP/prefix/share/icons/hicolor/scalable/apps/typewright.svg"
+          packaging/linux/install.sh --uninstall --prefix "$RUNNER_TEMP/prefix"
+          test ! -e "$RUNNER_TEMP/prefix/lib/typewright"
+      - name: Launcher starts under a virtual display (a smoke check, not a UI test)
+        run: |
+          # The window needs a display; xvfb gives one. The app stays up until timeout kills it, which
+          # is the pass condition: exit 124. Any earlier exit is a startup crash.
+          set +e
+          timeout 20 xvfb-run -a "$APP_IMAGE/bin/typewright"
+          rc=$?
+          echo "launcher exit code: $rc (124 = still running when stopped)"
+          test "$rc" -eq 124
+      - name: .deb and .rpm
+        run: ./gradlew :app-desktop:packageDeb :app-desktop:packageRpm
+      - name: Inspect the packages
+        run: |
+          dpkg-deb --info app-desktop/build/compose/binaries/main/deb/*.deb
+          dpkg-deb --contents app-desktop/build/compose/binaries/main/deb/*.deb | grep -E 'bin/typewright|\.desktop' 
+          rpm -qpi app-desktop/build/compose/binaries/main/rpm/*.rpm
+      - name: Collect release files, sizes and sha256
+        run: |
+          mkdir -p build/linux-release
+          tar -czf build/linux-release/typewright-linux-x64.tar.gz -C "$(dirname "$APP_IMAGE")" typewright
+          cp packaging/linux/install.sh build/linux-release/install.sh
+          cp app-desktop/build/compose/binaries/main/deb/*.deb app-desktop/build/compose/binaries/main/rpm/*.rpm build/linux-release/
+          {
+            echo '### Linux x64 files (UNSIGNED, never run on a desktop)'
+            echo '```'
+            (cd build/linux-release && ls -l && sha256sum *)
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Keep the app-image for the Flatpak job (short-lived)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: linux-x64-files
+          path: build/linux-release/*
+          retention-days: 3
+          if-no-files-found: error
+
+  arm64:
+    name: arm64 tests and app-image
+    needs: static
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+        with:
+          cache-provider: basic
+      - name: Android SDK packages the build needs (the arm64 runner image has no SDK)
+        run: |
+          if [ ! -x "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" ]; then
+            export ANDROID_HOME="$HOME/android-sdk"
+            mkdir -p "$ANDROID_HOME/cmdline-tools"
+            curl -fsSL -o "$RUNNER_TEMP/clt.zip" https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+            echo "2d2d50857e4eb553af5a6dc3ad507a17adf43d115264b1afc116f95c92e5e258  $RUNNER_TEMP/clt.zip" | sha256sum -c -
+            unzip -q "$RUNNER_TEMP/clt.zip" -d "$ANDROID_HOME/cmdline-tools"
+            mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+            echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          fi
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
+      - name: Display, binutils and the GL/font libraries Skiko loads (the arm64 image lacks libEGL.so.1)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb binutils libegl1 libgl1 libfontconfig1 libfreetype6
+      - name: Desktop tests on arm64 (Skiko resolves its arm64 native)
+        run: xvfb-run -a ./gradlew :shape-preview:desktopTest :ui:desktopTest :project:storage:desktopTest :app-desktop:test
+      - name: createDistributable
+        run: ./gradlew :app-desktop:createDistributable
+      - name: The app-image is arm64 and carries the arm64 Skiko native
+        run: |
+          file "$APP_IMAGE/bin/typewright" | tee /dev/stderr | grep -q "ARM aarch64"
+          packaging/linux/check-skiko-arm64.sh "$APP_IMAGE"
+      - name: glibc baseline
+        run: packaging/linux/check-glibc.sh --max "$MAX_GLIBC" "$APP_IMAGE" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Tarball, size and sha256
+        run: |
+          mkdir -p build/linux-release
+          tar -czf build/linux-release/typewright-linux-arm64.tar.gz -C "$(dirname "$APP_IMAGE")" typewright
+          {
+            echo '### Linux arm64 file (UNSIGNED, never run on a device)'
+            echo '```'
+            (cd build/linux-release && ls -l && sha256sum *)
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Keep the tarball for the release job (short-lived)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: linux-arm64-files
+          path: build/linux-release/*
+          retention-days: 3
+          if-no-files-found: error
+
+  flatpak:
+    name: Flatpak bundle (x64)
+    needs: x64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: linux-x64-files
+          path: build/linux-release
+      # --no-install-recommends drops what flatpak-builder needs to finish a build: elfutils (eu-strip
+      # splits the debug info), librsvg2-common (the SVG loader 'appstreamcli compose' reads the icon
+      # with), appstream (appstreamcli itself) and desktop-file-utils. They are named here instead.
+      - name: flatpak, flatpak-builder and the tools it calls
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends flatpak flatpak-builder elfutils appstream appstream-compose librsvg2-common desktop-file-utils
+      - name: Runtime and SDK from Flathub (the build itself is offline)
+        run: |
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y --noninteractive flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08
+      - name: Stage the app-image where the manifest expects it
+        run: |
+          mkdir -p build/flatpak/app-image
+          tar -xzf build/linux-release/typewright-linux-x64.tar.gz -C build/flatpak/app-image
+      - name: Build the bundle
+        run: |
+          flatpak-builder --user --force-clean --disable-rofiles-fuse --repo=build/flatpak/repo build/flatpak/build packaging/linux/flatpak/com.asoc.Typewright.yml
+          flatpak build-bundle build/flatpak/repo build/flatpak/Typewright-x64.flatpak com.asoc.Typewright
+      - name: The sandbox has no network
+        run: |
+          ! flatpak-builder --show-manifest packaging/linux/flatpak/com.asoc.Typewright.yml | grep -q 'share=network'
+      - name: Size and sha256
+        run: |
+          {
+            echo '### Typewright-x64.flatpak (UNSIGNED, never run on a desktop)'
+            echo '```'
+            ls -l build/flatpak/Typewright-x64.flatpak
+            sha256sum build/flatpak/Typewright-x64.flatpak
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Keep the bundle for the release job (short-lived)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: linux-flatpak
+          path: build/flatpak/Typewright-x64.flatpak
+          retention-days: 3
+          if-no-files-found: error
+
+  release:
+    name: attach to a draft release (version tags only)
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [x64, arm64, flatpak]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: linux-*
+          path: release-files
+          merge-multiple: true
+      - name: Draft release and upload (never published from here)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          ls -l release-files
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1 \
+            || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --title "$TAG" --notes "Unsigned Linux files. See docs/LINUX_PORT.md."
+          (cd release-files && sha256sum * > SHA256SUMS-linux.txt)
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber release-files/*

@@ -10,9 +10,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** The window title. */
 const val APP_TITLE: String = "Typewright"
+
+private const val SHUTDOWN_FLUSH_MILLIS: Long = 3_000L
 
 fun main() {
     // P11 WP5 (docs/PROJECT_MODEL.md §13): one ProjectWorkspace for the app's whole run, built
@@ -20,6 +23,18 @@ fun main() {
     // flush this exact instance even as the composition itself is torn down by exitApplication().
     val workspaceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val workspace = createProjectWorkspace(workspaceScope)
+
+    // The window's close button is not the only way out on Linux: a logout, `kill` or a system
+    // shutdown sends SIGTERM/SIGHUP, which skips onCloseRequest and runs only JVM shutdown hooks.
+    // Flush there too, bounded so a stuck write cannot hang the shutdown. SIGKILL and a crash still
+    // lose the last debounced edit; the swap-protocol store keeps what was already written intact.
+    // CODE-ONLY: written without a compile here (the Android SDK the module graph needs is absent).
+    val shutdownFlush =
+        Thread(
+            { runBlocking { withTimeoutOrNull(SHUTDOWN_FLUSH_MILLIS) { workspace.flush() } } },
+            "typewright-shutdown-flush",
+        )
+    Runtime.getRuntime().addShutdownHook(shutdownFlush)
 
     application {
         Window(

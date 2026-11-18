@@ -163,7 +163,7 @@ Fixture facts, rechecked with fontTools 4.65 on 23 Sept:
   Chaquopy; frame times.
 - **On other platforms and browsers:** Firefox, Safari or any iOS browser; any phone browser; a
   Wacom pen on Linux; Devanagari, kana and Arabic IMEs on the web.
-- **Tasks not run:** `packageDeb`, `packageRpm` and `packageAppImage`;
+- **Tasks not run:** `packageDeb`, `packageRpm` and `packageAppImage` (erratum: the AppImage format yields an app-image directory, not a single `.AppImage` file; `createDistributable` is the task that builds it and `packaging/linux/install.sh` installs it);
   `wasmJsBrowserDevelopmentRun`; any GitHub Actions run.
 - **Toolchain claims:** that Skiko's shaper runs at runtime on Wasm (it is exported, not
   exercised); that fontc links for Android (`cargo check` passes, no NDK here); fontc's JNI size.
@@ -555,7 +555,7 @@ metadata says "MIT/Apache-2.0").
 
 **Risks**
 1. **Finding the toolchain.** Prefer a bundled fontc; finding a system Python is fragile.
-2. **Linux packaging.** Deb, Rpm and AppImage are declared but have never been run.
+2. **Linux packaging.** Deb, Rpm and AppImage are declared but have never been run. (Erratum: "AppImage" here is an app-image directory, not a single `.AppImage` file; see `packaging/linux/README.md`.)
 3. **Licence notices and QA tooling.** Skiko's `libskiko-linux-x64.so` (29.6 MB) embeds Skia,
    HarfBuzz, ICU, FreeType, libpng, zlib, Expat, libjpeg-turbo and libwebp. Their notices need a
    licences screen that the explorer does not have (OPEN_QUESTIONS 14). Fontspector binaries come

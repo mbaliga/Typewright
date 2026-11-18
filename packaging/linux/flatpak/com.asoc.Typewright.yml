@@ -1,0 +1,43 @@
+# Flatpak manifest for the Linux app-image. NOT RUN: flatpak-builder has parsed it here, no build has
+# been seen. The app id is a PLACEHOLDER until a NAMES.md row exists (OWNER-FOLLOW-UP, plan rule R11);
+# it appears in this file name, this file, and the .desktop / metainfo names beside it, and nowhere else.
+#
+# Flathub builds offline, so this consumes a prebuilt app-image directory (the output of
+# ./gradlew :app-desktop:createDistributable) staged at build/flatpak/app-image by the workflow.
+# Flathub submission is separate and open: the licence is FSL-1.1-ALv2, which is source-available
+# and not OSI-approved (docs/PORTING_PLAN.md OQ-4).
+app-id: com.asoc.Typewright
+runtime: org.freedesktop.Platform
+runtime-version: "24.08"
+sdk: org.freedesktop.Sdk
+command: typewright
+finish-args:
+  # Compose Desktop draws through AWT and Skiko, so it needs X11 (XWayland on Wayland sessions) and
+  # the GPU. No network: the app makes no calls unless the user asks, and Flatpak reflects that.
+  - --share=ipc
+  - --socket=x11
+  - --device=dri
+  # Projects are plain folders anywhere the user keeps them. AWT and Swing are not portal-aware, so
+  # the Swing folder chooser can only browse what is granted; --filesystem=home is the coarse,
+  # honest grant. Narrowing it is OWNER-DECISION (docs/PORTING_PLAN.md section 8, item 9).
+  - --filesystem=home
+modules:
+  - name: typewright
+    buildsystem: simple
+    build-commands:
+      # /app starts empty: /app/lib must exist before the app-image is copied into it.
+      - mkdir -p /app/lib /app/bin /app/share/applications /app/share/icons/hicolor/scalable/apps /app/share/metainfo
+      - cp -a typewright /app/lib/typewright
+      - ln -s ../lib/typewright/bin/typewright /app/bin/typewright
+      - install -Dm644 com.asoc.Typewright.desktop /app/share/applications/com.asoc.Typewright.desktop
+      - install -Dm644 typewright.svg /app/share/icons/hicolor/scalable/apps/com.asoc.Typewright.svg
+      - install -Dm644 com.asoc.Typewright.metainfo.xml /app/share/metainfo/com.asoc.Typewright.metainfo.xml
+    sources:
+      - type: dir
+        path: ../../../build/flatpak/app-image
+      - type: file
+        path: com.asoc.Typewright.desktop
+      - type: file
+        path: com.asoc.Typewright.metainfo.xml
+      - type: file
+        path: ../icons/typewright.svg

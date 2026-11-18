@@ -1,0 +1,9 @@
+# Clickable config for the "Typewright Preview" companion click (webapp-container). Not the port.
+# Runs from the directory preview-stage.sh writes (build/ubuntu-touch/preview-stage). The content is
+# architecture-independent, so this click is built once for `all`.
+clickable_minimum_required: 8.0.0
+builder: pure
+framework: ubuntu-touch-24.04-1.x
+kill: webapp-container
+ignore:
+  - clickable.yaml

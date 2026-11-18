@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Typewright Preview
+Comment=Preview build in a web container. Not the Typewright app.
+Exec=sh preview-launch.sh
+Icon=assets/icon.svg
+Terminal=false
+X-Lomiri-Touch=true
+X-Ubuntu-Touch=true

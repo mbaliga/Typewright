@@ -1,0 +1,15 @@
+{
+    "name": "typewright.asoc",
+    "title": "Typewright",
+    "description": "Hand-made letterforms to fonts of Google Fonts quality",
+    "version": "0.0.1",
+    "framework": "@CLICK_FRAMEWORK@",
+    "architecture": "@CLICK_ARCH@",
+    "maintainer": "A System of Cells <typewright@invalid.example>",
+    "hooks": {
+        "typewright": {
+            "apparmor": "typewright.apparmor.json",
+            "desktop": "typewright.desktop"
+        }
+    }
+}

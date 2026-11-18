@@ -88,7 +88,14 @@ distributions. The apps have no licences screen yet; see `docs/OPEN_QUESTIONS.md
 | Node.js, downloaded by KGP from nodejs.org for Wasm builds and tests (npm comes with it) | 26.2.0 | MIT (plus the notices of its bundled components in the same file) | file (`LICENSE` in the Node distribution) |
 | Binaryen (`wasm-opt`), downloaded by KGP from Binaryen's GitHub releases, or the npm package `binaryen` when `-Ptypewright.wasmOpt` points at it | version_130 | Apache-2.0 | file (WebAssembly/binaryen `LICENSE`) |
 | KGP's npm tooling in `~/.kotlin/kotlin-npm-tooling`: webpack 5, webpack-cli, webpack-dev-server, Karma (JetBrains' fork, `github:Kotlin/karma#6.4.5`), mocha, TypeScript, sass and loaders, 415 packages | pinned by KGP | MIT 330, ISC 32, Apache-2.0 28, BSD-3-Clause 12, BSD-2-Clause 6, BlueOak-1.0.0 4, 0BSD 1, Python-2.0 1 (`argparse`), CC-BY-4.0 1 (`caniuse-lite`, data) | each package's `package.json` |
+| XcodeGen, installed by `brew install` in the iOS workflow to generate the Xcode project from `app-ios/iosApp/project.yml` (build tooling on macOS runners only; not shipped, not pinned by version in the workflow) | unverified | MIT | not checked: this container has no Homebrew access; confirm at first run |
+| Clickable (`clickable-ut`), pip-installed in the Ubuntu Touch workflow to build clicks (build tooling only; not shipped) | 8.10.0 | GPL-3.0 (its PyPI metadata; not linked, only run as a tool) | unverified: licence read from the wheel metadata only, file not opened |
+| Clickable CI Docker images `clickable/ci-ut24.04-1.x-arm64` and `-amd64`, used by that workflow to build and click-review (pinned by digest; not shipped) | digest of 2026-11-17 | unverified (image contents not inspected) | unverified |
+| Skiko arm64 native runtime `skiko-awt-runtime-linux-arm64` (same pin as the x64 one; bundled in the Ubuntu Touch click's app-image on an arm64 host) | 0.150.1 | Apache-2.0 | POM (HTTP 200 on Maven Central; licence not re-read) |
+| Android command-line tools zip, downloaded by the Ubuntu Touch workflow on the arm64 runner (sha256 pinned) | 11076708 | Android Software Development Kit License Agreement | not re-read |
+| GitHub Actions: `actions/setup-python` v6.3.0 (Ubuntu Touch workflow) | — | MIT | unverified (SHA read from the tag with `git ls-remote`) |
 | Android SDK platform 37.0, build-tools 36.0.0 | — | Android Software Development Kit License Agreement | accepted in the SDK's `licenses/` |
+| GitHub Actions: `actions/upload-artifact` v4.6.2 (iOS workflow, tags only) | — | MIT | unverified (SHA read from the tag with `git ls-remote`; licence file not opened) |
 | GitHub Actions: `actions/checkout` v7, `actions/setup-java` v6 | — | MIT | file (`LICENSE`) |
 | GitHub Actions: `gradle/actions/setup-gradle` v6, used with `cache-provider: basic` | — | MIT for the action and basic caching; its default "enhanced caching" is a proprietary component, which CI does not enable | file (`LICENSE`, `DISTRIBUTION.md`) |
 

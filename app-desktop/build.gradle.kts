@@ -35,6 +35,8 @@ compose.desktop {
         mainClass = "com.asoc.typewright.app.desktop.MainKt"
         nativeDistributions {
             // Linux is the v1 desktop; Windows and macOS formats join later on the same target.
+            // TargetFormat.AppImage yields an app-image directory, not a single .AppImage file;
+            // packaging/linux/install.sh installs it.
             targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.AppImage)
             packageName = "typewright"
             packageVersion = "0.0.1"
