@@ -12,8 +12,9 @@ the review gate instead.
 Contract:
   * the whole click-review output is printed, tolerated findings included;
   * a finding is tolerated only if its full rule id is in ALLOWLIST and its text matches the
-    expected "(NEEDS REVIEW)" text; any other error or warning, any unparsable output, or a
-    non-zero exit with no parsable findings fails the script (exit 1).
+    expected "(NEEDS REVIEW)" text; any other error or warning, a finding in an unknown section,
+    an unparsable line inside a section, a missing or repeated verdict line, or a FAIL verdict
+    with no parsable findings fails the script (exit 1).
 
 Usage (from the stage directory, same arguments as the build):
   review-click.py --arch arm64 --docker-image IMAGE --output DIR
@@ -35,45 +36,62 @@ ALLOWLIST = {
 }
 
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
-HEADER = re.compile(r"^=+\s*([A-Za-z][A-Za-z ]*?)\s*=+\s*$")
-ENTRY = re.compile(r"^\s*-+\s*([A-Za-z0-9_.:\-/]+)\s*(.*)$")
-PASS_LINE = re.compile(r"^\S.*\.click:\s*pass\s*$", re.IGNORECASE)
+# The layout click-review really prints (first seen in CI run 44233319924, kept verbatim as
+# REAL_RUN below): a bare section title underlined with dashes, " - <rule id>" entries whose text
+# lines are tab-indented, then one verdict line "<path>.click: pass|FAIL".
+TITLE = re.compile(r"^[A-Za-z][A-Za-z ]*$")
+UNDERLINE = re.compile(r"^-{3,}$")
+ENTRY = re.compile(r"^ {0,3}- ?([A-Za-z0-9_.:\-/]+)\s*(.*)$")
+VERDICT = re.compile(r"^\S.*\.click: (pass|FAIL)$")
 FAILING = {"errors": "error", "warnings": "warning"}
 IGNORED = {"info", "informational"}
 
 
 def parse(text):
-    """Returns (findings, recognised). findings: list of (kind, rule_id, text)."""
-    findings, recognised = [], False
+    """Returns (findings, verdicts, stray). findings: list of (kind, rule_id, text).
+
+    Lines outside a section (Clickable's and Podman's own chatter) are ignored; a line inside a
+    section that is neither an entry nor an indented continuation is returned as stray, so the
+    caller can fail closed on it.
+    """
+    findings, verdicts, stray = [], [], []
     section, entry = None, None
-    for raw in ANSI.sub("", text).splitlines():
-        line = raw.rstrip()
-        if PASS_LINE.match(line):
-            recognised = True
-        m = HEADER.match(line)
+    lines = [raw.rstrip() for raw in ANSI.sub("", text).splitlines()]
+    skip = False
+    for i, line in enumerate(lines):
+        if skip:
+            skip = False
+            continue
+        m = VERDICT.match(line)
         if m:
-            recognised, section, entry = True, m.group(1).strip().lower(), None
+            verdicts.append(m.group(1))
+            section, entry = None, None
+            continue
+        nxt = lines[i + 1] if i + 1 < len(lines) else ""
+        if TITLE.match(line) and UNDERLINE.match(nxt) and len(nxt) == len(line):
+            section, entry, skip = line.strip().lower(), None, True
             continue
         if section is None or not line.strip():
             continue
         m = ENTRY.match(line)
-        if m and re.match(r"^ {0,3}-", raw):
+        if m:
             entry = [section, m.group(1), m.group(2).strip()]
             findings.append(entry)
-        elif raw[:1].isspace() and entry is not None:
+        elif line[:1].isspace() and entry is not None:
             entry[2] = (entry[2] + " " + line.strip()).strip()
         else:
-            section, entry = None, None  # unindented noise (e.g. Clickable's own log) ends it
-    return [tuple(f) for f in findings], recognised
+            stray.append(line)
+    return [tuple(f) for f in findings], verdicts, stray
 
 
 def evaluate(text, returncode):
     """Returns (ok, tolerated rule ids, problems)."""
-    findings, recognised = parse(text)
-    tolerated, problems = [], []
+    findings, verdicts, stray = parse(text)
+    tolerated, problems, failing = [], [], 0
     for section, rule, body in findings:
         if section in IGNORED:
             continue
+        failing += 1
         if section not in FAILING:
             problems.append(f"finding in unknown section '{section}': {rule} {body}")
         elif rule in ALLOWLIST and re.search(ALLOWLIST[rule], body):
@@ -81,10 +99,14 @@ def evaluate(text, returncode):
                 tolerated.append(rule)
         else:
             problems.append(f"{FAILING[section]} not on the allowlist: {rule} {body}".strip())
-    if not recognised:
-        problems.append("click-review output not recognised (no findings sections)")
-    elif returncode != 0 and not findings:
-        problems.append(f"review exited {returncode} but no findings could be parsed")
+    problems += [f"unparsable line inside a findings section: {s!r}" for s in stray]
+    if len(verdicts) != 1:
+        problems.append("click-review output not recognised (expected exactly one "
+                        f"'<click>: pass|FAIL' verdict line, found {len(verdicts)})")
+    elif verdicts[0] == "FAIL" and not failing:
+        problems.append("review verdict is FAIL but no findings could be parsed")
+    elif verdicts[0] == "pass" and returncode != 0:
+        problems.append(f"review verdict is pass but the command exited {returncode}")
     return not problems, tolerated, problems
 
 
@@ -132,32 +154,60 @@ def run(args):
 
 
 UNCONF = "security:template_valid:typewright.apparmor.json"
-OK_BLOCK = f"= Errors =\n- {UNCONF}\n\t(NEEDS REVIEW) 'unconfined' not allowed\n= Warnings =\n= Info =\n"
+CLICK = "/home/runner/work/Typewright/Typewright/build/ubuntu-touch/out/typewright.asoc_0.0.1_arm64.click"
+# Verbatim output of the first real run (CI run 44233319924, job 134563465954, clickable 8.10.0).
+REAL_RUN = (
+    "\x1b[92mRunning review on " + CLICK + "\x1b[0m\n"
+    "WARNING: image platform (linux/amd64) does not match the expected platform (linux/arm64)\n"
+    "Errors\n"
+    "------\n"
+    " - " + UNCONF + "\n"
+    "\t(NEEDS REVIEW) 'unconfined' not allowed\n"
+    "\thttp://askubuntu.com/q/671403\n"
+    + CLICK + ": FAIL\n"
+    "\x1b[91mCommand exited with non-zero exit status 2, see above for details. "
+    "This is most likely not a problem with Clickable.\x1b[0m\n"
+)
+FINDING = " - " + UNCONF + "\n\t(NEEDS REVIEW) 'unconfined' not allowed\n\thttp://askubuntu.com/q/671403\n"
+VERDICT_FAIL = CLICK + ": FAIL\n"
+OTHER = " - lint:x:y\n\tbad thing\n"
+WARN = "Warnings\n--------\n - lint:z\n\tsomething odd\n"
 
 
 def self_test():
     cases = [
-        ("allowed only", OK_BLOCK, 2, True),
-        ("allowed only, as warning", OK_BLOCK.replace("Errors", "Warnings", 1), 3, True),
-        ("allowed + other error", OK_BLOCK.replace("= Warnings =\n", "- lint:x:y\n\tbad thing\n= Warnings =\n", 1), 2, False),
-        ("allowed + warning", OK_BLOCK.replace("= Info =", "- lint:z\n\tsomething odd\n= Info =", 1), 3, False),
-        ("no findings", "./t.click\n= Errors =\n= Warnings =\n= Info =\n", 0, True),
-        ("no findings pass line", "./t.click: pass\n", 0, True),
-        ("different rule id, same file", OK_BLOCK.replace("template_valid", "policy_groups_safe"), 2, False),
-        ("right id, different text", OK_BLOCK.replace("'unconfined' not allowed", "other"), 2, False),
-        ("right id, not NEEDS REVIEW", OK_BLOCK.replace("(NEEDS REVIEW) ", ""), 2, False),
+        ("allowed only (real run, verbatim)", REAL_RUN, 1, True),
+        ("allowed + other error", REAL_RUN.replace(VERDICT_FAIL, OTHER + VERDICT_FAIL), 1, False),
+        ("allowed + warning", REAL_RUN.replace(VERDICT_FAIL, WARN + VERDICT_FAIL), 1, False),
+        ("no findings", "Running review on " + CLICK + "\n" + CLICK + ": pass\n", 0, True),
+        ("different rule id, same file", REAL_RUN.replace("template_valid", "policy_groups_safe"), 1, False),
         ("garbage, exit 0", "hello\nworld\n", 0, False),
         ("garbage, exit 2", "Traceback boom\n", 2, False),
         ("empty", "", 0, False),
-        ("non-zero with empty sections", "= Errors =\n= Warnings =\n", 2, False),
-        ("clickable noise after findings", OK_BLOCK + "CRITICAL: Command exited with non-zero 2\n", 2, True),
-        ("ansi colours", "\x1b[1m" + OK_BLOCK + "\x1b[0m", 2, True),
+        ("allowed only, as warning", REAL_RUN.replace("Errors\n------", "Warnings\n--------"), 1, True),
+        ("right id, different text", REAL_RUN.replace("'unconfined' not allowed", "other"), 1, False),
+        ("right id, not NEEDS REVIEW", REAL_RUN.replace("(NEEDS REVIEW) ", ""), 1, False),
+        ("other error only", REAL_RUN.replace(FINDING, OTHER), 1, False),
+        ("warning only", "Warnings\n--------\n - lint:z\n\tsomething odd\n" + VERDICT_FAIL, 1, False),
+        ("finding in an unknown section", REAL_RUN.replace("Errors\n------", "Fatal\n-----"), 1, False),
+        ("FAIL verdict, nothing parsed", VERDICT_FAIL, 1, False),
+        ("FAIL verdict, old '= Errors =' layout", "= Errors =\n- " + UNCONF + "\n\t(NEEDS REVIEW) 'unconfined' not allowed\n" + VERDICT_FAIL, 1, False),
+        ("findings but no verdict line", REAL_RUN.replace(VERDICT_FAIL, ""), 1, False),
+        ("two verdict lines", REAL_RUN + CLICK + ": pass\n", 1, False),
+        ("pass verdict, non-zero exit", CLICK + ": pass\n", 1, False),
+        ("pass verdict with an error listed", REAL_RUN.replace(": FAIL", ": pass").replace(FINDING, OTHER), 0, False),
+        ("stray line inside a section", REAL_RUN.replace(VERDICT_FAIL, "something unexpected\n" + VERDICT_FAIL), 1, False),
+        ("info section is not a finding", REAL_RUN.replace(VERDICT_FAIL, "Info\n----\n - lint:ok\n\tOK\n" + VERDICT_FAIL), 1, True),
+        ("no ansi colours", ANSI.sub("", REAL_RUN), 1, True),
     ]
     bad = 0
     for name, text, rc, want in cases:
         got = evaluate(text, rc)[0]
         print(("ok   " if got == want else "FAIL ") + name)
         bad += got != want
+    if evaluate(REAL_RUN, 1)[1] != [UNCONF]:
+        print("FAIL real run must tolerate exactly " + UNCONF)
+        bad += 1
     print("self-test: " + ("FAILED" if bad else "all passed"))
     return 1 if bad else 0
 
