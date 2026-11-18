@@ -52,6 +52,7 @@ jobs:
       - name: Shell syntax
         run: |
           for f in packaging/ubuntu-touch/*.sh packaging/ubuntu-touch/preview/*.sh; do bash -n "$f"; done
+          python3 -I -m py_compile packaging/ubuntu-touch/review-click.py
           sh -n packaging/ubuntu-touch/typewright-launch.sh
           sh -n packaging/ubuntu-touch/preview/preview-launch.sh
       - name: Launcher and staging tests
@@ -62,6 +63,8 @@ jobs:
         run: |
           python3 tools/check_ubuntu_touch.py
           python3 -I -m unittest discover -s tools -p 'test_check_ubuntu_touch.py'
+      - name: Click-review gate self-test (fixtures for the owner-allowlisted finding)
+        run: python3 -I packaging/ubuntu-touch/review-click.py --self-test
       - name: Clickable loads both configs
         run: |
           pip install "clickable-ut==${CLICKABLE_VERSION}"
@@ -130,10 +133,15 @@ jobs:
           test -e /proc/sys/fs/binfmt_misc/qemu-x86_64 && head -1 /proc/sys/fs/binfmt_misc/qemu-x86_64
       - name: Install Clickable
         run: pip install "clickable-ut==${CLICKABLE_VERSION}"
-      - name: Build and review the click (unsigned)
+      - name: Build the click (unsigned; review is its own gate in the next step)
         working-directory: build/ubuntu-touch/stage
         run: >
-          clickable build --arch arm64 --non-interactive --accept-review-warnings
+          clickable build --arch arm64 --non-interactive --skip-review
+          --docker-image "${CI_IMAGE_ARM64}" --output "$GITHUB_WORKSPACE/build/ubuntu-touch/out"
+      - name: Review the click (hard gate; one owner-allowlisted finding, OQ-35)
+        working-directory: build/ubuntu-touch/stage
+        run: >
+          python3 "$GITHUB_WORKSPACE/packaging/ubuntu-touch/review-click.py" --arch arm64
           --docker-image "${CI_IMAGE_ARM64}" --output "$GITHUB_WORKSPACE/build/ubuntu-touch/out"
       - name: Click size and sha256
         run: |

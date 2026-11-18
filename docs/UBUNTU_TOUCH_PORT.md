@@ -64,6 +64,27 @@ not pass (OQ-4, OQ-35: the owner chose to ask OpenStore's reviewers first, see O
 - A real application icon (the file shipped is a placeholder SVG drawn for this port; OQ-25).
 - Window sizing/maximising on a phone screen (Compose's default window is 800x600 dp).
 
+## Owner decision: tolerated click-review finding (2026-11-18, OQ-35)
+
+The repo owner decided on 2026-11-18 ("Option 2, apply the narrow allowance") that CI may tolerate the
+click-review findings that are inherent to the app and that only OpenStore's human reviewers can clear, and
+nothing else. For the native click that is exactly one finding:
+
+- `security:template_valid:typewright.apparmor.json`, text `(NEEDS REVIEW) 'unconfined' not allowed`.
+
+Why: the JVM app-image needs the `unconfined` template (`tools/check_ubuntu_touch.py` requires it), and
+click-review cannot approve that template; a human OpenStore reviewer must. The AppArmor policy is unchanged.
+
+How it is enforced: the CI build runs `clickable build --skip-review`, then `packaging/ubuntu-touch/review-click.py`
+runs `clickable review` as its own hard-gate step. The script prints the full click-review output, tolerates only
+rule ids on its exact-match `ALLOWLIST` whose text is the expected `(NEEDS REVIEW)` text, and fails on any other
+error or warning, unparsable output, or a non-zero exit with no parsable findings. Its `--self-test` fixtures run in the
+`static` job.
+
+Rules: keep the allowlist minimal (add an entry only with a new owner decision recorded here), and note that OpenStore
+review must still clear this finding before any store submission. The tolerance is a CI convenience, not an approval.
+The Preview click is unchanged and does not use the allowance. (Fotoz records its own matching decision in its ADR-013.)
+
 ## Owner actions
 
 1. Confirm the click names (add `NAMES.md` rows for `typewright` and the Preview) and the developer suffix on OpenStore.
