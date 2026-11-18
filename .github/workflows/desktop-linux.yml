@@ -193,8 +193,11 @@ jobs:
         with:
           name: linux-x64-files
           path: build/linux-release
-      - name: flatpak and flatpak-builder
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends flatpak flatpak-builder
+      # --no-install-recommends drops what flatpak-builder needs to finish a build: elfutils (eu-strip
+      # splits the debug info), librsvg2-common (the SVG loader 'appstreamcli compose' reads the icon
+      # with), appstream (appstreamcli itself) and desktop-file-utils. They are named here instead.
+      - name: flatpak, flatpak-builder and the tools it calls
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends flatpak flatpak-builder elfutils appstream appstream-compose librsvg2-common desktop-file-utils
       - name: Runtime and SDK from Flathub (the build itself is offline)
         run: |
           flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
