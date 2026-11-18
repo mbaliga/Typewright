@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import java.time.Duration
 
 plugins {
     id("typewright.kmp.platform")
@@ -50,4 +51,10 @@ kotlin {
             }
         }
     }
+}
+
+// These tests take seconds. A test that waits on a dialog nobody answers (the folder picker under
+// xvfb-run did, for the whole job timeout) fails here with Gradle's own "timeout has been exceeded".
+tasks.withType<Test>().configureEach {
+    timeout.set(Duration.ofMinutes(10))
 }

@@ -71,7 +71,9 @@ jobs:
           cache-provider: basic
       - name: Android SDK packages the build needs
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
-      - name: Packaging tools (fakeroot for .deb, rpm for .rpm, xvfb for the Swing picker tests)
+      # The folder-picker test never opens a dialog (a dialog under xvfb waits forever for a person);
+      # xvfb is here for the launcher smoke check and so AWT is not headless in the desktop tests.
+      - name: Packaging tools (fakeroot for .deb, rpm for .rpm, xvfb for a virtual display)
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fakeroot rpm xvfb binutils
       - name: Desktop tests (folder picker, sandbox detection, app-desktop)
         run: xvfb-run -a ./gradlew :project:storage:desktopTest :app-desktop:test

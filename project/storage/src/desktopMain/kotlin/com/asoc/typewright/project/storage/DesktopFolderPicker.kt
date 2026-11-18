@@ -4,6 +4,7 @@ package com.asoc.typewright.project.storage
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.awt.GraphicsEnvironment
 import java.io.IOException
 import java.nio.file.Path
 import javax.swing.JFileChooser
@@ -14,20 +15,29 @@ import javax.swing.UIManager
  * S02's folder picker on the desktop (docs/PROJECT_MODEL.md §5, D9): `zenity
  * --file-selection --directory`, then `kdialog --getexistingdirectory`, then a Swing
  * `JFileChooser(DIRECTORIES_ONLY)` with the system look-and-feel. Each is a subprocess or a
- * library call, never linked; inside a Flatpak or Snap only Swing is tried ([pickerOrder]); the first one that is actually installed (or, for Swing, that a
- * display is available for) answers. Returns null when the user cancels, or when none of the
- * three could be shown at all (no binaries, no display -- this sandbox, for example).
+ * library call, never linked; inside a Flatpak or Snap only Swing is tried ([pickerOrder]); the
+ * first one that is actually installed answers. Returns null when the user cancels, or when none
+ * of the three could be shown at all (no binaries, or no display).
+ *
+ * Every back-end is a modal dialog that waits for a person for as long as it takes, so nothing is
+ * tried unless [hasDisplay] says there is a screen to show it on. A test passes `{ false }`: under
+ * `xvfb-run` there is a display and nobody to answer, and the dialog would wait forever.
  */
 class DesktopFolderPicker(
     private val sandbox: LinuxSandbox = LinuxSandbox.detect(),
+    private val hasDisplay: () -> Boolean = { displayAvailable() },
 ) {
     suspend fun pick(initialDirectory: Path? = null): Path? =
         withContext(Dispatchers.IO) {
-            pickerOrder(sandbox).firstNotNullOfOrNull { backend ->
-                when (backend) {
-                    PickerBackend.Zenity -> tryZenity(initialDirectory)
-                    PickerBackend.Kdialog -> tryKdialog(initialDirectory)
-                    PickerBackend.Swing -> trySwing(initialDirectory)
+            if (!hasDisplay()) {
+                null
+            } else {
+                pickerOrder(sandbox).firstNotNullOfOrNull { backend ->
+                    when (backend) {
+                        PickerBackend.Zenity -> tryZenity(initialDirectory)
+                        PickerBackend.Kdialog -> tryKdialog(initialDirectory)
+                        PickerBackend.Swing -> trySwing(initialDirectory)
+                    }
                 }
             }
         }
@@ -75,8 +85,17 @@ class DesktopFolderPicker(
             }
             chosen
         } catch (_: Exception) {
-            // Headless (no display, as in this build's own sandbox), or the dialog otherwise
-            // couldn't be shown; owner-verified on a real desktop (CLAUDE.md law 4).
+            // The dialog couldn't be shown; owner-verified on a real desktop (CLAUDE.md law 4).
             null
         }
 }
+
+/**
+ * True when a dialog has somewhere to appear: an X11 or Wayland display is named in [env], or AWT
+ * itself is not headless (macOS and Windows name no display variable). Pure: both inputs are
+ * injected so it is tested on any host.
+ */
+fun displayAvailable(
+    env: Map<String, String> = System.getenv(),
+    awtHeadless: Boolean = GraphicsEnvironment.isHeadless(),
+): Boolean = !env["DISPLAY"].isNullOrEmpty() || !env["WAYLAND_DISPLAY"].isNullOrEmpty() || !awtHeadless
